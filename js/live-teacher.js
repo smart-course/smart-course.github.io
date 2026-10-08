@@ -49,7 +49,6 @@
     $('[data-room-classroom]').textContent = '打开本案例讲解版（投屏，弹幕和学生作答分布在此显示）↗';
     $('[data-panel="pages"] .tw-note').textContent = '讲解版（含参考答案和教师参考）只在教师端提供，学生拿到的是练习版。上课投屏打开对应案例：弹幕开启时在页面上滚动显示；“想一想”“辨一辨”和出门测下方会显示学生的作答分布，点“显示分布”才展开。';
     $('[data-export="room"]').textContent = '导出本课堂（加入、作业汇总与明细、弹幕）';
-    $('[data-panel="data"] .danger p').textContent = '删除本课程全部课堂、加入记录、作业和弹幕，删除后无法恢复。请先导出存档。';
   }
 
   let backend = null;
@@ -116,7 +115,9 @@
     $('[data-login]').hidden = true;
     $('[data-when-login]').hidden = false;
     $('[data-user]').textContent = session.name ? `教师：${session.name}` : '教师已登录';
-    $('[data-switch-course]').hidden = DATA.courses.length < 2;
+    $('[data-switch-course]').disabled = DATA.courses.length < 2;
+    $('[data-nav]').hidden = false;
+    updateNav();
     if (mustPick) { showPicker(); return; }
     await enterClass();
   }
@@ -125,7 +126,6 @@
     $('[data-course-picker]').hidden = true;
     $('[data-class-picker]').hidden = true;
     $('[data-app]').hidden = false;
-    $('[data-switch-class]').hidden = false;
     showClassInfo();
     if (!state.started) {
       state.started = true;
@@ -142,6 +142,7 @@
     $('[data-app]').hidden = true;
     $('[data-class-picker]').hidden = true;
     $('[data-course-picker]').hidden = false;
+    updateNav('course');
     if (!state.started) setLive('请选择课程');
     const list = $('[data-course-list]');
     list.innerHTML = DATA.courses.map((item) => `
@@ -166,7 +167,7 @@
   $('[data-course-list]').addEventListener('click', (event) => {
     const button = event.target.closest('[data-course]');
     if (!button) return;
-    if (!mustPick && button.dataset.course === course.slug) { openApp(); return; }
+    if (!mustPick && button.dataset.course === course.slug) { if (state.klass) openApp(); else enterClass(); return; }
     store.set('course', button.dataset.course);
     stopWatching();
     location.reload();
@@ -195,6 +196,7 @@
     $('[data-app]').hidden = true;
     $('[data-course-picker]').hidden = true;
     $('[data-class-picker]').hidden = false;
+    updateNav('class');
     $('[data-class-course]').textContent = course.title;
     $('[data-course-title]').textContent = course.title;
     if (!state.started) setLive('请选择班级');
@@ -289,6 +291,34 @@
     await showClassPicker(failed.length ? `部分课堂没有归入：${failed.join('；')}` : `已归入“${target.name}”。`);
   });
   $('[data-switch-class]').addEventListener('click', () => { stopWatching(); showClassPicker(); });
+  // ---------------- 顶部导航栏：课程 › 班级 › 课堂，右侧跳到各栏目 ----------------
+  // level：'course' 正在选课程，'class' 正在选班级，省略 = 已进入某个班级
+  function updateNav(level) {
+    const inApp = !level && !$('[data-app]').hidden && state.klass;
+    $('[data-nav-course]').textContent = mustPick || level === 'course' ? '选择课程' : course.title;
+    $('[data-nav-class-item]').hidden = mustPick || level === 'course';
+    $('[data-nav-class]').textContent = state.klass && level !== 'class' ? state.klass.name : '选择班级';
+    $('[data-nav-room-item]').hidden = !(inApp && state.room);
+    $('[data-nav-room]').textContent = state.room ? `${state.room.name}（${state.room.code}）` : '';
+    const links = $('[data-nav-links]');
+    links.hidden = !inApp;
+    if (!inApp) return;
+    const tabs = $$('[data-tab]').filter((tab) => !tab.hidden);
+    const current = (tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') || {}).dataset;
+    links.innerHTML = `<button type="button" data-nav-jump="rooms">课堂列表</button>`
+      + (state.room ? tabs.map((tab) => `<button type="button" data-nav-jump="${esc(tab.dataset.tab)}"${current && current.tab === tab.dataset.tab ? ' class="is-on"' : ''}>${esc(tab.textContent.trim())}</button>`).join('') : '');
+  }
+  $('[data-nav-room-jump]').addEventListener('click', () => $('[data-room-list]').scrollIntoView({ behavior: 'smooth', block: 'start' }));
+  $('[data-nav-links]').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-nav-jump]');
+    if (!button) return;
+    const target = button.dataset.navJump;
+    if (target === 'rooms') { $('[data-room-list]').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
+    const tab = $(`[data-tab="${target}"]`);
+    if (tab) tab.click();
+    $('[data-tabs-anchor]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  });
+
   // 页面上与班级有关的文字
   function showClassInfo() {
     const klass = state.klass;
@@ -296,6 +326,7 @@
     document.title = `教师工作台 · ${course.title} · ${klass.name}`;
     $('[data-class-name]').textContent = klass.name;
     $('[data-class-rooms]').textContent = state.rooms.length;
+    updateNav();
     const roster = rosterOf();
     $('[data-roster-info]').textContent = roster.length
       ? `本班点名册：${roster.length} 人${klass.roster_updated_at ? `（${isoDay(millis(klass.roster_updated_at))} 上传）` : ''}，重新上传会替换。下表按点名册核对本次课堂的登录情况。`
@@ -320,19 +351,61 @@
     const rows = (await backend.fetchAll('classrooms', { course: course.slug })).filter((room) => sameClass(room, state.klass));
     state.rooms = rows.sort((a, b) => Number(b.id) - Number(a.id));
     $('[data-class-rooms]').textContent = state.rooms.length;
-    const select = $('[data-room-select]');
-    select.innerHTML = state.rooms.map((room) => `<option value="${room.id}">${esc(room.name)} · ${esc(room.code)}${room.is_current ? '（当前）' : ''}</option>`).join('');
     $('[data-room-empty]').hidden = state.rooms.length > 0;
     $('[data-room-area]').hidden = state.rooms.length === 0;
-    select.closest('.tw-bar').hidden = state.rooms.length === 0;
-    if (!state.rooms.length) { selectRoom(null); setLive('尚未发布课堂'); return; }
+    if (!state.rooms.length) { renderRoomList(); selectRoom(null); setLive('尚未发布课堂'); return; }
     const current = state.rooms.find((room) => room.is_current);
     const wanted = state.rooms.find((room) => String(room.id) === String(preferId)) || current || state.rooms[0];
-    select.value = String(wanted.id);
     selectRoom(wanted);
   }
-  $('[data-room-select]').addEventListener('change', (event) => {
-    selectRoom(state.rooms.find((room) => String(room.id) === event.target.value));
+  function renderRoomList() {
+    $('[data-room-list]').innerHTML = state.rooms.map((room) => {
+      const status = roomStatus(room);
+      const active = state.room && String(state.room.id) === String(room.id);
+      const day = isoDay(millis(room.created_at));
+      return `<div class="tw-class-item tw-room-item"><button type="button" class="tw-course${active ? ' is-current' : ''}" data-room="${esc(room.id)}" aria-pressed="${active}">
+        <small class="${status.cls}">${esc(status.text)}</small>
+        <strong>${esc(room.name)}</strong>
+        <span>${esc(chapterLabel(room))} · ${esc(room.code)}${day ? ` · ${day}` : ''}</span>
+      </button><button type="button" class="tw-trash" data-room-delete="${esc(room.id)}" title="删除本堂课" aria-label="删除课堂 ${esc(room.name)}">${TRASH_ICON}</button></div>`;
+    }).join('');
+  }
+  const roomNotice = (text) => { $('[data-room-notice]').textContent = text || ''; };
+  // 删除一堂课：该课堂及其加入记录、选择、作答、作业、弹幕；本班其他课堂和点名册不受影响
+  async function deleteRoom(room, confirmed) {
+    const live = room.is_current ? '\n\n这是当前课堂：删除后学生不能再用这个课堂码进入，需要重新发布课堂。' : '';
+    if (!confirmed) {
+      const typed = window.prompt(`删除课堂“${room.name}”（${room.code}）会同时删除它的加入记录、选择、作答、作业和弹幕，无法恢复；本班其他课堂和点名册不受影响。建议先在“导出与清理”里导出本课堂。${live}\n\n确认删除，请输入课堂码：`);
+      if (typed === null) return false;
+      if (window.ClassLive.normalizeCode(typed) !== window.ClassLive.normalizeCode(room.code)) { roomNotice('课堂码不一致，没有删除。'); return false; }
+    }
+    const where = { classroom: Number(room.id) };
+    for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
+    await backend.removeAll('classrooms', { id: Number(room.id) });
+    const wasSelected = state.room && String(state.room.id) === String(room.id);
+    if (wasSelected) {
+      stopWatching();
+      state.room = null;
+      store.set(`room:${state.klass.id}`, '');
+    }
+    await loadRooms(wasSelected ? undefined : state.room && state.room.id);
+    roomNotice(`已删除课堂“${room.name}”（${room.code}）。`);
+    return true;
+  }
+  $('[data-room-list]').addEventListener('click', async (event) => {
+    const trash = event.target.closest('[data-room-delete]');
+    if (trash) {
+      const room = state.rooms.find((item) => String(item.id) === trash.dataset.roomDelete);
+      if (!room) return;
+      trash.disabled = true;
+      try { await deleteRoom(room); } catch (error) { console.error(error); roomNotice(`删除失败：${error.message || error}`); }
+      trash.disabled = false;
+      return;
+    }
+    const card = event.target.closest('[data-room]');
+    if (!card) return;
+    roomNotice('');
+    selectRoom(state.rooms.find((item) => String(item.id) === card.dataset.room));
   });
 
   function selectRoom(room) {
@@ -342,6 +415,8 @@
     $('[data-room-confirm-code]').textContent = room ? room.code : '—';
     $('[data-clear-confirm]').value = '';
     $('[data-clear]').disabled = true;
+    renderRoomList();
+    updateNav();
     if (!room) { stopWatching(); return; }
     store.set(`room:${state.klass.id}`, room.id);
     renderRoom();
@@ -492,6 +567,7 @@
     $$('[data-tab]').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
     $$('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
     store.set(`tab:${course.slug}`, tab.dataset.tab);
+    updateNav();
   }));
   const savedTab = $(`[data-tab="${store.get(`tab:${course.slug}`)}"]`);
   if (savedTab && !savedTab.hidden) savedTab.click();
@@ -1533,13 +1609,7 @@
     clearButton.disabled = true;
     status.textContent = '正在删除……';
     try {
-      const where = { classroom: Number(room.id) };
-      for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
-      await backend.removeAll('classrooms', { id: Number(room.id) });
-      stopWatching();
-      state.room = null;
-      store.set(`room:${state.klass.id}`, '');
-      await loadRooms();
+      await deleteRoom(room, true);
       status.textContent = `已删除课堂“${room.name}”（${room.code}）。`;
     } catch (error) {
       console.error(error);

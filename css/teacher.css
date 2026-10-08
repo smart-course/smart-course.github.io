@@ -151,6 +151,30 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-trash:hover, .tw-trash:focus-visible { background: var(--rust-soft); color: var(--rust); outline: none; }
 .tw-trash[disabled] { opacity: .4; cursor: default; }
 .tw-class-item .tw-trash { position: absolute; top: 14px; right: 14px; }
+/* 我的课堂：已发布课堂的小卡片 */
+.tw-room-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 12px; margin: 0 0 6px; }
+.tw-room-list:empty { display: none; }
+.tw-room-item .tw-course { padding: 14px 52px 14px 16px; border-radius: 10px; }
+.tw-room-item .tw-course strong { margin: 4px 0 4px; font-size: 18px; }
+.tw-room-item .tw-course span { font-size: 13px; }
+.tw-room-item .tw-course small.is-live { color: var(--teal); }
+.tw-room-item .tw-course small.is-past { color: var(--muted); }
+.tw-room-item .tw-trash { top: 9px; right: 9px; }
+/* 顶部导航栏：课程 › 班级 › 课堂，右侧跳到各栏目 */
+.tw-nav { flex: 0 0 calc(100% + 48px); width: calc(100% + 48px); box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 16px; margin: 2px -24px -10px; padding: 7px 24px; background: #1d4f4a; border-top: 1px solid rgba(255,255,255,.14); }
+.tw-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 4px; margin: 0; padding: 0; list-style: none; }
+.tw-crumbs li { display: flex; align-items: center; gap: 4px; }
+.tw-crumbs li + li::before { content: "›"; color: rgba(255,255,255,.55); font-weight: 800; padding: 0 2px; }
+.tw-crumbs button { display: inline-flex; align-items: baseline; gap: 6px; max-width: 340px; padding: 5px 10px; border: 0; border-radius: 6px; background: transparent; color: #fff; font: 700 14px/1.3 var(--sans); cursor: pointer; text-align: left; }
+.tw-crumbs button span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.tw-crumbs button small { color: rgba(255,255,255,.62); font-size: 12px; font-weight: 600; }
+.tw-crumbs button:hover, .tw-crumbs button:focus-visible { background: rgba(255,255,255,.14); outline: none; }
+.tw-crumbs button[disabled] { cursor: default; background: transparent; }
+.tw-nav-links { display: flex; flex-wrap: wrap; gap: 4px; }
+.tw-nav-links button { padding: 5px 10px; border: 1px solid rgba(255,255,255,.28); border-radius: 6px; background: transparent; color: #fff; font: 600 13px/1.2 var(--sans); cursor: pointer; }
+.tw-nav-links button:hover, .tw-nav-links button:focus-visible, .tw-nav-links button.is-on { background: #fff; color: var(--teal); outline: none; }
+[data-tabs-anchor], [data-room-list] { scroll-margin-top: 130px; }
+@media (max-width: 760px) { .tw-top { position: static; } .tw-nav { flex-basis: calc(100% + 28px); width: calc(100% + 28px); margin: 2px -14px -10px; padding: 7px 14px; } .tw-crumbs button { max-width: 220px; } }
 .tw-table .tw-col-action { width: 52px; padding: 6px 8px; text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* 概念学习课程：作业情况与学生作答 */
