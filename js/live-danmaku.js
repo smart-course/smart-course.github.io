@@ -1,6 +1,6 @@
 /* 投屏弹幕：在课堂完整版页面上滚动显示当前课堂的学生弹幕（“姓名：内容”），并循环播放。
  * 需要教师已在同一浏览器登录教师工作台（读取弹幕需教师账号）。
- * 弹幕模式由工作台设置：关闭 / 直接上屏（未隐藏的都显示）/ 审核后上屏（只显示已通过的）。
+ * 弹幕模式：关闭 / 直接上屏（未隐藏的都显示）/ 审核后上屏（只显示已通过的）。左下角控件里可以直接切换（与工作台“弹幕”下拉框相同，ck_set_danmaku）。
  * 播放规则：新来的弹幕立即上屏；空档时按顺序循环播放本课堂可显示的弹幕（最近 60 条），被隐藏的立即撤下。
  * 清屏：撤下屏幕上现有弹幕，并让它们不再循环（本机按课堂记住，刷新页面也不会回来）；之后的新弹幕照常上屏和循环。
  *       清屏只影响投屏显示，工作台里的弹幕记录不受影响。
@@ -40,9 +40,16 @@
   .dm-bar { position: fixed; z-index: 301; left: 108px; bottom: 22px; display: flex; gap: 6px; align-items: center; padding: 5px 8px; border-radius: 8px;
     background: rgba(32, 28, 24, .72); color: #fff; font: 700 12.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; opacity: .45; transition: opacity .2s ease; }
   .dm-bar:hover, .dm-bar:focus-within { opacity: 1; }
+  .dm-bar { flex-wrap: wrap; max-width: calc(100vw - 130px); }
+  .dm-bar > * { white-space: nowrap; }
   .dm-bar button { padding: 3px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: transparent; font: inherit; cursor: pointer; }
   .dm-bar button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
   .dm-bar a { color: #ffd98a; }
+  .dm-bar label { display: inline-flex; align-items: center; gap: 5px; }
+  .dm-bar select { padding: 2px 6px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: rgba(255,255,255,.12); font: inherit; cursor: pointer; }
+  .dm-bar select option { color: #201c18; background: #fff; }
+  .dm-bar select[disabled] { opacity: .5; cursor: default; }
+  .dm-bar select.is-off { border-color: #f0b49e; }
   .dm-bar.is-min > :not([data-dm-toggle]) { display: none; }
   .dm-link { margin: 0 4px; padding: 0 6px; border-radius: 9px; color: #201c18; background: #ffd98a; font-size: .8em; }
   .dm-bubble { padding: 6px 10px; border: 1px solid rgba(35, 101, 95, .28); border-radius: 12px 12px 12px 3px; color: #201c18; background: #fff;
@@ -64,13 +71,15 @@
   const bar = document.createElement('div');
   bar.className = 'dm-bar';
   bar.setAttribute('data-ix', '');
-  bar.innerHTML = '<span data-dm-state>弹幕：连接中</span><button type="button" data-dm-loop aria-pressed="true">循环：开</button>'
+  bar.innerHTML = '<label>弹幕<select data-dm-mode disabled aria-label="弹幕模式"><option value="off">关闭</option><option value="direct">直接上屏</option><option value="review">审核后上屏</option></select></label>'
+    + '<span data-dm-state>连接中</span><button type="button" data-dm-loop aria-pressed="true">循环：开</button>'
     + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下现有弹幕，且不再循环播放；之后的新弹幕照常显示">清屏</button><button type="button" data-dm-toggle>收起</button>';
   ['click', 'keydown'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   document.body.append(stage, bar);
   const stateEl = bar.querySelector('[data-dm-state]');
   const setState = (html) => { stateEl.innerHTML = html; };
   const loopButton = bar.querySelector('[data-dm-loop]');
+  const modeSelect = bar.querySelector('[data-dm-mode]');
 
   let room = null;
   let paused = false;
@@ -92,8 +101,12 @@
   const modeText = () => (room.danmaku === 'review' ? '审核后上屏' : '直接上屏');
   const refreshState = () => {
     if (!room) return;
-    if (room.danmaku === 'off') setState('弹幕：已关闭（在工作台开启）');
-    else setState(`弹幕：${modeText()} · ${pool.length} 条`);
+    if (!modeSelect.matches(':focus')) modeSelect.value = room.danmaku || 'off';
+    modeSelect.disabled = false;
+    modeSelect.classList.toggle('is-off', room.danmaku === 'off');
+    modeSelect.title = `课堂：${room.name}（${room.code}）`;
+    if (room.danmaku === 'off') setState('学生暂时不能发送');
+    else setState(`${pool.length} 条${room.danmaku === 'review' ? '（在工作台审核）' : ''}`);
   };
   const setLoop = (value) => {
     looping = value;
@@ -211,12 +224,13 @@
       const next = window.ClassLive.pickRoom(rooms, config.course, unit);
       const changed = !room || !next || `${room.id}|${room.danmaku}` !== `${next.id}|${next.danmaku}`;
       room = next;
-      if (!room) { setState('弹幕：没有当前课堂'); return false; }
+      if (!room) { modeSelect.disabled = true; setState('没有当前课堂'); return false; }
       refreshState();
       return changed;
     } catch (error) {
       room = null;
-      setState('弹幕：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>');
+      modeSelect.disabled = true;
+      setState('请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>');
       return false;
     }
   }
@@ -279,7 +293,32 @@
     flying.clear();
     laneFree.fill(0);
     renderWalls([]);
-    if (room) setState(`弹幕：${room.danmaku === 'off' ? '已关闭' : modeText()} · 已清屏，之前的弹幕不再循环`);
+    if (room) setState('已清屏，之前的弹幕不再循环');
+  });
+  // 直接在投屏页切换弹幕模式（教师账号）；关闭时学生不能发送，开启后新弹幕照常上屏
+  modeSelect.addEventListener('change', async () => {
+    if (!room) return;
+    const mode = modeSelect.value;
+    modeSelect.disabled = true;
+    setState('正在设置……');
+    try {
+      const result = await backend.rpc('ck_set_danmaku', { p_classroom: Number(room.id), p_mode: mode });
+      const updated = Array.isArray(result) ? result[0] : result;
+      room = { ...room, ...(updated && updated.id ? updated : { danmaku: mode }) };
+      pool.length = 0;
+      inPool.clear();
+      cursor = 0;
+      primed = false;
+      if (mode === 'off') { stage.innerHTML = ''; flying.clear(); laneFree.fill(0); renderWalls([]); }
+      refreshState();
+      await pollDanmaku();
+    } catch (error) {
+      console.warn('[弹幕]', error);
+      modeSelect.value = room.danmaku || 'off';
+      setState(`设置失败：${(error && error.message) || error}`);
+    } finally {
+      modeSelect.disabled = !room;
+    }
   });
   bar.querySelector('[data-dm-toggle]').addEventListener('click', (event) => {
     const min = bar.classList.toggle('is-min');
@@ -289,7 +328,7 @@
   (async () => {
     const session = await backend.session().catch(() => null);
     if (!session || session.anonymous) {
-      setState('弹幕：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>');
+      setState('请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>');
       return;
     }
     await pollRoom();

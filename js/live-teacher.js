@@ -300,23 +300,21 @@
     $('[data-nav-class]').textContent = state.klass && level !== 'class' ? state.klass.name : '选择班级';
     $('[data-nav-room-item]').hidden = !(inApp && state.room);
     $('[data-nav-room]').textContent = state.room ? `${state.room.name}（${state.room.code}）` : '';
+    // 右侧：切换班级（已进入某个班级时）、切换课程（不止一门课时）
     const links = $('[data-nav-links]');
-    links.hidden = !inApp;
-    if (!inApp) return;
-    const tabs = $$('[data-tab]').filter((tab) => !tab.hidden);
-    const current = (tabs.find((tab) => tab.getAttribute('aria-selected') === 'true') || {}).dataset;
-    links.innerHTML = `<button type="button" data-nav-jump="rooms">课堂列表</button>`
-      + (state.room ? tabs.map((tab) => `<button type="button" data-nav-jump="${esc(tab.dataset.tab)}"${current && current.tab === tab.dataset.tab ? ' class="is-on"' : ''}>${esc(tab.textContent.trim())}</button>`).join('') : '');
+    const classButton = links.querySelector('[data-nav-switch="class"]');
+    const courseButton = links.querySelector('[data-nav-switch="course"]');
+    classButton.hidden = !inApp;
+    courseButton.hidden = level === 'course' || DATA.courses.length < 2;
+    links.hidden = classButton.hidden && courseButton.hidden;
   }
   $('[data-nav-room-jump]').addEventListener('click', () => $('[data-room-list]').scrollIntoView({ behavior: 'smooth', block: 'start' }));
   $('[data-nav-links]').addEventListener('click', (event) => {
-    const button = event.target.closest('[data-nav-jump]');
+    const button = event.target.closest('[data-nav-switch]');
     if (!button) return;
-    const target = button.dataset.navJump;
-    if (target === 'rooms') { $('[data-room-list]').scrollIntoView({ behavior: 'smooth', block: 'start' }); return; }
-    const tab = $(`[data-tab="${target}"]`);
-    if (tab) tab.click();
-    $('[data-tabs-anchor]').scrollIntoView({ behavior: 'smooth', block: 'start' });
+    stopWatching();
+    if (button.dataset.navSwitch === 'class') showClassPicker();
+    else showPicker();
   });
 
   // 页面上与班级有关的文字
@@ -450,6 +448,19 @@
   }
 
   const actionStatus = (text) => { $('[data-room-action-status]').textContent = text || ''; };
+  // 投屏页也能切换弹幕、结束提交、停止课堂：回到工作台窗口时重新读取本课堂状态，避免显示旧的设置
+  window.addEventListener('focus', async () => {
+    if (!state.klass || !state.room || $('[data-app]').hidden) return;
+    try {
+      const rows = (await backend.fetchAll('classrooms', { course: course.slug })).filter((room) => sameClass(room, state.klass));
+      const fresh = rows.find((room) => String(room.id) === String(state.room.id));
+      if (!fresh || !['danmaku', 'submissions_open', 'is_current'].some((key) => fresh[key] !== state.room[key])) return;
+      state.rooms = state.rooms.map((room) => (String(room.id) === String(fresh.id) ? fresh : room));
+      state.room = fresh;
+      renderRoom();
+      renderRoomList();
+    } catch (error) { console.warn(error); }
+  });
   async function roomAction(label, call) {
     actionStatus(`${label}……`);
     try {
@@ -567,7 +578,6 @@
     $$('[data-tab]').forEach((item) => item.setAttribute('aria-selected', String(item === tab)));
     $$('[data-panel]').forEach((panel) => { panel.hidden = panel.dataset.panel !== tab.dataset.tab; });
     store.set(`tab:${course.slug}`, tab.dataset.tab);
-    updateNav();
   }));
   const savedTab = $(`[data-tab="${store.get(`tab:${course.slug}`)}"]`);
   if (savedTab && !savedTab.hidden) savedTab.click();

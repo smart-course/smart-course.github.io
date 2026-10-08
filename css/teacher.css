@@ -103,6 +103,15 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-room h2 { margin: 8px 0 4px; font-size: 26px; }
 .tw-room p { margin: 0 0 10px; opacity: .88; font-size: 15px; }
 .tw-room-open { color: #fff; font-weight: 800; }
+.tw-room-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
+.tw-room-btn { padding: 8px 16px; border: 1.5px solid rgba(255,255,255,.6); border-radius: 8px; background: transparent; color: #fff; font: 800 14px/1.1 var(--sans); cursor: pointer; transition: background .15s, transform .1s; }
+.tw-room-btn:hover, .tw-room-btn:focus-visible { background: rgba(255,255,255,.14); outline: none; }
+.tw-room-btn:active { transform: translateY(1px); }
+.tw-room-btn.is-solid { border-color: #fff; background: #fff; color: var(--teal); }
+.tw-room-btn.is-solid:hover, .tw-room-btn.is-solid:focus-visible { background: #e9f2ef; }
+.tw-room-btn.is-gold { border-color: #e8c46a; background: #e8c46a; color: #3b2a07; }
+.tw-room-btn.is-gold:hover, .tw-room-btn.is-gold:focus-visible { background: #f0d58e; }
+.tw-room-action-status { font-size: 13px; opacity: .85; }
 .tw-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; background: rgba(255,255,255,.18); font-size: 13px; font-weight: 800; }
 .tw-badge.is-live { background: #e8c46a; color: #3b2a07; }
 .tw-badge.is-closed { background: var(--rust); }
@@ -160,7 +169,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-room-item .tw-course small.is-live { color: var(--teal); }
 .tw-room-item .tw-course small.is-past { color: var(--muted); }
 .tw-room-item .tw-trash { top: 9px; right: 9px; }
-/* 顶部导航栏：课程 › 班级 › 课堂（圆角胶囊），右侧栏目切换（分段按钮） */
+/* 顶部导航栏：课程 › 班级 › 课堂（圆角胶囊），右侧“切换班级”“切换课程” */
 .tw-nav { flex: 0 0 calc(100% + 48px); width: calc(100% + 48px); box-sizing: border-box; display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 20px; margin: 4px -24px -10px; padding: 8px 24px; background: rgba(0, 0, 0, .16); }
 .tw-crumbs { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; margin: 0; padding: 0; list-style: none; counter-reset: none; }
 .tw-crumbs li { display: flex; align-items: center; gap: 2px; }
