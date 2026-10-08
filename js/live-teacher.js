@@ -167,9 +167,10 @@
   $('[data-course-list]').addEventListener('click', (event) => {
     const button = event.target.closest('[data-course]');
     if (!button) return;
-    if (!mustPick && button.dataset.course === course.slug) { if (state.klass) openApp(); else enterClass(); return; }
-    store.set('course', button.dataset.course);
     stopWatching();
+    if (!mustPick && button.dataset.course === course.slug) { showClassPicker(); return; }
+    store.set('course', button.dataset.course);
+    try { sessionStorage.setItem('teacher:pick-class', '1'); } catch (error) { /* 忽略 */ }
     location.reload();
   });
   $('[data-switch-course]').addEventListener('click', () => { stopWatching(); showPicker(); });
@@ -189,7 +190,11 @@
       state.classes = [];
     }
     const saved = state.classes.find((item) => String(item.id) === String(store.get(CLASS_KEY)));
-    if (saved) { state.klass = saved; await openApp(); } else await showClassPicker();
+    // 从“选择课程”点进来时一律先到“选择班级”；直接打开或刷新工作台时，仍回到上次的班级
+    let picked = false;
+    try { picked = sessionStorage.getItem('teacher:pick-class') === '1'; sessionStorage.removeItem('teacher:pick-class'); } catch (error) { /* 忽略 */ }
+    if (saved) state.klass = saved;
+    if (saved && !picked) await openApp(); else await showClassPicker();
   }
   const sameClass = (room, klass) => String(room.class_id || '') === String((klass && klass.id) || '');
   async function showClassPicker(notice) {

@@ -34,6 +34,10 @@ body { margin: 0; color: var(--ink); background: var(--paper); font: 16px/1.6 va
 .tw-error { min-height: 20px; margin: 10px 0 0; color: var(--rust); font-weight: 700; }
 .tw-hint, .tw-note { color: var(--muted); font-size: 14px; }
 .tw-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-bottom: 18px; }
+/* 标签页与弹幕开关同一行：标签在左，弹幕在右 */
+.tw-tabbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 18px; }
+.tw-tabbar .tw-tabs { margin-bottom: 0; }
+.tw-tabbar-danmaku { margin-left: auto; white-space: nowrap; }
 .tw-tabs button { padding: 10px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--muted); font: 800 16px/1 var(--sans); cursor: pointer; }
 .tw-tabs button[aria-selected="true"] { color: #fff; background: var(--rust); border-color: var(--rust); }
 .tw-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
