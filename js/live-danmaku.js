@@ -185,7 +185,8 @@
     return true;
   };
 
-  const visible = (doc) => (room.danmaku === 'review' ? doc.status === 'shown' : doc.status !== 'hidden');
+  // 学生撤回的（withdrawn_at）不再上屏；记录仍在工作台
+  const visible = (doc) => !doc.withdrawn_at && (room.danmaku === 'review' ? doc.status === 'shown' : doc.status !== 'hidden');
 
   // ---------- 机制图“弹幕接龙” ----------
   const TAG = /^【(\d{2})([①②③④])→([①②③④])】\s*/;

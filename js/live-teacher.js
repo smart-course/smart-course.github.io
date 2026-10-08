@@ -1559,6 +1559,8 @@
   const STATUS_TEXT = { new: '待上屏', shown: '已上屏', hidden: '已隐藏' };
   // 导出记录用审核状态表述（直接上屏模式下未审核的弹幕也会上屏）
   const RECORD_STATUS = { new: '未审核', shown: '已通过审核', hidden: '已隐藏' };
+  // 学生在学生版撤回的弹幕：投屏不再显示，记录保留
+  const recordStatus = (d) => (d.withdrawn_at ? '学生已撤回' : RECORD_STATUS[d.status] || d.status);
   // 发送人的班级、小组取自本课堂的加入记录
   const whoMap = () => {
     const map = new Map();
@@ -1591,12 +1593,13 @@
     $('[data-dm-summary]').textContent = `${chosen || '全部日期'}：共 ${rows.length} 条，发送人 ${senders} 人。`;
     $('[data-danmaku-list]').innerHTML = rows.map((doc) => {
       const info = who.get(doc.sid) || {};
-      const status = mode === 'direct' && doc.status === 'new' ? '已上屏' : STATUS_TEXT[doc.status] || doc.status;
-      const canShow = doc.status !== 'shown' && !(mode === 'direct' && doc.status === 'new');
-      const shownClass = mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
+      const withdrawn = Boolean(doc.withdrawn_at);
+      const status = withdrawn ? '学生已撤回' : mode === 'direct' && doc.status === 'new' ? '已上屏' : STATUS_TEXT[doc.status] || doc.status;
+      const canShow = !withdrawn && doc.status !== 'shown' && !(mode === 'direct' && doc.status === 'new');
+      const shownClass = withdrawn ? 'hidden' : mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
       return `<tr class="tw-dm is-${esc(shownClass)}"><td>${esc(isoDay(doc.ts))}</td><td>${clock(doc.ts)}</td><td>${esc(doc.name)}</td><td>${esc(doc.sid)}</td>
         <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${esc(doc.text)}</td><td><em>${esc(status)}</em></td>
-        <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
+        <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${!withdrawn && doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有弹幕记录。</td></tr>';
   }
   $('[data-danmaku-list]').addEventListener('click', async (event) => {
@@ -1683,7 +1686,7 @@
       const stamp = window.ClassLive.today();
       const prefix = `${course.title}_${state.klass ? safeName(state.klass.name) + '_' : ''}${label}_${stamp}`;
       const danmakuCsv = () => csv([['课堂', '课堂码', '日期', '时间', '学号', '姓名', '班级', '小组', '弹幕', '状态'],
-        ...danmaku.map((d) => [...roomCols(d), isoDay(d.ts), clock(d.ts), ...person(d), d.text, RECORD_STATUS[d.status] || d.status])]);
+        ...danmaku.map((d) => [...roomCols(d), isoDay(d.ts), clock(d.ts), ...person(d), d.text, recordStatus(d)])]);
       if (only === 'danmaku') {
         download(`${prefix}_弹幕记录.csv`, danmakuCsv());
         status.textContent = `已导出${label}弹幕记录：${danmaku.length} 条（含发送人姓名、学号、班级、小组）。`;

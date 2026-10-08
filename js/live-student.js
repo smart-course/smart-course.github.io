@@ -81,6 +81,16 @@
   .clp-tools button { padding: 7px 11px; border: 1px solid rgba(35,101,95,.45); border-radius: 7px; color: #23655f; background: #fff; font: 700 13px/1 inherit; cursor: pointer; }
   .clp-tools button.is-main { border-color: #23655f; color: #fff; background: #23655f; }
   .clp-danmaku { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(70,51,34,.2); }
+  .clp-mydm { margin-top: 6px; }
+  .clp-mydm summary { cursor: pointer; color: #23655f; font-size: 13px; font-weight: 700; }
+  .clp-mydm-list { display: grid; gap: 5px; max-height: 200px; margin: 6px 0 0; padding: 0; overflow: auto; list-style: none; }
+  .clp-mydm-list li { display: flex; gap: 6px; align-items: flex-start; padding: 5px 7px; border-radius: 6px; background: rgba(70,51,34,.05); font-size: 13px; line-height: 1.45; }
+  .clp-mydm-list li > span { flex: 1 1 auto; min-width: 0; overflow-wrap: anywhere; }
+  .clp-mydm-list b { margin-right: 4px; padding: 0 5px; border-radius: 4px; color: #23655f; background: #e4efeb; font-size: 11.5px; }
+  .clp-mydm-list em { display: block; color: #6d6259; font-size: 11.5px; font-style: normal; }
+  .clp-mydm-list button { flex: 0 0 auto; padding: 2px 7px; border: 1px solid rgba(164,73,45,.4); border-radius: 5px; color: #a4492d; background: #fff; font: inherit; font-size: 12px; cursor: pointer; }
+  .clp-mydm-list button.is-confirm { color: #fff; background: #a4492d; }
+  .clp-mydm-list button[disabled] { opacity: .6; cursor: default; }
   .clp-danmaku input { flex: 1 1 auto; min-width: 0; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; font: inherit; background: #fff; }
   .clp-danmaku input:focus { outline: none; border-color: #23655f; }
   .clp-danmaku button { flex: 0 0 auto; min-width: 52px; padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #a4492d; font: 800 13px/1 inherit; cursor: pointer; }
@@ -467,6 +477,11 @@
         <button type="submit">发送</button>
       </form>
       <p class="clp-hint" data-cl-dm-state>弹幕会以“你的姓名：内容”显示在老师投屏的页面上，请文明发言。</p>
+      <details class="clp-mydm" data-cl-mydm>
+        <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
+        <ul class="clp-mydm-list" data-cl-mydm-list></ul>
+        <p class="clp-hint" data-cl-mydm-state></p>
+      </details>
     </div>`;
   document.body.appendChild(panel);
   dodge();
@@ -531,7 +546,84 @@
   async function sendDanmaku(text) {
     await backend.add('danmaku', { course: config.course, classroom: identity.classroom, name: identity.name, sid: identity.sid, text });
     cool();
+    loadMyDanmaku(true);
   }
+
+  // ---------- 我发过的弹幕：查看、删除（后台函数只认本人这次登录发的；删除＝撤回：投屏不再显示，老师的记录里仍保留） ----------
+  const mydm = panel.querySelector('[data-cl-mydm]');
+  const mydmList = mydm.querySelector('[data-cl-mydm-list]');
+  const mydmCount = mydm.querySelector('[data-cl-mydm-count]');
+  const mydmState = mydm.querySelector('[data-cl-mydm-state]');
+  const MY_STATUS = { new: '已发送', shown: '已上屏', hidden: '老师已隐藏' };
+  const sayMine = (text, kind) => { mydmState.textContent = text; mydmState.dataset.state = kind || ''; };
+  const notReady = (problem) => /PGRST202|42883|Could not find the function|does not exist|未知的后台函数/i.test(
+    `${(problem && problem.code) || ''} ${(problem && problem.message) || problem || ''}`);
+  // 弹幕开头的标签（【问3】【正方】【01①→②】）拆出来单独显示
+  const splitTags = (text) => {
+    let rest = String(text || '');
+    const tags = [];
+    for (let match = /^【([^】]{1,12})】/.exec(rest); match; match = /^【([^】]{1,12})】/.exec(rest)) {
+      tags.push(match[1].replace(/^\d{2}(?=[①②③④])/, ''));
+      rest = rest.slice(match[0].length);
+    }
+    return { tags, rest };
+  };
+  const setMineCount = () => { const n = mydmList.children.length; mydmCount.textContent = n ? `（${n}）` : ''; };
+  function mineItem(row) {
+    const li = document.createElement('li');
+    const body = document.createElement('span');
+    const { tags, rest } = splitTags(row.text);
+    tags.forEach((tag) => { const label = document.createElement('b'); label.textContent = tag; body.appendChild(label); });
+    body.appendChild(document.createTextNode(rest));
+    const meta = document.createElement('em');
+    const at = row.ts ? new Date(Number(row.ts)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
+    meta.textContent = [MY_STATUS[row.status] || '', at].filter(Boolean).join(' · ');
+    body.appendChild(meta);
+    const remove = document.createElement('button');
+    remove.type = 'button';
+    remove.textContent = '删除';
+    let timer = 0;
+    const reset = () => { remove.classList.remove('is-confirm'); remove.textContent = '删除'; };
+    remove.addEventListener('click', async () => {
+      // 第一次点变成“确认删除？”，3 秒内再点一次才删除
+      if (!remove.classList.contains('is-confirm')) {
+        remove.classList.add('is-confirm');
+        remove.textContent = '确认删除？';
+        clearTimeout(timer);
+        timer = setTimeout(reset, 3000);
+        return;
+      }
+      clearTimeout(timer);
+      remove.disabled = true;
+      remove.textContent = '正在删除…';
+      try {
+        const done = await backend.rpc('ck_withdraw_my_danmaku', { p_id: Number(row.id) || row.id });
+        li.remove();
+        setMineCount();
+        sayMine(done === false ? '这条弹幕已经不在了（可能已被老师删除）。' : '已删除，投屏上几秒内会撤下；老师的记录里仍会保留。', 'ok');
+      } catch (problem) {
+        console.error(problem);
+        remove.disabled = false;
+        reset();
+        sayMine(notReady(problem) ? '这个功能还没开通，请告诉老师。' : '删除失败：请检查网络后再试。', 'error');
+      }
+    });
+    li.append(body, remove);
+    return li;
+  }
+  async function loadMyDanmaku(quiet) {
+    if (quiet && !mydm.open) return;
+    try {
+      const rows = (await backend.rpc('ck_my_danmaku', { p_classroom: Number(identity.classroom) || identity.classroom })) || [];
+      mydmList.replaceChildren(...rows.map(mineItem));
+      setMineCount();
+      sayMine(rows.length ? '只列出你这次登录后在本课堂发的弹幕。删除后投屏上会撤下，但老师的记录里仍会保留，请文明发言。' : '你在本课堂还没有发过弹幕。');
+    } catch (problem) {
+      console.error(problem);
+      sayMine(notReady(problem) ? '这个功能还没开通，请告诉老师。' : '读取失败：请检查网络后再试。', 'error');
+    }
+  }
+  mydm.addEventListener('toggle', () => { if (mydm.open) loadMyDanmaku(); });
   dmForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const text = dmInput.value.replace(/\s+/g, ' ').trim().slice(0, 40);
