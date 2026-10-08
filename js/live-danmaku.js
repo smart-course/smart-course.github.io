@@ -5,6 +5,8 @@
  * 清屏：撤下屏幕上现有弹幕，并让它们不再循环（本机按课堂记住，刷新页面也不会回来）；之后的新弹幕照常上屏和循环。
  *       清屏只影响投屏显示，工作台里的弹幕记录不受影响。
  * 左下角小控件：循环开关、暂停、清屏、收起。页面需先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
+ * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
+ * 习经辩论质询的弹幕带“【正方】/【反方】”（学生端按本人的辩前投票自动加上），投屏上显示为彩色标签。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
  *   [data-mech-wall]（每个箭头显示最新 3 条，新来的弹入并让节点闪一下）；显示规则与滚动弹幕相同（模式、审核、清屏）。
  */
@@ -73,6 +75,25 @@
   .dmq-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .dmq-wall > em { color: #6d6259; font-style: normal; font-size: 15px; }
   .dmq-wall .dm-bubble { font-size: 17px; }
+  .dm-item { pointer-events: auto; }
+  .dm-item:hover, .dm-item.is-holding { animation-play-state: paused; z-index: 1; box-shadow: 0 0 0 2px rgba(255, 217, 138, .9); }
+  .dm-del { display: none; align-items: center; gap: 4px; margin-left: 10px; padding: 2px 10px; border: 0; border-radius: 14px; color: #fff; background: #a4492d;
+    font: 800 15px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; text-shadow: none; vertical-align: middle; cursor: pointer; }
+  .dm-del svg { width: 18px; height: 18px; }
+  .dm-del.is-confirm { background: #c0392b; }
+  .dm-del[disabled] { opacity: .7; cursor: default; }
+  .dm-item:hover .dm-del, .dm-item.is-holding .dm-del, .dm-bubble:hover .dm-del, .dm-bubble.is-holding .dm-del { display: inline-flex; }
+  .dm-item .dm-del { position: absolute; top: 50%; left: 12px; margin: 0; transform: translateY(-50%); box-shadow: 0 2px 8px rgba(0,0,0,.35); white-space: nowrap; }
+  .dm-bubble { position: relative; }
+  .dm-bubble .dm-del { position: absolute; top: -12px; right: -6px; margin: 0; padding: 2px 8px; font-size: 13px; box-shadow: 0 2px 6px rgba(0,0,0,.2); }
+  .dm-bubble .dm-del svg { width: 15px; height: 15px; }
+  .dm-side { margin-right: 6px; padding: 0 8px; border-radius: 9px; color: #fff; font-size: .78em; font-weight: 800; vertical-align: 1px; }
+  .dm-side.is-pro { background: #23655f; }
+  .dm-side.is-con { background: #a4492d; }
+  .dm-item .dm-side.is-pro { background: #2f8a80; }
+  .dm-item .dm-side.is-con { background: #c4572f; }
+  .dm-bubble.is-pro { border-color: rgba(35, 101, 95, .55); background: #eef6f4; }
+  .dm-bubble.is-con { border-color: rgba(164, 73, 45, .5); background: #fbefea; }
   @media print { .dm-stage, .dm-bar { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -148,11 +169,13 @@
       const link = document.createElement('span');
       link.className = 'dm-link';
       link.textContent = tag.link;
+      if (tag.side) item.append(sideBadge(tag.side));
       item.append(name, link, document.createTextNode(`：${tag.text}`));
     } else {
       name.textContent = `${doc.name}：`;
       item.append(name, document.createTextNode(doc.text));
     }
+    item.append(trashButton(doc, item));
     item.style.top = `${lane * (100 / LANES)}%`;
     item.style.setProperty('--dm-duration', `${10 + Math.min(doc.text.length + String(doc.name).length, 50) / 8}s`);
     item.style.animationDelay = `${delay}ms`;
@@ -167,6 +190,7 @@
   // ---------- 机制图“弹幕接龙” ----------
   const TAG = /^【(\d{2})([①②③④])→([①②③④])】\s*/;
   const QTAG = /^【问(\d{1,2})】\s*/;
+  const SIDE = /^【(正方|反方)】\s*/;
   // 弹幕小问题（政治经济学讲解版）：在对应页面放一张问题卡片，下面是这道题的弹幕墙
   if (Array.isArray(config.danmaku)) {
     config.danmaku.forEach((item, index) => {
@@ -196,7 +220,82 @@
     const match = TAG.exec(doc.text || '');
     if (match) return { key: `${match[1]}|${match[2]}→${match[3]}`, link: `${match[2]}→${match[3]}`, text: doc.text.slice(match[0].length) };
     const question = QTAG.exec(doc.text || '');
-    return question ? { key: `q|${question[1]}`, link: `问${question[1]}`, text: doc.text.slice(question[0].length) } : null;
+    if (!question) return null;
+    const rest = doc.text.slice(question[0].length);
+    const side = SIDE.exec(rest);
+    return { key: `q|${question[1]}`, link: `问${question[1]}`, text: side ? rest.slice(side[0].length) : rest, side: side ? side[1] : '' };
+  }
+  function sideBadge(side) {
+    const badge = document.createElement('span');
+    badge.className = `dm-side ${side === '正方' ? 'is-pro' : 'is-con'}`;
+    badge.textContent = side;
+    return badge;
+  }
+
+  // ---------- 鼠标悬停删除 ----------
+  const TRASH = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+  const deleted = new Set();    // 本页已删除的弹幕 id（读取结果里若还带着，也不再显示）
+  let wallRows = [];            // 当前弹幕墙使用的弹幕（删除后据此重排）
+  function trashButton(doc, host) {
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'dm-del';
+    button.title = '删除这条弹幕（从记录里彻底删除，无法恢复）';
+    button.setAttribute('aria-label', `删除 ${doc.name} 的弹幕`);
+    button.innerHTML = TRASH;
+    let timer = 0;
+    const reset = () => {
+      button.classList.remove('is-confirm');
+      button.innerHTML = TRASH;
+      host.classList.remove('is-holding');
+    };
+    ['pointerdown', 'mousedown', 'keydown'].forEach((type) => button.addEventListener(type, (event) => event.stopPropagation()));
+    // 飞行弹幕可能很长、一部分在屏幕外：垃圾桶出现在鼠标进入处的右侧，保证看得见、点得到
+    if (host.classList.contains('dm-item')) {
+      host.addEventListener('mouseenter', (event) => {
+        if (button.classList.contains('is-confirm')) return;
+        const box = host.getBoundingClientRect();
+        const left = Math.min(event.clientX - box.left + 14, box.width - 56, window.innerWidth - box.left - 150);
+        button.style.left = `${Math.max(left, 8)}px`;
+      });
+    }
+    button.addEventListener('click', async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      // 第一次点：变成“确认删除？”，弹幕保持停住；3 秒内再点一次才删除
+      if (!button.classList.contains('is-confirm')) {
+        button.classList.add('is-confirm');
+        button.innerHTML = `${TRASH}<span>确认删除？</span>`;
+        host.classList.add('is-holding');
+        clearTimeout(timer);
+        timer = setTimeout(reset, 3000);
+        return;
+      }
+      clearTimeout(timer);
+      button.disabled = true;
+      button.innerHTML = '<span>正在删除……</span>';
+      try {
+        await removeDoc(doc);
+      } catch (error) {
+        console.warn('[弹幕]', error);
+        button.disabled = false;
+        reset();
+        setState(`删除失败：${(error && error.message) || error}`);
+      }
+    });
+    return button;
+  }
+  async function removeDoc(doc) {
+    const id = String(doc.id);
+    await backend.removeAll('danmaku', { id: Number(doc.id) || doc.id });
+    deleted.add(id);
+    seen.add(id);
+    dropFromPool(id);
+    if (flying.has(id)) { flying.get(id).remove(); flying.delete(id); }
+    wallRows = wallRows.filter((row) => String(row.id) !== id);
+    renderWalls(wallRows);
+    refreshState();
+    setState('已删除 1 条弹幕');
   }
   const WALL_MAX = 3;
   const walls = new Map();
@@ -229,10 +328,11 @@
           const bubble = document.createElement('div');
           const isNew = wallsPrimed && !before.includes(String(doc.id));
           fresh = fresh || isNew;
-          bubble.className = isNew ? 'dm-bubble is-pop' : 'dm-bubble';
+          bubble.className = (isNew ? 'dm-bubble is-pop' : 'dm-bubble') + (tag.side ? (tag.side === '正方' ? ' is-pro' : ' is-con') : '');
           const who = document.createElement('b');
           who.textContent = `${doc.name}：`;
-          bubble.append(who, document.createTextNode(tag.text));
+          if (tag.side) bubble.append(sideBadge(tag.side));
+          bubble.append(who, document.createTextNode(tag.text), trashButton(doc, bubble));
           wall.insertBefore(bubble, count);
         });
         wallShown.set(key, ids);
@@ -281,7 +381,8 @@
     if (!room || room.danmaku === 'off') return;
     if (clearedRoom !== String(room.id)) { clearedRoom = String(room.id); cleared = loadCleared(clearedRoom); }
     try {
-      const rows = (await backend.fetchAll('danmaku', { classroom: Number(room.id) }, { limit: 80 })).reverse();
+      const rows = (await backend.fetchAll('danmaku', { classroom: Number(room.id) }, { limit: 80 })).reverse()
+        .filter((doc) => !deleted.has(String(doc.id)));
       // 工作台删除的弹幕：不再出现在读取结果里，从循环和屏幕上撤下
       const present = new Set(rows.map((doc) => String(doc.id)));
       Array.from(inPool).filter((id) => !present.has(id)).forEach(dropFromPool);
@@ -301,7 +402,8 @@
         }
       });
       primed = true;
-      renderWalls(rows.filter((doc) => !cleared.has(String(doc.id)) && visible(doc)));
+      wallRows = rows.filter((doc) => !cleared.has(String(doc.id)) && visible(doc));
+      renderWalls(wallRows);
       refreshState();
     } catch (error) {
       console.warn('[弹幕]', error);

@@ -139,16 +139,18 @@
       if (!slot && !page) return;
       const box = slot || page.querySelector('.inner') || page;
       const tag = `【问${index + 1}】`;
+      // 辩论质询（习经 slot“NN-debate”）：弹幕自动加上【正方】或【反方】，按本人递交的辩前投票
+      const debate = (/^(\d{2})-debate$/.exec(item.slot || '') || [])[1] || '';
       const card = document.createElement('section');
       card.className = 'clp-dmq';
       card.dataset.dmq = String(index + 1);
       card.innerHTML = `<div class="clp-dmq-head"><span class="clp-dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="clp-dmq-label">${esc(item.label)}</span></div>
         <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
-        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
+        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length - (debate ? 4 : 0)}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
       if (slot) {
         slot.replaceChildren(card);
-        dmqCards.push({ card, tag });
+        dmqCards.push({ card, tag, debate });
         return;
       }
       const head = box.querySelector('.page-head');
@@ -157,7 +159,7 @@
       if (spot) spot.insertAdjacentElement('afterend', card);
       else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
-      dmqCards.push({ card, tag });
+      dmqCards.push({ card, tag, debate });
     });
   }
   const panel = document.createElement('aside');
@@ -602,7 +604,7 @@
 
   // 弹幕小问题：与左下角弹幕、机制图弹幕共用每 5 秒一条的冷却
   function setupQuestionDanmaku(enabled, note) {
-    dmqCards.forEach(({ card, tag }) => {
+    dmqCards.forEach(({ card, tag, debate }) => {
       const form = card.querySelector('form');
       const input = form.querySelector('input');
       const button = form.querySelector('button');
@@ -613,14 +615,25 @@
       input.disabled = false;
       dmButtons.push({ button, ready: () => true });
       showCooling();
-      say('写一句话后点“发送”，会连同你的姓名显示在投屏上。');
+      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。' : '写一句话后点“发送”，会连同你的姓名显示在投屏上。');
+      // 辩论质询：站哪一方以本人已递交的辩前投票为准（在别的设备递交的，看页面上恢复的选择）
+      const sideOf = () => {
+        const key = `${debate}:debate-pre`;
+        if (!locked[key]) return '';
+        const group = document.querySelector(`[data-live-choice][data-live-case="${debate}"][data-live-item="debate-pre"]`);
+        const pressedOption = group && group.querySelector('[data-live-option][aria-pressed="true"]');
+        const value = locked[key].v || (pressedOption && pressedOption.dataset.liveOption);
+        return value === 'pro' ? '【正方】' : value === 'con' ? '【反方】' : '';
+      };
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = input.value.replace(/\s+/g, ' ').trim();
         if (!text || cooling > 0) return;
+        const side = debate ? sideOf() : '';
+        if (debate && !side) { say('请先在上面“① 辩前投票”里选好一方并递交，弹幕才能标出你是正方还是反方。', 'error'); return; }
         button.disabled = true;
         try {
-          await sendDanmaku(`${tag}${text}`.slice(0, 40));
+          await sendDanmaku(`${tag}${side}${text}`.slice(0, 40));
           input.value = '';
           say(`已发送（${time()}）。若老师开启了审核，通过后才会上屏。`, 'ok');
         } catch (problem) {
@@ -685,7 +698,8 @@
       });
       list.push({
         key: `${box.dataset.liveCase}:${box.dataset.liveItem}`, section: caseTitle(box), title: box.dataset.quizTitle || '客观题',
-        prompt: textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断|选 \d+ 张)/, ''),
+        // 圆桌会议的秘密任务题在学生递交角色后才填入题目，所以题干在用到时再读
+        get prompt() { return textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断|选 \d+ 张)/, ''); },
         anchor: (bar) => box.appendChild(bar),
         read: () => { const value = picked(); return value.length ? value.join(',') : null; },
         check: (value) => (!value ? '请先选好，再点“递交”' : max && value.split(',').length > max ? `最多选 ${max} 张` : ''),

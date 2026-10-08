@@ -153,13 +153,21 @@
           key: el.dataset.quizOption, label: type === 'judge' ? '' : String.fromCharCode(65 + index), text: text(el.querySelector('span')) })),
       });
     });
-    // 辩论赛、圆桌会议的小投票；辩后投票同时和辩前比较
+    // 辩论赛、圆桌会议的小投票；辩后投票同时和辩前比较；圆桌表决按角色分组
+    const rolesOf = (caseNo) => Array.from(document.querySelectorAll(`[data-vote-key="${caseNo}:rt-role"] [data-vote-option]`)).map((li) => li.dataset.voteOption);
     document.querySelectorAll('[data-vote-key]').forEach((box) => {
       const [caseNo, id] = box.dataset.voteKey.split(':');
       const options = Array.from(box.querySelectorAll('[data-vote-option]')).map((li) => ({ key: li.dataset.voteOption, label: text(li.querySelector('span')), text: text(li.querySelector('strong')) }));
       addBlock(box.querySelector('.vote-options'), id === 'debate-post'
         ? { kind: 'versus', case: caseNo, options }
+        : id === 'rt-vote' ? { kind: 'rt-sim', case: caseNo, item: id, options, roles: rolesOf(caseNo), ref: null }
         : { kind: 'poll', case: caseNo, item: id, options, ref: null });
+    });
+    // 圆桌会议各方的秘密任务：题号 rt-task-1—3 相同、题目随角色不同，按学生递交的角色核对答案；3 题全对＝完成秘密任务
+    document.querySelectorAll('[data-rt-tasks]').forEach((anchor) => {
+      let key = {};
+      try { key = JSON.parse(anchor.dataset.rtKey || '{}'); } catch (error) { key = {}; }
+      addBlock(anchor, { kind: 'rt-task', case: anchor.dataset.rtTasks, key });
     });
     // 圆桌会议的三项议程：总分布＋按学生选的角色分组
     document.querySelectorAll('.rt-agenda[data-sim]').forEach((agenda) => {
@@ -365,7 +373,25 @@
       }).join('');
       return optionRows(block.options, map, all, block.ref)
         + `<table class="lv-table"><thead><tr><th>按角色</th>${block.options.map((o) => `<th>${esc(o.label)}</th>`).join('')}<th>人数</th></tr></thead><tbody>${rows}</tbody></table>`
-        + '<p class="lv-note">各方都选同一个方案，就是共识；分歧大的议程，请各方代表说说自己的底线。深色格为参考方案。</p>';
+        + (block.item === 'rt-vote'
+          ? '<p class="lv-note">哪一方选了“不接受”，就请这一方代表说出被突破的底线，全班讨论怎样修改方案；“有条件接受”的，请说出还要补上的那一条。</p>'
+          : '<p class="lv-note">各方都选同一个方案，就是共识；分歧大的议程，请各方代表说说自己的底线。深色格为参考方案。</p>');
+    }
+    if (block.kind === 'rt-task') {
+      const mine = latestDocs.filter((doc) => doc.case === block.case && /^rt-task-[123]$/.test(doc.item));
+      countEl.textContent = `已递交 ${new Set(mine.map((doc) => doc.sid)).size} 人`;
+      if (!block.open) return null;
+      const roleOf = new Map(latestDocs.filter((doc) => doc.case === block.case && doc.item === 'rt-role').map((doc) => [doc.sid, doc.choice]));
+      const answerOf = new Map(mine.map((doc) => [`${doc.sid}|${doc.item}`, doc.choice]));
+      const rows = Object.keys(block.key).map((role) => {
+        const people = Array.from(roleOf.entries()).filter(([, chosen]) => chosen === role).map(([sid]) => sid);
+        const ok = (sid, i) => answerOf.get(`${sid}|rt-task-${i}`) === block.key[role][i - 1];
+        const right = [1, 2, 3].map((i) => people.filter((sid) => ok(sid, i)).length);
+        const done = people.filter((sid) => [1, 2, 3].every((i) => ok(sid, i))).length;
+        return `<tr><td>${esc(role)}</td><td>${people.length}</td>${right.map((n) => `<td>${n}<small>${pct(n, people.length)}%</small></td>`).join('')}<td class="is-ref">${done}<small>${pct(done, people.length)}%</small></td></tr>`;
+      }).join('');
+      return `<table class="lv-table"><thead><tr><th>角色</th><th>人数</th><th>题1 答对</th><th>题2 答对</th><th>题3 答对</th><th>完成秘密任务</th></tr></thead><tbody>${rows}</tbody></table>`
+        + '<p class="lv-note">人数＝递交了这个角色的同学；完成秘密任务＝本方 3 道题全部答对。各方的题目和答案在下方“各方秘密任务的题目与答案”里。</p>';
     }
     if (block.kind === 'prepost') {
       const pre = tally(block.case, 'pre');

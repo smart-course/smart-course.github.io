@@ -641,7 +641,8 @@
   };
   // 章节案例课程：每人递交过的题目（投票、推演每轮、配对整体、每道文字题各算一题）
   const caseKey = (doc) => (/^match-/.test(doc.item) ? `${doc.case}:match` : `${doc.case}:${doc.item}`);
-  const roomTotal = () => roomCases().reduce((sum, item) => sum + 2 + item.sim.rounds.length + (item.matching.clues.length ? 1 : 0) + (item.transfer ? 1 : 0) + item.items.length, 0);
+  // 实操改版案例另加客观题、辩论、圆桌（角色、秘密任务 3 题、表决）的题数（practice.count）
+  const roomTotal = () => roomCases().reduce((sum, item) => sum + 2 + item.sim.rounds.length + (item.matching.clues.length ? 1 : 0) + (item.transfer ? 1 : 0) + item.items.length + ((item.practice && item.practice.count) || 0), 0);
   const caseProgress = () => {
     const cases = new Set(roomCases().map((item) => item.number));
     const map = new Map();
@@ -1085,14 +1086,13 @@
       const votes = (key) => tally(docs, key);
       const pre = votes('debate-pre');
       const post = votes('debate-post');
-      const side = votes('debate-side');
       const cards = votes('debate-cards');
       const cardCount = new Map();
       cards.forEach((n, choice) => String(choice).split(',').forEach((k) => cardCount.set(k, (cardCount.get(k) || 0) + n)));
       const debate = `
       <article class="tw-card wide">
         <h2>辩论赛 <small>${esc(P.debate.motion)}</small></h2>
-        ${P.debate.sides.map(([key, text]) => `<div class="tw-option"><div class="tw-option-label"><span>${key === 'pro' ? '正' : '反'}</span>${esc(text)}　<small>本方 ${side.get(key) || 0} 人</small></div>
+        ${P.debate.sides.map(([key, text]) => `<div class="tw-option"><div class="tw-option-label"><span>${key === 'pro' ? '正' : '反'}</span>${esc(text)}　<small>本方 ${pre.get(key) || 0} 人（按辩前投票）</small></div>
           <div class="tw-pair"><label>辩前</label>${bar(pre.get(key) || 0, sum(pre), 'pre')}</div>
           <div class="tw-pair"><label>辩后</label>${bar(post.get(key) || 0, sum(post), 'post')}</div></div>`).join('')}
         <p class="tw-q">论据卡被选的次数</p>
@@ -1101,7 +1101,7 @@
       const roleOf = new Map(docs.filter((doc) => doc.item === 'rt-role').map((doc) => [doc.sid, String(doc.choice)]));
       const roundtable = `
       <article class="tw-card wide">
-        <h2>圆桌会议 · 按角色看三项议程 <small>${roleOf.size} 人选了角色</small></h2>
+        <h2>圆桌会议 · 按角色看议程、秘密任务和表决 <small>${roleOf.size} 人选了角色</small></h2>
         <table class="tw-table compact"><thead><tr><th>议程</th><th>角色</th><th>A</th><th>B</th><th>C</th><th>人数</th></tr></thead><tbody>
         ${P.roundtable.rounds.map((round) => {
           const rows = P.roundtable.roles.concat(['未选角色'])
@@ -1114,6 +1114,28 @@
           }).join('')}<td>${mine.length}</td></tr>`).join('');
         }).join('')}
         </tbody></table>
+        ${(() => {
+          // 秘密任务：题号相同、题目随角色不同，按角色核对；3 题全对＝完成秘密任务
+          const key = P.roundtable.tasks || {};
+          const answerOf = new Map(docs.filter((doc) => /^rt-task-[123]$/.test(doc.item)).map((doc) => [`${doc.sid}|${doc.item}`, String(doc.choice)]));
+          const taskRows = Object.keys(key).map((role) => {
+            const people = Array.from(roleOf.entries()).filter(([, chosen]) => chosen === role).map(([sid]) => sid);
+            const ok = (sid, i) => answerOf.get(`${sid}|rt-task-${i}`) === key[role][i - 1];
+            const done = people.filter((sid) => [1, 2, 3].every((i) => ok(sid, i))).length;
+            return `<tr><th>${esc(role)}</th><td>${people.length}</td>${[1, 2, 3].map((i) => `<td>${people.filter((sid) => ok(sid, i)).length}</td>`).join('')}<td class="${showRef ? 'is-answer' : ''}">${done}</td></tr>`;
+          }).join('');
+          const vote = P.roundtable.vote || [];
+          const voteRows = P.roundtable.roles.concat(['未选角色']).map((role) => {
+            const mine = docs.filter((doc) => doc.item === 'rt-vote' && (roleOf.get(doc.sid) || '未选角色') === role);
+            return mine.length ? `<tr><th>${esc(role)}</th>${vote.map(([choice]) => `<td>${mine.filter((doc) => String(doc.choice) === choice).length}</td>`).join('')}<td>${mine.length}</td></tr>` : '';
+          }).join('');
+          return `<p class="tw-q">秘密任务完成情况 <small>3 题全部答对＝完成</small></p>
+            <table class="tw-table compact"><thead><tr><th>角色</th><th>人数</th><th>题1 答对</th><th>题2 答对</th><th>题3 答对</th><th>完成秘密任务</th></tr></thead>
+            <tbody>${taskRows}</tbody></table>
+            <p class="tw-q">代表发言后的圆桌表决</p>
+            <table class="tw-table compact"><thead><tr><th>角色</th>${vote.map(([, label]) => `<th>${esc(label.split('：')[0])}</th>`).join('')}<th>人数</th></tr></thead>
+            <tbody>${voteRows || `<tr><td colspan="${vote.length + 2}">还没有人表决</td></tr>`}</tbody></table>`;
+        })()}
       </article>`;
       return P.groups.map(quizCard).join('') + debate + roundtable;
     })() : '';
