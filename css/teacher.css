@@ -145,6 +145,14 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-course small { color: var(--rust); font-weight: 800; font-size: 13px; }
 .tw-course strong { display: block; margin: 6px 0 8px; font-size: 24px; }
 .tw-course span { color: var(--muted); font-size: 14px; }
+.tw-class-item { position: relative; }
+.tw-class-item .tw-course { width: 100%; height: 100%; padding-right: 60px; }
+.tw-trash { display: inline-grid; place-items: center; width: 34px; height: 34px; padding: 0; border: 0; border-radius: 8px; background: transparent; color: var(--muted); cursor: pointer; }
+.tw-trash:hover, .tw-trash:focus-visible { background: var(--rust-soft); color: var(--rust); outline: none; }
+.tw-trash[disabled] { opacity: .4; cursor: default; }
+.tw-class-item .tw-trash { position: absolute; top: 14px; right: 14px; }
+.tw-table .tw-col-action { width: 52px; padding: 6px 8px; text-align: center; }
+.sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
 /* 概念学习课程：作业情况与学生作答 */
 .tw-step { margin: 18px 0 2px; padding-top: 10px; border-top: 2px solid var(--line); color: var(--teal); font-size: 18px; }
 .tw-card .tw-step:first-of-type { border-top: 0; }

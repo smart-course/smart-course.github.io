@@ -24,6 +24,9 @@
   const caseMap = new Map((course.cases || []).map((item) => [item.number, item]));
   const unitMap = new Map((course.units || []).map((item) => [item.unit, item]));
   const chapterMap = new Map(course.chapters.map((item) => [item.id, item]));
+  const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
+  const ACTION_HEAD = '<th class="tw-col-action"><span class="sr-only">删除</span></th>';
+  const deleteCell = (row) => `<td class="tw-col-action"><button type="button" class="tw-trash" data-student-delete="${esc(row.sid)}" title="删除该学生在本课堂的记录" aria-label="删除 ${esc(Array.from(row.names).join('、'))} 在本课堂的记录">${TRASH_ICON}</button></td>`;
   const KINDS = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
   const emptyDocs = () => ({ checkins: [], choices: [], answers: [], danmaku: [], homework: [] });
   // 班级：本机记住每门课上次选的班级（投屏页据此挑选当前课堂，见 ClassLive.pickRoom）
@@ -208,11 +211,11 @@
       const mine = rooms.filter((room) => sameClass(room, klass));
       const current = mine.find((room) => room.is_current);
       const roster = Array.isArray(klass.roster) ? klass.roster.length : 0;
-      return `<button type="button" class="tw-course${state.klass && String(state.klass.id) === String(klass.id) ? ' is-current' : ''}" data-class="${esc(klass.id)}">
+      return `<div class="tw-class-item"><button type="button" class="tw-course${state.klass && String(state.klass.id) === String(klass.id) ? ' is-current' : ''}" data-class="${esc(klass.id)}">
         <small>课堂 ${mine.length} 个 · 点名册 ${roster ? `${roster} 人` : '未上传'}</small>
         <strong>${esc(klass.name)}</strong>
         <span>${current ? `当前课堂：${esc(current.name)}（${esc(current.code)}）${current.submissions_open ? '' : ' · 已结束提交'}` : '暂无开放中的课堂'}</span>
-      </button>`;
+      </button><button type="button" class="tw-trash" data-class-delete="${esc(klass.id)}" title="删除班级" aria-label="删除班级 ${esc(klass.name)}">${TRASH_ICON}</button></div>`;
     }).join('') || '<p class="tw-empty">本课程还没有班级。先在下面新建一个班级，例如“2026秋 经济学一班”。</p>';
     // 班级功能上线前发布的课堂：归入某个班级后才在该班级里显示（记录不会丢失）
     const legacy = rooms.filter((room) => !room.class_id);
@@ -223,9 +226,35 @@
       $('[data-legacy-move]').disabled = !state.classes.length;
       if (!state.classes.length) $('[data-legacy-status]').textContent = '请先新建班级。';
     }
-    if (notice) $('[data-legacy-status]').textContent = notice;
+    $('[data-class-notice]').textContent = notice || '';
+  }
+  // 删除班级：输入班级名称确认，连同该班级的全部课堂与学生记录一起删除（ck_delete_class）
+  async function deleteClass(klass) {
+    const typed = window.prompt(`删除班级“${klass.name}”会同时删除它的全部课堂、加入记录、选择、作答、作业、弹幕和点名册，无法恢复；其他班级不受影响。建议先进入该班级，在“导出与清理”里导出存档。\n\n确认删除，请输入班级名称：`);
+    if (typed === null) return;
+    if (typed.trim() !== klass.name) { await showClassPicker('班级名称不一致，没有删除。'); return; }
+    try {
+      await backend.rpc('ck_delete_class', { p_class: Number(klass.id) || klass.id });
+      if (state.klass && String(state.klass.id) === String(klass.id)) {
+        stopWatching();
+        state.klass = null;
+        state.room = null;
+        state.rooms = [];
+      }
+      if (String(store.get(CLASS_KEY)) === String(klass.id)) store.set(CLASS_KEY, '');
+      await showClassPicker(`已删除班级“${klass.name}”及其全部记录。`);
+    } catch (error) {
+      console.error(error);
+      await showClassPicker(`删除失败：${error.message || error}`);
+    }
   }
   $('[data-class-list]').addEventListener('click', async (event) => {
+    const trash = event.target.closest('[data-class-delete]');
+    if (trash) {
+      const klass = state.classes.find((item) => String(item.id) === trash.dataset.classDelete);
+      if (klass) await deleteClass(klass);
+      return;
+    }
     const button = event.target.closest('[data-class]');
     if (!button) return;
     state.klass = state.classes.find((item) => String(item.id) === button.dataset.class);
@@ -266,7 +295,6 @@
     $('[data-course-title]').textContent = `${course.title} · ${klass.name}`;
     document.title = `教师工作台 · ${course.title} · ${klass.name}`;
     $('[data-class-name]').textContent = klass.name;
-    $('[data-class-confirm-name]').textContent = klass.name;
     $('[data-class-rooms]').textContent = state.rooms.length;
     const roster = rosterOf();
     $('[data-roster-info]').textContent = roster.length
@@ -310,6 +338,10 @@
   function selectRoom(room) {
     const changed = !state.room || !room || String(state.room.id) !== String(room.id);
     state.room = room;
+    $('[data-room-delete-name]').textContent = room ? `${room.name}（${room.code}）` : '—';
+    $('[data-room-confirm-code]').textContent = room ? room.code : '—';
+    $('[data-clear-confirm]').value = '';
+    $('[data-clear]').disabled = true;
     if (!room) { stopWatching(); return; }
     store.set(`room:${state.klass.id}`, room.id);
     renderRoom();
@@ -563,14 +595,14 @@
     ['[data-roster-filter]', '[data-roster-export]', '[data-attendance-export]', '[data-roster-stats]'].forEach((selector) => { $(selector).hidden = !hasRoster; });
     const joinedList = students();
     if (!hasRoster) {
-      $('[data-checkin-head]').innerHTML = '<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>加入时间</th><th>递交情况</th><th>备注</th></tr>';
+      $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>加入时间</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
       const rows = joinedList.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names]));
       $('[data-checkin-rows]').innerHTML = rows.map((row, index) => {
         const names = Array.from(row.names);
         const remark = names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '';
         return `<tr><td>${index + 1}</td><td>${esc(row.sid)}</td><td>${esc(names[0])}</td><td>${esc(row.class_name)}</td><td>${esc(row.group_name)}</td><td>${clock(row.first)}</td>
-          ${workCell(row.sid)}<td class="warn">${esc(remark)}</td></tr>`;
-      }).join('') || '<tr><td colspan="8" class="empty">还没有学生加入这个课堂。把课堂码或加入链接展示给学生。</td></tr>';
+          ${workCell(row.sid)}<td class="warn">${esc(remark)}</td>${deleteCell(row)}</tr>`;
+      }).join('') || '<tr><td colspan="9" class="empty">还没有学生加入这个课堂。把课堂码或加入链接展示给学生。</td></tr>';
       return;
     }
     // 按点名册核对：已登录 / 未登录 / 名单外
@@ -583,7 +615,7 @@
     $('[data-roster-absent]').textContent = roster.length - present;
     $('[data-roster-extra]').textContent = extra.length;
     const filter = $('[data-roster-filter]').value;
-    $('[data-checkin-head]').innerHTML = '<tr><th>#</th><th>学号</th><th>姓名</th><th>本次课堂</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th></tr>';
+    $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>本次课堂</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
     const rosterRows = filter === 'extra' ? [] : roster.map((person, index) => ({ person, index, row: joined.get(sidKey(person.sid)) }))
       .filter(({ row }) => filter === 'all' || (filter === 'present' ? row : !row))
       .filter(({ person, row }) => hit([person.sid, person.name, person.class, row && row.group_name, ...(row ? Array.from(row.names) : [])]));
@@ -594,12 +626,35 @@
       return `<tr class="${row ? '' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
         <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${clock(row.first)}` : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
-        ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td></tr>`;
+        ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${row ? deleteCell(row) : '<td></td>'}</tr>`;
     }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td>${esc(Array.from(row.names).join('、'))}</td>
         <td class="warn">名单外登录 ${clock(row.first)}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
-        <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td></tr>`).join('')
-      || '<tr><td colspan="7" class="empty">没有符合条件的学生。</td></tr>';
+        <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td>${deleteCell(row)}</tr>`).join('')
+      || '<tr><td colspan="8" class="empty">没有符合条件的学生。</td></tr>';
   }
+  // 删除某个学生在本课堂的记录（加入、选择、作答、作业、弹幕），其他课堂不受影响
+  $('[data-checkin-rows]').addEventListener('click', async (event) => {
+    const trash = event.target.closest('[data-student-delete]');
+    if (!trash || !state.room) return;
+    const sid = trash.dataset.studentDelete;
+    const row = students().find((item) => String(item.sid) === sid);
+    const name = row ? Array.from(row.names).join('、') : '';
+    const room = state.room;
+    if (!window.confirm(`确定删除 ${name}（学号 ${sid}）在本课堂“${room.name}”的加入记录、选择、作答、作业和弹幕吗？此操作无法恢复，其他课堂不受影响。\n\n（学生如果再次用课堂码登录，会重新出现在名单里。）`)) return;
+    const status = $('[data-checkin-status]');
+    trash.disabled = true;
+    status.textContent = '正在删除……';
+    try {
+      const where = { classroom: Number(room.id), sid: row ? row.sid : sid };
+      for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
+      status.textContent = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
+      if (state.room && String(state.room.id) === String(room.id)) subscribe();
+    } catch (error) {
+      console.error(error);
+      trash.disabled = false;
+      status.textContent = `删除失败：${error.message || error}`;
+    }
+  });
 
   // 读取 .xlsx（Office Open XML，本质是 zip）：只取第一个工作表，在浏览器里解压，不上传文件
   const columnIndex = (ref) => {
@@ -1466,23 +1521,26 @@
   });
   const confirmInput = $('[data-clear-confirm]');
   const clearButton = $('[data-clear]');
-  confirmInput.addEventListener('input', () => { clearButton.disabled = !state.klass || confirmInput.value.trim() !== state.klass.name; });
+  confirmInput.addEventListener('input', () => {
+    clearButton.disabled = !state.room || window.ClassLive.normalizeCode(confirmInput.value) !== window.ClassLive.normalizeCode(state.room.code);
+  });
   clearButton.addEventListener('click', async () => {
-    const klass = state.klass;
-    if (!window.confirm(`确定删除班级“${klass.name}”的全部课堂、加入记录、作答、作业、弹幕和点名册吗？此操作无法恢复，其他班级不受影响。`)) return;
+    const room = state.room;
+    if (!room) return;
+    const live = room.is_current ? '\n\n这是当前课堂：删除后学生不能再用这个课堂码进入，需要重新发布课堂。' : '';
+    if (!window.confirm(`确定删除课堂“${room.name}”（${room.code}）及其加入记录、选择、作答、作业和弹幕吗？此操作无法恢复；本班其他课堂和点名册不受影响。${live}`)) return;
     const status = $('[data-clear-status]');
     clearButton.disabled = true;
     status.textContent = '正在删除……';
     try {
-      await backend.rpc('ck_delete_class', { p_class: Number(klass.id) || klass.id });
-      confirmInput.value = '';
-      status.textContent = '';
+      const where = { classroom: Number(room.id) };
+      for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
+      await backend.removeAll('classrooms', { id: Number(room.id) });
       stopWatching();
-      state.klass = null;
       state.room = null;
-      state.rooms = [];
-      store.set(CLASS_KEY, '');
-      await showClassPicker(`已删除班级“${klass.name}”及其全部记录。`);
+      store.set(`room:${state.klass.id}`, '');
+      await loadRooms();
+      status.textContent = `已删除课堂“${room.name}”（${room.code}）。`;
     } catch (error) {
       console.error(error);
       clearButton.disabled = false;
