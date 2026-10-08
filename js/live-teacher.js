@@ -1271,6 +1271,33 @@
   }, true);
 
   const rateText = (right, answered) => (answered ? `正确率 ${pct(right, answered)}%` : '正确率 —');
+  // 整题统计：由几道小题组成、一起递交的题（辨一辨判断、用一用、概念串联）。全部小题都作答才算“作答”，全部做对才算“整题全对”
+  const GROUP_LABEL = { '辨一辨': '辨一辨（整题全对）', '用一用': '用一用（整题全对）', '概念串联': '概念串联（全部排对）' };
+  function groupStats(templates, rows) {
+    const groups = new Map();
+    templates.filter((item) => item.ref != null && item.type !== 'text').forEach((item) => {
+      const key = submitKey(item.key);   // 挑战题（变一变）单独递交、可选，不并入用一用整题
+      if (!/\.(check|apply)$|^chain$/.test(key)) return;
+      const list = groups.get(key) || [];
+      list.push(item);
+      groups.set(key, list);
+    });
+    return Array.from(groups.entries()).filter(([, list]) => list.length > 1).map(([key, list]) => {
+      const keys = new Set(list.map((item) => item.key));
+      let answered = 0;
+      let right = 0;
+      rows.forEach((row) => {
+        const mine = row.items.filter((item) => keys.has(item.key));
+        if (mine.length !== keys.size || mine.some((item) => item.value == null)) return;
+        answered += 1;
+        if (mine.every((item) => item.correct)) right += 1;
+      });
+      const first = list[0];
+      return { key, section: first.section, step: first.step, firstKey: first.key, lastKey: list[list.length - 1].key,
+        label: GROUP_LABEL[first.step] || `${first.step}（整题）`, parts: list.length, answered, right };
+    });
+  }
+  const groupLine = (group, rowsCount) => `<p class="tw-hint tw-group-rate"><b>${esc(group.label)}</b>：${group.parts} 个小题全部作答 ${group.answered} 人${rowsCount != null ? ` / 已递交 ${rowsCount} 人` : ''}，全对 ${group.right} 人 · ${rateText(group.right, group.answered)}</p>`;
   function itemCard(template, entries, showRef) {
     const answered = entries.filter((entry) => entry.item.value != null);
     const right = answered.filter((entry) => entry.item.correct).length;
@@ -1331,25 +1358,30 @@
     const section = $('[data-pe-section]').value || 'overview';
     if (section === 'overview') {
       const graded = templates.filter((item) => item.ref != null);
-      const stats = graded.map((item) => {
+      const groups = groupStats(templates, rows);
+      const stats = [];
+      graded.forEach((item) => {
         const answered = (entries.get(item.key) || []).filter((entry) => entry.item.value != null);
-        return { item, answered: answered.length, right: answered.filter((entry) => entry.item.correct).length };
+        stats.push({ item, answered: answered.length, right: answered.filter((entry) => entry.item.correct).length });
+        groups.filter((group) => group.lastKey === item.key).forEach((group) => stats.push({
+          item: { section: group.section, label: group.label, prompt: `${group.parts} 个小题全部做对`, key: group.key }, answered: group.answered, right: group.right, group: true }));
       });
       const names = new Map(unitSections(unit).map((s) => [s.id, s.label]));
-      const weakest = stats.filter((stat) => stat.answered >= 3).sort((a, b) => a.right / a.answered - b.right / b.answered).slice(0, 5);
+      const weakest = stats.filter((stat) => !stat.group && stat.answered >= 3).sort((a, b) => a.right / a.answered - b.right / b.answered).slice(0, 5);
       view.innerHTML = `${showRef && weakest.length ? `<article class="tw-card wide"><h2>最值得讲评 <small>作答 3 人以上、正确率最低的 ${weakest.length} 题</small></h2>
           ${weakest.map((stat) => `<div class="tw-option single"><div class="tw-option-label"><span>${esc(names.get(stat.item.section))}</span>${esc(stat.item.label)}：${esc(short(stat.item.prompt, 40))}</div>${bar(stat.right, stat.answered)}</div>`).join('')}</article>` : ''}
         <table class="tw-table"><thead><tr><th>部分</th><th>题目</th><th>作答人数</th>${showRef ? '<th>正确率</th>' : ''}</tr></thead><tbody>
-        ${stats.map((stat) => `<tr><td>${esc(names.get(stat.item.section))}</td><td>${esc(stat.item.label)}<small class="tw-sub">${esc(short(stat.item.prompt, 46))}</small></td>
+        ${stats.map((stat) => `<tr class="${stat.group ? 'tw-group-row' : ''}"><td>${esc(names.get(stat.item.section))}</td><td>${esc(stat.item.label)}<small class="tw-sub">${esc(short(stat.item.prompt, 46))}</small></td>
           <td>${stat.answered} / ${rows.length}</td>${showRef ? `<td>${bar(stat.right, stat.answered)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
       return;
     }
     const chosen = templates.filter((item) => item.section === section);
+    const sectionGroups = showRef ? groupStats(templates, rows).filter((group) => group.section === section) : [];
     let extra = '';
     if (section === 'chain') {
       const done = rows.filter((row) => row.items.some((item) => item.section === 'chain' && item.value != null));
       const perfect = done.filter((row) => row.items.filter((item) => item.section === 'chain').every((item) => item.correct)).length;
-      extra = `<p class="tw-hint">已递交 ${done.length} 人${showRef ? `；全部排对 ${perfect} 人。下面按正确顺序列出每个位置，条形为该位置放对的比例` : ''}。</p>`;
+      extra = `<p class="tw-hint">已递交 ${done.length} 人${showRef ? `；全部排对 ${perfect} 人 · ${rateText(perfect, done.length)}。下面按正确顺序列出每个位置，条形为该位置放对的人数和比例` : ''}。</p>`;
     }
     if (section === 'exit') {
       extra = `<p class="tw-hint">${rows.filter((row) => row.exitSubmitted).length} 人递交了全部 ${unit.exit.length} 题；各题按已递交的人数统计。</p>`;
@@ -1359,12 +1391,22 @@
     let lastStep = '';
     chosen.forEach((item) => {
       // 只有概念部分分“想一想、辨一辨、用一用、说一说”小标题
-      if (item.step !== lastStep && unit.concepts.some((k) => k.id === section)) { html += `<h2 class="tw-step">${esc(item.step)}</h2>`; lastStep = item.step; }
+      if (item.step !== lastStep && unit.concepts.some((k) => k.id === section)) {
+        html += `<h2 class="tw-step">${esc(item.step)}</h2>`;
+        sectionGroups.filter((group) => group.step === item.step).forEach((group) => { html += groupLine(group, rows.length); });
+        lastStep = item.step;
+      }
       html += itemCard(item, entries.get(item.key) || [], showRef);
     });
     view.innerHTML = `<article class="tw-card wide"><h2>${esc(label)} <small>${rows.length} 人已递交</small></h2>${extra}${html}</article>`;
   }
 
+  // 学生作答：本人有几道“整题”全部做对（辨一辨判断、用一用、概念串联）
+  function wholeText(unit, row) {
+    const groups = groupStats(gradeHomework(unit, {}).items, [row]);
+    const done = groups.filter((group) => group.answered);
+    return done.length ? `；整题全对 ${groups.filter((group) => group.right).length}/${done.length}` : '';
+  }
   function renderConceptStudents() {
     if (!CONCEPT) return;
     const unit = peUnit();
@@ -1390,7 +1432,7 @@
       const exit = row.exitAnswered ? `已递交 ${row.exitAnswered}/${row.exitTotal} · 答对 ${row.exitRight}` : '未递交';
       const main = `<tr class="tw-pe-row${open ? ' is-open' : ''}" data-pe-sid="${esc(person.sid)}" tabindex="0" aria-expanded="${open}">
         <td>${open ? '▾' : '▸'} ${esc(doc.sid)}</td><td>${esc(doc.name)}</td><td>${esc(doc.class_name || '')}</td><td>${esc(doc.group_name || '')}</td>
-        <td>${doc.progress}/${doc.total} 题<small class="tw-sub">自动判分小题答对 ${row.autoRight}/${row.autoTotal}</small></td>
+        <td>${doc.progress}/${doc.total} 题<small class="tw-sub">自动判分小题答对 ${row.autoRight}/${row.autoTotal}${wholeText(unit, row)}</small></td>
         <td class="${row.exitSubmitted ? 'ok' : 'warn'}">${exit}</td>
         <td class="${doc.submitted ? 'ok' : 'warn'}">${doc.submitted ? `是 ${clock(millis(doc.submitted_at))}` : '否'}</td><td>${clock(doc.ts)}</td></tr>`;
       if (!open) return main;

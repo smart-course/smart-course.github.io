@@ -373,7 +373,14 @@
       }).join('')}</tbody></table>`;
     }
     if (block.kind === 'cl-values') {
-      return block.fields.map((field, i) => {
+      // 填空、计算有几个空时，先给“全部做对”的比例（只统计每个空都填了的学生）
+      let whole = '';
+      if (!block.single && block.fields.length > 1) {
+        const complete = list.filter((values) => Array.isArray(values) && block.fields.every((_, i) => values[i] != null && String(values[i]).trim() !== ''));
+        const perfect = complete.filter((values) => block.fields.every((field, i) => field.ok(values[i]))).length;
+        whole = rateLine(perfect, complete.length, ' · 全部做对');
+      }
+      return whole + block.fields.map((field, i) => {
         const picks = list.map((values) => (block.single ? values : Array.isArray(values) ? values[i] : null)).filter((v) => v !== null && v !== undefined && String(v).trim() !== '');
         const right = picks.filter((v) => field.ok(v)).length;
         const top = Array.from(countMap(picks.map((v) => String(v).trim())).entries()).sort((a, b) => b[1] - a[1]).slice(0, 6);

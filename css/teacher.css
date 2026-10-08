@@ -197,6 +197,9 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 /* 概念学习课程：作业情况与学生作答 */
 .tw-step { margin: 18px 0 2px; padding-top: 10px; border-top: 2px solid var(--line); color: var(--teal); font-size: 18px; }
 .tw-card .tw-step:first-of-type { border-top: 0; }
+.tw-group-rate { margin: 6px 0 4px; padding: 7px 12px; border-left: 4px solid var(--teal); border-radius: 0 8px 8px 0; background: var(--teal-soft); color: var(--ink); }
+.tw-group-rate b { color: var(--teal); }
+.tw-table tr.tw-group-row td { background: var(--teal-soft); font-weight: 700; }
 .tw-sub { display: block; color: var(--muted); font-size: 13px; font-weight: 400; }
 .tw-values { display: flex; flex-wrap: wrap; gap: 8px; }
 .tw-values span { padding: 5px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font-weight: 700; }

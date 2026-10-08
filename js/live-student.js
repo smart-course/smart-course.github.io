@@ -86,6 +86,21 @@
   .clp-danmaku button { flex: 0 0 auto; min-width: 52px; padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #a4492d; font: 800 13px/1 inherit; cursor: pointer; }
   .clp-danmaku button[disabled] { opacity: .55; cursor: default; }
   .clp-panel.is-folded .clp-body { display: none; }
+  .clp-dmq { margin: 20px 0; padding: 16px 18px; border: 1.5px dashed rgba(164,73,45,.45); border-radius: 12px; background: #fffaf3; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-dmq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .clp-dmq-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
+  .clp-dmq-label { color: #6d6259; font-size: 13px; font-weight: 700; }
+  .clp-dmq h4 { margin: 8px 0 4px; font-size: 18px; line-height: 1.6; }
+  .clp-dmq-hint { margin: 0 0 8px; color: #6d6259; font-size: 14px; }
+  .clp-dmq-form { display: flex; gap: 8px; }
+  .clp-dmq-form input { flex: 1 1 auto; min-width: 0; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; font: inherit; }
+  .clp-dmq-form input:focus { outline: none; border-color: #a4492d; }
+  .clp-dmq-form button { flex: 0 0 auto; min-width: 64px; padding: 9px 14px; border: 0; border-radius: 8px; color: #fff; background: #a4492d; font: 800 14px/1 inherit; cursor: pointer; }
+  .clp-dmq-form button[disabled], .clp-dmq-form input[disabled] { opacity: .55; cursor: default; }
+  .clp-dmq-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
+  .clp-dmq-state[data-state="ok"] { color: #23655f; }
+  .clp-dmq-state[data-state="error"] { color: #a4492d; }
+  @media print { .clp-dmq { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
@@ -114,6 +129,27 @@
   `;
   document.head.appendChild(style);
 
+  // 弹幕小问题（政治经济学）：插在没有题目的页面（学习路线、线索页、概念小结），弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
+  const dmqCards = [];
+  if (worksheet && Array.isArray(config.danmaku)) {
+    config.danmaku.forEach((item, index) => {
+      const page = document.getElementById(item.after);
+      if (!page) return;
+      const box = page.querySelector('.inner') || page;
+      const tag = `【问${index + 1}】`;
+      const card = document.createElement('section');
+      card.className = 'clp-dmq';
+      card.dataset.dmq = String(index + 1);
+      card.innerHTML = `<div class="clp-dmq-head"><span class="clp-dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="clp-dmq-label">${esc(item.label)}</span></div>
+        <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
+        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
+        <p class="clp-dmq-state" role="status"></p>`;
+      const head = box.querySelector('.page-head');
+      if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
+      else box.appendChild(card);
+      dmqCards.push({ card, tag });
+    });
+  }
   const panel = document.createElement('aside');
   panel.className = 'clp-panel';
   panel.setAttribute('data-ix', '');
@@ -506,6 +542,7 @@
   // 机制图“弹幕接龙”：选一个箭头（如 ①→②），用一句话说这两步的关系；
   // 弹幕带“【案例号箭头】”标签（如【01①→②】），投屏机制图据此把它放到对应节点下面
   function setupMechDanmaku(enabled, note) {
+    setupQuestionDanmaku(enabled, note);
     $$('[data-mech-dm]').forEach((box) => {
       const links = $$('[data-mech-link]', box);
       const form = $('[data-mech-dm-form]', box);
@@ -544,6 +581,38 @@
           await sendDanmaku(`【${box.dataset.case}${link}】${text}`.slice(0, 40));
           input.value = '';
           say(`已发送（${time()}），会出现在投屏机制图 ${link} 的位置。若老师开启了审核，通过后才会上屏。`, 'ok');
+        } catch (problem) {
+          console.error(problem);
+          showCooling();
+          say(dmProblem(problem), 'error');
+        }
+      });
+    });
+  }
+
+  // 弹幕小问题：与左下角弹幕、机制图弹幕共用每 5 秒一条的冷却
+  function setupQuestionDanmaku(enabled, note) {
+    dmqCards.forEach(({ card, tag }) => {
+      const form = card.querySelector('form');
+      const input = form.querySelector('input');
+      const button = form.querySelector('button');
+      const state = card.querySelector('.clp-dmq-state');
+      const say = (text, kind) => { state.textContent = text; state.dataset.state = kind || ''; };
+      shield(card);
+      if (!enabled) { say(note); return; }
+      input.disabled = false;
+      dmButtons.push({ button, ready: () => true });
+      showCooling();
+      say('写一句话后点“发送”，会连同你的姓名显示在投屏上。');
+      form.addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = input.value.replace(/\s+/g, ' ').trim();
+        if (!text || cooling > 0) return;
+        button.disabled = true;
+        try {
+          await sendDanmaku(`${tag}${text}`.slice(0, 40));
+          input.value = '';
+          say(`已发送（${time()}）。若老师开启了审核，通过后才会上屏。`, 'ok');
         } catch (problem) {
           console.error(problem);
           showCooling();

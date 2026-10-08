@@ -61,6 +61,18 @@
   @keyframes dm-pop { 0% { opacity: 0; transform: translateY(12px) scale(.6); } 100% { opacity: 1; transform: none; } }
   @keyframes dm-hit { 0% { box-shadow: 0 0 0 0 rgba(164, 73, 45, .55); } 100% { box-shadow: 0 0 0 22px rgba(164, 73, 45, 0); } }
   @media (prefers-reduced-motion: reduce) { .dm-bubble.is-pop, .mechanism-node.dm-hit::before { animation: none; } }
+  .dmq-card { margin: 24px 0; padding: 18px 22px; border: 2px dashed rgba(164, 73, 45, .45); border-radius: 14px; background: #fffaf3;
+    font-family: -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .dmq-card.dm-hit { animation: dm-hit 1.1s ease-out 2; }
+  .dmq-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .dmq-tag { padding: 3px 11px; border-radius: 999px; color: #fff; background: #a4492d; font-weight: 800; font-size: 14px; }
+  .dmq-label { color: #6d6259; font-weight: 700; font-size: 14px; }
+  .dmq-count { margin-left: auto; color: #23655f; font-weight: 800; font-size: 14px; }
+  .dmq-card h4 { margin: 8px 0 4px; font-size: 24px; line-height: 1.55; color: #201c18; }
+  .dmq-hint { margin: 0 0 10px; color: #6d6259; font-size: 15px; }
+  .dmq-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
+  .dmq-wall > em { color: #6d6259; font-style: normal; font-size: 15px; }
+  .dmq-wall .dm-bubble { font-size: 17px; }
   @media print { .dm-stage, .dm-bar { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -154,9 +166,31 @@
 
   // ---------- 机制图“弹幕接龙” ----------
   const TAG = /^【(\d{2})([①②③④])→([①②③④])】\s*/;
+  const QTAG = /^【问(\d{1,2})】\s*/;
+  // 弹幕小问题（政治经济学讲解版）：在对应页面放一张问题卡片，下面是这道题的弹幕墙
+  if (Array.isArray(config.danmaku)) {
+    config.danmaku.forEach((item, index) => {
+      const page = document.getElementById(item.after);
+      if (!page) return;
+      const box = page.querySelector('.inner') || page;
+      const card = document.createElement('section');
+      card.className = 'dmq-card';
+      card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
+        <h4></h4><p class="dmq-hint"></p><div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"><em>等学生发弹幕……（学生页对应位置有输入框，弹幕会以“【问${index + 1}】”开头）</em></div>`;
+      card.querySelector('.dmq-label').textContent = item.label || '';
+      card.querySelector('h4').textContent = item.prompt;
+      const hint = card.querySelector('.dmq-hint');
+      if (item.hint) hint.textContent = item.hint; else hint.remove();
+      const head = box.querySelector('.page-head');
+      if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
+      else box.appendChild(card);
+    });
+  }
   function tagOf(doc) {
     const match = TAG.exec(doc.text || '');
-    return match ? { key: `${match[1]}|${match[2]}→${match[3]}`, link: `${match[2]}→${match[3]}`, text: doc.text.slice(match[0].length) } : null;
+    if (match) return { key: `${match[1]}|${match[2]}→${match[3]}`, link: `${match[2]}→${match[3]}`, text: doc.text.slice(match[0].length) };
+    const question = QTAG.exec(doc.text || '');
+    return question ? { key: `q|${question[1]}`, link: `问${question[1]}`, text: doc.text.slice(question[0].length) } : null;
   }
   const WALL_MAX = 3;
   const walls = new Map();
@@ -174,7 +208,9 @@
     });
     walls.forEach((wall, key) => {
       const list = groups.get(key) || [];
-      const latest = list.slice(-WALL_MAX);
+      const latest = list.slice(-(Number(wall.dataset.max) || WALL_MAX));
+      const counter = wall.closest('.dmq-card') && wall.closest('.dmq-card').querySelector('.dmq-count');
+      if (counter) counter.textContent = list.length ? `${list.length} 条` : '';
       const before = wallShown.get(key) || [];
       const ids = latest.map(({ doc }) => String(doc.id));
       const placeholder = wall.querySelector('em');
@@ -194,7 +230,7 @@
           wall.insertBefore(bubble, count);
         });
         wallShown.set(key, ids);
-        const node = wall.closest('.mechanism-node');
+        const node = wall.closest('.mechanism-node') || wall.closest('.dmq-card');
         if (fresh && node) {
           node.classList.remove('dm-hit');
           void node.offsetWidth;
@@ -202,7 +238,7 @@
           setTimeout(() => node.classList.remove('dm-hit'), 2400);
         }
       }
-      if (list.length > WALL_MAX) {
+      if (!counter && list.length > WALL_MAX) {
         if (!count) { count = document.createElement('span'); count.className = 'dm-wall-count'; wall.appendChild(count); }
         count.textContent = `共 ${list.length} 条`;
       } else if (count) count.remove();
