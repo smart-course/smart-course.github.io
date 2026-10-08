@@ -142,6 +142,8 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-dm-actions { white-space: nowrap; }
 .tw-dm-actions button { margin-right: 4px; padding: 6px 10px; border: 1px solid var(--line); border-radius: 6px; background: var(--paper); font: 700 13px/1 var(--sans); cursor: pointer; }
 .tw-dm-actions button[data-dm-status=shown] { color: #fff; background: var(--teal); border-color: var(--teal); }
+.tw-dm-actions .tw-trash { width: 30px; height: 30px; margin: 0 0 0 2px; padding: 0; border: 0; background: transparent; vertical-align: middle; }
+.tw-dm-actions .tw-trash:hover, .tw-dm-actions .tw-trash:focus-visible { background: var(--rust-soft); }
 .tw-bar .tw-secondary { margin-top: 0; }
 @media (max-width: 760px) {
   .tw-room { grid-template-columns: 1fr; }

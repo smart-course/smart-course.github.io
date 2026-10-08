@@ -69,6 +69,10 @@
   .lv-import:hover, .lv-import:focus-within { opacity: 1; }
   .lv-import button, .lv-import label { padding: 3px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: transparent; font: inherit; cursor: pointer; }
   .lv-import input[type=file] { display: none; }
+  .lv-poll-card { margin: 22px 0 8px; padding: 18px 22px; border: 1px solid rgba(70, 51, 34, .14); border-radius: 14px; background: #fffdf8; box-shadow: 0 6px 18px rgba(70, 51, 34, .08); font-family: var(--sans, -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif); }
+  .lv-poll-card > span { color: var(--rust, #a4492d); font-weight: 800; font-size: 13px; letter-spacing: .06em; }
+  .lv-poll-card h3 { margin: 6px 0 4px; font-size: 22px; }
+  .lv-poll-card p { margin: 0; color: var(--muted, #6d6259); font-size: 15px; }
   @media print { .lv, .lv-import { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -207,6 +211,18 @@
       const later = disc.querySelector('textarea[data-cl-text="discussion.after"]');
       if (later) addBlock(later, { kind: 'cl-count', key: 'discussion.after', label: '递交了讨论后的补充' });
     }
+    // 案例 01 的课堂投票（如“说说你喜欢的授课方式”）：讲解版里没有投票区块，在学习总览后补一张卡片显示结果
+    if (D.poll && Array.isArray(D.poll.options) && D.poll.options.length) {
+      const anchor = document.querySelector('[data-overview]') || document.querySelector('.cl-exit');
+      if (anchor) {
+        const card = document.createElement('section');
+        card.className = 'lv-poll-card';
+        card.setAttribute('data-ix', '');
+        card.innerHTML = `<span>课堂投票</span><h3>${esc(D.poll.title || '说说你喜欢的授课方式')}</h3><p>学生在学生页选择一项并递交，下面实时汇总全班的选择。</p>`;
+        anchor.insertAdjacentElement('afterend', card);
+        addBlock(card, { kind: 'cl-poll', key: 'poll', options: D.poll.options.map((o) => ({ key: String(o.value), label: '', text: o.label })) }, 'beforeend');
+      }
+    }
     const exitList = document.querySelector('.cl-exit .cl-exit-list');
     if (exitList) {
       addBlock(exitList, { kind: 'cl-exit', key: 'exit',
@@ -330,6 +346,7 @@
       const map = countMap(list);
       return rateLine(map.get(String(block.answer)) || 0, all) + optionRows(block.options, map, all, block.answer);
     }
+    if (block.kind === 'cl-poll') return optionRows(block.options, countMap(list), all, null);
     if (block.kind === 'cl-stance') {
       const map = countMap(list.map((value) => (value && value.stance) || ''));
       return optionRows(block.stances.map((s) => ({ key: s, label: '', text: s })), map, all, null);

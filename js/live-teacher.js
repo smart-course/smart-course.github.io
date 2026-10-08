@@ -1468,10 +1468,30 @@
       const shownClass = mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
       return `<tr class="tw-dm is-${esc(shownClass)}"><td>${esc(isoDay(doc.ts))}</td><td>${clock(doc.ts)}</td><td>${esc(doc.name)}</td><td>${esc(doc.sid)}</td>
         <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${esc(doc.text)}</td><td><em>${esc(status)}</em></td>
-        <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}</td></tr>`;
+        <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有弹幕记录。</td></tr>';
   }
   $('[data-danmaku-list]').addEventListener('click', async (event) => {
+    // 删除一条弹幕：从记录里彻底删除，投屏页也随即撤下（与“隐藏”不同，隐藏的弹幕仍留在记录里）
+    const trash = event.target.closest('[data-dm-delete]');
+    if (trash) {
+      const id = trash.dataset.dmDelete;
+      const doc = state.docs.danmaku.find((item) => String(item.id) === id);
+      const preview = doc ? `${doc.name}：${String(doc.text).slice(0, 30)}` : '';
+      if (!window.confirm(`确定删除这条弹幕吗？\n\n${preview}\n\n删除后无法恢复，弹幕记录和导出里都不再有它，投屏上也会撤下。只想不上屏可以点“隐藏”。`)) return;
+      trash.disabled = true;
+      try {
+        await backend.removeAll('danmaku', { id: Number(id) || id });
+        state.docs.danmaku = state.docs.danmaku.filter((item) => String(item.id) !== id);
+        renderDanmaku();
+        renderStats();
+      } catch (error) {
+        console.error(error);
+        trash.disabled = false;
+        actionStatus(`删除弹幕失败：${error.message || error}`);
+      }
+      return;
+    }
     const button = event.target.closest('[data-dm]');
     if (!button) return;
     button.disabled = true;

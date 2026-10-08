@@ -240,6 +240,9 @@
     if (clearedRoom !== String(room.id)) { clearedRoom = String(room.id); cleared = loadCleared(clearedRoom); }
     try {
       const rows = (await backend.fetchAll('danmaku', { classroom: Number(room.id) }, { limit: 80 })).reverse();
+      // 工作台删除的弹幕：不再出现在读取结果里，从循环和屏幕上撤下
+      const present = new Set(rows.map((doc) => String(doc.id)));
+      Array.from(inPool).filter((id) => !present.has(id)).forEach(dropFromPool);
       rows.forEach((doc) => {
         const id = String(doc.id);
         if (cleared.has(id)) { seen.add(id); dropFromPool(id); return; }
