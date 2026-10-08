@@ -1,6 +1,7 @@
 /* 投屏页右下角的“课堂”悬浮控件：与教师工作台的“结束提交 / 重新开放提交”“停止课堂”功能相同，上课时不必切回工作台。
  * 平时半透明，鼠标移上去才完全显示；可收起成一个小按钮。只有当前课堂就是本页章节（案例）时才显示操作按钮。
  * 需要教师已在同一浏览器登录教师工作台（操作需教师账号）。页面需先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
+ * “复原”只清本页在这台电脑上保存的选择、填写和核对记录，然后回到页首重新打开；学生递交的数据在云端，不受影响（不需要登录）。
  */
 (function () {
   'use strict';
@@ -38,6 +39,7 @@
   bar.innerHTML = '<span data-rm-state>课堂：连接中……</span>'
     + '<button type="button" data-rm-open hidden>结束提交</button>'
     + '<button type="button" class="is-warn" data-rm-stop hidden>停止课堂</button>'
+    + '<button type="button" data-rm-reset title="清空本页的选择和填写，恢复到初始状态">复原</button>'
     + '<button type="button" data-rm-min title="收起 / 展开课堂控件">课堂</button>';
   ['click', 'keydown', 'keyup'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   document.body.appendChild(bar);
@@ -45,6 +47,7 @@
   const openButton = bar.querySelector('[data-rm-open]');
   const stopButton = bar.querySelector('[data-rm-stop]');
   const minButton = bar.querySelector('[data-rm-min]');
+  const resetButton = bar.querySelector('[data-rm-reset]');
   const setMin = (value) => {
     bar.classList.toggle('is-min', value);
     minButton.textContent = value ? '课堂' : '收起';
@@ -67,6 +70,30 @@
     });
     bar.style.bottom = `${bottom}px`;
   };
+
+  // 本页（讲解版）保存答题状态的键：政治经济学按案例编号和版本，习近平经济思想按页面路径；不碰登录、弹幕设置和导入的学生文件
+  const pageKeys = () => {
+    const page = document.body.dataset;
+    const prefixes = [`case-selfcheck:${location.pathname}:`];
+    if (page.sourceId) {
+      prefixes.push(`political-economy-concept-${page.sourceId}-${page.mode || 'lecture'}-`,
+        `political-economy-case-${page.sourceId}-`, `political-economy-activities-${page.sourceId}-`);
+    }
+    const keys = [];
+    try {
+      for (let i = 0; i < localStorage.length; i += 1) {
+        const key = localStorage.key(i);
+        if (key && prefixes.some((prefix) => key.startsWith(prefix))) keys.push(key);
+      }
+    } catch (error) { /* 浏览器禁止存储时没有可清的记录 */ }
+    return keys;
+  };
+  resetButton.addEventListener('click', () => {
+    if (!window.confirm('把本页恢复到初始状态？本页的选择、填写和核对结果都会清空（只清这台电脑上的记录，学生递交的数据不受影响）。')) return;
+    pageKeys().forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* 忽略 */ } });
+    try { history.scrollRestoration = 'manual'; } catch (error) { /* 忽略 */ }
+    location.replace(location.pathname + location.search);
+  });
 
   let room = null;
   const show = (html, current) => {

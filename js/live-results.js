@@ -218,7 +218,7 @@
         const card = document.createElement('section');
         card.className = 'lv-poll-card';
         card.setAttribute('data-ix', '');
-        card.innerHTML = `<span>课堂投票</span><h3>${esc(D.poll.title || '说说你喜欢的授课方式')}</h3><p>学生在学生页选择一项并递交，下面实时汇总全班的选择。</p>`;
+        card.innerHTML = `<span>课堂投票</span><h3>${esc(D.poll.title || '说说你喜欢的授课方式')}</h3><p>下面实时汇总全班的选择。</p>`;
         anchor.insertAdjacentElement('afterend', card);
         addBlock(card, { kind: 'cl-poll', key: 'poll', options: D.poll.options.map((o) => ({ key: String(o.value), label: '', text: o.label })) }, 'beforeend');
       }

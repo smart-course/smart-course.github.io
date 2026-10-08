@@ -176,7 +176,7 @@
       const card = document.createElement('section');
       card.className = 'dmq-card';
       card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
-        <h4></h4><p class="dmq-hint"></p><div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"><em>等学生发弹幕……（学生页对应位置有输入框，弹幕会以“【问${index + 1}】”开头）</em></div>`;
+        <h4></h4><p class="dmq-hint"></p><div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"></div>`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
       card.querySelector('.dmq-label').textContent = item.label || '';
       card.querySelector('h4').textContent = item.prompt;
       const hint = card.querySelector('.dmq-hint');
