@@ -145,7 +145,10 @@
         <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
       const head = box.querySelector('.page-head');
-      if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
+      // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后
+      const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene') : null;
+      if (spot) spot.insertAdjacentElement('afterend', card);
+      else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
       dmqCards.push({ card, tag });
     });
@@ -885,6 +888,24 @@
           send: send('discussion.after'),
         });
       }
+    }
+    // 课后思考（申论式大题）：一篇短文，写好后递交
+    const essay = $('textarea[data-cl-text="essay"]');
+    if (essay) {
+      const box = essay.closest('[data-essay]');
+      const count = box && box.querySelector('[data-essay-count]');
+      const target = Number(count && count.dataset.target) || 0;
+      list.push({
+        key: 'essay', section: '课后思考', title: textOf(document.querySelector('#essay h2')) || '申论式大题',
+        prompt: textOf(box && box.querySelector('.cl-essay-q')),
+        anchor: (bar) => (count || essay).insertAdjacentElement('afterend', bar),
+        read: () => text(essay),
+        check: (value) => (!value ? '请先写好，再点“递交”' : value.replace(/\s/g, '').length < 100 ? '至少写 100 字再递交' + (target ? '（建议按作答要求写 ' + target + ' 字左右）' : '') : ''),
+        show: (value) => (value ? [value] : []),
+        lock: () => { essay.readOnly = true; },
+        restore: (value) => { if (!essay.value.trim()) essay.value = value; },
+        send: send('essay'),
+      });
     }
     // 出门测：每题单独递交
     $$('.cl-exit .cl-exit-item').forEach((item, i) => {

@@ -182,7 +182,10 @@
       const hint = card.querySelector('.dmq-hint');
       if (item.hint) hint.textContent = item.hint; else hint.remove();
       const head = box.querySelector('.page-head');
-      if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
+      // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后
+      const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene') : null;
+      if (spot) spot.insertAdjacentElement('afterend', card);
+      else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
     });
   }

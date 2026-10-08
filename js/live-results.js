@@ -223,6 +223,8 @@
         addBlock(card, { kind: 'cl-poll', key: 'poll', options: D.poll.options.map((o) => ({ key: String(o.value), label: '', text: o.label })) }, 'beforeend');
       }
     }
+    const essay = document.querySelector('[data-essay] .cl-essay-req');
+    if (essay) addBlock(essay, { kind: 'cl-count', key: 'essay', label: '递交了课后思考（全文在工作台“作业情况 → 课后思考”查看）' });
     const exitList = document.querySelector('.cl-exit .cl-exit-list');
     if (exitList) {
       addBlock(exitList, { kind: 'cl-exit', key: 'exit',

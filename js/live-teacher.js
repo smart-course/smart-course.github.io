@@ -1111,6 +1111,7 @@
       { id: 'discussion', label: '小组辨析' },
       { id: 'exit', label: '出门测' },
       ...(unit.poll ? [{ id: 'poll', label: '课堂投票' }] : []),
+      ...(unit.essay ? [{ id: 'essay', label: '课后思考' }] : []),
     ];
   }
 
@@ -1185,6 +1186,7 @@
     if (unit.poll) {
       option('poll', 'poll', '课堂投票', '课堂投票', unit.poll.options.map((o) => ({ value: o.value, label: o.label })), (S.poll || {}).choice, null, '课堂投票');
     }
+    if (unit.essay) text('essay', 'essay', '课后思考', `申论式大题（${unit.essay.type}题）`, texts.essay, unit.essay.question);
     const exitItems = items.filter((item) => item.section === 'exit');
     const auto = items.filter((item) => item.ref != null);
     return {
@@ -1226,6 +1228,7 @@
       else if (key === 'discussion') { S.discussion = { stance: value && value.stance }; S.texts['discussion.reason'] = value && value.reason; }
       else if (key === 'discussion.after') S.texts['discussion.after'] = value;
       else if (key === 'poll') S.poll = { choice: value };
+      else if (key === 'essay') S.texts.essay = value;
     });
     return { S, at };
   }
