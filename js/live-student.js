@@ -129,13 +129,15 @@
   `;
   document.head.appendChild(style);
 
-  // 弹幕小问题（政治经济学）：插在没有题目的页面（学习路线、线索页、概念小结），弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
+  // 弹幕小问题：政治经济学插在没有题目的页面（学习路线、线索页、概念小结）；习经章节页放在生成器留好的位置（data-dm-slot）。
+  // 弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
   const dmqCards = [];
-  if (worksheet && Array.isArray(config.danmaku)) {
+  if (Array.isArray(config.danmaku)) {
     config.danmaku.forEach((item, index) => {
-      const page = document.getElementById(item.after);
-      if (!page) return;
-      const box = page.querySelector('.inner') || page;
+      const slot = item.slot ? document.querySelector(`[data-dm-slot="${item.slot}"]`) : null;
+      const page = slot ? null : document.getElementById(item.after);
+      if (!slot && !page) return;
+      const box = slot || page.querySelector('.inner') || page;
       const tag = `【问${index + 1}】`;
       const card = document.createElement('section');
       card.className = 'clp-dmq';
@@ -144,6 +146,11 @@
         <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
         <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
+      if (slot) {
+        slot.replaceChildren(card);
+        dmqCards.push({ card, tag });
+        return;
+      }
       const head = box.querySelector('.page-head');
       // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后
       const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene') : null;
@@ -645,8 +652,10 @@
     $$('[data-live-choice]').forEach((group) => {
       const options = $$('[data-live-option]', group);
       const item = group.dataset.liveItem;
-      const heading = group.matches('li') ? `${textOf(group.querySelector('strong'))}：${textOf(group.querySelector('p'))}` : textOf(group.querySelector('h3'));
-      const kind = item === 'pre' ? '课堂投票 · 前测' : item === 'post' ? '课堂投票 · 后测' : item === 'transfer-k' ? '迁移任务 · 选一选' : `方案推演 · ${textOf(group.querySelector('strong')) || item}`;
+      const heading = group.matches('li') ? `${textOf(group.querySelector('strong'))}：${textOf(group.querySelector('p'))}` : textOf(group.querySelector('h3, h4'));
+      const NAMES = { pre: '课堂投票 · 前测', post: '课堂投票 · 后测', 'transfer-k': '迁移任务 · 选一选', 'debate-side': '辩论赛 · 我在哪一方',
+        'debate-pre': '辩论赛 · 辩前投票', 'debate-post': '辩论赛 · 辩后投票', 'rt-role': '圆桌会议 · 我代表的角色' };
+      const kind = NAMES[item] || `${group.closest('[data-roundtable]') ? '圆桌会议 · 议程' : '方案推演'} · ${textOf(group.querySelector('strong')) || item}`;
       const labelOf = (value) => { const button = options.find((b) => b.dataset.liveOption === value); return button ? `${textOf(button.querySelector('span'))} ${textOf(button.querySelector('strong') || button)}` : value; };
       list.push({
         key: `${group.dataset.liveCase}:${item}`, section: caseTitle(group), title: kind, prompt: heading,
@@ -661,6 +670,30 @@
           return backend.add('choices', { ...base(), case: group.dataset.liveCase, item, choice: value,
             label: textOf(button && (button.querySelector('strong') || button)).slice(0, 120) });
         },
+      });
+    });
+    // 客观题（实操改版：单选、判断、多选、辩论论据卡）：先选、再递交；多选的值按选项顺序用逗号连接
+    $$('[data-live-quiz]').forEach((box) => {
+      const options = $$('[data-quiz-option]', box);
+      const type = box.dataset.quizType;
+      const max = Number(box.dataset.quizMax) || 0;
+      const picked = () => options.filter((b) => b.getAttribute('aria-pressed') === 'true').map((b) => b.dataset.quizOption);
+      const labelOf = (value) => value.split(',').map((v) => {
+        const i = options.findIndex((b) => b.dataset.quizOption === v);
+        const text = i >= 0 ? textOf(options[i].querySelector('span')) : v;
+        return type === 'judge' ? text : `${String.fromCharCode(65 + i)}. ${text}`;
+      });
+      list.push({
+        key: `${box.dataset.liveCase}:${box.dataset.liveItem}`, section: caseTitle(box), title: box.dataset.quizTitle || '客观题',
+        prompt: textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断|选 \d+ 张)/, ''),
+        anchor: (bar) => box.appendChild(bar),
+        read: () => { const value = picked(); return value.length ? value.join(',') : null; },
+        check: (value) => (!value ? '请先选好，再点“递交”' : max && value.split(',').length > max ? `最多选 ${max} 张` : ''),
+        show: (value) => (value ? labelOf(value) : []),
+        lock: () => options.forEach((button) => { button.disabled = true; }),
+        restore: (value) => options.forEach((button) => button.setAttribute('aria-pressed', String(String(value).split(',').includes(button.dataset.quizOption)))),
+        send: (value) => backend.add('choices', { ...base(), case: box.dataset.liveCase, item: box.dataset.liveItem, choice: value,
+          label: labelOf(value).join('；').slice(0, 120) }),
       });
     });
     // 证据—理论配对：一次递交全部线索

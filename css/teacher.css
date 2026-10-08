@@ -239,3 +239,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-reference ol { margin: 6px 0 0; padding-left: 22px; }
 .tw-reference ol.is-steps { padding-left: 0; list-style: none; }
 .tw-reference ol.is-steps li { margin: 6px 0; }
+/* 习经实操改版：客观题统计 */
+.tw-quiz { padding: 10px 0; border-top: 1px dashed rgba(70, 51, 34, .16); }
+.tw-quiz:first-of-type { border-top: 0; }
+.tw-quiz .tw-q small { color: var(--muted, #6d6259); font-weight: 700; }

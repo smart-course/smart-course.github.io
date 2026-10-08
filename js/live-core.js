@@ -51,6 +51,32 @@
     };
     const fromRow = (row) => ({ ...row, case: row.case_no, ts: Number(row.ts) || Date.parse(row.created_at) || 0 });
     const filtered = (query, where) => Object.entries(where).reduce((q, [key, value]) => q.eq(column(key), value), query);
+    // 登录令牌约 2 小时过期，SDK 不会替数据请求自动续期：页面开久了，请求会被当成“未登录”而拒绝
+    // （permission denied for table）。所以请求前每分钟最多检查一次会话（到期时由 SDK 续期），
+    // 仍被当成未登录拒绝时，强制续期后再试一次；行级安全的拒绝（如课堂已结束提交）不在此列。
+    let checkedAt = 0;
+    const keepFresh = async (force) => {
+      if (!force && Date.now() - checkedAt < 60000) return;
+      checkedAt = Date.now();
+      try {
+        if (force && typeof auth.refreshSession === 'function') await auth.refreshSession();
+        await auth.getSession();
+      } catch (error) { /* 续期失败就照常请求，由页面显示错误 */ }
+    };
+    const isAuthError = (error) => {
+      const text = errorText(error);
+      return !/row-level security/i.test(text) && /permission denied for|PGRST30\d|jwt|token.{0,20}(expired|invalid)|unauthori[sz]ed|\b401\b/i.test(text);
+    };
+    const call = async (make) => {
+      await keepFresh(false);
+      try {
+        return unwrap(await make());
+      } catch (error) {
+        if (!isAuthError(error)) throw error;
+        await keepFresh(true);
+        return unwrap(await make());
+      }
+    };
     const sessionInfo = async () => {
       const result = await auth.getSession();
       const session = result && result.data && result.data.session;
@@ -79,14 +105,16 @@
       },
       async signOut() { unwrap(await auth.signOut()); },
       async add(kind, doc) {
-        unwrap(await db.from(COLLECTIONS[kind]).insert(toRow({ ...doc, ts: Date.now() })));
+        const row = toRow({ ...doc, ts: Date.now() });
+        await call(() => db.from(COLLECTIONS[kind]).insert(row));
       },
       async addMany(kind, docs) {
         const ts = Date.now();
-        unwrap(await db.from(COLLECTIONS[kind]).insert(docs.map((doc) => toRow({ ...doc, ts }))));
+        const rows = docs.map((doc) => toRow({ ...doc, ts }));
+        await call(() => db.from(COLLECTIONS[kind]).insert(rows));
       },
       async rpc(name, params) {
-        return unwrap(await db.rpc(name, params || {})).data;
+        return (await call(() => db.rpc(name, params || {}))).data;
       },
       // options.limit：只取最新的若干条（按 id 倒序）；options.since：[列名, 值]，只取该列大于此值的行（增量读取）
       async fetchAll(kind, where, options = {}) {
@@ -95,12 +123,12 @@
           return options.since ? query.gt(options.since[0], options.since[1]) : query;
         };
         if (options.limit) {
-          const result = unwrap(await base().order('id', { ascending: false }).range(0, options.limit - 1));
+          const result = await call(() => base().order('id', { ascending: false }).range(0, options.limit - 1));
           return (result.data || []).map(fromRow);
         }
         const rows = [];
         for (let from = 0; ; from += PAGE) {
-          const result = unwrap(await base().order('id', { ascending: true }).range(from, from + PAGE - 1));
+          const result = await call(() => base().order('id', { ascending: true }).range(from, from + PAGE - 1));
           const batch = result.data || [];
           rows.push(...batch.map(fromRow));
           if (batch.length < PAGE) return rows;
@@ -170,7 +198,7 @@
         };
       },
       async removeAll(kind, where) {
-        unwrap(await filtered(db.from(COLLECTIONS[kind]).delete(), where));
+        await call(() => filtered(db.from(COLLECTIONS[kind]).delete(), where));
       },
     };
   }

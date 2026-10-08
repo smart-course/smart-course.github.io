@@ -175,6 +175,14 @@
   });
   $('[data-switch-course]').addEventListener('click', () => { stopWatching(); showPicker(); });
 
+  // 读取失败的原因：登录过期（后台把请求当成未登录）、网络中断，或其他错误
+  const failReason = (error) => {
+    const text = String((error && [error.code, error.message].filter(Boolean).join(' ')) || error || '');
+    if (/permission denied|PGRST30|jwt|token|unauthori[sz]ed|\b401\b/i.test(text)) return '登录已过期，请刷新页面；仍不行就点“退出登录”后重新登录。';
+    if (/fetch|network|timeout|abort/i.test(text)) return '网络连接中断，请检查网络后刷新页面。';
+    return `请刷新页面再试（${text.slice(0, 80)}）。`;
+  };
+
   // ---------------- 选择班级 ----------------
   async function loadClasses() {
     state.classes = (await backend.fetchAll('classes', { course: course.slug })).sort((a, b) => Number(a.id) - Number(b.id));
@@ -186,7 +194,7 @@
       await loadClasses();
     } catch (error) {
       console.error(error);
-      setLive('读取班级失败：请确认数据库已升级（班级功能）', true);
+      setLive(`读取班级失败：${failReason(error)}`, true);
       state.classes = [];
     }
     const saved = state.classes.find((item) => String(item.id) === String(store.get(CLASS_KEY)));
@@ -211,7 +219,7 @@
       rooms = await backend.fetchAll('classrooms', { course: course.slug });
     } catch (error) {
       console.error(error);
-      $('[data-class-list]').innerHTML = '<p class="tw-empty">读取班级失败：请确认数据库已升级（班级功能），再刷新页面。</p>';
+      $('[data-class-list]').innerHTML = `<p class="tw-empty">读取班级失败：${esc(failReason(error))}</p>`;
       return;
     }
     $('[data-class-list]').innerHTML = state.classes.map((klass) => {
@@ -1034,7 +1042,7 @@
       </article>`;
     const sim = `
       <article class="tw-card wide">
-        <h2>方案推演：${esc(item.sim.title)}</h2>
+        <h2>${item.practice ? '圆桌会议 · 三项议程（全班）' : `方案推演：${esc(item.sim.title)}`}</h2>
         ${item.sim.rounds.map((round, index) => {
           const counts = tally(docs, `sim-${index + 1}`);
           const total = sum(counts);
@@ -1056,7 +1064,60 @@
         ${item.transfer.options.map((text, index) => `<div class="tw-option single"><div class="tw-option-label">${star(index + 1 === item.transfer.answer)}<span>K${index + 1}</span>${esc(text)}${showRef && item.transfer.accept.includes(index + 1) ? '（可以成立）' : ''}</div>${bar(counts.get(`K${index + 1}`) || 0, total)}</div>`).join('')}
       </article>`;
     })() : '';
-    view.innerHTML = poll + match + sim + transfer;
+    // 实操改版：客观题（单选、判断、多选）、辩论赛、圆桌会议
+    const practice = item.practice ? (() => {
+      const P = item.practice;
+      const L = (i) => String.fromCharCode(65 + i);
+      const quizCard = (group) => `
+      <article class="tw-card wide">
+        <h2>${esc(group.title)}</h2>
+        ${group.items.map((q) => {
+          const counts = tally(docs, q.key);
+          const total = sum(counts);
+          const per = new Map();
+          counts.forEach((n, choice) => String(choice).split(',').filter(Boolean).forEach((k) => per.set(k, (per.get(k) || 0) + n)));
+          const key = q.answer.slice().sort().join(',');
+          const right = Array.from(counts.entries()).filter(([choice]) => String(choice).split(',').filter(Boolean).sort().join(',') === key).reduce((n, [, c]) => n + c, 0);
+          return `<div class="tw-quiz"><p class="tw-q">${esc(q.prompt)} <small>${total} 人${showRef && key ? ` · 正确率 ${pct(right, total)}%${q.type === 'multi' ? '（全对）' : ''}` : ''}</small></p>
+            ${q.options.map((text, i) => `<div class="tw-option single"><div class="tw-option-label">${star(q.answer.includes(q.keys[i]))}<span>${q.type === 'judge' ? '' : L(i)}</span>${esc(text)}</div>${bar(per.get(q.keys[i]) || 0, total)}</div>`).join('')}</div>`;
+        }).join('')}
+      </article>`;
+      const votes = (key) => tally(docs, key);
+      const pre = votes('debate-pre');
+      const post = votes('debate-post');
+      const side = votes('debate-side');
+      const cards = votes('debate-cards');
+      const cardCount = new Map();
+      cards.forEach((n, choice) => String(choice).split(',').forEach((k) => cardCount.set(k, (cardCount.get(k) || 0) + n)));
+      const debate = `
+      <article class="tw-card wide">
+        <h2>辩论赛 <small>${esc(P.debate.motion)}</small></h2>
+        ${P.debate.sides.map(([key, text]) => `<div class="tw-option"><div class="tw-option-label"><span>${key === 'pro' ? '正' : '反'}</span>${esc(text)}　<small>本方 ${side.get(key) || 0} 人</small></div>
+          <div class="tw-pair"><label>辩前</label>${bar(pre.get(key) || 0, sum(pre), 'pre')}</div>
+          <div class="tw-pair"><label>辩后</label>${bar(post.get(key) || 0, sum(post), 'post')}</div></div>`).join('')}
+        <p class="tw-q">论据卡被选的次数</p>
+        ${P.debate.cards.map((c) => `<div class="tw-option single"><div class="tw-option-label">${esc(c.text)}</div>${bar(cardCount.get(c.key) || 0, sum(cards))}</div>`).join('')}
+      </article>`;
+      const roleOf = new Map(docs.filter((doc) => doc.item === 'rt-role').map((doc) => [doc.sid, String(doc.choice)]));
+      const roundtable = `
+      <article class="tw-card wide">
+        <h2>圆桌会议 · 按角色看三项议程 <small>${roleOf.size} 人选了角色</small></h2>
+        <table class="tw-table compact"><thead><tr><th>议程</th><th>角色</th><th>A</th><th>B</th><th>C</th><th>人数</th></tr></thead><tbody>
+        ${P.roundtable.rounds.map((round) => {
+          const rows = P.roundtable.roles.concat(['未选角色'])
+            .map((role) => ({ role, mine: docs.filter((doc) => doc.item === round.item && (roleOf.get(doc.sid) || '未选角色') === role) }))
+            .filter((row) => row.mine.length);
+          if (!rows.length) return `<tr><th>${esc(round.title)}</th><td colspan="5">还没有人递交</td></tr>`;
+          return rows.map(({ role, mine }, ri) => `<tr>${ri === 0 ? `<th rowspan="${rows.length}">${esc(round.title)}</th>` : ''}<td>${esc(role)}</td>${round.letters.map((letter) => {
+            const n = mine.filter((doc) => String(doc.choice) === letter).length;
+            return `<td class="${showRef && letter === round.reference ? 'is-answer' : ''}">${n}</td>`;
+          }).join('')}<td>${mine.length}</td></tr>`).join('');
+        }).join('')}
+        </tbody></table>
+      </article>`;
+      return P.groups.map(quizCard).join('') + debate + roundtable;
+    })() : '';
+    view.innerHTML = poll + match + sim + transfer + practice;
   }
 
   // ---------------- 文字作答 ----------------

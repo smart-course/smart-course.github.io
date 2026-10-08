@@ -170,9 +170,11 @@
   // 弹幕小问题（政治经济学讲解版）：在对应页面放一张问题卡片，下面是这道题的弹幕墙
   if (Array.isArray(config.danmaku)) {
     config.danmaku.forEach((item, index) => {
-      const page = document.getElementById(item.after);
-      if (!page) return;
-      const box = page.querySelector('.inner') || page;
+      // 习经章节页：放在生成器留好的位置（data-dm-slot）；政治经济学：按页面和位置插入
+      const slot = item.slot ? document.querySelector(`[data-dm-slot="${item.slot}"]`) : null;
+      const page = slot ? null : document.getElementById(item.after);
+      if (!slot && !page) return;
+      const box = slot || page.querySelector('.inner') || page;
       const card = document.createElement('section');
       card.className = 'dmq-card';
       card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
@@ -181,6 +183,7 @@
       card.querySelector('h4').textContent = item.prompt;
       const hint = card.querySelector('.dmq-hint');
       if (item.hint) hint.textContent = item.hint; else hint.remove();
+      if (slot) { slot.replaceChildren(card); return; }
       const head = box.querySelector('.page-head');
       // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后
       const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene') : null;

@@ -143,6 +143,36 @@
         options: Array.from(box.querySelectorAll('.transfer-options li')).map((li) => ({ key: li.dataset.k, label: li.dataset.k, text: text(li.querySelector('strong')) })),
       });
     });
+    // 实操改版：客观题（单选、判断、多选、论据卡）
+    document.querySelectorAll('[data-quiz][data-quiz-key]').forEach((item) => {
+      const [caseNo, id] = item.dataset.quizKey.split(':');
+      const type = item.dataset.quizType;
+      addBlock(item.querySelector('.quiz-options'), {
+        kind: 'quiz', case: caseNo, item: id, type, answer: (item.dataset.quizAnswer || '').split(',').filter(Boolean),
+        options: Array.from(item.querySelectorAll('[data-quiz-option]')).map((el, index) => ({
+          key: el.dataset.quizOption, label: type === 'judge' ? '' : String.fromCharCode(65 + index), text: text(el.querySelector('span')) })),
+      });
+    });
+    // 辩论赛、圆桌会议的小投票；辩后投票同时和辩前比较
+    document.querySelectorAll('[data-vote-key]').forEach((box) => {
+      const [caseNo, id] = box.dataset.voteKey.split(':');
+      const options = Array.from(box.querySelectorAll('[data-vote-option]')).map((li) => ({ key: li.dataset.voteOption, label: text(li.querySelector('span')), text: text(li.querySelector('strong')) }));
+      addBlock(box.querySelector('.vote-options'), id === 'debate-post'
+        ? { kind: 'versus', case: caseNo, options }
+        : { kind: 'poll', case: caseNo, item: id, options, ref: null });
+    });
+    // 圆桌会议的三项议程：总分布＋按学生选的角色分组
+    document.querySelectorAll('.rt-agenda[data-sim]').forEach((agenda) => {
+      const caseNo = caseOf(agenda);
+      const roles = Array.from(document.querySelectorAll(`[data-vote-key="${caseNo}:rt-role"] [data-vote-option]`)).map((li) => li.dataset.voteOption);
+      agenda.querySelectorAll('article.sim-round[data-sim-round]').forEach((round) => {
+        const options = Array.from(round.querySelectorAll('.sim-option')).map((el) => ({ key: text(el.querySelector('span')), label: text(el.querySelector('span')), text: text(el.querySelector('strong')), reference: el.dataset.reference === 'true' }));
+        addBlock(round.querySelector('.sim-options'), {
+          kind: 'rt-sim', case: caseNo, item: `sim-${round.getAttribute('data-sim-round')}`, options, roles,
+          ref: (options.find((option) => option.reference) || {}).key || null,
+        });
+      });
+    });
     document.querySelectorAll('section.ix-sim[data-sim]').forEach((section) => {
       const caseNo = caseOf(section);
       section.querySelectorAll('article.sim-round[data-sim-round]').forEach((round) => {
@@ -241,6 +271,7 @@
   let room = null;
   let status = '连接中……';
   let counts = new Map();   // 章节案例课程："案例|项目" → Map(选项 → 人数)
+  let latestDocs = [];      // 章节案例课程：每人每题最新一条 {sid, case, item, choice}（圆桌会议按角色分组用）
   let answers = [];         // 概念学习课程：每位学生 {题目编号: 作答}（每题取第一次递交）
   const tally = (caseNo, item) => counts.get(`${caseNo}|${item}`) || new Map();
   const total = (map) => Array.from(map.values()).reduce((a, b) => a + b, 0);
@@ -283,6 +314,58 @@
       const accept = block.accept || [];
       const right = (map.get(String(block.ref)) || 0) + accept.reduce((n, key) => n + (map.get(key) || 0), 0);
       return (block.ref ? rateLine(right, all, accept.length ? `　（★参考 ${esc(block.ref)}，${accept.map(esc).join('、')} 也可以成立）` : '') : '') + optionRows(block.options, map, all, block.ref);
+    }
+    if (block.kind === 'quiz') {
+      const map = tally(block.case, block.item);
+      const all = total(map);
+      countEl.textContent = `已递交 ${all} 人`;
+      if (!block.open) return null;
+      const norm = (value) => String(value).split(',').filter(Boolean).sort().join(',');
+      const key = block.answer.slice().sort().join(',');
+      const per = new Map();
+      map.forEach((n, choice) => String(choice).split(',').filter(Boolean).forEach((k) => per.set(k, (per.get(k) || 0) + n)));
+      const right = Array.from(map.entries()).filter(([choice]) => norm(choice) === key).reduce((sum, [, n]) => sum + n, 0);
+      const head = key ? rateLine(right, all, block.type === 'multi' ? '　（多选：全部选对才算对）' : '')
+        : `<p class="lv-rate">论据卡：每张被选的次数（每人最多选 2 张）</p>`;
+      return head + block.options.map((option) => {
+        const n = per.get(option.key) || 0;
+        return `<div class="lv-row"><span class="lv-label">${star(block.answer.includes(option.key))}${option.label ? `<b>${esc(option.label)}</b>` : ''}${esc(option.text)}</span>${bar(n, all)}<span class="lv-num">${n} 人 · ${pct(n, all)}%</span></div>`;
+      }).join('');
+    }
+    if (block.kind === 'versus') {
+      const pre = tally(block.case, 'debate-pre');
+      const post = tally(block.case, 'debate-post');
+      const preAll = total(pre);
+      const postAll = total(post);
+      countEl.textContent = `辩前 ${preAll} 人 · 辩后 ${postAll} 人`;
+      if (!block.open) return null;
+      return '<div class="lv-legend"><span><i class="is-pre"></i>辩前</span><span><i></i>辩后</span></div>' + block.options.map((option) => {
+        const a = pct(pre.get(option.key) || 0, preAll);
+        const b = pct(post.get(option.key) || 0, postAll);
+        const delta = b - a;
+        return `<div class="lv-row is-pair"><span class="lv-label"><b>${esc(option.label)}</b>${esc(option.text)}</span>${bar(pre.get(option.key) || 0, preAll, 'is-pre')}${bar(post.get(option.key) || 0, postAll)}
+          <span class="lv-num">${a}% → ${b}%（${delta > 0 ? '+' : ''}${delta}）</span></div>`;
+      }).join('') + '<p class="lv-note">看看哪一方说服了更多同学；改变立场的同学说说是哪条论据或哪句质询让你改变了。</p>';
+    }
+    if (block.kind === 'rt-sim') {
+      const map = tally(block.case, block.item);
+      const all = total(map);
+      countEl.textContent = `已递交 ${all} 人`;
+      if (!block.open) return null;
+      const roleOf = new Map(latestDocs.filter((doc) => doc.case === block.case && doc.item === 'rt-role').map((doc) => [doc.sid, doc.choice]));
+      const votes = latestDocs.filter((doc) => doc.case === block.case && doc.item === block.item);
+      const rows = block.roles.concat(['未选角色']).map((role) => {
+        const mine = votes.filter((doc) => (roleOf.get(doc.sid) || '未选角色') === role);
+        if (!mine.length) return '';
+        const cells = block.options.map((option) => {
+          const n = mine.filter((doc) => doc.choice === option.key).length;
+          return `<td class="${option.key === block.ref ? 'is-ref' : ''}">${n}<small>${pct(n, mine.length)}%</small></td>`;
+        }).join('');
+        return `<tr><td>${esc(role)}</td>${cells}<td>${mine.length}</td></tr>`;
+      }).join('');
+      return optionRows(block.options, map, all, block.ref)
+        + `<table class="lv-table"><thead><tr><th>按角色</th>${block.options.map((o) => `<th>${esc(o.label)}</th>`).join('')}<th>人数</th></tr></thead><tbody>${rows}</tbody></table>`
+        + '<p class="lv-note">各方都选同一个方案，就是共识；分歧大的议程，请各方代表说说自己的底线。深色格为参考方案。</p>';
     }
     if (block.kind === 'prepost') {
       const pre = tally(block.case, 'pre');
@@ -453,6 +536,7 @@
         await backend.fetchAll('choices', { classroom: Number(room.id) }),
         (doc) => `${doc.sid}|${doc.case}|${doc.item}`,
       );
+      latestDocs = docs.map((doc) => ({ sid: doc.sid, case: doc.case, item: doc.item, choice: String(doc.choice) }));
       const next = new Map();
       docs.forEach((doc) => {
         const key = `${doc.case}|${doc.item}`;
@@ -492,9 +576,13 @@
         list.forEach((row) => Object.entries(row.answers).forEach(([key, entry]) => {
           const [caseNo, item] = key.split(':');
           if (item === 'match' && Array.isArray(entry.v)) entry.v.forEach((value, i) => { if (value) add(`${caseNo}|match-${i + 1}`, `K${value}`); });
-          else if (/^(pre|post|sim-\d+|transfer-k)$/.test(item)) add(`${caseNo}|${item}`, entry.v);
+          else if (/^(pre|post|sim-\d+|transfer-k|debate-(side|pre|post)|rt-role)$/.test(item) || (typeof entry.v === 'string' && /^[\w,]+$/.test(entry.v) && entry.v.length <= 40)) add(`${caseNo}|${item}`, entry.v);
         }));
         counts = next;
+        latestDocs = list.flatMap((row, i) => Object.entries(row.answers).map(([key, entry]) => {
+          const [caseNo, item] = key.split(':');
+          return { sid: row.sid || String(i), case: caseNo, item, choice: String(entry.v) };
+        }));
       }
       status = list.length ? '' : '离线统计：点右下角“导入学生文件”，选择学生发来的导出文件（可一次选多个）。';
       // 案例 01 的课堂投票（讲解版里没有投票区块，结果显示在这里）
