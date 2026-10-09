@@ -371,11 +371,16 @@
         }).join('');
         return `<tr><td>${esc(role)}</td>${cells}<td>${mine.length}</td></tr>`;
       }).join('');
-      return optionRows(block.options, map, all, block.ref)
+      // 圆桌协商：选得最多的方案就是这一项的协商意见，共识度＝它占的比例；表决看接受（含有条件接受）的比例
+      const ranked = block.options.map((option) => [option, map.get(option.key) || 0]).sort((a, b) => b[1] - a[1]);
+      const head = !all ? '' : block.item === 'rt-vote'
+        ? `<p class="lv-rate">接受（含有条件接受）${pct((map.get('accept') || 0) + (map.get('partial') || 0), all)}%，不接受 ${pct(map.get('reject') || 0, all)}%</p>`
+        : `<p class="lv-rate">协商意见：${esc(ranked[0][0].label)}　共识度 ${pct(ranked[0][1], all)}%（${ranked[0][1]}/${all}）${block.ref ? (ranked[0][0].key === block.ref ? '　与参考方案一致' : '　与参考方案不同，可请分歧双方再协商一轮') : ''}</p>`;
+      return head + optionRows(block.options, map, all, block.ref)
         + `<table class="lv-table"><thead><tr><th>按角色</th>${block.options.map((o) => `<th>${esc(o.label)}</th>`).join('')}<th>人数</th></tr></thead><tbody>${rows}</tbody></table>`
         + (block.item === 'rt-vote'
-          ? '<p class="lv-note">哪一方选了“不接受”，就请这一方代表说出被突破的底线，全班讨论怎样修改方案；“有条件接受”的，请说出还要补上的那一条。</p>'
-          : '<p class="lv-note">各方都选同一个方案，就是共识；分歧大的议程，请各方代表说说自己的底线。深色格为参考方案。</p>');
+          ? '<p class="lv-note">哪一方选了“不接受”，就请这一方代表说出被突破的底线，回到那一项议程再协商；“有条件接受”的，请说出还要补上的那一条。</p>'
+          : '<p class="lv-note">各方都选同一个方案，就是共识；共识度低、分歧大的议程，请分歧双方各说一次底线，再协商一轮。深色格为参考方案。</p>');
     }
     if (block.kind === 'rt-task') {
       const mine = latestDocs.filter((doc) => doc.case === block.case && /^rt-task-[123]$/.test(doc.item));

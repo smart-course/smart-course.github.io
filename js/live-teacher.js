@@ -1043,7 +1043,7 @@
       </article>`;
     const sim = `
       <article class="tw-card wide">
-        <h2>${item.practice ? '圆桌会议 · 三项议程（全班）' : `方案推演：${esc(item.sim.title)}`}</h2>
+        <h2>${item.practice ? '圆桌协商 · 三项议程的协商意见（全班）' : `方案推演：${esc(item.sim.title)}`}</h2>
         ${item.sim.rounds.map((round, index) => {
           const counts = tally(docs, `sim-${index + 1}`);
           const total = sum(counts);
@@ -1101,14 +1101,18 @@
       const roleOf = new Map(docs.filter((doc) => doc.item === 'rt-role').map((doc) => [doc.sid, String(doc.choice)]));
       const roundtable = `
       <article class="tw-card wide">
-        <h2>圆桌会议 · 按角色看议程、秘密任务和表决 <small>${roleOf.size} 人选了角色</small></h2>
+        <h2>圆桌会议 · 按角色看协商意见、秘密任务和表决 <small>${roleOf.size} 人选了角色</small></h2>
         <table class="tw-table compact"><thead><tr><th>议程</th><th>角色</th><th>A</th><th>B</th><th>C</th><th>人数</th></tr></thead><tbody>
         ${P.roundtable.rounds.map((round) => {
           const rows = P.roundtable.roles.concat(['未选角色'])
             .map((role) => ({ role, mine: docs.filter((doc) => doc.item === round.item && (roleOf.get(doc.sid) || '未选角色') === role) }))
             .filter((row) => row.mine.length);
           if (!rows.length) return `<tr><th>${esc(round.title)}</th><td colspan="5">还没有人递交</td></tr>`;
-          return rows.map(({ role, mine }, ri) => `<tr>${ri === 0 ? `<th rowspan="${rows.length}">${esc(round.title)}</th>` : ''}<td>${esc(role)}</td>${round.letters.map((letter) => {
+          // 协商意见：全班选得最多的方案；共识度＝它占的比例
+          const votesAll = docs.filter((doc) => doc.item === round.item);
+          const top = round.letters.map((letter) => [letter, votesAll.filter((doc) => String(doc.choice) === letter).length]).sort((a, b) => b[1] - a[1])[0];
+          const title = `${round.title}<small>协商意见 ${top[0]} · 共识度 ${pct(top[1], votesAll.length)}%</small>`;
+          return rows.map(({ role, mine }, ri) => `<tr>${ri === 0 ? `<th rowspan="${rows.length}">${title}</th>` : ''}<td>${esc(role)}</td>${round.letters.map((letter) => {
             const n = mine.filter((doc) => String(doc.choice) === letter).length;
             return `<td class="${showRef && letter === round.reference ? 'is-answer' : ''}">${n}</td>`;
           }).join('')}<td>${mine.length}</td></tr>`).join('');
@@ -1132,7 +1136,7 @@
           return `<p class="tw-q">秘密任务完成情况 <small>3 题全部答对＝完成</small></p>
             <table class="tw-table compact"><thead><tr><th>角色</th><th>人数</th><th>题1 答对</th><th>题2 答对</th><th>题3 答对</th><th>完成秘密任务</th></tr></thead>
             <tbody>${taskRows}</tbody></table>
-            <p class="tw-q">代表发言后的圆桌表决</p>
+            <p class="tw-q">协商意见表决</p>
             <table class="tw-table compact"><thead><tr><th>角色</th>${vote.map(([, label]) => `<th>${esc(label.split('：')[0])}</th>`).join('')}<th>人数</th></tr></thead>
             <tbody>${voteRows || `<tr><td colspan="${vote.length + 2}">还没有人表决</td></tr>`}</tbody></table>`;
         })()}
