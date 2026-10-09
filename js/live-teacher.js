@@ -386,12 +386,13 @@
   async function deleteRoom(room, confirmed) {
     const live = room.is_current ? '\n\n这是当前课堂：删除后学生不能再用这个课堂码进入，需要重新发布课堂。' : '';
     if (!confirmed) {
-      const typed = window.prompt(`删除课堂“${room.name}”（${room.code}）会同时删除它的加入记录、选择、作答、作业和弹幕，无法恢复；本班其他课堂和点名册不受影响。建议先在“导出与清理”里导出本课堂。${live}\n\n确认删除，请输入课堂码：`);
+      const typed = window.prompt(`删除课堂“${room.name}”（${room.code}）会同时删除它的加入记录、选择、作答、作业、弹幕和匿名建议，无法恢复；本班其他课堂和点名册不受影响。建议先在“导出与清理”里导出本课堂。${live}\n\n确认删除，请输入课堂码：`);
       if (typed === null) return false;
       if (window.ClassLive.normalizeCode(typed) !== window.ClassLive.normalizeCode(room.code)) { roomNotice('课堂码不一致，没有删除。'); return false; }
     }
     const where = { classroom: Number(room.id) };
     for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
+    try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
     await backend.removeAll('classrooms', { id: Number(room.id) });
     const wasSelected = state.room && String(state.room.id) === String(room.id);
     if (wasSelected) {
@@ -457,6 +458,9 @@
     const mode = $('[data-danmaku-mode]');
     mode.value = room.danmaku || 'off';
     mode.disabled = !room.is_current;
+    const anon = $('[data-danmaku-anon]');
+    anon.checked = Boolean(room.danmaku_anon);
+    anon.disabled = !room.is_current;
     renderDanmaku();
   }
 
@@ -467,7 +471,7 @@
     try {
       const rows = (await backend.fetchAll('classrooms', { course: course.slug })).filter((room) => sameClass(room, state.klass));
       const fresh = rows.find((room) => String(room.id) === String(state.room.id));
-      if (!fresh || !['danmaku', 'submissions_open', 'is_current'].some((key) => fresh[key] !== state.room[key])) return;
+      if (!fresh || !['danmaku', 'danmaku_anon', 'submissions_open', 'is_current'].some((key) => fresh[key] !== state.room[key])) return;
       state.rooms = state.rooms.map((room) => (String(room.id) === String(fresh.id) ? fresh : room));
       state.room = fresh;
       renderRoom();
@@ -501,6 +505,11 @@
   });
   $('[data-danmaku-mode]').addEventListener('change', (event) => {
     roomAction('设置弹幕', () => backend.rpc('ck_set_danmaku', { p_classroom: Number(state.room.id), p_mode: event.target.value }));
+  });
+  // 匿名：投屏不显示学生姓名；弹幕记录照常保存发送人
+  $('[data-danmaku-anon]').addEventListener('change', (event) => {
+    const on = event.target.checked;
+    roomAction(on ? '开启弹幕匿名' : '关闭弹幕匿名', () => backend.rpc('ck_set_danmaku_anon', { p_classroom: Number(state.room.id), p_anon: on }));
   });
   $('[data-copy-link]').addEventListener('click', async () => {
     const link = joinLink(state.room.code);
@@ -571,6 +580,7 @@
       if (values.includes('polling')) return '每 5 秒自动刷新';
       return values.length === KINDS.length ? '实时同步中' : '已连接';
     };
+    loadFeedback();
     const where = { course: course.slug, classroom: Number(state.room.id) };
     KINDS.forEach((kind) => {
       state.stops.push(backend.watch(kind, where, (docs) => {
@@ -585,6 +595,64 @@
       kind === 'homework' ? { incremental: true } : undefined));
     });
   }
+
+  // ---------------- 匿名建议（表里没有提交者，只有日期） ----------------
+  const missingTable = (error) => /42P01|PGRST205|does not exist|Could not find the table/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`);
+  let feedbackRows = [];
+  let feedbackProblem = '';
+  async function loadFeedback() {
+    if (!state.klass) return;
+    const rooms = $('[data-fb-scope]').value === 'class' ? state.rooms : state.room ? [state.room] : [];
+    const ids = new Set(rooms.map((room) => String(room.id)));
+    try {
+      feedbackRows = (await backend.fetchAll('feedback', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)));
+      feedbackProblem = '';
+    } catch (error) {
+      console.error(error);
+      feedbackRows = [];
+      feedbackProblem = missingTable(error) ? '建议箱的数据表还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261010-匿名建议.sql。' : `读取建议失败：${error.message || error}`;
+    }
+    renderFeedback();
+  }
+  function renderFeedback() {
+    const query = $('[data-fb-search]').value.trim();
+    const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
+    const rows = feedbackRows.filter((doc) => !query || String(doc.text || '').includes(query)).sort((a, b) => Number(b.id) - Number(a.id));
+    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。` : '');
+    $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>案例 ${esc(doc.case_no)}</td>
+      <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action"><button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
+      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每个案例最后的“匿名建议箱”提交后会出现在这里。'}</td></tr>`;
+    $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
+  }
+  $('[data-fb-scope]').addEventListener('change', loadFeedback);
+  $('[data-fb-search]').addEventListener('input', renderFeedback);
+  $('[data-tab="feedback"]').addEventListener('click', loadFeedback);
+  // 打开“匿名建议”标签时每 20 秒刷新一次
+  setInterval(() => { if (state.room && !$('[data-panel="feedback"]').hidden) loadFeedback(); }, 20000);
+  $('[data-fb-rows]').addEventListener('click', async (event) => {
+    const trash = event.target.closest('[data-fb-delete]');
+    if (!trash) return;
+    const id = trash.dataset.fbDelete;
+    const doc = feedbackRows.find((item) => String(item.id) === id);
+    if (!window.confirm(`确定删除这条建议吗？删除后无法恢复。\n\n${doc ? String(doc.text).slice(0, 60) : ''}`)) return;
+    trash.disabled = true;
+    try {
+      await backend.removeAll('feedback', { id: Number(id) || id });
+      await loadFeedback();
+    } catch (error) {
+      console.error(error);
+      trash.disabled = false;
+      $('[data-fb-summary]').textContent = `删除失败：${error.message || error}`;
+    }
+  });
+  $('[data-fb-export]').addEventListener('click', () => {
+    const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
+    const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
+      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', `案例 ${doc.case_no}`, doc.text]);
+    const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
+    download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
+      csv([['序号', '日期', '课堂', '案例', '建议'], ...rows]));
+  });
 
   // ---------------- 标签页 ----------------
   $$('[data-tab]').forEach((tab) => tab.addEventListener('click', () => {
@@ -609,11 +677,15 @@
   }
 
   // ---------------- 加入名单与统计 ----------------
-  const students = () => {
+  // 同一课堂可能分几次课上：每次登录（首页登录或当天第一次打开章节页）各记一行，按日期（session）区分
+  const dayOf = (doc) => doc.session || isoDay(doc.ts);
+  const shortDay = (day) => String(day || '').slice(5);
+  const students = (day) => {
     const map = new Map();
-    state.docs.checkins.slice().sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((doc) => {
-      const row = map.get(doc.sid) || { sid: doc.sid, names: new Set(), first: doc.ts };
+    state.docs.checkins.filter((doc) => !day || dayOf(doc) === day).sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((doc) => {
+      const row = map.get(doc.sid) || { sid: doc.sid, names: new Set(), first: doc.ts, days: new Map() };
       row.names.add(doc.name);
+      if (!row.days.has(dayOf(doc))) row.days.set(dayOf(doc), doc.ts);
       row.class_name = doc.class_name || row.class_name || '';
       row.group_name = doc.group_name || row.group_name || '';
       map.set(doc.sid, row);
@@ -677,6 +749,23 @@
   const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
   const rosterOf = () => (state.klass && Array.isArray(state.klass.roster) ? state.klass.roster : []);
   $('[data-checkin-search]').addEventListener('input', renderCheckins);
+  $('[data-checkin-date]').addEventListener('change', renderCheckins);
+  // 日期选项：本课堂有登录记录的每一天，附当天登录人数；返回当前选择（空＝全部日期）
+  function checkinDay() {
+    const select = $('[data-checkin-date]');
+    const counts = new Map();
+    state.docs.checkins.forEach((doc) => { const set = counts.get(dayOf(doc)) || new Set(); set.add(doc.sid); counts.set(dayOf(doc), set); });
+    const days = Array.from(counts.keys()).filter(Boolean).sort();
+    const chosen = days.includes(select.value) ? select.value : '';
+    select.innerHTML = `<option value="">全部日期${days.length > 1 ? `（${days.length} 天）` : ''}</option>`
+      + days.map((day) => `<option value="${day}">${day}（${counts.get(day).size} 人）</option>`).join('');
+    select.value = chosen;
+    select.hidden = days.length < 2 && !chosen;
+    return chosen;
+  }
+  // 登录记录：选了日期只显示当天时间；全部日期时列出每一天第一次登录的时间
+  const loginText = (row, day) => (day ? clock(row.days.get(day))
+    : Array.from(row.days.entries()).map(([d, ts]) => `${shortDay(d)} ${clock(ts).slice(0, 5)}`).join('、'));
   $('[data-roster-filter]').addEventListener('change', renderCheckins);
   function renderCheckins() {
     const submitted = submissions();
@@ -693,16 +782,17 @@
     const roster = rosterOf();
     const hasRoster = roster.length > 0;
     ['[data-roster-filter]', '[data-roster-export]', '[data-attendance-export]', '[data-roster-stats]'].forEach((selector) => { $(selector).hidden = !hasRoster; });
-    const joinedList = students();
+    const day = checkinDay();
+    const joinedList = students(day);
     if (!hasRoster) {
-      $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>加入时间</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
+      $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>${day ? `登录时间（${shortDay(day)}）` : '登录记录'}</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
       const rows = joinedList.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names]));
       $('[data-checkin-rows]').innerHTML = rows.map((row, index) => {
         const names = Array.from(row.names);
         const remark = names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '';
-        return `<tr><td>${index + 1}</td><td>${esc(row.sid)}</td><td>${esc(names[0])}</td><td>${esc(row.class_name)}</td><td>${esc(row.group_name)}</td><td>${clock(row.first)}</td>
+        return `<tr><td>${index + 1}</td><td>${esc(row.sid)}</td><td>${esc(names[0])}</td><td>${esc(row.class_name)}</td><td>${esc(row.group_name)}</td><td>${esc(loginText(row, day))}</td>
           ${workCell(row.sid)}<td class="warn">${esc(remark)}</td>${deleteCell(row)}</tr>`;
-      }).join('') || '<tr><td colspan="9" class="empty">还没有学生加入这个课堂。把课堂码或加入链接展示给学生。</td></tr>';
+      }).join('') || `<tr><td colspan="9" class="empty">${day ? '这一天没有登录记录。' : '还没有学生加入这个课堂。把课堂码或加入链接展示给学生。'}</td></tr>`;
       return;
     }
     // 按点名册核对：已登录 / 未登录 / 名单外
@@ -715,7 +805,7 @@
     $('[data-roster-absent]').textContent = roster.length - present;
     $('[data-roster-extra]').textContent = extra.length;
     const filter = $('[data-roster-filter]').value;
-    $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>本次课堂</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
+    $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>${day ? `${shortDay(day)} 登录` : '本次课堂'}</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
     const rosterRows = filter === 'extra' ? [] : roster.map((person, index) => ({ person, index, row: joined.get(sidKey(person.sid)) }))
       .filter(({ row }) => filter === 'all' || (filter === 'present' ? row : !row))
       .filter(({ person, row }) => hit([person.sid, person.name, person.class, row && row.group_name, ...(row ? Array.from(row.names) : [])]));
@@ -724,11 +814,11 @@
       const names = row ? Array.from(row.names) : [];
       const remark = row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '';
       return `<tr class="${row ? '' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
-        <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${clock(row.first)}` : '未登录'}</td>
+        <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
         ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${row ? deleteCell(row) : '<td></td>'}</tr>`;
     }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td>${esc(Array.from(row.names).join('、'))}</td>
-        <td class="warn">名单外登录 ${clock(row.first)}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
+        <td class="warn">名单外登录 ${esc(loginText(row, day))}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
         <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td>${deleteCell(row)}</tr>`).join('')
       || '<tr><td colspan="8" class="empty">没有符合条件的学生。</td></tr>';
   }
@@ -935,15 +1025,18 @@
   // 导出考勤：本次课堂 / 本班全部课堂（点名册 × 课堂）
   $('[data-roster-export]').addEventListener('click', () => {
     if (!state.room) return;
-    const joined = new Map(students().map((row) => [sidKey(row.sid), row]));
+    const day = $('[data-checkin-date]').value;
+    const list = students(day);
+    const joined = new Map(list.map((row) => [sidKey(row.sid), row]));
     const inRoster = new Set(rosterOf().map((p) => sidKey(p.sid)));
+    const times = (row) => Array.from(row.days.entries()).map(([d, ts]) => `${d} ${clock(ts)}`).join('、');
     const rows = rosterOf().map((p, i) => {
       const row = joined.get(sidKey(p.sid));
-      return [i + 1, p.sid, p.name, p.class, row ? '已登录' : '未登录', row ? `${isoDay(row.first)} ${clock(row.first)}` : '', row ? Array.from(row.names).join('、') : '', row ? row.group_name : ''];
+      return [i + 1, p.sid, p.name, p.class, row ? '已登录' : '未登录', row ? times(row) : '', row ? Array.from(row.names).join('、') : '', row ? row.group_name : ''];
     });
-    students().filter((row) => !inRoster.has(sidKey(row.sid))).forEach((row) => rows.push(['名单外', row.sid, '', row.class_name, '名单外登录', `${isoDay(row.first)} ${clock(row.first)}`, Array.from(row.names).join('、'), row.group_name]));
-    download(`${course.title}_${safeName(state.klass.name)}_${safeName(state.room.name)}_考勤_${window.ClassLive.today()}.csv`,
-      csv([['序号', '学号', '姓名（点名册）', '班级（点名册）', '本次课堂', '登录时间', '登录时填写的姓名', '小组'], ...rows]));
+    list.filter((row) => !inRoster.has(sidKey(row.sid))).forEach((row) => rows.push(['名单外', row.sid, '', row.class_name, '名单外登录', times(row), Array.from(row.names).join('、'), row.group_name]));
+    download(`${course.title}_${safeName(state.klass.name)}_${safeName(state.room.name)}_考勤_${day || window.ClassLive.today()}.csv`,
+      csv([['序号', '学号', '姓名（点名册）', '班级（点名册）', day ? `${day} 登录` : '本次课堂', '登录时间（每天第一次）', '登录时填写的姓名', '小组'], ...rows]));
   });
   $('[data-attendance-export]').addEventListener('click', async () => {
     const info = $('[data-roster-info]');
@@ -952,12 +1045,19 @@
       const rooms = state.rooms.slice().sort((a, b) => Number(a.id) - Number(b.id));
       const ids = new Set(rooms.map((room) => String(room.id)));
       const checkins = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)));
-      const seen = new Map();   // 学号 → 出现过的课堂
-      checkins.forEach((doc) => { const key = sidKey(doc.sid); const set = seen.get(key) || new Set(); set.add(String(doc.classroom)); seen.set(key, set); });
-      const header = ['学号', '姓名', ...rooms.map((room) => `${room.name}（${isoDay(millis(room.created_at))}）`), '出勤次数'];
+      // 一列＝一个课堂的一个上课日期（同一课堂分几次课上就有几列）；没有任何登录的课堂按发布日期占一列
+      const seen = new Map();   // 学号 → 出现过的“课堂|日期”
+      const columns = [];
+      rooms.forEach((room) => {
+        const days = Array.from(new Set(checkins.filter((doc) => String(doc.classroom) === String(room.id)).map(dayOf))).filter(Boolean).sort();
+        (days.length ? days : [isoDay(millis(room.created_at))]).forEach((day) => columns.push({ key: `${room.id}|${day}`, title: `${room.name}（${day}）` }));
+      });
+      checkins.forEach((doc) => { const key = sidKey(doc.sid); const set = seen.get(key) || new Set(); set.add(`${doc.classroom}|${dayOf(doc)}`); seen.set(key, set); });
+      const header = ['学号', '姓名', ...columns.map((column) => column.title), '出勤次数'];
       const line = (sid, name) => {
         const set = seen.get(sidKey(sid)) || new Set();
-        return [sid, name, ...rooms.map((room) => (set.has(String(room.id)) ? '✓' : '')), set.size];
+        const marks = columns.map((column) => (set.has(column.key) ? '✓' : ''));
+        return [sid, name, ...marks, marks.filter(Boolean).length];
       };
       const rows = rosterOf().map((p) => line(p.sid, p.name));
       const inRoster = new Set(rosterOf().map((p) => sidKey(p.sid)));
@@ -1557,8 +1657,8 @@
   // ---------------- 弹幕 ----------------
   const DANMAKU_HINT = {
     off: '弹幕已关闭：学生暂时不能发送。在上方“弹幕”处选择“直接上屏”或“审核后上屏”即可开启。',
-    direct: '直接上屏：学生发送后立即以“姓名：内容”在投屏的课堂页面滚动显示；可随时点“隐藏”撤下。',
-    review: '审核后上屏：学生发送后先出现在这里，点“上屏”才会以“姓名：内容”在投屏页面显示。',
+    direct: '直接上屏：学生发送后立即在投屏的课堂页面滚动显示（“姓名：内容”，勾选“匿名”后只显示内容）；可随时点“隐藏”撤下。',
+    review: '审核后上屏：学生发送后先出现在这里，点“上屏”才会在投屏页面显示（“姓名：内容”，勾选“匿名”后只显示内容）。',
   };
   const STATUS_TEXT = { new: '待上屏', shown: '已上屏', hidden: '已隐藏' };
   // 导出记录用审核状态表述（直接上屏模式下未审核的弹幕也会上屏）
@@ -1577,7 +1677,9 @@
     const room = state.room;
     if (!room) return;
     const mode = room.danmaku || 'off';
-    $('[data-danmaku-hint]').textContent = room.is_current ? DANMAKU_HINT[mode] : '历史课堂：弹幕记录只供查看和导出。';
+    $('[data-danmaku-hint]').textContent = room.is_current
+      ? DANMAKU_HINT[mode] + (room.danmaku_anon ? '　已开启匿名：投屏只显示内容、不显示姓名；下表和导出记录里仍能看到是谁发的。' : '')
+      : '历史课堂：弹幕记录只供查看和导出。';
     const all = state.docs.danmaku.slice().sort((a, b) => (b.ts || 0) - (a.ts || 0) || Number(b.id) - Number(a.id));
     // 日期选项：本课堂出现过的每一天（每节课）
     const dateSelect = $('[data-dm-date]');
@@ -1774,7 +1876,7 @@
     const room = state.room;
     if (!room) return;
     const live = room.is_current ? '\n\n这是当前课堂：删除后学生不能再用这个课堂码进入，需要重新发布课堂。' : '';
-    if (!window.confirm(`确定删除课堂“${room.name}”（${room.code}）及其加入记录、选择、作答、作业和弹幕吗？此操作无法恢复；本班其他课堂和点名册不受影响。${live}`)) return;
+    if (!window.confirm(`确定删除课堂“${room.name}”（${room.code}）及其加入记录、选择、作答、作业、弹幕和匿名建议吗？此操作无法恢复；本班其他课堂和点名册不受影响。${live}`)) return;
     const status = $('[data-clear-status]');
     clearButton.disabled = true;
     status.textContent = '正在删除……';

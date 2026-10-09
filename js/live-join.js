@@ -66,6 +66,8 @@
         course: room.course, classroom: room.classroom, session: window.ClassLive.today(),
         name, sid, class_name: className, group_name: groupName || null, page: room.chapter, path: location.pathname,
       });
+      // 当天已记过登录：章节页不再重复记（章节页每天第一次打开会自动补记，见 live-student）
+      try { localStorage.setItem(`classlive-checkin:${room.classroom}`, JSON.stringify(window.ClassLive.today())); } catch (error) { /* 忽略 */ }
       save({
         code, name, sid, class_name: className, group_name: groupName, agreed: true,
         course: room.course, chapter: room.chapter, classroom: room.classroom, classroom_name: room.name, joined_at: Date.now(),

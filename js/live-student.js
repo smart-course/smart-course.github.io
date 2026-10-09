@@ -8,7 +8,7 @@
  *   · 案例课程（kind = case-html，如《习近平经济思想概论》章节页）：投票、配对、推演、文字作答 → ck_choices / ck_answers；
  *   · 概念学习课程（kind = concept-html，如《政治经济学》练习页）：各题 → RPC ck_submit_answer（并入每人一份作业）；
  *     页面里的姓名、学号、班级按课堂登录信息自动填写并锁定。
- * 两类都可发弹幕：连同姓名显示在老师投屏的课堂页面上（老师开放后可用）。
+ * 两类都可发弹幕：显示在老师投屏的课堂页面上（老师开放后可用；老师开启匿名时投屏不显示姓名，后台照常记录发送人）。
  * 未从课堂码进入（或本周课堂不在这一页）时只能写备注、导出，不能递交。
  * 离线版（provider = offline，脚本内嵌在课程目录的离线 HTML 里，网络不可用时直接发给学生）：
  *   不连接后台；学生在面板里填写姓名、学号、班级；“递交”只在本机锁定答案（每题只算第一次）；
@@ -111,6 +111,23 @@
   .clp-dmq-state[data-state="ok"] { color: #23655f; }
   .clp-dmq-state[data-state="error"] { color: #a4492d; }
   @media print { .clp-dmq { display: none !important; } }
+  .clp-fb { margin: 28px 0 8px; padding: 16px 18px; border: 1.5px solid rgba(35,101,95,.35); border-radius: 12px; background: #f4f8f6; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .clp-fb-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #23655f; font-weight: 800; font-size: 13px; }
+  .clp-fb-label { color: #6d6259; font-size: 13px; font-weight: 700; }
+  .clp-fb h4 { margin: 8px 0 4px; font-size: 18px; line-height: 1.6; }
+  .clp-fb-hint { margin: 0 0 8px; color: #4d443c; font-size: 14px; }
+  .clp-fb-hint b { color: #23655f; }
+  .clp-fb textarea { display: block; box-sizing: border-box; width: 100%; min-height: 96px; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; color: #201c18; font: inherit; resize: vertical; }
+  .clp-fb textarea:focus { outline: none; border-color: #23655f; }
+  .clp-fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .clp-fb-count { color: #6d6259; font-size: 13px; }
+  .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font: 800 14px/1 inherit; cursor: pointer; }
+  .clp-fb-row button[disabled], .clp-fb textarea[disabled] { opacity: .55; cursor: default; }
+  .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
+  .clp-fb-state[data-state="ok"] { color: #23655f; font-weight: 700; }
+  .clp-fb-state[data-state="error"] { color: #a4492d; font-weight: 700; }
+  @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
@@ -170,6 +187,29 @@
       else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
       dmqCards.push({ card, tag, debate });
+    });
+  }
+  // ---------- 匿名建议箱：每个案例最后（网站版才有，离线版不加）。后台不记录提交者，只记日期 ----------
+  const fbCards = [];
+  if (!OFFLINE) {
+    const spots = worksheet
+      ? [{ caseNo: (/(\d{2})$/.exec(unit) || [])[1], page: document.getElementById('sources') }]
+      : $$('section[id^="case-"][id$="-questions"]').map((page) => ({ caseNo: page.id.slice(5, 7), page }));
+    spots.forEach(({ caseNo, page }) => {
+      if (!/^\d{2}$/.test(caseNo || '') || !page) return;
+      const card = document.createElement('section');
+      card.className = 'clp-fb';
+      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">匿名建议箱</span><span class="clp-fb-label">案例 ${caseNo}</span></div>
+        <h4>学完这个案例，你有什么建议？</h4>
+        <p class="clp-fb-hint">哪些地方可以改进？对网站的呈现形式和内容有什么新想法？都可以写下来。<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到建议内容和提交日期。</p>
+        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="写下你的建议（500 字内）" aria-label="案例 ${caseNo} 的匿名建议" disabled></textarea>
+        <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
+        <p class="clp-fb-state" role="status"></p>`;
+      // 政治经济学：放在最后一页“继续阅读下一案例”之前；习经：放在第二课时（出门测）之后
+      const pager = worksheet ? page.querySelector('.case-sequence') : null;
+      if (pager) pager.insertAdjacentElement('beforebegin', card);
+      else (page.querySelector('.section-inner') || page.querySelector('.inner') || page).appendChild(card);
+      fbCards.push({ card, caseNo });
     });
   }
   const panel = document.createElement('aside');
@@ -429,6 +469,7 @@
     dodge();
     bindTools();
     setupMechDanmaku(false, elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
+    setupFeedback(false, elsewhere ? '本周课堂不在这一页，这里不能提交建议。' : '进入课堂后才能提交建议：请先在首页输入老师发布的课堂码。');
     return;
   }
 
@@ -476,7 +517,7 @@
         <input type="text" maxlength="40" placeholder="发一条弹幕（40 字内）" aria-label="弹幕内容" autocomplete="off">
         <button type="submit">发送</button>
       </form>
-      <p class="clp-hint" data-cl-dm-state>弹幕会以“你的姓名：内容”显示在老师投屏的页面上，请文明发言。</p>
+      <p class="clp-hint" data-cl-dm-state>弹幕会显示在老师投屏的页面上（老师开启匿名时不显示姓名）；老师后台都能看到是谁发的，请文明发言。</p>
       <details class="clp-mydm" data-cl-mydm>
         <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
         <ul class="clp-mydm-list" data-cl-mydm-list></ul>
@@ -642,6 +683,63 @@
     }
   });
   setupMechDanmaku(true);
+  setupFeedback(true);
+
+  // 同一课堂分几次课上时：每天第一次打开本章页面自动记一次登录（当天已在首页登录过就不再重复），老师可按日期看每次到课
+  const dayKey = `classlive-checkin:${identity.classroom}`;
+  if (load(dayKey, '') !== Live.today()) {
+    backend.add('checkins', { course: config.course, classroom: identity.classroom, session: Live.today(), name: identity.name, sid: identity.sid,
+      class_name: identity.class_name || null, group_name: identity.group_name || null, page: unit, path: location.pathname })
+      .then(() => save(dayKey, Live.today()))
+      .catch((problem) => console.warn('[登录记录] 没有记上：', (problem && problem.message) || problem));
+  }
+
+  // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数只核对进过本课堂，存下的行里没有提交者）
+  function setupFeedback(enabled, note) {
+    fbCards.forEach(({ card, caseNo }) => {
+      const area = card.querySelector('textarea');
+      const button = card.querySelector('button');
+      const count = card.querySelector('.clp-fb-count');
+      const state = card.querySelector('.clp-fb-state');
+      const say = (text, kind) => { state.textContent = text; state.dataset.state = kind || ''; };
+      shield(card);
+      if (!enabled) { say(note); return; }
+      area.disabled = false;
+      let sending = false;
+      const sync = () => {
+        count.textContent = `${area.value.length}/500`;
+        button.disabled = sending || area.value.trim().length < 2;
+      };
+      area.addEventListener('input', sync);
+      sync();
+      // 只在这台设备上记个数，提醒自己提交过几条
+      const key = `classlive-feedback:${identity.classroom}:${caseNo}`;
+      const sent = Number(load(key, 0)) || 0;
+      say(sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : '写好后点“匿名提交”，可以提交多条。');
+      card.querySelector('form').addEventListener('submit', async (event) => {
+        event.preventDefault();
+        const text = area.value.trim();
+        if (text.length < 2 || sending) return;
+        sending = true;
+        sync();
+        try {
+          await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
+          area.value = '';
+          save(key, (Number(load(key, 0)) || 0) + 1);
+          say(`已匿名提交（${time()}），谢谢你的建议！还可以继续写下一条。`, 'ok');
+        } catch (problem) {
+          console.error(problem);
+          const message = `${(problem && problem.message) || problem || ''}`;
+          say(notReady(problem) ? '建议箱还没有开通，请稍后再试。'
+            : /进入课堂|42501/.test(message) ? '提交没有成功：请回到首页用课堂码重新登录后再试。'
+              : '提交没有成功：请检查网络后再试。', 'error');
+        } finally {
+          sending = false;
+          sync();
+        }
+      });
+    });
+  }
 
   // 机制图“弹幕接龙”：选一个箭头（如 ①→②），用一句话说这两步的关系；
   // 弹幕带“【案例号箭头】”标签（如【01①→②】），投屏机制图据此把它放到对应节点下面
@@ -665,7 +763,7 @@
       let link = '';
       dmButtons.push({ button, ready: () => Boolean(link) });
       links.forEach((item) => { item.disabled = false; });
-      say('先选一个箭头，再写一句话（弹幕会显示你的姓名）。');
+      say('先选一个箭头，再写一句话（老师后台能看到是谁发的）。');
       links.forEach((item) => item.addEventListener('click', () => {
         link = item.dataset.mechLink;
         links.forEach((other) => other.setAttribute('aria-pressed', String(other === item)));
@@ -707,7 +805,7 @@
       input.disabled = false;
       dmButtons.push({ button, ready: () => true });
       showCooling();
-      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。' : '写一句话后点“发送”，会连同你的姓名显示在投屏上。');
+      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。' : '写一句话后点“发送”，会显示在投屏上（老师开启匿名时不显示姓名）。');
       // 辩论质询：站哪一方以本人已递交的辩前投票为准（在别的设备递交的，看页面上恢复的选择）
       const sideOf = () => {
         const key = `${debate}:debate-pre`;

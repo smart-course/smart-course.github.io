@@ -6,12 +6,13 @@
  * 表：加入 ck_checkins、选择 ck_choices、作答 ck_answers（只增不改，教师端取每人最新一条）、课堂 ck_classrooms
  * 函数：ck_join（学生凭课堂码进入）、ck_publish / ck_set_current / ck_set_open（教师管理课堂）、
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
+ *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）
  */
 (function () {
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
-    homework: 'ck_homework', classes: 'ck_classes' };
+    homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback' };
 
   // 以北京时间的日期作为“这节课”的标识，例如 2026-09-30
   const today = () => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date());
@@ -378,12 +379,28 @@
         }
         if (name === 'ck_set_open') return updateRoom(params.p_classroom, (room) => { room.submissions_open = Boolean(params.p_open); });
         if (name === 'ck_set_danmaku') return updateRoom(params.p_classroom, (room) => { room.danmaku = params.p_mode; });
+        if (name === 'ck_set_danmaku_anon') return updateRoom(params.p_classroom, (room) => { room.danmaku_anon = Boolean(params.p_anon); });
         // 学生查看、撤回自己发过的弹幕：只限本人（owner）；撤回只记下时间，记录保留
         if (name === 'ck_my_danmaku') {
           const uid = await this.ensureAnonymous();
           return read('danmaku').filter((row) => row.owner === uid && String(row.classroom) === String(params.p_classroom) && !row.withdrawn_at)
             .sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 60)
             .map((row) => ({ id: row.id, text: row.text, status: row.status, ts: row.ts }));
+        }
+        // 匿名建议：只核对进过这个课堂，存下的行里没有提交者
+        if (name === 'ck_submit_feedback') {
+          const uid = await this.ensureAnonymous();
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room || !read('checkins').some((row) => row.owner === uid && String(row.classroom) === String(params.p_classroom))) {
+            throw Object.assign(new Error('进入课堂后才能提交建议'), { code: '42501' });
+          }
+          const text = String(params.p_text || '').trim();
+          if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
+          const rows = read('feedback');
+          rows.push({ id: Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1, course: room.course, classroom: room.id, unit: room.chapter,
+            case_no: params.p_case, text, created_on: today() });
+          write('feedback', rows);
+          return true;
         }
         if (name === 'ck_withdraw_my_danmaku') {
           const uid = await this.ensureAnonymous();

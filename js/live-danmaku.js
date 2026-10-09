@@ -1,4 +1,4 @@
-/* 投屏弹幕：在课堂完整版页面上滚动显示当前课堂的学生弹幕（“姓名：内容”），并循环播放。
+/* 投屏弹幕：在课堂完整版页面上滚动显示当前课堂的学生弹幕（“姓名：内容”，匿名时只显示内容），并循环播放。
  * 需要教师已在同一浏览器登录教师工作台（读取弹幕需教师账号）。
  * 弹幕模式：关闭 / 直接上屏（未隐藏的都显示）/ 审核后上屏（只显示已通过的）。左下角控件里可以直接切换（与工作台“弹幕”下拉框相同，ck_set_danmaku）。
  * 播放规则：新来的弹幕立即上屏；空档时按顺序循环播放本课堂可显示的弹幕（最近 60 条），被隐藏的立即撤下。
@@ -7,6 +7,7 @@
  * 左下角小控件：循环开关、暂停、清屏、收起。页面需先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
  * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
  * 习经辩论质询的弹幕带“【正方】/【反方】”（学生端按本人的辩前投票自动加上），投屏上显示为彩色标签。
+ * 匿名（课堂的 danmaku_anon，工作台或左下角控件切换）：投屏只显示内容、不显示姓名；弹幕记录里照常有发送人。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
  *   [data-mech-wall]（每个箭头显示最新 3 条，新来的弹入并让节点闪一下）；显示规则与滚动弹幕相同（模式、审核、清屏）。
  */
@@ -105,6 +106,7 @@
   bar.className = 'dm-bar';
   bar.setAttribute('data-ix', '');
   bar.innerHTML = '<label>弹幕<select data-dm-mode disabled aria-label="弹幕模式"><option value="off">关闭</option><option value="direct">直接上屏</option><option value="review">审核后上屏</option></select></label>'
+    + '<button type="button" data-dm-anon aria-pressed="false" disabled title="开启后投屏不显示学生姓名；工作台和导出里仍记录是谁发的">匿名：关</button>'
     + '<span data-dm-state>连接中</span><button type="button" data-dm-loop aria-pressed="true">循环：开</button>'
     + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下现有弹幕，且不再循环播放；之后的新弹幕照常显示">清屏</button><button type="button" data-dm-toggle>收起</button>';
   ['click', 'keydown'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
@@ -112,6 +114,8 @@
   const stateEl = bar.querySelector('[data-dm-state]');
   const setState = (html) => { stateEl.innerHTML = html; };
   const loopButton = bar.querySelector('[data-dm-loop]');
+  const anonButton = bar.querySelector('[data-dm-anon]');
+  const anonymous = () => Boolean(room && room.danmaku_anon);
   const modeSelect = bar.querySelector('[data-dm-mode]');
 
   let room = null;
@@ -138,6 +142,9 @@
     modeSelect.disabled = false;
     modeSelect.classList.toggle('is-off', room.danmaku === 'off');
     modeSelect.title = `课堂：${room.name}（${room.code}）`;
+    anonButton.disabled = false;
+    anonButton.textContent = anonymous() ? '匿名：开' : '匿名：关';
+    anonButton.setAttribute('aria-pressed', String(anonymous()));
     if (room.danmaku === 'off') setState('学生暂时不能发送');
     else setState(`${pool.length} 条${room.danmaku === 'review' ? '（在工作台审核）' : ''}`);
   };
@@ -163,6 +170,7 @@
     item.className = isNew ? 'dm-item is-new' : 'dm-item';
     const name = document.createElement('span');
     name.className = 'dm-name';
+    name.hidden = anonymous();   // 匿名时姓名不显示；随时关闭匿名，正在飞的弹幕也能立刻补上姓名
     const tag = tagOf(doc);
     if (tag) {
       name.textContent = doc.name;
@@ -242,7 +250,7 @@
     button.type = 'button';
     button.className = 'dm-del';
     button.title = '删除这条弹幕（从记录里彻底删除，无法恢复）';
-    button.setAttribute('aria-label', `删除 ${doc.name} 的弹幕`);
+    button.setAttribute('aria-label', '删除这条弹幕');
     button.innerHTML = TRASH;
     let timer = 0;
     const reset = () => {
@@ -333,7 +341,8 @@
           const who = document.createElement('b');
           who.textContent = `${doc.name}：`;
           if (tag.side) bubble.append(sideBadge(tag.side));
-          bubble.append(who, document.createTextNode(tag.text), trashButton(doc, bubble));
+          if (!anonymous()) bubble.append(who);
+          bubble.append(document.createTextNode(tag.text), trashButton(doc, bubble));
           wall.insertBefore(bubble, count);
         });
         wallShown.set(key, ids);
@@ -360,13 +369,41 @@
     if (flying.has(id)) { flying.get(id).remove(); flying.delete(id); }
   };
 
+  // 匿名开关切换：屏幕上正在飞的弹幕立即隐藏或补上姓名；弹幕墙按新设置重画
+  function applyAnonymous() {
+    stage.querySelectorAll('.dm-name').forEach((el) => { el.hidden = anonymous(); });
+    wallShown.clear();
+    renderWalls(wallRows);
+    refreshState();
+  }
+  anonButton.addEventListener('click', async () => {
+    if (!room) return;
+    const next = !anonymous();
+    anonButton.disabled = true;
+    setState('正在设置……');
+    try {
+      const result = await backend.rpc('ck_set_danmaku_anon', { p_classroom: Number(room.id), p_anon: next });
+      const updated = Array.isArray(result) ? result[0] : result;
+      room = { ...room, ...(updated && updated.id ? updated : { danmaku_anon: next }) };
+      applyAnonymous();
+      setState(next ? '已开启匿名：投屏不显示姓名' : '已关闭匿名：投屏显示姓名');
+    } catch (error) {
+      console.warn('[弹幕]', error);
+      setState(`设置失败：${(error && error.message) || error}`);
+    } finally {
+      anonButton.disabled = !room;
+    }
+  });
+
   async function pollRoom() {
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
       const unit = config.unit || (location.pathname.match(/([a-z]{2,6}\d{2})\.html$/) || [])[1];
       const next = window.ClassLive.pickRoom(rooms, config.course, unit);
       const changed = !room || !next || `${room.id}|${room.danmaku}` !== `${next.id}|${next.danmaku}`;
+      const anonChanged = Boolean(room && next && Boolean(room.danmaku_anon) !== Boolean(next.danmaku_anon));
       room = next;
+      if (anonChanged) applyAnonymous();
       if (!room) { modeSelect.disabled = true; setState('没有当前课堂'); return false; }
       refreshState();
       return changed;

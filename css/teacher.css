@@ -38,6 +38,8 @@ body { margin: 0; color: var(--ink); background: var(--paper); font: 16px/1.6 va
 .tw-tabbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 16px; margin-bottom: 18px; }
 .tw-tabbar .tw-tabs { margin-bottom: 0; }
 .tw-tabbar-danmaku { margin-left: auto; white-space: nowrap; }
+.tw-tabbar-anon { margin-left: 10px; white-space: nowrap; cursor: pointer; }
+.tw-tabbar-anon input { margin: 0 4px 0 0; vertical-align: -2px; }
 .tw-tabs button { padding: 10px 18px; border: 1px solid var(--line); border-radius: 8px; background: var(--white); color: var(--muted); font: 800 16px/1 var(--sans); cursor: pointer; }
 .tw-tabs button[aria-selected="true"] { color: #fff; background: var(--rust); border-color: var(--rust); }
 .tw-stats { display: flex; flex-wrap: wrap; gap: 16px; margin-bottom: 16px; }
@@ -135,6 +137,9 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-dialog input, .tw-dialog select { display: block; width: 100%; margin-top: 6px; padding: 10px 12px; border: 1.5px solid var(--line); border-radius: 8px; font: inherit; background: #fff; }
 /* 弹幕记录 */
 .tw-dm-table td { vertical-align: middle; }
+.tw-fb-table td { vertical-align: top; }
+.tw-fb-table .tw-fb-text { min-width: 260px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tw-fb-table td:first-child, .tw-fb-table td:nth-child(3) { white-space: nowrap; }
 .tw-dm-table .tw-dm-text { font-size: 16px; }
 .tw-dm.is-hidden .tw-dm-text { color: var(--muted); text-decoration: line-through; }
 .tw-dm em { color: var(--muted); font-size: 14px; font-style: normal; white-space: nowrap; }
