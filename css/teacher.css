@@ -248,3 +248,33 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-quiz { padding: 10px 0; border-top: 1px dashed rgba(70, 51, 34, .16); }
 .tw-quiz:first-of-type { border-top: 0; }
 .tw-quiz .tw-q small { color: var(--muted, #6d6259); font-weight: 700; }
+
+/* 修为境界（2026-10-10）：称号材质由低到高 素石 → 青玉 → 金丹 → 紫霄（发光）→ 神光（七彩流光） */
+.tw-realm { display: inline-block; padding: 1px 9px; border: 1px solid transparent; border-radius: 5px; font: 700 13px/1.6 'Kaiti SC', 'STKaiti', 'KaiTi', serif; white-space: nowrap; }
+.tw-realm.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
+.tw-realm.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; }
+.tw-realm.is-r2 { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 32%, #b8801a 68%, #e8b844); border-color: #7a5208; }
+.tw-realm.is-r3 { color: #f6eaff; background: linear-gradient(160deg, #4b1d8f, #7a3fe0 55%, #3a1673); border-color: #d8b8ff; box-shadow: 0 0 8px rgba(170,120,255,.6); }
+.tw-realm.is-r4 { color: #ffe08a; background: linear-gradient(#140d24, #140d24) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box; box-shadow: 0 0 8px rgba(255,214,110,.6); }
+.tw-realm.is-r3::before, .tw-realm.is-r4::before { content: '✦'; margin-right: 3px; font-size: .8em; }
+.tw-realm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 12px; font-size: 13px; color: #6d6259; }
+.tw-realm-legend span:not(.tw-realm) { margin-right: 8px; }
+.tw-realm-table td small { color: #8a7f74; }
+.tw-realm-table tr.is-muted td { color: #9a8f84; }
+.tw-realm-flags { color: #a4492d; font-size: 12.5px; }
+.tw-realm-rules { margin-top: 14px; font-size: 13.5px; line-height: 1.7; color: #4a423b; }
+.tw-realm-rules summary { cursor: pointer; font-weight: 700; color: #23655f; }
+.tw-dm-liked { font-weight: 400; }
+
+/* 登录安全 */
+.tw-sec-alert { display: grid; gap: 6px; margin: 0 0 16px; }
+.tw-sec-alert[hidden] { display: none; }
+.tw-sec-alert p { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin: 0; padding: 10px 14px; border: 1.5px solid #e2a08a; border-radius: 8px; background: #fff1ec; color: #7a2a14; font-size: 14.5px; font-weight: 700; }
+.tw-sec-alert p.is-info { border-color: #9fd2c1; background: #effaf5; color: #1f5a50; }
+.tw-sec-alert button { padding: 4px 12px; border: 1px solid currentColor; border-radius: 6px; background: #fff; color: inherit; font: 700 13px/1.4 inherit; cursor: pointer; }
+.tw-sec-h { margin: 22px 0 8px; font-size: 16px; }
+.tw-sec-h small { color: var(--muted); font-weight: 600; }
+.tw-sec-table td .tw-secondary { margin-top: 0; padding: 4px 10px; font-size: 13px; }
+.tw-sec-table td .tw-secondary + .tw-secondary { margin-left: 6px; }
+.tw-sec-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #f3ead9; color: #6b4a14; font-size: 12px; font-weight: 700; }
+.tw-sec-bad { color: #a4492d; font-weight: 700; }

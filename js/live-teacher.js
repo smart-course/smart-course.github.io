@@ -83,11 +83,22 @@
     if (message) $('[data-login-error]').textContent = message;
   };
 
+  // 本机连续登录失败 5 次后要等待（30 秒起，每多错一次加倍，最长 15 分钟）。这只是网页上的减速，
+  // 真正的防线是云开发账号自身的登录保护和足够长的密码（见“登录安全”说明）
+  const LOGIN_FAILS = 'login-fails';
+  const loginFails = () => { try { return JSON.parse(store.get(LOGIN_FAILS) || '[]').filter((ts) => Date.now() - ts < 30 * 60000); } catch (error) { return []; } };
+  const loginWait = () => {
+    const fails = loginFails();
+    if (fails.length < 5) return 0;
+    return Math.max(0, fails[fails.length - 1] + Math.min(15 * 60, 30 * 2 ** (fails.length - 5)) * 1000 - Date.now());
+  };
   $('[data-login-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
     const error = $('[data-login-error]');
     const button = form.querySelector('button');
+    const wait = loginWait();
+    if (wait) { error.textContent = `登录失败次数过多，请 ${Math.ceil(wait / 1000)} 秒后再试。`; return; }
     error.textContent = '';
     button.disabled = true;
     button.textContent = '正在登录……';
@@ -95,10 +106,14 @@
       const session = await backend.signInTeacher(form.username.value.trim(), form.password.value);
       if (!session || session.anonymous) throw new Error('not-teacher');
       form.password.value = '';
+      store.set(LOGIN_FAILS, '[]');
+      backend.rpc('ck_log_teacher_login', { p_agent: navigator.userAgent.slice(0, 200) }).catch((problem) => console.warn('[教师登录记录]', problem));
       enterApp(session);
     } catch (problem) {
       console.error(problem);
-      error.textContent = '登录失败：账号或密码不正确，或该账号尚未在云开发后台创建。';
+      store.set(LOGIN_FAILS, JSON.stringify(loginFails().concat(Date.now()).slice(-20)));
+      const left = 5 - loginFails().length;
+      error.textContent = '登录失败：账号或密码不正确，或该账号尚未在云开发后台创建。' + (left > 0 && left < 3 ? `再错 ${left} 次要等待一段时间才能重试。` : '');
     } finally {
       button.disabled = false;
       button.textContent = '登录';
@@ -135,6 +150,14 @@
     stopWatching();
     state.room = null;
     await loadRooms(store.get(`room:${state.klass.id}`));
+    realmResult = null;
+    realmSaved = '';
+    renderRealms();
+    sec.loaded = false;
+    sec.requests = [];
+    sec.pins = [];
+    loadSecurity(!$('[data-panel="security"]').hidden);
+    autoSettle().catch((error) => console.warn('[修为境界] 自动结算没有完成：', error));
   }
 
   // ---------------- 选择课程 ----------------
@@ -341,7 +364,7 @@
     const roster = rosterOf();
     $('[data-roster-info]').textContent = roster.length
       ? `本班点名册：${roster.length} 人${klass.roster_updated_at ? `（${isoDay(millis(klass.roster_updated_at))} 上传）` : ''}，重新上传会替换。下表按点名册核对本次课堂的登录情况。`
-      : '上传本班点名册（xlsx 或 csv，需含“姓名”“学号”两列），即可核对哪些同学已登录本次课堂。';
+      : '请上传本班点名册（xlsx 或 csv，需含“姓名”“学号”两列）：没有点名册时学生不能登录；上传后还能核对哪些同学已登录本次课堂。';
   }
 
   // ---------------- 我的课堂 ----------------
@@ -432,6 +455,7 @@
     if (!room) { stopWatching(); return; }
     store.set(`room:${state.klass.id}`, room.id);
     renderRoom();
+    renderSecAlert();
     if (changed) { state.openStudents.clear(); state.openTexts.clear(); setupSelectors(); subscribe(); }
   }
 
@@ -451,6 +475,7 @@
     $('[data-room-code]').textContent = room.code;
     $('[data-room-code-label]').textContent = room.is_current ? '当前课堂码' : '历史课堂码（未开放）';
     $('[data-room-link]').value = joinLink(room.code);
+    $('[data-rotate-code]').hidden = !room.is_current;
     $('[data-set-current]').hidden = room.is_current;
     $('[data-toggle-open]').hidden = !room.is_current;
     $('[data-toggle-open]').textContent = room.submissions_open ? '结束提交' : '重新开放提交';
@@ -510,6 +535,11 @@
   $('[data-danmaku-anon]').addEventListener('change', (event) => {
     const on = event.target.checked;
     roomAction(on ? '开启弹幕匿名' : '关闭弹幕匿名', () => backend.rpc('ck_set_danmaku_anon', { p_classroom: Number(state.room.id), p_anon: on }));
+  });
+  // 课堂码外传时：换一个新码，旧码立即失效；已经进入本课堂的同学（设备已核对）不受影响
+  $('[data-rotate-code]').addEventListener('click', () => {
+    if (!window.confirm(`更换“${state.room.name}”的课堂码？\n\n旧码 ${state.room.code} 立即失效；已经进入本课堂的同学不受影响，还没进入的同学要用新码。`)) return;
+    roomAction('更换课堂码', () => backend.rpc('ck_rotate_code', { p_classroom: Number(state.room.id) }));
   });
   $('[data-copy-link]').addEventListener('click', async () => {
     const link = joinLink(state.room.code);
@@ -812,7 +842,7 @@
     const extraRows = filter === 'all' || filter === 'extra' ? extra.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names])) : [];
     $('[data-checkin-rows]').innerHTML = rosterRows.map(({ person, index, row }) => {
       const names = row ? Array.from(row.names) : [];
-      const remark = row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '';
+      const remark = (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
       return `<tr class="${row ? '' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
         <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
@@ -1011,7 +1041,7 @@
     try {
       let saved = await backend.rpc('ck_save_roster', { p_class: Number(state.klass.id) || state.klass.id, p_roster: pendingRoster.list });
       if (Array.isArray(saved)) saved = saved[0];
-      state.klass = { ...state.klass, ...saved, roster: pendingRoster.list };
+      state.klass = { ...state.klass, ...saved, roster: saved && Array.isArray(saved.roster) ? saved.roster : pendingRoster.list };
       pendingRoster = null;
       $('[data-roster-preview]').hidden = true;
       showClassInfo();
@@ -1141,7 +1171,8 @@
         }).join('')}</tbody></table>
         ${showRef ? '<p class="tw-hint">深色格为参考对应，浅色格为可以成立的答案；错误率＝选了其他理论要点的人数比例，40% 及以上标红。</p>' : ''}
       </article>`;
-    const sim = `
+    // 没有推演或圆桌议程的章节（如用猜词游戏代替圆桌会议的第二章）不显示这张卡
+    const sim = !item.sim.rounds.length ? '' : `
       <article class="tw-card wide">
         <h2>${item.practice ? '圆桌协商 · 三项议程的协商意见（全班）' : `方案推演：${esc(item.sim.title)}`}</h2>
         ${item.sim.rounds.map((round, index) => {
@@ -1199,7 +1230,8 @@
         ${P.debate.cards.map((c) => `<div class="tw-option single"><div class="tw-option-label">${esc(c.text)}</div>${bar(cardCount.get(c.key) || 0, sum(cards))}</div>`).join('')}
       </article>`;
       const roleOf = new Map(docs.filter((doc) => doc.item === 'rt-role').map((doc) => [doc.sid, String(doc.choice)]));
-      const roundtable = `
+      // 用猜词游戏代替圆桌会议的章节（如第二章）没有圆桌数据，猜词不在网上递交，这里不显示
+      const roundtable = !P.roundtable ? '' : `
       <article class="tw-card wide">
         <h2>圆桌会议 · 按角色看协商意见、秘密任务和表决 <small>${roleOf.size} 人选了角色</small></h2>
         <table class="tw-table compact"><thead><tr><th>议程</th><th>角色</th><th>A</th><th>B</th><th>C</th><th>人数</th></tr></thead><tbody>
@@ -1704,7 +1736,7 @@
       const canShow = !withdrawn && doc.status !== 'shown' && !(mode === 'direct' && doc.status === 'new');
       const shownClass = withdrawn ? 'hidden' : mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
       return `<tr class="tw-dm is-${esc(shownClass)}"><td>${esc(isoDay(doc.ts))}</td><td>${clock(doc.ts)}</td><td>${esc(doc.name)}</td><td>${esc(doc.sid)}</td>
-        <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${esc(doc.text)}</td><td><em>${esc(status)}</em></td>
+        <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${doc.liked_at ? '<b class="tw-dm-liked" title="老师点赞">👍</b> ' : ''}${doc.gift ? `法宝 ${esc(((window.ClassLive.GIFTS || []).find((gift) => gift.id === doc.gift) || {}).icon || '')} ` : ''}${esc(doc.text)}</td><td><em>${esc(status)}</em></td>
         <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${!withdrawn && doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有弹幕记录。</td></tr>';
   }
@@ -1889,6 +1921,483 @@
       status.textContent = `删除失败：${error.message || error}`;
     }
   });
+
+  // ---------------- 修为境界：按后台记录结算，贯穿整个学期 ----------------
+  // 每次课满分 100 修为：签到 20、作答完成 35、作答正确 35、弹幕最多 10（每条有效弹幕 2 修为）。
+  // 习经按案例算课次（一章两个案例＝两次课），政经每个案例一次课；满分＝100 × 全部课次。境界见 ClassLive.REALMS。
+  // 防刷分：
+  //   · 只认本课程题库里有的题，同一题只认第一次递交（跨课堂、跨设备都一样），且只认该单元自己课堂里的记录；
+  //   · 文字题要写满 10 个有效字（申论大题 60 个）、不能留着句式里的空格线；
+  //   · 弹幕要有 4 个有效字，同一句只算一次，老师隐藏、学生撤回的和法宝都不算（审核模式只算已通过的），每次课最多 10 修为；
+  //   · 签到只认“上课日”（当天本单元有足够多同学登录），课后自己打开页面不算；
+  //   · 境界只由教师账号写入（ck_save_realms），点名册里没有的学号不结算。
+  // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
+  const REALMS = window.ClassLive.REALMS;
+  const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2 };
+  const LIKE = window.ClassLive.LIKE || { limit: 5, points: 5, perStudent: 2 };
+  const realmUnits = () => (CONCEPT
+    ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
+    : course.chapters.map((ch) => ({ id: ch.id, label: ch.cn, meetings: Math.max(1, ch.cases.length),
+      cases: ch.cases.map((item) => caseMap.get(item.number)).filter(Boolean) })));
+  const realmMax = () => realmUnits().reduce((sum, u) => sum + 100 * u.meetings, 0);
+  const meaningful = (text) => String(text == null ? '' : text).replace(/[\s\p{P}\p{S}＿_]/gu, '');
+  const validText = (text, min) => {
+    const raw = String(text == null ? '' : text);
+    if (/[＿_]{2,}/.test(raw)) return false;   // 句式里的空格线还没填
+    const m = meaningful(raw);
+    return m.length >= min && new Set(m).size >= Math.min(8, Math.ceil(min * 0.6));
+  };
+  const firstOf = (docs) => {   // 同一题只认第一次递交
+    const map = new Map();
+    docs.slice().sort((a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0) || String(a.id).localeCompare(String(b.id), 'en', { numeric: true }))
+      .forEach((doc) => { if (!map.has(doc.item)) map.set(doc.item, doc); });
+    return map;
+  };
+  const sameSet = (value, answer) => String(value).split(',').filter(Boolean).sort().join(',') === answer.slice().map(String).sort().join(',');
+
+  // 习经：一个案例的题目。kind：obj 客观题（按对错）/ part 投票、站队（参与即可）/ text 文字题
+  function xjpQuestions(c) {
+    const qs = [];
+    const P = c.practice || {};
+    const ref = c.poll && c.poll.reference;
+    qs.push({ kind: 'part', items: ['pre'] });
+    qs.push(ref ? { kind: 'obj', items: ['post'], score: (m) => (String(m.post) === String(ref) ? 1 : 0) } : { kind: 'part', items: ['post'] });
+    const clues = (c.matching && c.matching.clues) || [];
+    if (clues.length) {
+      const items = clues.map((_, i) => `match-${i + 1}`);
+      qs.push({ kind: 'obj', items, score: (m) => clues.filter((clue, i) => [clue.answer, ...(clue.accept || [])].some((k) => m[items[i]] === `K${k}`)).length / clues.length });
+    }
+    ((c.sim && c.sim.rounds) || []).forEach((_, i) => qs.push({ kind: 'part', items: [`sim-${i + 1}`] }));
+    if (c.transfer) {
+      qs.push({ kind: 'obj', items: ['transfer-k'], score: (m) => ([c.transfer.answer, ...(c.transfer.accept || [])].some((k) => m['transfer-k'] === `K${k}`) ? 1 : 0) });
+    }
+    (c.items || []).forEach((entry) => qs.push({ kind: 'text', items: [entry.key], min: 10 }));
+    (P.groups || []).forEach((group) => group.items.forEach((q) => qs.push({ kind: 'obj', items: [q.key], score: (m) => (sameSet(m[q.key], q.answer) ? 1 : 0) })));
+    if (P.debate) ['debate-pre', 'debate-post', 'debate-cards'].forEach((key) => qs.push({ kind: 'part', items: [key] }));
+    if (P.roundtable) {
+      const tasks = P.roundtable.tasks || {};
+      qs.push({ kind: 'part', items: ['rt-role'] });
+      [1, 2, 3].forEach((i) => qs.push({ kind: 'obj', items: [`rt-task-${i}`],
+        score: (m) => (tasks[m['rt-role']] && String(m[`rt-task-${i}`]) === String(tasks[m['rt-role']][i - 1]) ? 1 : 0) }));
+      qs.push({ kind: 'part', items: ['rt-vote'] });
+    }
+    return qs;
+  }
+  // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
+  const peKind = (key) => {
+    if (/\.discover$/.test(key) || key === 'poll') return { kind: 'part' };
+    if (/\.challenge$/.test(key)) return { kind: 'bonus' };
+    if (/\.explain$/.test(key) || key === 'discussion' || key === 'discussion.after') return { kind: 'text', min: 10 };
+    if (key === 'essay') return { kind: 'text', min: 60 };
+    return { kind: 'obj' };
+  };
+  function peScore(unit, payload) {
+    const result = gradeOf(unit, payload || {});
+    const groups = new Map();
+    result.items.forEach((item) => {
+      const key = submitKey(item.key);
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(item);
+    });
+    const out = { total: 0, done: 0, obj: 0, right: 0, bonus: 0 };
+    groups.forEach((items, key) => {
+      const { kind, min } = peKind(key);
+      if (kind === 'bonus') { if (items.every((item) => item.correct)) out.bonus += 1; return; }
+      out.total += 1;
+      if (kind === 'text') {
+        const text = (items.find((item) => item.type === 'text') || {}).value;
+        if (validText(text, min)) out.done += 1;
+        return;
+      }
+      const answered = items.every((item) => item.value != null);
+      if (answered) out.done += 1;
+      if (kind === 'obj') {
+        const graded = items.filter((item) => item.ref != null);
+        out.obj += 1;
+        if (answered && graded.length) out.right += graded.filter((item) => item.correct).length / graded.length;
+      }
+    });
+    return out;
+  }
+  // 政经：同一学号在本单元各课堂、各设备的递交合并，每题取最早一次
+  const mergePayload = (docs) => {
+    const payload = {};
+    docs.forEach((doc) => Object.entries(doc.payload || {}).forEach(([key, entry]) => {
+      if (!isEntry(entry)) return;
+      if (!payload[key] || millis(entry.at) < millis(payload[key].at)) payload[key] = entry;
+    }));
+    return payload;
+  };
+
+  async function computeRealms() {
+    const rooms = (await backend.fetchAll('classrooms', { course: course.slug })).filter((room) => sameClass(room, state.klass));
+    const roomUnit = new Map(rooms.map((room) => [String(room.id), room.chapter]));
+    const reviewRoom = new Set(rooms.filter((room) => room.danmaku === 'review').map((room) => String(room.id)));   // 审核模式：只算已通过的
+    const kinds = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
+    const docs = {};
+    for (const kind of kinds) {
+      docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)));
+    }
+    const roster = rosterOf();
+    const rosterMap = new Map(roster.map((person) => [sidKey(person.sid), person]));
+    const people = new Map();   // 学号 → { sid, name, owners }
+    const touch = (doc) => {
+      const key = sidKey(doc.sid);
+      if (!key) return null;
+      const row = people.get(key) || { sid: key, name: doc.name, owners: new Set() };
+      if (doc.name) row.name = doc.name;
+      if (doc.owner) row.owners.add(doc.owner);
+      people.set(key, row);
+      return row;
+    };
+    docs.checkins.forEach(touch);
+    roster.forEach((person) => { const key = sidKey(person.sid); if (!people.has(key)) people.set(key, { sid: key, name: person.name, owners: new Set() }); });
+    const base = roster.length || new Set(docs.checkins.map((doc) => sidKey(doc.sid))).size;
+    const need = base >= 10 ? Math.max(3, Math.ceil(base * 0.3)) : 1;   // “上课日”：当天本单元登录的人数
+    // 文字作答雷同：同一段话（20 个有效字以上）出现在不同学号下
+    const textOwners = new Map();
+    const noteText = (sid, text) => {
+      const m = meaningful(text);
+      if (m.length < 20) return;
+      if (!textOwners.has(m)) textOwners.set(m, new Set());
+      textOwners.get(m).add(sid);
+    };
+    const units = realmUnits();
+    const perUnit = units.map((u) => {
+      const inUnit = (doc) => roomUnit.get(String(doc.classroom)) === u.id;
+      const days = new Map();
+      docs.checkins.filter(inUnit).forEach((doc) => {
+        const day = doc.session || isoDay(doc.ts);
+        if (!days.has(day)) days.set(day, new Set());
+        days.get(day).add(sidKey(doc.sid));
+      });
+      const classDays = Array.from(days.entries()).filter(([, sids]) => sids.size >= need).map(([day]) => day);
+      const bySid = (kind) => {
+        const map = new Map();
+        (docs[kind] || []).filter(inUnit).forEach((doc) => {
+          const key = sidKey(doc.sid);
+          if (!map.has(key)) map.set(key, []);
+          map.get(key).push(doc);
+        });
+        return map;
+      };
+      return { u, days, classDays, held: Math.min(classDays.length, u.meetings), choices: bySid('choices'), answers: bySid('answers'),
+        homework: bySid('homework'), danmaku: bySid('danmaku') };
+    });
+    const max = realmMax();
+    const rows = Array.from(people.values()).map((person) => {
+      const total = { attend: 0, done: 0, right: 0, danmaku: 0, like: 0 };
+      perUnit.forEach((info) => {
+        const { u } = info;
+        const m = u.meetings;
+        // 签到
+        if (info.held) {
+          const mine = info.classDays.filter((day) => info.days.get(day).has(person.sid)).length;
+          total.attend += POINTS.attend * m * Math.min(mine, info.held) / info.held;
+        }
+        // 作答
+        let done = 0;
+        let count = 0;
+        let right = 0;
+        let obj = 0;
+        let bonus = 0;
+        if (CONCEPT) {
+          const list = info.homework.get(person.sid) || [];
+          const score = peScore(u.unit, mergePayload(list));
+          ({ done } = score);
+          count = score.total;
+          ({ right, obj, bonus } = score);
+          list.forEach((doc) => Object.entries(doc.payload || {}).forEach(([key, entry]) => {
+            if (isEntry(entry) && peKind(key).kind === 'text') noteText(person.sid, typeof entry.v === 'object' && entry.v ? entry.v.reason : entry.v);
+          }));
+        } else {
+          (u.cases || []).forEach((c) => {
+            const choices = firstOf((info.choices.get(person.sid) || []).filter((doc) => doc.case === c.number));
+            const answers = firstOf((info.answers.get(person.sid) || []).filter((doc) => doc.case === c.number));
+            const m2 = {};
+            choices.forEach((doc, item) => { m2[item] = String(doc.choice); });
+            xjpQuestions(c).forEach((q) => {
+              count += 1;
+              if (q.kind === 'text') {
+                const doc = answers.get(q.items[0]);
+                if (doc && validText(doc.text, q.min)) { done += 1; noteText(person.sid, doc.text); }
+                return;
+              }
+              const answered = q.items.every((item) => m2[item] != null);
+              if (answered) done += 1;
+              if (q.kind === 'obj') { obj += 1; if (answered) right += q.score(m2); }
+            });
+          });
+        }
+        const answerPoints = (count ? POINTS.done * m * done / count : 0) + (obj ? POINTS.right * m * right / obj : 0);
+        const capped = Math.min((POINTS.done + POINTS.right) * m, answerPoints + POINTS.challenge * bonus);
+        total.done += count ? POINTS.done * m * done / count : 0;
+        total.right += capped - (count ? POINTS.done * m * done / count : 0);
+        // 弹幕
+        const said = new Set();
+        let likes = 0;
+        (info.danmaku.get(person.sid) || []).forEach((doc) => {
+          if (doc.gift || doc.withdrawn_at || doc.status === 'hidden') return;
+          if (doc.liked_at) likes += 1;   // 老师点赞的（点赞即认可，审核模式下也算）
+          if (reviewRoom.has(String(doc.classroom)) && doc.status !== 'shown') return;
+          const text = meaningful(String(doc.text || '').replace(/^(【[^】]{1,12}】\s*)+/, ''));
+          if (text.length >= 4) said.add(text);
+        });
+        total.danmaku += Math.min(POINTS.danmaku * m, POINTS.perDanmaku * said.size);
+        total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
+      });
+      const points = Math.round((total.attend + total.done + total.right + total.danmaku + total.like) * 10) / 10;
+      const realm = window.ClassLive.realmOf(points, max);
+      const round1 = (v) => Math.round(v * 10) / 10;
+      return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
+        title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,
+        detail: { attend: round1(total.attend), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like) } };
+    });
+    rows.forEach((row) => {
+      row.flags = [];
+      if (!row.inRoster) row.flags.push('不在点名册（不结算境界）');
+      if (row.owners > 1) row.flags.push(`${row.owners} 台设备登录过`);
+      let same = 0;
+      textOwners.forEach((sids) => { if (sids.size > 1 && sids.has(row.sid)) same += 1; });
+      if (same) row.flags.push(`${same} 处文字作答与他人相同`);
+    });
+    rows.sort((a, b) => b.points - a.points || String(a.sid).localeCompare(String(b.sid)));
+    return { rows, max, units: perUnit.filter((info) => info.held).length, total: units.length, meetings: units.reduce((s, u) => s + u.meetings, 0) };
+  }
+
+  const realmChip = (level, title) => `<span class="tw-realm is-r${level}">${esc(title || REALMS[level].name)}</span>`;
+  let realmResult = null;
+  let realmSaved = '';
+  function renderRealms() {
+    const box = $('[data-realm-rows]');
+    if (!box) return;
+    const max = realmMax();
+    const meetings = realmUnits().reduce((s, u) => s + u.meetings, 0);
+    $('[data-realm-legend]').innerHTML = REALMS.map((realm) => `${realmChip(realm.level)}<span>${realm.min ? `≥ ${Math.ceil(realm.min * max)} 修为（${Math.round(realm.min * 100)}%）` : '起步'}</span>`).join('');
+    if (!realmResult) {
+      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}）。点“重新计算”查看本班修为。`;
+      box.innerHTML = '';
+      return;
+    }
+    const query = $('[data-realm-search]').value.trim().toUpperCase();
+    const rows = realmResult.rows.filter((row) => !query || row.sid.includes(query) || String(row.name).toUpperCase().includes(query));
+    const counts = REALMS.map((realm) => realmResult.rows.filter((row) => row.inRoster && row.realm === realm.level).length);
+    $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为；已上过 ${realmResult.units}/${realmResult.total} 个${UNIT}。`
+      + ` 本班境界：${REALMS.map((realm, i) => `${realm.name} ${counts[i]} 人`).join('，')}。${realmSaved}`;
+    box.innerHTML = rows.map((row, i) => `<tr class="${row.inRoster ? '' : 'is-muted'}"><td>${i + 1}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
+      <td>${realmChip(row.realm, row.title)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
+      <td>${row.detail.attend}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td>
+      <td class="tw-realm-flags">${row.flags.map(esc).join('<br>')}</td></tr>`).join('')
+      || '<tr><td colspan="11" class="empty">本班还没有学生记录。</td></tr>';
+  }
+  async function refreshRealms(save, quiet) {
+    if (!state.klass) return;
+    const status = $('[data-realm-status]');
+    if (!quiet) status.textContent = '正在读取本班全部课堂的记录并计算……';
+    try {
+      realmResult = await computeRealms();
+      if (save) {
+        const rows = realmResult.rows.filter((row) => row.inRoster)
+          .map((row) => ({ sid: row.sid, name: row.name, points: row.points, max: row.max, realm: row.realm, stage: row.stage, detail: row.detail }));
+        await backend.rpc('ck_save_realms', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id, p_rows: rows });
+        store.set(`realm-saved:${course.slug}:${state.klass.id}`, String(Date.now()));
+        realmSaved = ` 已于 ${clock(Date.now())} 更新 ${rows.length} 位同学的称号。`;
+      }
+      if (!quiet || save) status.textContent = save ? `已结算并更新称号（${clock(Date.now())}）。学生刷新页面后看到新境界。` : '已重新计算（尚未保存）。点“结算修为并更新学生称号”后学生端才会更新。';
+    } catch (error) {
+      console.error(error);
+      status.textContent = missingTable(error) || /PGRST202|42883|Could not find the function/i.test(String((error && error.message) || error))
+        ? '修为境界的数据表还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261010-修为境界.sql。'
+        : `结算失败：${failReason(error)}`;
+    }
+    renderRealms();
+  }
+  $('[data-tab="realm"]').addEventListener('click', () => { if (!realmResult) refreshRealms(false); else renderRealms(); });
+  $('[data-realm-refresh]').addEventListener('click', () => refreshRealms(false));
+  $('[data-realm-save]').addEventListener('click', () => refreshRealms(true));
+  $('[data-realm-search]').addEventListener('input', renderRealms);
+  $('[data-realm-export]').addEventListener('click', () => {
+    if (!realmResult) return;
+    const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.done,
+      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.flags.join('；')]);
+    download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
+      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '作答完成', '作答正确', '弹幕', '点赞（额外）', '提示'], ...rows]));
+  });
+  // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
+  async function autoSettle() {
+    const last = Number(store.get(`realm-saved:${course.slug}:${state.klass && state.klass.id}`)) || 0;
+    if (!state.klass || Date.now() - last < 6 * 3600 * 1000) return;
+    await refreshRealms(true, true);
+  }
+  renderRealms();
+
+  // ---------------- 登录安全 ----------------
+  // 班外加入申请（允许后加进点名册）、口令状态（解锁、重置）、最近安全记录、教师登录记录；
+  // 工作台打开时每 10 秒查一次申请和锁定，课堂卡片下方醒目提示
+  const SEC_KIND = {
+    bad_code: '课堂码错误', bad_name: '姓名与点名册不符', bad_pin: '口令错误', locked: '口令连续输错 10 次，锁定',
+    pin_set: '设置口令', new_device: '新设备登录（口令正确）', request: '申请加入（不在点名册上）', approve: '老师允许加入',
+    reject: '老师拒绝或撤销加入', pin_reset: '老师重置口令', unlock: '老师解锁', rotate: '更换课堂码', teacher_login: '教师登录',
+  };
+  const SEC_BAD = new Set(['bad_name', 'bad_pin', 'locked', 'request']);
+  const sec = { requests: [], pins: [], log: [], teacher: [], codeFails: 0, problem: '', loaded: false };
+  const stamp = (value) => (value ? `${isoDay(millis(value)).slice(5)} ${clock(millis(value))}` : '');
+  const secClassId = () => Number(state.klass.id) || state.klass.id;
+  async function loadSecurity(full) {
+    if (!state.klass || $('[data-app]').hidden) return;
+    try {
+      sec.requests = (await backend.fetchAll('requests', { class_id: secClassId() })).sort((a, b) => millis(b.created_at) - millis(a.created_at));
+      let pins = await backend.rpc('ck_pin_status', { p_class: secClassId() });
+      sec.pins = Array.isArray(pins) ? pins : [];
+      sec.codeFails = (await backend.fetchAll('seclog', { kind: 'bad_code' }, { since: ['at', new Date(Date.now() - 10 * 60000).toISOString()], limit: 300 })).length;
+      if (full) {
+        sec.log = await backend.fetchAll('seclog', { class_id: secClassId() }, { limit: 200 });
+        sec.teacher = await backend.fetchAll('seclog', { kind: 'teacher_login' }, { limit: 10 });
+      }
+      sec.problem = '';
+      sec.loaded = true;
+    } catch (error) {
+      console.warn('[登录安全]', error);
+      sec.problem = missingTable(error) || /ck_pin_status|function/i.test(String((error && error.message) || error))
+        ? '后台还没有升级“登录安全”：请先执行 tools/cloudbase-pg-20261010-登录安全.sql。'
+        : `读取登录安全信息失败：${failReason(error)}`;
+    }
+    renderSecurity();
+  }
+  function renderSecAlert() {
+    const box = $('[data-sec-alert]');
+    const lines = [];
+    const room = state.room;
+    if (room && room.is_current && !rosterOf().length) lines.push('<p>本班还没有上传点名册：学生现在不能登录。请在“加入名单”里上传点名册。<button type="button" data-sec-go="checkins">去上传</button></p>');
+    const pending = sec.requests.filter((row) => row.status === 'pending').length;
+    if (pending) lines.push(`<p>有 ${pending} 位不在点名册上的同学申请进入本班课堂，允许后才能登录。<button type="button" data-sec-go="security">去处理</button></p>`);
+    const locked = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > Date.now()).length;
+    const hard = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > Date.now() && row.locks >= 3).length;
+    if (locked) lines.push(`<p>${locked} 个学号因口令输错次数过多被锁定${hard ? `（其中 ${hard} 个须老师解锁）` : '（到时自动解锁）'}。<button type="button" data-sec-go="security">查看</button></p>`);
+    if (sec.codeFails >= 30) lines.push(`<p>最近 10 分钟全站课堂码输错 ${sec.codeFails} 次，可能有人在猜课堂码。如果课堂码已外传，可点课堂码下方的“更换课堂码”。</p>`);
+    const html = lines.join('');
+    if (box.innerHTML !== html) box.innerHTML = html;   // 内容没变就不重画（每 10 秒刷新时按钮不会被换掉）
+    box.hidden = !lines.length;
+    $('[data-tab="security"]').textContent = pending || locked ? `登录安全（${pending + locked}）` : '登录安全';
+  }
+  $('[data-sec-alert]').addEventListener('click', (event) => {
+    const go = event.target.closest('[data-sec-go]');
+    if (!go) return;
+    const tab = $(`[data-tab="${go.dataset.secGo}"]`);
+    if (tab) { tab.click(); tab.scrollIntoView({ behavior: 'smooth', block: 'start' }); }
+  });
+  function renderSecurity() {
+    renderSecAlert();
+    const status = $('[data-sec-status]');
+    if (sec.problem) {
+      status.textContent = sec.problem;
+      return;
+    }
+    const roster = rosterOf();
+    const byName = new Map(roster.map((person) => [person.name, person]));
+    const reqs = sec.requests;
+    $('[data-sec-req-count]').textContent = reqs.length ? `待处理 ${reqs.filter((row) => row.status === 'pending').length} · 共 ${reqs.length}` : '';
+    $('[data-sec-requests]').innerHTML = reqs.map((row) => {
+      const twin = byName.get(row.name);
+      const note = twin && sidKey(twin.sid) !== sidKey(row.sid) ? `<span class="tw-sec-tag">点名册上有同名同学（学号 ${esc(twin.sid)}），可能填错了学号</span>` : '';
+      const label = { pending: '<b class="tw-sec-bad">待处理</b>', approved: '已允许', rejected: '已拒绝' }[row.status] || esc(row.status);
+      const actions = row.status === 'pending'
+        ? `<button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">允许</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">拒绝</button>`
+        : row.status === 'approved' ? `<button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">撤销允许</button>`
+        : `<button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">改为允许</button>`;
+      return `<tr><td>${esc(stamp(row.created_at))}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}${note}</td><td>${esc(row.class_name || '')}</td><td>${label}</td><td>${actions}</td></tr>`;
+    }).join('') || '<tr><td colspan="6" class="empty">没有班外加入申请。</td></tr>';
+
+    const pins = new Map(sec.pins.map((row) => [sidKey(row.sid), row]));
+    const query = $('[data-sec-search]').value.trim();
+    const filter = $('[data-sec-filter]').value;
+    const now = Date.now();
+    const rows = roster.map((person, index) => ({ person, index, pin: pins.get(sidKey(person.sid)) }))
+      .filter(({ person }) => !query || [person.sid, person.name].some((value) => String(value || '').includes(query)))
+      .filter(({ pin }) => {
+        const locked = pin && pin.locked_until && millis(pin.locked_until) > now;
+        if (filter === 'alert') return Boolean(locked || (pin && pin.fails > 0));
+        if (filter === 'nopin') return !pin || !pin.has_pin;
+        if (filter === 'multi') return Boolean(pin && pin.devices >= 3);
+        return true;
+      });
+    $('[data-sec-pins]').innerHTML = rows.map(({ person, index, pin }) => {
+      const locked = pin && pin.locked_until && millis(pin.locked_until) > now;
+      const cond = locked && pin.locks >= 3 ? '<b class="tw-sec-bad">锁定（多次输错，须老师解锁）</b>'
+        : locked ? `<b class="tw-sec-bad">锁定到 ${esc(clock(millis(pin.locked_until)).slice(0, 5))}（第 ${pin.locks || 1} 次）</b>`
+        : pin && pin.fails > 0 ? `<span class="tw-sec-bad">已连续输错 ${pin.fails} 次</span>` : '正常';
+      const actions = [
+        locked || (pin && pin.fails > 0) ? `<button type="button" class="tw-secondary" data-sec-unlock="${esc(person.sid)}">解锁</button>` : '',
+        pin ? `<button type="button" class="tw-secondary" data-sec-reset="${esc(person.sid)}" data-sec-name="${esc(person.name)}">重置口令</button>` : '',
+      ].join('');
+      return `<tr><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}${person.extra ? '<span class="tw-sec-tag">班外</span>' : ''}</td>
+        <td>${pin && pin.has_pin ? `已设置${pin.set_at ? `（${esc(isoDay(millis(pin.set_at)).slice(5))}）` : ''}` : '还没设'}</td>
+        <td>${pin ? `${pin.devices} 台` : ''}</td><td>${esc(stamp(pin && pin.last_at))}</td><td>${cond}</td><td>${actions}</td></tr>`;
+    }).join('') || `<tr><td colspan="8" class="empty">${roster.length ? '没有符合条件的学生。' : '本班还没有点名册。'}</td></tr>`;
+    const lockedCount = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > now).length;
+    status.textContent = roster.length
+      ? `点名册 ${roster.length} 人：已设口令 ${sec.pins.filter((row) => row.has_pin).length} 人${lockedCount ? `，锁定中 ${lockedCount} 人` : ''}。“重置口令”会同时让该生所有设备退出，下次登录重新设口令。`
+      : '';
+
+    const day = Date.now() - 24 * 3600 * 1000;
+    const recent = sec.log.filter((row) => millis(row.at) > day);
+    const count = (kind) => recent.filter((row) => row.kind === kind).length;
+    $('[data-sec-summary]').textContent = `最近 24 小时本班：口令错误 ${count('bad_pin')} 次、锁定 ${count('locked')} 次、姓名不符 ${count('bad_name')} 次、班外申请 ${count('request')} 次、新设备登录 ${count('new_device')} 次；全站最近 10 分钟课堂码错误 ${sec.codeFails} 次。`;
+    $('[data-sec-log]').innerHTML = sec.log.slice(0, 100).map((row) => `<tr><td>${esc(stamp(row.at))}</td>
+      <td class="${SEC_BAD.has(row.kind) ? 'warn' : ''}">${esc(SEC_KIND[row.kind] || row.kind)}${row.kind === 'locked' && row.detail ? `（${esc(row.detail)}）` : ''}</td><td>${esc(row.sid || '')}</td><td>${esc(row.name || '')}</td></tr>`).join('')
+      || '<tr><td colspan="4" class="empty">还没有记录。</td></tr>';
+    $('[data-sec-teacher]').innerHTML = sec.teacher.map((row) => `<tr><td>${esc(stamp(row.at))}</td><td>${esc(browserOf(row.detail))}</td></tr>`).join('')
+      || '<tr><td colspan="2" class="empty">还没有记录（下次登录工作台时开始记录）。</td></tr>';
+  }
+  // 浏览器信息只显示大概：系统＋浏览器
+  const browserOf = (agent) => {
+    const text = String(agent || '');
+    const os = /iPhone|iPad/.test(text) ? 'iOS' : /Android/.test(text) ? 'Android' : /Mac OS X/.test(text) ? 'macOS' : /Windows/.test(text) ? 'Windows' : /Linux/.test(text) ? 'Linux' : '';
+    const browser = /Edg\//.test(text) ? 'Edge' : /Chrome\//.test(text) ? 'Chrome' : /Firefox\//.test(text) ? 'Firefox' : /Safari\//.test(text) ? 'Safari' : '';
+    return [os, browser].filter(Boolean).join(' · ') || text.slice(0, 60);
+  };
+  async function secAction(label, call) {
+    $('[data-sec-status]').textContent = `${label}……`;
+    let message = `${label}：已完成（${clock(Date.now())}）`;
+    try {
+      await call();
+    } catch (error) {
+      console.error(error);
+      message = `${label}失败：${error.message || error}`;
+    }
+    await loadSecurity(true);
+    $('[data-sec-status]').textContent = message;
+  }
+  $('[data-panel="security"]').addEventListener('click', async (event) => {
+    const allow = event.target.closest('[data-sec-allow]');
+    const reject = event.target.closest('[data-sec-reject]');
+    const unlock = event.target.closest('[data-sec-unlock]');
+    const reset = event.target.closest('[data-sec-reset]');
+    if (allow || reject) {
+      const id = (allow || reject).dataset[allow ? 'secAllow' : 'secReject'];
+      const row = sec.requests.find((item) => String(item.id) === id);
+      if (!row) return;
+      if (reject && row.status === 'approved'
+        && !window.confirm(`撤销允许 ${row.name}（学号 ${row.sid}）？该生会从本班点名册移除，已登录的设备不能再递交，也不能再登录。`)) return;
+      await secAction(allow ? `允许 ${row.name} 加入` : `拒绝 ${row.name}`, async () => {
+        await backend.rpc('ck_decide_request', { p_id: Number(row.id) || row.id, p_allow: Boolean(allow) });
+        await loadClasses();
+        showClassInfo();
+        renderCheckins();
+      });
+    } else if (unlock) {
+      await secAction(`解锁学号 ${unlock.dataset.secUnlock}`, () => backend.rpc('ck_unlock_pin', { p_class: secClassId(), p_sid: unlock.dataset.secUnlock }));
+    } else if (reset) {
+      const sid = reset.dataset.secReset;
+      if (!window.confirm(`重置 ${reset.dataset.secName}（学号 ${sid}）的口令？\n\n该生所有已登录的设备都要回首页重新登录，并重新设置口令。\n如果是有人冒用了这个学号，重置后请让本人马上重新登录、设置新口令。`)) return;
+      await secAction(`重置学号 ${sid} 的口令`, () => backend.rpc('ck_reset_pin', { p_class: secClassId(), p_sid: sid }));
+    }
+  });
+  $('[data-tab="security"]').addEventListener('click', () => loadSecurity(true));
+  $('[data-sec-refresh]').addEventListener('click', () => loadSecurity(true));
+  $('[data-sec-search]').addEventListener('input', renderSecurity);
+  $('[data-sec-filter]').addEventListener('change', renderSecurity);
+  setInterval(() => { if (state.klass && !document.hidden) loadSecurity(!$('[data-panel="security"]').hidden); }, 10000);
 
   // ---------------- 启动 ----------------
   (async () => {

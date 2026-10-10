@@ -57,6 +57,11 @@
     hour: '2-digit', minute: '2-digit' }).format(new Date());
   const joinUrl = () => '/' + (identity.code ? `?join=${encodeURIComponent(identity.code)}` : '');
   const closedText = '本课堂已结束提交或已停止，请留意老师发布的新课堂码';
+  // 身份核对：本设备没有经首页核对（课堂码＋点名册＋个人口令），或老师重置了口令，就要回首页重新登录
+  const reloginText = '请回首页重新登录：本课堂要核对身份（课堂码＋点名册＋个人口令）';
+  let loginNeeded = false;
+  let onBlocked = () => {};   // 面板建好后换成“向后台核对是否要重新登录”
+  const needsRelogin = (problem) => loginNeeded || /重新登录/.test(String((problem && problem.message) || problem || ''));
   const shield = (el, types = ['click', 'keydown', 'keyup', 'input']) => types.forEach((type) => el.addEventListener(type, (event) => event.stopPropagation()));
 
   const style = document.createElement('style');
@@ -64,6 +69,45 @@
   .clp-panel { position: fixed; z-index: 90; left: 16px; bottom: 80px; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid rgba(35,101,95,.28); border-radius: 10px; background: rgba(255,253,248,.97); color: #201c18; box-shadow: 0 12px 30px rgba(0,0,0,.14); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-who { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
   .clp-who strong { font-size: 15px; }
+  .clp-no { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; color: #fff; background: #a4492d; font-size: 13px; font-weight: 800; vertical-align: 1px; }
+  .clp-no[hidden] { display: none; }
+  .clp-realm { display: inline-block; margin-left: 6px; padding: 1px 8px; border: 1px solid rgba(0,0,0,.08); border-radius: 999px; font: 800 12.5px/1.5 inherit; vertical-align: 1px; cursor: pointer; }
+  .clp-realm[hidden] { display: none; }
+  .clp-realm.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
+  .clp-realm.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; text-shadow: 0 1px 1px rgba(10,60,48,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
+  .clp-realm.is-r2 { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 32%, #b8801a 68%, #e8b844); border-color: #7a5208; box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 0 6px rgba(240,194,75,.5); }
+  .clp-realm.is-r3 { color: #f6eaff; background: linear-gradient(160deg, #4b1d8f, #7a3fe0 55%, #3a1673); border-color: #d8b8ff; text-shadow: 0 0 6px rgba(220,190,255,.8); animation: clp-ying 2.4s ease-in-out infinite; }
+  .clp-realm.is-r4 { color: #ffe08a; border: 1px solid transparent; background: linear-gradient(#140d24, #140d24) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
+    background-size: 100% 100%, 300% 100%; box-shadow: 0 0 10px rgba(255,214,110,.7); animation: clp-flow 3s linear infinite; }
+  .clp-realm.is-r3::before, .clp-realm.is-r4::before { content: '✦'; margin-right: 3px; font-size: .8em; }
+  @keyframes clp-ying { 0%, 100% { box-shadow: 0 0 8px rgba(170,120,255,.7); } 50% { box-shadow: 0 0 16px rgba(190,140,255,1); } }
+  @keyframes clp-flow { from { background-position: 0 0, 0% 50%; } to { background-position: 0 0, 300% 50%; } }
+  .clp-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 4px 0 2px; font-size: 13px; color: #6d6259; }
+  .clp-colors[hidden] { display: none; }
+  .clp-colors button { width: 26px; height: 26px; padding: 0; border: 1px solid rgba(70,51,34,.25); border-radius: 6px; cursor: pointer; }
+  .clp-colors button[aria-pressed="true"] { outline: 2px solid #201c18; outline-offset: 1px; }
+  .clp-colors button[disabled] { opacity: .35; cursor: default; }
+  .clp-colors em { font-style: normal; font-size: 12px; }
+  .clp-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 13px; color: #6d6259; }
+  .clp-gifts[hidden] { display: none; }
+  .clp-gifts button { padding: 3px 9px; border: 1.5px solid rgba(164,73,45,.35); border-radius: 999px; background: #fffaf3; color: #201c18; font: 700 13px/1.4 inherit; cursor: pointer; }
+  .clp-gifts button[disabled] { opacity: .45; cursor: default; }
+  .clp-relogin { margin: 2px 0 8px; padding: 8px 10px; border: 1.5px solid #e2a08a; border-radius: 8px; background: #fff1ec; color: #7a2a14; font-size: 13px; line-height: 1.55; }
+  .clp-relogin[hidden] { display: none; }
+  .clp-relogin a { display: inline-block; margin-left: 4px; color: #a4492d; font-weight: 800; }
+  .clp-realm-modal { position: fixed; z-index: 2147483000; inset: 0; display: grid; place-items: center; padding: 16px; background: rgba(32,28,24,.45); }
+  .clp-realm-modal[hidden] { display: none; }
+  .clp-realm-card { width: min(520px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 18px 20px; border-radius: 14px; background: #fffdf8; color: #201c18;
+    box-shadow: 0 20px 60px rgba(0,0,0,.3); font: 14.5px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-realm-card h3 { display: flex; align-items: center; justify-content: space-between; margin: 0 0 6px; font-size: 18px; }
+  .clp-realm-card h3 button { border: 0; background: none; font-size: 22px; cursor: pointer; color: #6d6259; }
+  .clp-realm-card h4 { margin: 12px 0 4px; font-size: 15px; color: #a4492d; }
+  .clp-realm-card ul { margin: 0; padding-left: 20px; }
+  .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
+  .clp-realm-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #23655f, #b98cff, #ffd36b); }
+  .clp-realm-ladder { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .clp-toast { position: fixed; z-index: 2147483001; left: 50%; top: 18px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
+    color: #3b1d00; background: linear-gradient(100deg, #f3e3ff, #fff3c8); box-shadow: 0 10px 30px rgba(0,0,0,.25); font: 800 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-who small, .clp-room, .clp-hint { color: #6d6259; font-size: 12.5px; }
   .clp-hint { margin: 6px 0 0; line-height: 1.5; }
   .clp-hint[data-state=ok] { color: #23655f; }
@@ -144,6 +188,111 @@
   .clp-note summary { color: #a4492d; font-size: 13px; font-weight: 700; cursor: pointer; }
   .clp-note textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; background: #fffdf8; color: #201c18; font: 14px/1.6 inherit; resize: vertical; }
   .clp-note textarea:focus { outline: none; border-color: #23655f; }
+  /* 课堂面板（已进入课堂）：境界头部＋醒目的发弹幕＋作答进度；按境界换材质（is-r0 素石 … is-r4 神光）。离线版与未进入课堂的面板仍用上面的样式 */
+  .clp-panel.clp-v2 { --clp-head-bg: linear-gradient(135deg, #f1ece2, #d9d2c4); --clp-head-ink: #2f2a24; --clp-head-sub: #6d6259; --clp-link: #8a3b22;
+    --clp-accent: #6b6255; --clp-accent-ink: #fff; --clp-accent-glow: none; --clp-border: #ddd3c2; --clp-shadow: 0 18px 40px rgba(40,30,20,.16);
+    --clp-bar: #8a8173; --clp-track: rgba(0,0,0,.1); --clp-input-border: #d6cdbd; --clp-ring: rgba(107,98,85,.18); --clp-label: #6d6259;
+    display: flex; flex-direction: column; width: min(372px, calc(100vw - 32px)); max-height: calc(100vh - 110px); padding: 0; overflow: hidden;
+    border: 1px solid var(--clp-border); border-radius: 16px; background: #fffaf3; box-shadow: var(--clp-shadow); }
+  .clp-v2.is-r1 { --clp-head-bg: linear-gradient(135deg, #e6f7f0, #a9dccb 70%, #86cbb5); --clp-head-ink: #12382f; --clp-head-sub: #2e5c50; --clp-link: #1f6455;
+    --clp-accent: #2a7d69; --clp-border: #b8dccf; --clp-shadow: 0 18px 40px rgba(20,60,48,.16); --clp-bar: linear-gradient(90deg, #3fa88d, #2a7d69);
+    --clp-track: rgba(10,60,48,.14); --clp-input-border: #9fd2c1; --clp-ring: rgba(42,125,105,.18); --clp-label: #2e5c50; }
+  .clp-v2.is-r2 { --clp-head-bg: linear-gradient(135deg, #fff7dc, #f4d37c 55%, #dcab45); --clp-head-ink: #3a2300; --clp-head-sub: #6b4a14; --clp-link: #6b4200;
+    --clp-accent: linear-gradient(180deg, #d9a43a, #a8730f); --clp-border: #e4c88a; --clp-shadow: 0 18px 40px rgba(120,80,10,.18);
+    --clp-bar: linear-gradient(90deg, #f2c64f, #b8801a); --clp-track: rgba(90,60,0,.15); --clp-input-border: #e4c88a; --clp-ring: rgba(216,164,58,.2); --clp-label: #6b4a14; }
+  .clp-v2.is-r3 { --clp-head-bg: linear-gradient(135deg, #25104f, #5427ad 60%, #7a45e0); --clp-head-ink: #f6eaff; --clp-head-sub: #d6c3f5; --clp-link: #e3cfff;
+    --clp-accent: linear-gradient(160deg, #7a3fe0, #4b1d8f); --clp-accent-glow: 0 0 12px rgba(150,100,255,.55); --clp-border: #c9b0f2;
+    --clp-shadow: 0 18px 44px rgba(80,40,160,.24), 0 0 0 3px rgba(170,120,255,.15); --clp-bar: linear-gradient(90deg, #b98cff, #f2e6ff);
+    --clp-track: rgba(255,255,255,.16); --clp-input-border: #8b5fe0; --clp-ring: rgba(170,120,255,.2); --clp-label: #5427ad; }
+  .clp-v2.is-r4 { --clp-head-bg: radial-gradient(circle at 88% 18%, rgba(255,214,110,.35), transparent 42%), radial-gradient(circle at 10% 90%, rgba(155,107,255,.45), transparent 48%), #140d24;
+    --clp-head-ink: #fff4dc; --clp-head-sub: #e4d6c0; --clp-link: #ffe7a3; --clp-accent: linear-gradient(90deg, #ffb347, #ff8fc4, #9b6bff, #ffb347); --clp-accent-ink: #2a1440;
+    --clp-accent-glow: 0 0 14px rgba(255,200,120,.6); --clp-shadow: 0 18px 50px rgba(120,60,160,.28), 0 0 26px rgba(255,200,120,.35);
+    --clp-bar: linear-gradient(90deg, #ffb347, #ff8fc4, #9b6bff, #ffb347); --clp-track: rgba(255,255,255,.14); --clp-input-border: #c9a24a; --clp-ring: rgba(255,214,110,.2); --clp-label: #8a5a1a;
+    border: 2px solid transparent; background: linear-gradient(#fffaf3, #fffaf3) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
+    background-size: 100% 100%, 300% 100%; animation: clp-flow 5s linear infinite; }
+  .clp-v2 .clp-head { position: relative; flex: 0 0 auto; padding: 12px 14px 10px; background: var(--clp-head-bg); color: var(--clp-head-ink); }
+  .clp-v2 .clp-who { display: flex; align-items: center; gap: 7px; }
+  .clp-v2 .clp-no { margin: 0; flex: 0 0 auto; }
+  .clp-v2 .clp-name { min-width: 0; overflow: hidden; font-size: 17px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
+  .clp-v2 .clp-realm { flex: 0 0 auto; margin: 0; padding: 1px 9px; border-radius: 5px; font: 700 14px/1.5 "Kaiti SC", STKaiti, KaiTi, serif; }
+  .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 10px; margin-left: auto; }
+  .clp-v2 .clp-head .clp-link { color: var(--clp-link); font-size: 13px; }
+  .clp-v2 .clp-sub { margin-top: 3px; color: var(--clp-head-sub); font-size: 12.5px; }
+  .clp-v2 .clp-rise { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: var(--clp-head-sub); font-size: 12px; }
+  .clp-v2 .clp-rise[hidden] { display: none; }
+  .clp-v2 .clp-rise-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--clp-track); overflow: hidden; }
+  .clp-v2 .clp-rise-bar i { display: block; height: 100%; border-radius: 3px; background: var(--clp-bar); background-size: 300% 100%; }
+  .clp-v2.is-r3 .clp-rise-bar i { box-shadow: 0 0 8px rgba(200,160,255,.9); }
+  .clp-v2.is-r4 .clp-rise-bar i { box-shadow: 0 0 8px rgba(255,214,110,.9); animation: clp-textflow 4s linear infinite; }
+  .clp-v2 .clp-star { display: none; position: absolute; color: #e8d8ff; font-style: normal; pointer-events: none; animation: clp-twinkle 2.2s ease-in-out infinite; }
+  .clp-v2.is-r3 .clp-star, .clp-v2.is-r4 .clp-star { display: block; }
+  .clp-v2 .clp-star:nth-child(1) { right: 126px; top: 6px; font-size: 11px; }
+  .clp-v2 .clp-star:nth-child(2) { right: 26px; top: 56px; font-size: 9px; animation-delay: .8s; }
+  .clp-v2 .clp-star:nth-child(3) { right: 74px; top: 30px; font-size: 7px; animation-delay: 1.4s; color: #fff; }
+  .clp-v2.is-r4 .clp-star:nth-child(1) { color: #ffe08a; }
+  .clp-v2.is-r4 .clp-star:nth-child(2) { color: #ffb3d6; }
+  .clp-v2.is-r4 .clp-star:nth-child(3) { color: #a8e6ff; }
+  @keyframes clp-twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
+  @keyframes clp-textflow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+  .clp-v2 .clp-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
+  .clp-v2 .clp-sec { padding: 12px 14px; }
+  .clp-v2 .clp-sec[hidden] { display: none; }
+  .clp-v2 .clp-sec + .clp-sec { border-top: 1px dashed rgba(70,51,34,.18); }
+  .clp-v2 .clp-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .clp-v2 .clp-sec-title, .clp-v2 .clp-count { font-size: 15px; font-weight: 800; }
+  .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; }
+  .clp-v2 .clp-sec-note[data-state=ok] { color: #23655f; font-weight: 700; }
+  .clp-v2 .clp-relogin { margin: 0 0 10px; }
+  .clp-v2 .clp-danmaku { gap: 8px; margin: 0; padding: 0; border: 0; }
+  .clp-v2 .clp-dm-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; }
+  .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 46px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
+  .clp-v2 .clp-danmaku input:focus { border-color: var(--clp-input-border); box-shadow: 0 0 0 3px var(--clp-ring); }
+  .clp-v2 .clp-danmaku button { min-width: 74px; height: 46px; padding: 0 14px; border-radius: 12px; color: var(--clp-accent-ink); background: var(--clp-accent);
+    background-size: 300% 100%; box-shadow: var(--clp-accent-glow); font-size: 16px; }
+  .clp-v2.is-r4 .clp-danmaku button:not([disabled]) { animation: clp-textflow 4s linear infinite; }
+  .clp-v2.has-color .clp-danmaku input { border-color: #8b5fe0; background: #1d1630; color: var(--clp-dm-color, #e3cfff); font-weight: 700; caret-color: #fff; }
+  .clp-v2.has-color .clp-danmaku input::placeholder { color: #8d82a8; -webkit-text-fill-color: #8d82a8; font-weight: 500; }
+  .clp-v2.is-r4.has-color .clp-danmaku input { border-color: #c9a24a; }
+  .clp-v2.has-flow .clp-dm-field { background: #140d24; }
+  .clp-v2.has-flow .clp-danmaku input { background-color: transparent; background-image: var(--clp-dm-flow); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent; caret-color: #ffe08a; animation: clp-textflow 4s linear infinite; }
+  .clp-v2 .clp-dm-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; color: #8a7f74; font-size: 12px; }
+  .clp-v2 .clp-dm-meta .clp-hint { margin: 0; font-size: 12px; }
+  .clp-v2 .clp-dm-meta > span { flex: 0 0 auto; }
+  .clp-v2 .clp-colors { gap: 5px; margin: 10px 0 0; font-size: 12.5px; color: #8a7f74; }
+  .clp-v2 .clp-label { margin-right: 3px; color: var(--clp-label); font-weight: 700; }
+  .clp-v2.is-r4 .clp-label { color: #8a5a1a; }
+  .clp-v2 .clp-colors button { width: 20px; height: 20px; border-radius: 50%; }
+  .clp-v2 .clp-colors button[aria-pressed="true"] { outline: 2px solid #201c18; outline-offset: 2px; }
+  .clp-v2 .clp-colors em { margin-left: 4px; font-size: 12px; }
+  .clp-v2 .clp-gifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; }
+  .clp-v2 .clp-gifts[hidden] { display: none; }
+  .clp-v2 .clp-gifts button { display: flex; align-items: center; gap: 7px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #e0b64a; border-radius: 9px;
+    background: linear-gradient(180deg, #fff8e1, #ffefc2); color: #5a3a00; font: 800 13px/1 inherit; text-align: left; white-space: nowrap; }
+  .clp-v2 .clp-gifts button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
+  .clp-v2 .clp-gifts button[disabled] { opacity: .7; }
+  .clp-v2 .clp-gifts .is-qingzhu { border-color: #7fcf9f; background: linear-gradient(180deg, #effbf3, #d7f3e1); color: #10432a; }
+  .clp-v2 .clp-gifts .is-fenglei { border-color: #8fcfee; background: linear-gradient(180deg, #eef9ff, #d6effc); color: #0f3e57; }
+  .clp-v2 .clp-gifts .is-zhangtian { border-color: #6fd39b; background: linear-gradient(180deg, #14261f, #0e1c16); color: #c9f7dc; box-shadow: 0 0 10px rgba(90,230,150,.35); }
+  .clp-v2 .clp-gifts button.is-locked { border: 1px dashed #cfc5b5; background: #f6f1e8; color: #a59a8d; box-shadow: none; font-weight: 700; opacity: 1; }
+  .clp-v2 .clp-gifts small { flex: 0 0 auto; margin-left: auto; font-size: 11px; font-weight: 700; }
+  .clp-v2 .clp-gi { flex: 0 0 auto; display: inline-grid; place-items: center; }
+  .clp-v2 .clp-gi-dan { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #fff4c4, #ffc23a 40%, #c97300); box-shadow: 0 0 6px rgba(255,190,40,.8);
+    color: #7a1a0a; font: 700 11px/1 "Kaiti SC", STKaiti, KaiTi, serif; }
+  .clp-v2 .clp-progress { margin: 0; border-top: 1px dashed rgba(70,51,34,.18); }
+  .clp-v2 .clp-prog { height: 6px; margin: -2px 0 8px; border-radius: 3px; background: #ece4d6; overflow: hidden; }
+  .clp-v2 .clp-prog i { display: block; width: 0; height: 100%; border-radius: 3px; background: var(--clp-bar); background-size: 300% 100%; transition: width .4s; }
+  .clp-v2.is-r0 .clp-prog i { background: #23655f; }
+  .clp-v2 .clp-state { font-size: 12.5px; }
+  .clp-v2 .clp-tools { flex-wrap: nowrap; gap: 8px; margin-top: 8px; }
+  .clp-v2 .clp-tools button { height: 38px; padding: 0 11px; border-radius: 10px; white-space: nowrap; }
+  .clp-v2 .clp-tools button.is-main { flex: 1 1 auto; font-size: 14.5px; }
+  .clp-v2 [data-cl-export-state]:not([data-state]) { display: none; }
+  .clp-v2 .clp-foot { position: relative; padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.12); }
+  .clp-v2 .clp-mydm { margin: 0; }
+  .clp-v2 .clp-mydm summary { padding-right: 70px; }
+  .clp-v2 .clp-realm-open { position: absolute; top: 10px; right: 14px; font-size: 13px; }
+  @media (prefers-reduced-motion: reduce) { .clp-v2, .clp-v2 * { animation: none !important; } }
   #clp-print-view { display: none; }
   @media print {
     .clp-panel, .clp-q { display: none !important; }
@@ -328,7 +477,8 @@
       } else {
         q.button.disabled = false;
         q.button.textContent = '递交';
-        setQ(q, Live.isClosedError(problemError) ? closedText : '递交失败：请检查网络后再试（作答仍在页面上）', 'error');
+        if (Live.isClosedError(problemError)) onBlocked();
+        setQ(q, Live.isClosedError(problemError) ? (needsRelogin(problemError) ? reloginText : closedText) : '递交失败：请检查网络后再试（作答仍在页面上）', 'error');
       }
     }
     refreshCount();
@@ -507,27 +657,49 @@
     return;
   }
 
+  // 已进入课堂的面板：境界头部（编号、姓名、称号、学号·班级·课堂、距下一境界）→ 发弹幕（字色、法宝）→ 作答进度 → 我发过的弹幕
+  panel.classList.add('clp-v2', 'is-r0');
+  const STAR = '<i class="clp-star" aria-hidden="true">✦</i>';
+  const DM_HINT = '投屏可见 · 老师能看到发送人 · 请文明发言';
   panel.innerHTML = `
-    <div class="clp-who"><span><strong>${esc(identity.name)}</strong> <small>${esc(identity.sid)} · ${esc(identity.class_name || '')}${identity.group_name ? ' · ' + esc(identity.group_name) : ''}</small></span>
-      <span><button type="button" class="clp-link" data-cl-fold>收起</button> <button type="button" class="clp-link" data-cl-switch>不是我</button></span></div>
+    <div class="clp-head">${STAR}${STAR}${STAR}
+      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
+        <span class="clp-links"><button type="button" class="clp-link" data-cl-fold>收起</button><button type="button" class="clp-link" data-cl-switch>不是我</button></span></div>
+      <div class="clp-sub">${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
+    </div>
     <div class="clp-body">
-      <div class="clp-room">${esc(identity.classroom_name || '')}</div>
-      <div class="clp-progress"${questions.length ? '' : ' hidden'}><span class="clp-count" data-cl-count></span><span class="clp-state" data-cl-state>每题做完点题目下方的“递交”，递交后不能修改</span>${tools}</div>
-      <form class="clp-danmaku" data-cl-danmaku>
-        <input type="text" maxlength="40" placeholder="发一条弹幕（40 字内）" aria-label="弹幕内容" autocomplete="off">
-        <button type="submit">发送</button>
-      </form>
-      <p class="clp-hint" data-cl-dm-state>弹幕会显示在老师投屏的页面上（老师开启匿名时不显示姓名）；老师后台都能看到是谁发的，请文明发言。</p>
-      <details class="clp-mydm" data-cl-mydm>
-        <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
-        <ul class="clp-mydm-list" data-cl-mydm-list></ul>
-        <p class="clp-hint" data-cl-mydm-state></p>
-      </details>
+      <section class="clp-sec">
+        <div class="clp-relogin" data-cl-relogin hidden><b>请回首页重新登录</b>：本课堂要核对身份（课堂码＋点名册＋个人口令），核对通过后才能递交作答、发弹幕。<a href="${joinUrl()}" data-cl-relogin-link>去首页登录 →</a></div>
+        <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span></div>
+        <form class="clp-danmaku" data-cl-danmaku>
+          <span class="clp-dm-field"><input type="text" maxlength="40" placeholder="说点什么，发到投屏上…" aria-label="弹幕内容" autocomplete="off"></span>
+          <button type="submit">发送</button>
+        </form>
+        <div class="clp-dm-meta"><p class="clp-hint" data-cl-dm-state>${DM_HINT}</p><span data-cl-dm-len>0/40</span></div>
+        <div class="clp-colors" data-cl-colors hidden><span class="clp-label">字色</span><em data-cl-colors-note></em></div>
+        <div class="clp-gifts" data-cl-gifts hidden></div>
+      </section>
+      <section class="clp-sec clp-progress"${questions.length ? '' : ' hidden'}>
+        <div class="clp-sec-head"><span class="clp-count" data-cl-count></span><span class="clp-sec-note" data-cl-count-note>递交后不能修改</span></div>
+        <div class="clp-prog"><i data-cl-prog></i></div>
+        <span class="clp-state" data-cl-state>每题做完点题目下方的“递交”</span>${tools}
+      </section>
+      <div class="clp-foot">
+        <details class="clp-mydm" data-cl-mydm>
+          <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
+          <ul class="clp-mydm-list" data-cl-mydm-list></ul>
+          <p class="clp-hint" data-cl-mydm-state></p>
+        </details>
+        <button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button>
+      </div>
     </div>`;
   document.body.appendChild(panel);
   dodge();
-  panel.querySelector('[data-cl-switch]').addEventListener('click', () => {
+  // 不是我：清掉本机的身份并退出这次登录（下一位同学在这台设备上登录算新设备，要输自己的口令）
+  panel.querySelector('[data-cl-switch]').addEventListener('click', async () => {
     save(STORE, { code: identity.code });
+    try { if (backend.signOutStudent) await backend.signOutStudent(); } catch (error) { /* 忽略 */ }
     location.href = joinUrl();
   });
   setupFold();
@@ -539,6 +711,13 @@
     if (!countEl) return;
     const done = questions.filter((q) => locked[q.key]).length;
     countEl.textContent = `已递交 ${done}/${questions.length} 题`;
+    const bar = panel.querySelector('[data-cl-prog]');
+    if (bar) bar.style.width = `${questions.length ? Math.round(done / questions.length * 100) : 0}%`;
+    const note = panel.querySelector('[data-cl-count-note]');
+    const all = questions.length > 0 && done >= questions.length;
+    if (note) { note.textContent = all ? '全部递交 ✓' : '递交后不能修改'; note.dataset.state = all ? 'ok' : ''; }
+    const next = panel.querySelector('[data-cl-next]');
+    if (next && panel.classList.contains('clp-v2')) next.textContent = all ? '全部已递交 ✓' : '下一道未递交 ↓';
   }
   refreshCount();
 
@@ -581,11 +760,16 @@
       if (cooling <= 0) clearInterval(tick);
     }, 1000);
   };
-  const dmProblem = (problem) => (Live.isClosedError(problem)
+  const dmProblem = (problem) => (Live.isClosedError(problem) && (onBlocked(), needsRelogin(problem))
+    ? reloginText + '。'
+    : Live.isClosedError(problem)
     ? '现在不能发弹幕：老师未开放弹幕，或发送太快（每 5 秒一条）。'
     : '发送失败：请检查网络后再试。');
   async function sendDanmaku(text) {
-    await backend.add('danmaku', { course: config.course, classroom: identity.classroom, name: identity.name, sid: identity.sid, text });
+    const doc = { course: config.course, classroom: identity.classroom, name: identity.name, sid: identity.sid, text };
+    const color = myDanmakuColor();   // 元婴起才带字色（投屏页还会按境界核对）
+    if (color) doc.color = color;
+    await backend.add('danmaku', doc);
     cool();
     loadMyDanmaku(true);
   }
@@ -618,7 +802,7 @@
     body.appendChild(document.createTextNode(rest));
     const meta = document.createElement('em');
     const at = row.ts ? new Date(Number(row.ts)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
-    meta.textContent = [MY_STATUS[row.status] || '', at].filter(Boolean).join(' · ');
+    meta.textContent = [row.liked ? '「师赞」老师点赞' : '', MY_STATUS[row.status] || '', at].filter(Boolean).join(' · ');
     body.appendChild(meta);
     const remove = document.createElement('button');
     remove.type = 'button';
@@ -665,6 +849,9 @@
     }
   }
   mydm.addEventListener('toggle', () => { if (mydm.open) loadMyDanmaku(); });
+  const dmLen = panel.querySelector('[data-cl-dm-len]');
+  const showLen = () => { if (dmLen) dmLen.textContent = `${dmInput.value.length}/40`; };
+  dmInput.addEventListener('input', showLen);
   dmForm.addEventListener('submit', async (event) => {
     event.preventDefault();
     const text = dmInput.value.replace(/\s+/g, ' ').trim().slice(0, 40);
@@ -673,6 +860,7 @@
     try {
       await sendDanmaku(text);
       dmInput.value = '';
+      showLen();
       dmState.textContent = `已发送（${time()}）。若老师开启了审核，通过后才会上屏。`;
       dmState.dataset.state = 'ok';
     } catch (problem) {
@@ -685,14 +873,216 @@
   setupMechDanmaku(true);
   setupFeedback(true);
 
-  // 同一课堂分几次课上时：每天第一次打开本章页面自动记一次登录（当天已在首页登录过就不再重复），老师可按日期看每次到课
-  const dayKey = `classlive-checkin:${identity.classroom}`;
-  if (load(dayKey, '') !== Live.today()) {
-    backend.add('checkins', { course: config.course, classroom: identity.classroom, session: Live.today(), name: identity.name, sid: identity.sid,
-      class_name: identity.class_name || null, group_name: identity.group_name || null, page: unit, path: location.pathname })
-      .then(() => save(dayKey, Live.today()))
-      .catch((problem) => console.warn('[登录记录] 没有记上：', (problem && problem.message) || problem));
+  // 每次打开本章页面都向后台核对：这台设备是否已经过首页核对（课堂码＋点名册＋口令）登录本课堂；没有就提示回首页重新登录。
+  // 同一课堂分几次课上时，后台在每天第一次打开时补记一次登录，老师可按日期看每次到课
+  const reloginBox = panel.querySelector('[data-cl-relogin]');
+  const checkMembership = () => backend.rpc('ck_checkin_today', { p_classroom: Number(identity.classroom) || identity.classroom, p_sid: identity.sid })
+    .then((result) => {
+      const status = Array.isArray(result) ? result[0] : result;
+      loginNeeded = status === 'login';
+      reloginBox.hidden = !loginNeeded;
+      if (loginNeeded && panel.classList.contains('is-folded')) panel.querySelector('[data-cl-fold]').click();
+      return status;
+    })
+    .catch((problem) => { console.warn('[登录核对] 没有完成：', (problem && problem.message) || problem); return null; });
+  let blockedAt = 0;
+  onBlocked = () => { if (Date.now() - blockedAt > 10000) { blockedAt = Date.now(); checkMembership(); } };
+  const checkedIn = checkMembership();
+
+  // 点名册编号（点名册第几行）：老师在课堂工具里抽人上台时按这个编号叫人。先显示上次记住的，再向后台核对；
+  // 后台函数只认本人这次登录对应的学号，看不到别人的；不在点名册里或后台还没有这个函数时不显示
+  const noEl = panel.querySelector('[data-cl-no]');
+  const noKey = `classlive-roster-no:${identity.classroom}`;
+  const showNo = (no) => {
+    noEl.textContent = no ? `${no}号` : '';
+    noEl.hidden = !no;
+  };
+  showNo(load(noKey, null));
+  checkedIn.then(() => backend.rpc('ck_my_roster_no', { p_classroom: Number(identity.classroom) || identity.classroom }))
+    .then((value) => {
+      const raw = Array.isArray(value) ? value[0] : value;
+      const no = Number(raw && typeof raw === 'object' ? Object.values(raw)[0] : raw) || null;
+      save(noKey, no);
+      showNo(no);
+    })
+    .catch(() => { /* 后台还没有 ck_my_roster_no 时不显示编号 */ });
+
+  // ---------- 修为境界：老师在工作台按后台记录结算（签到、作答、弹幕），这里只显示本人的境界称号；分数不在页面上显示 ----------
+  const REALMS = Live.REALMS || [];
+  const GIFTS = Live.GIFTS || [];
+  const realmEl = panel.querySelector('[data-cl-realm]');
+  const giftBox = panel.querySelector('[data-cl-gifts]');
+  const colorBox = panel.querySelector('[data-cl-colors]');
+  const colorNote = panel.querySelector('[data-cl-colors-note]');
+  const COLORS = Live.COLORS || [];
+  const colorKey = `classlive-dmcolor:${config.course}`;
+  const realmKey = `classlive-realm:${config.course}:${identity.sid}`;   // 按学号分开记（同一台设备换人时不串）
+  let myRealm = load(realmKey, null);
+  const realmModal = document.createElement('div');
+  realmModal.className = 'clp-realm-modal';
+  realmModal.hidden = true;
+  document.body.appendChild(realmModal);
+  const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
+  function openRealm() {
+    const r = myRealm;
+    const level = r ? r.realm : 0;
+    const next = REALMS[level + 1];
+    const lo = REALMS[level] ? REALMS[level].min : 0;
+    const hi = next ? next.min : 1;
+    const within = r ? Math.max(0, Math.min(1, ((Number(r.ratio) || 0) - lo) / (hi - lo || 1))) : 0;
+    realmModal.innerHTML = `<div class="clp-realm-card" role="dialog" aria-modal="true" aria-label="修为说明">
+      <h3><span>修为境界 ${r ? chip(level, REALMS[level].name + (Live.STAGES || [])[r.stage || 0]) : chip(0, '炼气')}</span><button type="button" data-realm-close aria-label="关闭">×</button></h3>
+      ${r ? `<div class="clp-realm-bar" title="本境界进度"><i style="width:${Math.round(within * 100)}%"></i></div>
+        <p class="clp-hint">${next ? `再积累一些修为就能突破到「${next.name}」。` : '已达化神境界，继续保持！'}${r.updated_at ? ` 上次结算：${String(r.updated_at).slice(0, 10)}` : ''}</p>`
+        : '<p class="clp-hint">老师结算后这里会显示你的境界（第一次结算前都是炼气）。</p>'}
+      <div class="clp-realm-ladder">${REALMS.map((realm) => chip(realm.level)).join('<span>→</span>')}</div>
+      <h4>怎样积累修为</h4>
+      <ul>
+        <li>本学期每次课都能积累修为，每次课最多 100：上课签到 20、作答完成 35、作答正确 35、发弹幕最多 10。</li>
+        <li>签到：上课时进入本次课堂就算；课后再打开页面不算。</li>
+        <li>作答完成：每道题点“递交”就算（投票、站队也算）；要写的题认真写满一句话，只填几个字或留着空格线不算。</li>
+        <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
+        <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
+        <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 5} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
+      </ul>
+      <h4>境界与奖励</h4>
+      <ul>
+        <li>修为占全学期满分的比例达到 15% 为筑基、35% 为结丹、60% 为元婴、85% 以上为化神，每个境界又分初期、中期、后期。</li>
+        <li>称号显示在你的名字旁边；老师投屏显示姓名时，你的弹幕前也会显示称号。境界越高，称号越华贵：炼气素石、筑基青玉、结丹金丹、元婴紫霄（发光）、化神神光（七彩流光）。</li>
+        <li>弹幕字色：元婴起可以在左下角面板自选弹幕颜色（8 种），弹幕带紫色辉边；化神再多“流金”“七彩”两种流光色，弹幕带七彩流光边框。炼气到结丹的弹幕是白字。</li>
+        <li>弹幕法宝（取自《凡人修仙传》）：${GIFTS.map((gift) => `${REALMS[gift.level].name}解锁「${gift.name}」`).join('，')}。每次课可以祭出一件，投屏上会出现法宝的画面和名牌：金丹浮起、丹香成环；九口青竹蜂云剑结阵破空；身后展开风雷翅、雷遁而去；掌天瓶吸纳月华、凝出绿液。法宝不加修为。</li>
+        <li>修为由老师课后结算，刷新页面就能看到新境界。具体分数只在老师后台统计，不在页面上显示。</li>
+      </ul></div>`;
+    realmModal.hidden = false;
+    realmModal.querySelector('[data-realm-close]').focus();
   }
+  realmModal.addEventListener('click', (event) => { if (event.target === realmModal || event.target.closest('[data-realm-close]')) realmModal.hidden = true; });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !realmModal.hidden) realmModal.hidden = true; });
+  realmEl.addEventListener('click', openRealm);
+  panel.querySelector('[data-cl-realm-open]').addEventListener('click', openRealm);
+  realmEl.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRealm(); } });
+  function toast(text) {
+    const box = document.createElement('div');
+    box.className = 'clp-toast';
+    box.setAttribute('role', 'status');
+    box.textContent = text;
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 6000);
+  }
+  // 法宝小图（与投屏画面同一套造型，用 CSS／SVG 画，不依赖表情字体）
+  const GIFT_ICONS = {
+    zhujidan: '<span class="clp-gi clp-gi-dan" aria-hidden="true">丹</span>',
+    qingzhu: '<svg class="clp-gi" aria-hidden="true" width="22" height="10" viewBox="0 0 240 28"><rect x="0" y="10" width="40" height="8" rx="2" fill="#1d4a2c"/><path d="M40 2h8v24h-8z" fill="#c9a24a"/><path d="M48 8h166l24 6-24 6H48z" fill="#3fbf7a"/></svg>',
+    fenglei: '<svg class="clp-gi" aria-hidden="true" width="22" height="14" viewBox="0 0 44 28"><path d="M22 18C16 8 8 4 1 3c4 4 2 6 6 8-3 1-2 4 2 5-2 2 1 4 5 3 2 3 6 2 8-1z" fill="#8fdcff" stroke="#3a9fd6"/><path d="M22 18C28 8 36 4 43 3c-4 4-2 6-6 8 3 1 2 4-2 5 2 2-1 4-5 3-2 3-6 2-8-1z" fill="#8fdcff" stroke="#3a9fd6"/></svg>',
+    zhangtian: '<svg class="clp-gi" aria-hidden="true" width="14" height="18" viewBox="0 0 128 176"><path d="M55 12h18v22c0 6 4 9 10 13 18 11 31 31 31 58 0 36-24 63-50 63S14 141 14 105c0-27 13-47 31-58 6-4 10-7 10-13z" fill="#2fae6a" stroke="#9ff0c2" stroke-width="6"/></svg>',
+  };
+  const STAGES = Live.STAGES || [];
+  function showRealm(r) {
+    const level = r ? Math.max(0, Math.min(REALMS.length - 1, Number(r.realm) || 0)) : 0;
+    realmEl.className = `clp-realm is-r${level}`;
+    realmEl.textContent = REALMS[level] ? REALMS[level].name : '炼气';
+    realmEl.hidden = !REALMS.length;
+    // 面板材质随境界变化；头部进度条只显示“距下一境界”，不显示分数
+    [0, 1, 2, 3, 4].forEach((n) => panel.classList.toggle(`is-r${n}`, n === level));
+    const rise = panel.querySelector('[data-cl-rise]');
+    if (rise && REALMS[level]) {
+      const next = REALMS[level + 1];
+      const stage = Math.max(0, Math.min(2, Number(r && r.stage) || 0));
+      const lo = REALMS[level].min;
+      const within = next ? Math.max(0, Math.min(1, ((r ? Number(r.ratio) || 0 : 0) - lo) / (next.min - lo || 1))) : (stage + 1) / 3;
+      rise.hidden = false;
+      rise.querySelector('[data-cl-rise-label]').textContent = next ? `距「${next.name}」` : `已达${REALMS[level].name} · ${STAGES[stage] || ''}`;
+      rise.querySelector('[data-cl-rise-fill]').style.width = `${Math.round(within * 100)}%`;
+    }
+    giftBox.hidden = !GIFTS.length;
+    giftBox.querySelectorAll('button').forEach((button) => button.remove());
+    GIFTS.forEach((gift) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.gift = gift.id;
+      const open = r && level >= gift.level;
+      button.disabled = !open;
+      button.className = `is-${gift.id}${open ? '' : ' is-locked'}`;
+      button.innerHTML = open ? `${GIFT_ICONS[gift.id] || ''}<span>${esc(gift.name)}</span>` : `<span>${esc(gift.name)}</span><small>${esc(REALMS[gift.level].name)}解锁</small>`;
+      button.title = open ? `祭出法宝「${gift.name}」（每次课一件）` : `${REALMS[gift.level].name}境界解锁`;
+      giftBox.appendChild(button);
+    });
+    // 弹幕字色：元婴解锁 8 色，化神再加两种流光色；没到元婴时显示但不能点
+    colorBox.hidden = !COLORS.length;
+    colorBox.querySelectorAll('button').forEach((button) => button.remove());
+    const current = myDanmakuColor();
+    COLORS.forEach((color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.color = color.id;
+      button.style.background = color.flow || color.value;
+      const open = r && level >= color.level;
+      button.disabled = !open;
+      button.setAttribute('aria-pressed', String(open && current === color.id));
+      button.title = open ? `弹幕字色：${color.name}` : `${color.name}（${REALMS[color.level].name}解锁）`;
+      button.setAttribute('aria-label', button.title);
+      colorNote.before(button);
+    });
+    colorNote.textContent = level >= 3 ? (COLORS.find((color) => color.id === current) || {}).name || '' : '元婴解锁';
+    // 元婴起：输入框直接用所选字色预览投屏上的样子（流光色用渐变字）
+    const chosen = level >= 3 ? COLORS.find((color) => color.id === current) : null;
+    panel.classList.toggle('has-color', Boolean(chosen));
+    panel.classList.toggle('has-flow', Boolean(chosen && chosen.flow));
+    panel.style.setProperty('--clp-dm-color', chosen && chosen.value ? chosen.value : '#e3cfff');
+    panel.style.setProperty('--clp-dm-flow', chosen && chosen.flow ? chosen.flow : 'none');
+    if (!dmState.dataset.state) dmState.textContent = chosen ? '输入框里的颜色就是投屏上的字色 · 请文明发言' : DM_HINT;
+  }
+  // 本人能用的弹幕字色：元婴起才有；选过且境界够就用选的，否则用本境界默认色
+  function myDanmakuColor() {
+    const level = myRealm ? Number(myRealm.realm) || 0 : 0;
+    if (level < 3 || !Live.colorFor) return null;
+    const color = Live.colorFor(level, load(colorKey, null));
+    return color ? color.id : null;
+  }
+  colorBox.addEventListener('click', (event) => {
+    const button = event.target.closest('[data-color]');
+    if (!button || button.disabled) return;
+    save(colorKey, button.dataset.color);
+    showRealm(myRealm);
+    dmState.textContent = `弹幕字色已换成「${(COLORS.find((color) => color.id === button.dataset.color) || {}).name}」，下一条弹幕起生效。`;
+    dmState.dataset.state = 'ok';
+  });
+  showRealm(myRealm);
+  checkedIn.then(() => backend.rpc('ck_my_realm', { p_classroom: Number(identity.classroom) || identity.classroom }))
+    .then((value) => {
+      const row = Array.isArray(value) ? value[0] : value;
+      if (!row) { showRealm(null); return; }
+      const fresh = { realm: Number(row.realm) || 0, stage: Number(row.stage) || 0, ratio: Number(row.ratio) || 0, updated_at: row.updated_at || '' };
+      if (myRealm && fresh.realm > (Number(myRealm.realm) || 0)) {
+        const gift = GIFTS.find((item) => item.level === fresh.realm);
+        toast(`恭喜突破！你已晋升「${REALMS[fresh.realm].name}」境界${gift ? `，解锁弹幕法宝「${gift.name}」${gift.icon}` : ''}。`);
+      }
+      myRealm = fresh;
+      save(realmKey, fresh);
+      showRealm(fresh);
+    })
+    .catch(() => { /* 后台还没有修为境界时，按上次记住的显示 */ });
+  giftBox.addEventListener('click', async (event) => {
+    const button = event.target.closest('[data-gift]');
+    if (!button || button.disabled) return;
+    const gift = GIFTS.find((item) => item.id === button.dataset.gift);
+    giftBox.querySelectorAll('button').forEach((item) => { item.disabled = true; });
+    try {
+      await backend.rpc('ck_send_gift', { p_classroom: Number(identity.classroom) || identity.classroom, p_gift: gift.id });
+      dmState.textContent = `已祭出法宝「${gift.name}」${gift.icon}，正在飞上投屏！每次课只能祭出一件。`;
+      dmState.dataset.state = 'ok';
+    } catch (problem) {
+      console.warn('[法宝]', problem);
+      const text = String((problem && problem.message) || problem || '');
+      dmState.dataset.state = 'error';
+      dmState.textContent = /每次课/.test(text) ? '这次课已经祭出过法宝了，下次课再来。'
+        : /境界/.test(text) ? '境界还不够，暂时不能祭出这件法宝。'
+          : /重新登录/.test(text) ? reloginText + '。'
+            : /弹幕|42501/.test(text) ? '老师还没有开放弹幕，暂时不能祭出法宝。' : '祭出失败：请检查网络后再试。';
+    } finally {
+      showRealm(myRealm);
+    }
+  });
 
   // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数只核对进过本课堂，存下的行里没有提交者）
   function setupFeedback(enabled, note) {

@@ -115,6 +115,26 @@
     }
     dodge();
   }
+  // 给页面上的课堂工具（如习经第二章“猜词游戏”）抽人用：本页当前课堂里今天已登录的学生，带点名册编号（点名册第几行）。
+  // 同一课堂分几次课上时只抽今天到课的；今天还没有人登录时，退回本课堂全部登录过的学生。需要教师已登录（读加入记录和点名册）。
+  const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
+  window.ClassLiveStudents = async () => {
+    const rooms = await backend.fetchAll('classrooms', { course: config.course });
+    const current = window.ClassLive.pickRoom(rooms, config.course, unit);
+    if (!current || current.chapter !== unit) return { students: [], today: false };
+    const [checkins, classes] = await Promise.all([
+      backend.fetchAll('checkins', { course: config.course, classroom: Number(current.id) }),
+      backend.fetchAll('classes', { course: config.course }).catch(() => []),
+    ]);
+    const klass = classes.find((item) => String(item.id) === String(current.class_id));
+    const numberOf = new Map(((klass && klass.roster) || []).map((person, index) => [sidKey(person.sid), index + 1]));
+    const day = window.ClassLive.today();
+    const todays = checkins.filter((doc) => (doc.session || '') === day);
+    const people = new Map();
+    (todays.length ? todays : checkins).forEach((doc) => people.set(sidKey(doc.sid), { sid: doc.sid, name: doc.name, no: numberOf.get(sidKey(doc.sid)) || null }));
+    return { students: Array.from(people.values()).sort((a, b) => (a.no || 9999) - (b.no || 9999)), today: Boolean(todays.length) };
+  };
+
   async function act(label, call) {
     openButton.disabled = true;
     stopButton.disabled = true;
