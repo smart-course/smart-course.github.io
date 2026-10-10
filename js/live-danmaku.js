@@ -8,7 +8,8 @@
  * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
  * 习经辩论质询的弹幕带“【正方】/【反方】”（学生端按本人的辩前投票自动加上），投屏上显示为彩色标签。
  * 匿名（课堂的 danmaku_anon，工作台或左下角控件切换）：投屏只显示内容、不显示姓名；弹幕记录里照常有发送人。
- * 修为境界（教师结算后存于 ck_realms，本页按学号读取）：显示姓名时姓名前加境界称号；弹幕字色随境界（白→绿→蓝→紫→化神紫金）；
+ * 修为境界（教师结算后存于 ck_realms，本页按学号读取）：显示姓名时姓名前加境界称号，姓名颜色与称号一致（素石灰→青玉绿→金丹金→紫霄紫→化神七彩流光，
+ *   还没有境界的按炼气）；弹幕字色随境界（白→绿→蓝→紫→化神紫金）；
  * 法宝弹幕（ck_send_gift 写入，gift 列；筑基丹、青竹蜂云剑、风雷翅、掌天瓶）只在新到时播放一次全屏动画，不进入循环和弹幕墙。
  * 教师点赞：鼠标停在弹幕上出现“点赞”和垃圾桶；每堂课最多 ClassLive.LIKE.limit 个赞（ck_like_danmaku 核对），被赞弹幕带 👍，发送人结算时额外加修为。
  * 试用特效（左下角“试用特效”，或工作台“修为境界”里的链接带 ?demo=1 打开）：任选境界和字色发试用弹幕、一键演示五个境界、
@@ -42,7 +43,14 @@
     font: 800 clamp(22px, 2.4vw, 34px)/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.6);
     will-change: transform; animation: dm-fly var(--dm-duration, 11s) linear forwards; }
   .dm-item.is-new { background: rgba(164, 73, 45, .78); }
-  .dm-name { margin-right: 2px; color: #ffd98a; }
+  .dm-name { margin-right: 2px; }
+  /* 姓名颜色与境界称号一致 */
+  .dm-name.is-r0 { color: #d9d4ca; }
+  .dm-name.is-r1 { color: #8fe6c6; }
+  .dm-name.is-r2 { color: #ffd36b; text-shadow: 0 0 8px rgba(240,194,75,.55), 0 1px 2px rgba(0,0,0,.6); }
+  .dm-name.is-r3 { color: #dcc2ff; text-shadow: 0 0 8px rgba(170,120,255,.85), 0 1px 2px rgba(0,0,0,.6); }
+  .dm-name.is-r4 { background: linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: none; filter: drop-shadow(0 0 5px rgba(255,214,110,.55)); animation: dm-flowtext 4s linear infinite; }
   .dm-title { display: inline-block; margin-right: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 5px; font: 700 .7em/1.55 'Kaiti SC', 'STKaiti', 'KaiTi', serif; vertical-align: .12em; text-shadow: none; }
   .dm-title.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
   .dm-title.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; text-shadow: 0 1px 1px rgba(10,60,48,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
@@ -159,7 +167,13 @@
   .dm-link { margin: 0 4px; padding: 0 6px; border-radius: 9px; color: #201c18; background: #ffd98a; font-size: .8em; }
   .dm-bubble { padding: 6px 10px; border: 1px solid rgba(35, 101, 95, .28); border-radius: 12px 12px 12px 3px; color: #201c18; background: #fff;
     box-shadow: 0 4px 12px rgba(35, 101, 95, .16); font: 600 15px/1.45 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; overflow-wrap: anywhere; }
-  .dm-bubble b { margin-right: 4px; color: #a4492d; }
+  .dm-bubble b { margin-right: 4px; color: #6d6259; }
+  /* 弹幕墙是白底：同一色系取深色 */
+  .dm-bubble b.is-r1 { color: #23806a; }
+  .dm-bubble b.is-r2 { color: #a8700f; }
+  .dm-bubble b.is-r3 { color: #6a2fd0; }
+  .dm-bubble b.is-r4 { background: linear-gradient(90deg, #b8801a, #c2408a, #7a3fe0, #1f86b8, #b8801a) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
+    animation: dm-flowtext 4s linear infinite; }
   .dm-bubble.is-pop { animation: dm-pop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
   .dm-wall-count { justify-self: end; color: #23655f; font: 800 12px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .mechanism-node.dm-hit::before { content: ""; position: absolute; inset: -2px; border-radius: 10px; pointer-events: none; animation: dm-hit 1.1s ease-out 2; }
@@ -296,12 +310,12 @@
     laneFree[lane] = Math.max(now, laneFree[lane]) + 2200;
     const item = document.createElement('div');
     item.className = isNew ? 'dm-item is-new' : 'dm-item';
-    const name = document.createElement('span');
-    name.className = 'dm-name';
-    name.hidden = anonymous();   // 匿名时姓名不显示；随时关闭匿名，正在飞的弹幕也能立刻补上姓名
-    // 修为境界：姓名前的称号随姓名一起显示或隐藏；弹幕字色随境界（匿名时也有）
+    // 修为境界：姓名前的称号随姓名一起显示或隐藏，姓名颜色与称号一致；弹幕字色随境界（匿名时也有）
     const realm = realmFor(doc);
     const level = realm ? realm.realm : 0;
+    const name = document.createElement('span');
+    name.className = `dm-name is-r${level}`;
+    name.hidden = anonymous();   // 匿名时姓名不显示；随时关闭匿名，正在飞的弹幕也能立刻补上姓名
     const title = document.createElement('span');
     title.className = `dm-title is-r${level}`;
     title.textContent = realm ? realmName(level) : '';
@@ -787,6 +801,8 @@
           fresh = fresh || isNew;
           bubble.className = (isNew ? 'dm-bubble is-pop' : 'dm-bubble') + (tag.side ? (tag.side === '正方' ? ' is-pro' : ' is-con') : '');
           const who = document.createElement('b');
+          const realm = realmFor(doc);
+          who.className = `is-r${realm ? realm.realm : 0}`;
           who.textContent = `${doc.name}：`;
           if (tag.side) bubble.append(sideBadge(tag.side));
           if (!anonymous()) bubble.append(who);
