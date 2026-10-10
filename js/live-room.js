@@ -135,6 +135,27 @@
     return { students: Array.from(people.values()).sort((a, b) => (a.no || 9999) - (b.no || 9999)), today: Boolean(todays.length) };
   };
 
+  // 猜词游戏加修为（投屏页“课堂工具”的得分榜调用）：本课堂今天得分第一的同学每人加 WORDGAME.points 修为，
+  // 再次发放整份替换（改给新的第一名），空名单＝撤销；老师在工作台结算修为时计入
+  const roomHere = async () => {
+    const rooms = await backend.fetchAll('classrooms', { course: config.course });
+    const current = window.ClassLive.pickRoom(rooms, config.course, unit);
+    if (!current || current.chapter !== unit) throw new Error(`${HERE}不是当前课堂，不能加修为`);
+    return current;
+  };
+  window.ClassLiveAward = {
+    points: (window.ClassLive.WORDGAME || {}).points || 10,
+    async current() {
+      const current = await roomHere();
+      const day = window.ClassLive.today();
+      return (await backend.fetchAll('bonus', { classroom: Number(current.id), kind: 'wordgame' })).filter((row) => String(row.day).slice(0, 10) === day);
+    },
+    async setWinners(people) {
+      const current = await roomHere();
+      return backend.rpc('ck_set_wordgame_winners', { p_classroom: Number(current.id), p_people: people.map((person) => ({ sid: person.sid, name: person.name })), p_points: this.points });
+    },
+  };
+
   async function act(label, call) {
     openButton.disabled = true;
     stopButton.disabled = true;

@@ -15,7 +15,7 @@
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -60,6 +60,8 @@
   // 教师点赞：投屏上鼠标停在弹幕上可点赞；每堂课（同一课堂同一天）最多 limit 次（后台 ck_like_danmaku 核对）；
   // 被赞弹幕的发送人每个赞额外加 points 修为，每人每次课最多算 perStudent 个（额外奖励，不计入满分）
   const LIKE = { limit: 5, points: 5, perStudent: 2 };
+  // 猜词游戏：每次课（同一课堂同一天）得分第一的一组（并列都算），老师在投屏页得分榜上给两人各加 points 修为（额外奖励，不计入满分）
+  const WORDGAME = { points: 10 };
   // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）
   function realmOf(points, max) {
     const ratio = max > 0 ? Math.max(0, Math.min(1, points / max)) : 0;
@@ -560,7 +562,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'seclog'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -696,6 +698,23 @@
           secLog('teacher_login', { owner: 'teacher', detail: String(params.p_agent || '').slice(0, 200) });
           return true;
         }
+        // 猜词游戏第一名加修为：整份替换本课堂今天的名单（空名单＝撤销），只收本班点名册上的学号
+        if (name === 'ck_set_wordgame_winners') {
+          teacherOnly();
+          const points = Number(params.p_points);
+          if (!(points >= 1 && points <= 20)) throw new Error('每人加分应为 1—20');
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) throw new Error('课堂不存在');
+          const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+          const roster = new Map(((klass && klass.roster) || []).map((person) => [sidKey(person.sid), person]));
+          const day = today();
+          const keep = read('bonus').filter((row) => !(String(row.classroom) === String(room.id) && row.day === day && row.kind === 'wordgame'));
+          const seen = new Set();
+          const fresh = (params.p_people || []).map((person) => roster.get(sidKey(person.sid))).filter((person) => person && !seen.has(sidKey(person.sid)) && seen.add(sidKey(person.sid)))
+            .map((person, i) => ({ id: `${Date.now()}-${i}`, course: room.course, classroom: room.id, day, kind: 'wordgame', sid: sidKey(person.sid), name: person.name, points, created_at: new Date().toISOString() }));
+          write('bonus', keep.concat(fresh));
+          return fresh.length;
+        }
         if (name === 'ck_like_danmaku') {
           teacherOnly();
           const rows = read('danmaku');
@@ -753,6 +772,7 @@
     COLORS,
     colorFor,
     LIKE,
+    WORDGAME,
     realmOf,
     isClosedError,
     isDuplicateError,

@@ -11,6 +11,8 @@
  * 修为境界（教师结算后存于 ck_realms，本页按学号读取）：显示姓名时姓名前加境界称号；弹幕字色随境界（白→绿→蓝→紫→化神紫金）；
  * 法宝弹幕（ck_send_gift 写入，gift 列；筑基丹、青竹蜂云剑、风雷翅、掌天瓶）只在新到时播放一次全屏动画，不进入循环和弹幕墙。
  * 教师点赞：鼠标停在弹幕上出现“点赞”和垃圾桶；每堂课最多 ClassLive.LIKE.limit 个赞（ck_like_danmaku 核对），被赞弹幕带 👍，发送人结算时额外加修为。
+ * 试用特效（左下角“试用特效”，或工作台“修为境界”里的链接带 ?demo=1 打开）：任选境界和字色发试用弹幕、一键演示五个境界、
+ *   播放四件法宝画面；只在本机播放，不写入弹幕记录、不计修为，也不经过后台。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
  *   [data-mech-wall]（每个箭头显示最新 3 条，新来的弹入并让节点闪一下）；显示规则与滚动弹幕相同（模式、审核、清屏）。
  */
@@ -198,7 +200,27 @@
   .dm-item .dm-side.is-con { background: #c4572f; }
   .dm-bubble.is-pro { border-color: rgba(35, 101, 95, .55); background: #eef6f4; }
   .dm-bubble.is-con { border-color: rgba(164, 73, 45, .5); background: #fbefea; }
-  @media print { .dm-stage, .dm-bar { display: none !important; } }
+  /* 试用特效面板 */
+  .dm-demo { position: fixed; z-index: 302; left: 108px; bottom: 64px; width: min(420px, calc(100vw - 130px)); padding: 12px 14px; border-radius: 12px;
+    background: rgba(24, 20, 30, .94); color: #fff4e0; box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 700 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .dm-demo[hidden] { display: none; }
+  .dm-demo h4 { display: flex; justify-content: space-between; align-items: center; margin: 0 0 2px; font-size: 15px; color: #f3d58c; }
+  .dm-demo h4 button { border: 0; background: none; color: #d9cbb4; font-size: 18px; cursor: pointer; }
+  .dm-demo p { margin: 0 0 8px; color: #b9afa0; font-weight: 600; font-size: 12px; }
+  .dm-demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
+  .dm-demo-row > b { flex: 0 0 auto; width: 34px; color: #d9cbb4; font-size: 12.5px; }
+  .dm-demo-row .dm-title { margin: 0; font-size: 15px; cursor: pointer; opacity: .55; }
+  .dm-demo-row .dm-title[aria-pressed="true"] { opacity: 1; outline: 2px solid #fff4e0; outline-offset: 2px; }
+  .dm-demo-colors button { width: 22px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; cursor: pointer; }
+  .dm-demo-colors button[aria-pressed="true"] { outline: 2px solid #fff4e0; outline-offset: 2px; }
+  .dm-demo-colors em { color: #b9afa0; font-style: normal; font-weight: 600; font-size: 12px; }
+  .dm-demo input[type=text] { flex: 1 1 auto; min-width: 0; padding: 6px 9px; border: 1px solid rgba(255,255,255,.35); border-radius: 7px; background: rgba(255,255,255,.1); color: #fff; font: inherit; }
+  .dm-demo .dm-demo-btn { padding: 5px 10px; border: 1px solid rgba(255,255,255,.4); border-radius: 7px; color: #fff; background: rgba(255,255,255,.08); font: inherit; cursor: pointer; }
+  .dm-demo .dm-demo-btn.is-main { border-color: #e0b64a; background: #a4492d; }
+  .dm-demo .dm-demo-btn:hover { background: rgba(255,255,255,.18); }
+  .dm-demo .dm-demo-btn.is-main:hover { background: #b9573a; }
+  .dm-demo label.dm-demo-check { display: inline-flex; align-items: center; gap: 5px; color: #d9cbb4; font-weight: 600; }
+  @media print { .dm-stage, .dm-bar, .dm-demo { display: none !important; } }
   `;
   document.head.appendChild(style);
 
@@ -211,7 +233,8 @@
   bar.innerHTML = '<label>弹幕<select data-dm-mode disabled aria-label="弹幕模式"><option value="off">关闭</option><option value="direct">直接上屏</option><option value="review">审核后上屏</option></select></label>'
     + '<button type="button" data-dm-anon aria-pressed="false" disabled title="开启后投屏不显示学生姓名；工作台和导出里仍记录是谁发的">匿名：关</button>'
     + '<span data-dm-state>连接中</span><span data-dm-likes title="鼠标停在弹幕上可点赞；被赞的同学额外加修为"></span><button type="button" data-dm-loop aria-pressed="true">循环：开</button>'
-    + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下现有弹幕，且不再循环播放；之后的新弹幕照常显示">清屏</button><button type="button" data-dm-toggle>收起</button>';
+    + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下现有弹幕，且不再循环播放；之后的新弹幕照常显示">清屏</button>'
+    + '<button type="button" data-dm-demo aria-expanded="false" title="在投屏上试放各境界的弹幕特效和法宝画面（只在本机播放，不写入记录）">试用特效</button><button type="button" data-dm-toggle>收起</button>';
   ['click', 'keydown'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   const giftLayer = document.createElement('div');
   giftLayer.className = 'dm-gifts';
@@ -310,8 +333,8 @@
     badge.className = 'dm-liked';
     badge.innerHTML = '师<br>赞';
     item.dataset.dmId = id;
-    item.classList.toggle('is-liked', liked.has(id));
-    item.append(badge, hoverTools(doc, item));
+    item.classList.toggle('is-liked', liked.has(id) || Boolean(doc.demoLiked));
+    if (doc.demo) item.append(badge); else item.append(badge, hoverTools(doc, item));
     item.style.top = `${lane * (100 / LANES)}%`;
     item.style.setProperty('--dm-duration', `${10 + Math.min(doc.text.length + String(doc.name).length, 50) / 8}s`);
     item.style.animationDelay = `${delay}ms`;
@@ -322,6 +345,7 @@
     });
     flying.set(id, item);
     stage.appendChild(item);
+    if (doc.demoLiked) setTimeout(() => burst(item), delay + 900);
     return true;
   };
 
@@ -331,7 +355,7 @@
   const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
   const isoDayOf = (value) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(Date.parse(String(value).replace(/(\.\d{3})\d+/, '$1')) || 0));
   let realmMap = new Map();
-  const realmFor = (doc) => realmMap.get(sidKey(doc.sid)) || null;
+  const realmFor = (doc) => (doc.demo ? { realm: doc.demoRealm, stage: 1 } : realmMap.get(sidKey(doc.sid)) || null);
   const realmName = (level) => (REALMS[level] ? REALMS[level].name : '');
   async function loadRealms() {
     if (!room) return;
@@ -463,6 +487,92 @@
   }
 
 
+
+  // ---------- 试用特效：只在本机播放，不写入弹幕记录、不计修为 ----------
+  const DEMO_COLORS = window.ClassLive.COLORS || [];
+  const demo = document.createElement('div');
+  demo.className = 'dm-demo';
+  demo.hidden = true;
+  demo.setAttribute('data-ix', '');
+  demo.setAttribute('role', 'dialog');
+  demo.setAttribute('aria-label', '试用境界特效与法宝');
+  ['click', 'keydown', 'keyup', 'pointerdown', 'mousedown', 'wheel'].forEach((type) => demo.addEventListener(type, (event) => event.stopPropagation()));
+  const demoState = { level: 3, color: {} };
+  let demoSeq = 0;
+  demo.innerHTML = `<h4><span>试用境界特效与法宝</span><button type="button" data-demo-close aria-label="关闭">×</button></h4>
+    <p>只在这台电脑的投屏上播放：不写入弹幕记录、不计修为，学生看不到。</p>
+    <div class="dm-demo-row" data-demo-realms><b>境界</b>${REALMS.map((realm) => `<button type="button" class="dm-title is-r${realm.level}" data-demo-level="${realm.level}">${esc(realm.name)}</button>`).join('')}</div>
+    <div class="dm-demo-row dm-demo-colors" data-demo-colors><b>字色</b></div>
+    <div class="dm-demo-row"><b>内容</b><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></div>
+    <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
+      <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label></div>
+    <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
+    <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small style="color:#b9afa0;font-weight:600">（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
+  document.body.appendChild(demo);
+  const demoText = demo.querySelector('[data-demo-text]');
+  function paintDemo() {
+    demo.querySelectorAll('[data-demo-level]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.demoLevel) === demoState.level)));
+    const box = demo.querySelector('[data-demo-colors]');
+    box.querySelectorAll('button, em').forEach((el) => el.remove());
+    const open = DEMO_COLORS.filter((color) => demoState.level >= color.level);
+    if (!open.length) {
+      const note = document.createElement('em');
+      note.textContent = '炼气至结丹的弹幕一律白字（元婴起可选字色）';
+      box.appendChild(note);
+      return;
+    }
+    const current = window.ClassLive.colorFor(demoState.level, demoState.color[demoState.level]);
+    open.forEach((color) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.dataset.demoColor = color.id;
+      button.style.background = color.flow || color.value;
+      button.title = color.name;
+      button.setAttribute('aria-label', `字色：${color.name}`);
+      button.setAttribute('aria-pressed', String(Boolean(current && current.id === color.id)));
+      box.appendChild(button);
+    });
+  }
+  const sendDemo = (level, text, colorId, likedSeal) => {
+    demoSeq += 1;
+    launch({ id: `demo-${demoSeq}`, demo: true, demoRealm: level, demoLiked: likedSeal, name: '示例同学', sid: 'DEMO', text, color: colorId || null }, true);
+  };
+  demo.addEventListener('click', (event) => {
+    const levelButton = event.target.closest('[data-demo-level]');
+    const colorButton = event.target.closest('[data-demo-color]');
+    const giftButton = event.target.closest('[data-demo-gift]');
+    if (event.target.closest('[data-demo-close]')) { toggleDemo(false); return; }
+    if (levelButton) { demoState.level = Number(levelButton.dataset.demoLevel); paintDemo(); return; }
+    if (colorButton) { demoState.color[demoState.level] = colorButton.dataset.demoColor; paintDemo(); return; }
+    if (event.target.closest('[data-demo-send]')) {
+      sendDemo(demoState.level, demoText.value.trim() || '试用弹幕', demoState.color[demoState.level], demo.querySelector('[data-demo-liked]').checked);
+      return;
+    }
+    if (event.target.closest('[data-demo-all]')) {
+      const lines = ['炼气：素石称号，弹幕白字', '筑基：青玉称号', '结丹：金丹称号', '元婴：紫色辉边，可自选字色', '化神：七彩流光边框和流光字'];
+      REALMS.forEach((realm, i) => setTimeout(() => sendDemo(realm.level, lines[i] || realm.name, demoState.color[realm.level], false), i * 700));
+      return;
+    }
+    if (giftButton) {
+      const gift = GIFT.get(giftButton.dataset.demoGift);
+      if (!gift) return;
+      launchGift({ gift: gift.id, demo: true, demoRealm: gift.level, name: '示例同学', sid: 'DEMO' });
+      // 法宝画面播放时先让开，免得挡住名牌；播完再出现
+      demo.style.visibility = 'hidden';
+      clearTimeout(demo.showTimer);
+      demo.showTimer = setTimeout(() => { demo.style.visibility = ''; }, 6600);
+    }
+  });
+  demoText.addEventListener('keydown', (event) => { if (event.key === 'Enter') { event.preventDefault(); demo.querySelector('[data-demo-send]').click(); } });
+  const demoToggle = bar.querySelector('[data-dm-demo]');
+  function toggleDemo(open) {
+    demo.hidden = !open;
+    demoToggle.setAttribute('aria-expanded', String(open));
+    if (open) { paintDemo(); if (paused) bar.querySelector('[data-dm-pause]').click(); }
+  }
+  demoToggle.addEventListener('click', () => toggleDemo(demo.hidden));
+  // 工作台“修为境界”里的“试用境界特效与法宝”链接带 ?demo=1：打开投屏页时直接展开试用面板
+  if (new URLSearchParams(location.search).get('demo') === '1') toggleDemo(true);
 
   // 学生撤回的（withdrawn_at）不再上屏；记录仍在工作台
   const visible = (doc) => !doc.withdrawn_at && (room.danmaku === 'review' ? doc.status === 'shown' : doc.status !== 'hidden');

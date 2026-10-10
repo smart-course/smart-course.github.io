@@ -105,7 +105,41 @@
   .clp-realm-card ul { margin: 0; padding-left: 20px; }
   .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
   .clp-realm-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #23655f, #b98cff, #ffd36b); }
-  .clp-realm-ladder { display: flex; flex-wrap: wrap; gap: 6px; margin: 6px 0; }
+  .clp-ladder { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 6px; padding: 16px 10px 0; border-radius: 12px; background: radial-gradient(ellipse at 40% 30%, #1f1a2c 0%, #13111a 55%, #0c0b10 100%); }
+  .clp-step { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
+  .clp-step .clp-realm { margin: 0; padding: 2px 8px; border-radius: 5px; font: 700 15px/1.4 "Kaiti SC", STKaiti, KaiTi, serif; cursor: default; white-space: nowrap; }
+  .clp-stone { box-sizing: border-box; width: 100%; padding: 8px 4px; border-top: 3px solid; border-radius: 6px 6px 0 0; display: flex; flex-direction: column; align-items: center; gap: 3px; font-size: 11.5px; line-height: 1.35; text-align: center; }
+  .clp-stone b { font-size: 12.5px; white-space: nowrap; }
+  .clp-stone em { margin: -3px 0 2px; font: 800 11px/1.3 -apple-system, "PingFang SC", sans-serif; font-style: normal; opacity: .85; white-space: nowrap; }
+  .clp-step.is-r0 .clp-stone em { color: #d9d4ca; }
+  .clp-step.is-r1 .clp-stone em { color: #9fe3cc; }
+  .clp-step.is-r2 .clp-stone em { color: #f2c64f; }
+  .clp-step.is-r3 .clp-stone em { color: #d8b8ff; }
+  .clp-step.is-r4 .clp-stone em { color: #ffe08a; }
+  .clp-step-gift { display: inline-flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 3px; }
+  .clp-step .clp-gi { flex: 0 0 auto; display: inline-grid; place-items: center; }
+  .clp-step .clp-gi-dan { width: 14px; height: 14px; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #fff4c4, #ffc23a 40%, #c97300); color: #7a1a0a; font: 700 9px/1 "Kaiti SC", STKaiti, KaiTi, serif; }
+  .clp-step.is-r0 .clp-stone { min-height: 64px; border-color: #9b9384; background: linear-gradient(180deg, #3a3630, #24211d); color: #b9afa0; }
+  .clp-step.is-r0 .clp-stone b { color: #d9d4ca; }
+  .clp-step.is-r1 .clp-stone { min-height: 88px; border-color: #3fa88d; background: linear-gradient(180deg, #1f3d36, #142621); color: #b9cfc6; }
+  .clp-step.is-r1 .clp-stone b { color: #9fe3cc; }
+  .clp-step.is-r2 .clp-stone { min-height: 112px; border-color: #e8b844; background: linear-gradient(180deg, #3e3218, #241d0e); color: #d8c79a; }
+  .clp-step.is-r2 .clp-stone b { color: #f2c64f; }
+  .clp-step.is-r3 .clp-stone { min-height: 136px; border-color: #a678ff; background: linear-gradient(180deg, #2c1a4e, #170e2a); box-shadow: 0 -8px 26px rgba(150,100,255,.25); color: #cbb8e8; }
+  .clp-step.is-r3 .clp-stone b { color: #d8b8ff; }
+  .clp-step.is-r4 .clp-stone { min-height: 160px; border-top: 3px solid transparent; background: linear-gradient(180deg, #241640, #120c20) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
+    background-size: 100% 100%, 300% 100%; box-shadow: 0 -10px 34px rgba(255,200,120,.25); color: #e6d8f0; animation: clp-flow 4s linear infinite; }
+  .clp-step.is-r4 .clp-stone b { background: linear-gradient(90deg, #ffe08a, #fff6dc, #ffb3d6, #d9c2ff, #a8e6ff, #ffe08a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: clp-textflow 4s linear infinite; }
+  .clp-step.is-me .clp-stone { outline: 1.5px solid rgba(255,255,255,.6); outline-offset: -1.5px; }
+  .clp-me { position: absolute; z-index: 1; top: -11px; right: 0; padding: 0 5px; border-radius: 999px; background: #c8452d; color: #fff; font: 800 11px/1.5 -apple-system, "PingFang SC", sans-serif; font-style: normal; box-shadow: 0 0 0 2px #13111a; }
+  @media (max-width: 480px) {
+    .clp-ladder { gap: 4px; padding: 14px 6px 0; }
+    .clp-step .clp-realm { padding: 1px 4px; font-size: 13px; }
+    .clp-step .clp-realm.is-r3::before, .clp-step .clp-realm.is-r4::before { display: none; }
+    .clp-stone { padding: 6px 1px; font-size: 10.5px; }
+    .clp-stone b { font-size: 11.5px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .clp-ladder, .clp-ladder * { animation: none !important; } }
   .clp-toast { position: fixed; z-index: 2147483001; left: 50%; top: 18px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
     color: #3b1d00; background: linear-gradient(100deg, #f3e3ff, #fff3c8); box-shadow: 0 10px 30px rgba(0,0,0,.25); font: 800 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-who small, .clp-room, .clp-hint { color: #6d6259; font-size: 12.5px; }
@@ -292,7 +326,34 @@
   .clp-v2 .clp-mydm { margin: 0; }
   .clp-v2 .clp-mydm summary { padding-right: 70px; }
   .clp-v2 .clp-realm-open { position: absolute; top: 10px; right: 14px; font-size: 13px; }
-  @media (prefers-reduced-motion: reduce) { .clp-v2, .clp-v2 * { animation: none !important; } }
+  /* 手机端收起时只留一个境界小图标（像“使用说明”的问号），点一下展开 */
+  .clp-v2 .clp-mini { display: none; position: relative; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #b9b1a3; border-radius: 50%;
+    color: #4a443c; background: radial-gradient(circle at 35% 30%, #f1ece2, #d9d4ca 60%, #b9b1a3); box-shadow: 0 6px 16px rgba(0,0,0,.22);
+    font: 700 21px/1 "Kaiti SC", STKaiti, KaiTi, serif; cursor: pointer; }
+  .clp-v2.is-r1 .clp-mini { color: #f2fffa; border-color: #1f6455; background: radial-gradient(circle at 35% 30%, #9fe3cc, #3fa88d 55%, #2a7d69); text-shadow: 0 1px 1px rgba(10,60,48,.6); }
+  .clp-v2.is-r2 .clp-mini { color: #3e2400; border-color: #7a5208; background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c64f 45%, #b8801a); box-shadow: 0 6px 16px rgba(0,0,0,.2), 0 0 10px rgba(240,194,75,.6); }
+  .clp-v2.is-r3 .clp-mini { color: #f6eaff; border-color: #d8b8ff; background: radial-gradient(circle at 35% 30%, #8a55ea, #4b1d8f 60%, #3a1673); text-shadow: 0 0 6px rgba(220,190,255,.8); animation: clp-ying 2.4s ease-in-out infinite; }
+  .clp-v2.is-r4 .clp-mini { color: #ffe08a; border: 2px solid transparent; background: radial-gradient(circle at 35% 30%, #3a2560, #140d24 70%) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
+    background-size: 100% 100%, 300% 100%; box-shadow: 0 6px 16px rgba(0,0,0,.25), 0 0 12px rgba(255,214,110,.6); animation: clp-flow 3s linear infinite; }
+  .clp-mini-dot { position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #c8452d; }
+  .clp-mini-dot[hidden] { display: none; }
+  @media (max-width: 700px) {
+    .clp-panel.clp-v2.is-folded { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
+    .clp-panel.clp-v2.is-folded > :not(.clp-mini) { display: none; }
+    .clp-panel.clp-v2.is-folded > .clp-mini { display: grid; }
+  }
+  /* 老师点赞：本人页面上盖一枚「师赞」朱印 */
+  .clp-zan { position: fixed; z-index: 2147483001; left: 50%; top: 42%; display: grid; justify-items: center; gap: 12px; transform: translate(-50%, -50%); pointer-events: none; }
+  .clp-zan-seal { display: grid; place-items: center; width: 116px; height: 116px; border: 5px solid #c8281e; border-radius: 14px; color: #c8281e; background: rgba(255,244,224,.94);
+    box-shadow: inset 0 0 0 4px rgba(255,244,224,.94), inset 0 0 0 7px #c8281e, 0 14px 34px rgba(0,0,0,.28); font: 700 42px/1.05 "Kaiti SC", STKaiti, KaiTi, serif; text-align: center;
+    animation: clp-zan-stamp 2.8s ease-out forwards; }
+  .clp-zan-text { max-width: min(86vw, 380px); padding: 8px 14px; border-radius: 10px; background: rgba(32,28,24,.9); color: #fff4e0; text-align: center;
+    font: 800 14.5px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; animation: clp-zan-fade 2.8s ease-out forwards; }
+  .clp-zan-text small { display: block; color: #e6c98e; font-weight: 700; font-size: 12.5px; }
+  @keyframes clp-zan-stamp { 0% { transform: scale(2.4) rotate(-26deg); opacity: 0; } 16% { transform: scale(.9) rotate(-14deg); opacity: 1; } 24% { transform: scale(1.05) rotate(-14deg); }
+    30%, 82% { transform: scale(1) rotate(-14deg); opacity: 1; } 100% { transform: scale(1) rotate(-14deg); opacity: 0; } }
+  @keyframes clp-zan-fade { 0%, 14% { opacity: 0; transform: translateY(8px); } 28%, 82% { opacity: 1; transform: none; } 100% { opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .clp-v2, .clp-v2 * { animation: none !important; } .clp-zan-seal { animation: clp-zan-fade 2.8s ease-out forwards; transform: rotate(-14deg); } }
   #clp-print-view { display: none; }
   @media print {
     .clp-panel, .clp-q { display: none !important; }
@@ -338,7 +399,8 @@
       dmqCards.push({ card, tag, debate });
     });
   }
-  // ---------- 匿名建议箱：每个案例最后（网站版才有，离线版不加）。后台不记录提交者，只记日期 ----------
+  // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在每次课的最后
+  //   （习经每个案例两课时为一次课，放在第二课时之后；政经每个案例一次课）。网站版才有，离线版不加。后台不记录提交者，只记日期 ----------
   const fbCards = [];
   if (!OFFLINE) {
     const spots = worksheet
@@ -348,10 +410,10 @@
       if (!/^\d{2}$/.test(caseNo || '') || !page) return;
       const card = document.createElement('section');
       card.className = 'clp-fb';
-      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">匿名建议箱</span><span class="clp-fb-label">案例 ${caseNo}</span></div>
-        <h4>学完这个案例，你有什么建议？</h4>
-        <p class="clp-fb-hint">哪些地方可以改进？对网站的呈现形式和内容有什么新想法？都可以写下来。<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到建议内容和提交日期。</p>
-        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="写下你的建议（500 字内）" aria-label="案例 ${caseNo} 的匿名建议" disabled></textarea>
+      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">匿名建议箱</span><span class="clp-fb-label">本堂课</span></div>
+        <h4>对这堂课，你有什么意见或建议？</h4>
+        <p class="clp-fb-hint">老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到建议内容和提交日期。</p>
+        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="写下你对这堂课的意见或建议（500 字内）" aria-label="本堂课的匿名建议" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
         <p class="clp-fb-state" role="status"></p>`;
       // 政治经济学：放在最后一页“继续阅读下一案例”之前；习经：放在第二课时（出门测）之后
@@ -497,8 +559,11 @@
   // 收起 / 展开（手机等窄屏默认收起，避免挡住正文；学生展开或收起后记住选择）
   function setupFold() {
     const fold = panel.querySelector('[data-cl-fold]');
-    const setFolded = (value) => { panel.classList.toggle('is-folded', value); fold.textContent = value ? '展开' : '收起'; save('classlive-panel-folded', value); };
+    const setFolded = (value) => { panel.classList.toggle('is-folded', value); fold.textContent = value ? '展开' : '收起'; save('classlive-panel-folded', value); dodge(); };
     fold.addEventListener('click', () => setFolded(!panel.classList.contains('is-folded')));
+    // 手机端收起后只剩境界小图标：点它展开
+    const mini = panel.querySelector('[data-cl-mini]');
+    if (mini) mini.addEventListener('click', () => setFolded(false));
     const savedFold = load('classlive-panel-folded', null);
     setFolded(savedFold === null ? window.innerWidth < 700 : Boolean(savedFold));
   }
@@ -662,6 +727,7 @@
   const STAR = '<i class="clp-star" aria-hidden="true">✦</i>';
   const DM_HINT = '投屏可见 · 老师能看到发送人 · 请文明发言';
   panel.innerHTML = `
+    <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
         <span class="clp-links"><button type="button" class="clp-link" data-cl-fold>收起</button><button type="button" class="clp-link" data-cl-switch>不是我</button></span></div>
@@ -771,6 +837,8 @@
     if (color) doc.color = color;
     await backend.add('danmaku', doc);
     cool();
+    sentMine = true;
+    if (typeof scheduleLikes === 'function') scheduleLikes(12000);
     loadMyDanmaku(true);
   }
 
@@ -849,6 +917,49 @@
     }
   }
   mydm.addEventListener('toggle', () => { if (mydm.open) loadMyDanmaku(); });
+
+  // 老师在投屏上给自己的弹幕点赞：本人页面盖一枚「师赞」朱印（短动画）。只查本人的弹幕（ck_my_danmaku）；
+  // 发过弹幕后每 12 秒查一次，没发过时 45 秒一次；已经播过的赞按课堂记在本机，刷新页面不重复播放
+  const likedKey = `classlive-liked:${identity.classroom}`;
+  const likedStored = load(likedKey, null);
+  let likedSeen = new Set(Array.isArray(likedStored) ? likedStored : []);
+  let likesPrimed = Array.isArray(likedStored);
+  let sentMine = false;
+  function stampZan(row, more) {
+    const box = document.createElement('div');
+    box.className = 'clp-zan';
+    box.setAttribute('role', 'status');
+    const text = splitTags(row.text).rest.trim();
+    box.innerHTML = '<div class="clp-zan-seal" aria-hidden="true">师<br>赞</div><div class="clp-zan-text"></div>';
+    const caption = box.querySelector('.clp-zan-text');
+    caption.textContent = `老师赞了你的弹幕「${text.length > 18 ? text.slice(0, 18) + '…' : text}」${more > 1 ? `等 ${more} 条` : ''}！`;
+    const note = document.createElement('small');
+    note.textContent = `每个赞额外加 ${(Live.LIKE || {}).points || 5} 修为（每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个）`;
+    caption.appendChild(note);
+    document.body.appendChild(box);
+    setTimeout(() => box.remove(), 3000);
+  }
+  async function checkLikes() {
+    if (document.hidden || loginNeeded) return;
+    try {
+      const rows = (await backend.rpc('ck_my_danmaku', { p_classroom: Number(identity.classroom) || identity.classroom })) || [];
+      if (rows.length) sentMine = true;
+      const liked = rows.filter((row) => row.liked).map((row) => String(row.id));
+      const fresh = rows.filter((row) => row.liked && !likedSeen.has(String(row.id)));
+      if (likesPrimed && fresh.length) {
+        stampZan(fresh[0], fresh.length);
+        if (mydm.open) loadMyDanmaku(true);
+      }
+      likedSeen = new Set(liked);
+      likesPrimed = true;
+      save(likedKey, liked);
+    } catch (problem) { /* 后台还没有这个函数或网络中断：下次再查 */ }
+  }
+  let likeTimer = 0;
+  const scheduleLikes = (ms) => { clearTimeout(likeTimer); likeTimer = setTimeout(likeLoop, ms); };
+  async function likeLoop() { await checkLikes(); scheduleLikes(sentMine ? 12000 : 45000); }
+  // 切回这个页面（手机解锁、从别的应用回来）时马上查一次
+  document.addEventListener('visibilitychange', () => { if (!document.hidden && likesPrimed) scheduleLikes(300); });
   const dmLen = panel.querySelector('[data-cl-dm-len]');
   const showLen = () => { if (dmLen) dmLen.textContent = `${dmInput.value.length}/40`; };
   dmInput.addEventListener('input', showLen);
@@ -881,6 +992,7 @@
       const status = Array.isArray(result) ? result[0] : result;
       loginNeeded = status === 'login';
       reloginBox.hidden = !loginNeeded;
+      panel.querySelector('[data-cl-mini-dot]').hidden = !loginNeeded;
       if (loginNeeded && panel.classList.contains('is-folded')) panel.querySelector('[data-cl-fold]').click();
       return status;
     })
@@ -888,6 +1000,7 @@
   let blockedAt = 0;
   onBlocked = () => { if (Date.now() - blockedAt > 10000) { blockedAt = Date.now(); checkMembership(); } };
   const checkedIn = checkMembership();
+  checkedIn.then(() => scheduleLikes(3000));
 
   // 点名册编号（点名册第几行）：老师在课堂工具里抽人上台时按这个编号叫人。先显示上次记住的，再向后台核对；
   // 后台函数只认本人这次登录对应的学号，看不到别人的；不在点名册里或后台还没有这个函数时不显示
@@ -923,6 +1036,18 @@
   realmModal.hidden = true;
   document.body.appendChild(realmModal);
   const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
+  // 境界阶梯图：越往上台阶越高、材质越华贵；台阶上写解锁的法宝和弹幕特权，“你”标出本人所在境界
+  const PERKS = { 0: ['弹幕白字'], 3: ['自选字色', '紫色辉边'], 4: ['流光字色', '七彩边框'] };
+  const ladderHtml = (mine) => `<div class="clp-ladder" role="img" aria-label="${esc(REALMS.map((realm) => {
+    const gift = GIFTS.find((item) => item.level === realm.level);
+    return `${realm.name}（${realm.look}，${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}${gift ? `，解锁${gift.name}` : ''}${(PERKS[realm.level] || []).map((perk) => `，${perk}`).join('')}）`;
+  }).join(' → '))}">${REALMS.map((realm) => {
+    const gift = GIFTS.find((item) => item.level === realm.level);
+    return `<div class="clp-step is-r${realm.level}${realm.level === mine ? ' is-me' : ''}" aria-hidden="true">
+      ${realm.level === mine ? '<i class="clp-me">你</i>' : ''}${chip(realm.level)}
+      <div class="clp-stone"><b>${esc(realm.look)}</b><em>${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}</em>${gift ? `<span class="clp-step-gift">${GIFT_ICONS[gift.id] || ''}${esc(gift.name)}</span>` : ''}${(PERKS[realm.level] || []).map((perk) => `<span>${esc(perk)}</span>`).join('')}</div>
+    </div>`;
+  }).join('')}</div>`;
   function openRealm() {
     const r = myRealm;
     const level = r ? r.realm : 0;
@@ -935,7 +1060,6 @@
       ${r ? `<div class="clp-realm-bar" title="本境界进度"><i style="width:${Math.round(within * 100)}%"></i></div>
         <p class="clp-hint">${next ? `再积累一些修为就能突破到「${next.name}」。` : '已达化神境界，继续保持！'}${r.updated_at ? ` 上次结算：${String(r.updated_at).slice(0, 10)}` : ''}</p>`
         : '<p class="clp-hint">老师结算后这里会显示你的境界（第一次结算前都是炼气）。</p>'}
-      <div class="clp-realm-ladder">${REALMS.map((realm) => chip(realm.level)).join('<span>→</span>')}</div>
       <h4>怎样积累修为</h4>
       <ul>
         <li>本学期每次课都能积累修为，每次课最多 100：上课签到 20、作答完成 35、作答正确 35、发弹幕最多 10。</li>
@@ -943,16 +1067,12 @@
         <li>作答完成：每道题点“递交”就算（投票、站队也算）；要写的题认真写满一句话，只填几个字或留着空格线不算。</li>
         <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
+        <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 5} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
       <h4>境界与奖励</h4>
-      <ul>
-        <li>修为占全学期满分的比例达到 15% 为筑基、35% 为结丹、60% 为元婴、85% 以上为化神，每个境界又分初期、中期、后期。</li>
-        <li>称号显示在你的名字旁边；老师投屏显示姓名时，你的弹幕前也会显示称号。境界越高，称号越华贵：炼气素石、筑基青玉、结丹金丹、元婴紫霄（发光）、化神神光（七彩流光）。</li>
-        <li>弹幕字色：元婴起可以在左下角面板自选弹幕颜色（8 种），弹幕带紫色辉边；化神再多“流金”“七彩”两种流光色，弹幕带七彩流光边框。炼气到结丹的弹幕是白字。</li>
-        <li>弹幕法宝（取自《凡人修仙传》）：${GIFTS.map((gift) => `${REALMS[gift.level].name}解锁「${gift.name}」`).join('，')}。每次课可以祭出一件，投屏上会出现法宝的画面和名牌：金丹浮起、丹香成环；九口青竹蜂云剑结阵破空；身后展开风雷翅、雷遁而去；掌天瓶吸纳月华、凝出绿液。法宝不加修为。</li>
-        <li>修为由老师课后结算，刷新页面就能看到新境界。具体分数只在老师后台统计，不在页面上显示。</li>
-      </ul></div>`;
+      ${ladderHtml(r ? level : 0)}
+      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。法宝每次课可祭出一件，不加修为。</p></div>`;
     realmModal.hidden = false;
     realmModal.querySelector('[data-realm-close]').focus();
   }
@@ -982,6 +1102,11 @@
     realmEl.className = `clp-realm is-r${level}`;
     realmEl.textContent = REALMS[level] ? REALMS[level].name : '炼气';
     realmEl.hidden = !REALMS.length;
+    const miniCh = panel.querySelector('[data-cl-mini-ch]');
+    if (miniCh) {
+      miniCh.textContent = (REALMS[level] ? REALMS[level].name : '炼气').slice(0, 1);
+      panel.querySelector('[data-cl-mini]').setAttribute('aria-label', `展开课堂面板（境界：${REALMS[level] ? REALMS[level].name : '炼气'}）`);
+    }
     // 面板材质随境界变化；头部进度条只显示“距下一境界”，不显示分数
     [0, 1, 2, 3, 4].forEach((n) => panel.classList.toggle(`is-r${n}`, n === level));
     const rise = panel.querySelector('[data-cl-rise]');

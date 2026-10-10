@@ -416,6 +416,7 @@
     const where = { classroom: Number(room.id) };
     for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
     try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     await backend.removeAll('classrooms', { id: Number(room.id) });
     const wasSelected = state.room && String(state.room.id) === String(room.id);
     if (wasSelected) {
@@ -472,6 +473,8 @@
       : `${chapterLabel(room)}：${chapter.cases.map((item) => `案例${item.number} ${item.title}`).join('；')}`;
     const open = $('[data-room-classroom]');
     open.href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}` : '#';
+    // “修为境界”里的试用特效：打开本课堂的投屏页并展开试用面板（只在本机播放）
+    $('[data-realm-demo]').href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}&demo=1` : demoHref();
     $('[data-room-code]').textContent = room.code;
     $('[data-room-code-label]').textContent = room.is_current ? '当前课堂码' : '历史课堂码（未开放）';
     $('[data-room-link]').value = joinLink(room.code);
@@ -644,14 +647,20 @@
     }
     renderFeedback();
   }
+  // 建议是针对一堂课的：习经一个案例（两课时）就是一次课，政经一个案例一次课，用案例标明是哪次课
+  const sessionLabel = (caseNo) => {
+    const key = String(caseNo || '');
+    const info = caseMap.get(key) || unitMap.get(`case${key}`);
+    return info ? `案例${key} ${info.title} 那次课` : key && key !== '00' ? `案例${key} 那次课` : '本堂课';
+  };
   function renderFeedback() {
     const query = $('[data-fb-search]').value.trim();
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.filter((doc) => !query || String(doc.text || '').includes(query)).sort((a, b) => Number(b.id) - Number(a.id));
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。` : '');
-    $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>案例 ${esc(doc.case_no)}</td>
+    $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
       <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action"><button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
-      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每个案例最后的“匿名建议箱”提交后会出现在这里。'}</td></tr>`;
+      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”对这堂课提意见和建议后，会出现在这里。'}</td></tr>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
   $('[data-fb-scope]').addEventListener('change', loadFeedback);
@@ -678,10 +687,10 @@
   $('[data-fb-export]').addEventListener('click', () => {
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
-      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', `案例 ${doc.case_no}`, doc.text]);
+      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), doc.text]);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
-      csv([['序号', '日期', '课堂', '案例', '建议'], ...rows]));
+      csv([['序号', '日期', '课堂', '哪次课', '建议'], ...rows]));
   });
 
   // ---------------- 标签页 ----------------
@@ -867,6 +876,7 @@
     try {
       const where = { classroom: Number(room.id), sid: row ? row.sid : sid };
       for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
+      try { await backend.removeAll('bonus', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
       status.textContent = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
       if (state.room && String(state.room.id) === String(room.id)) subscribe();
     } catch (error) {
@@ -2038,6 +2048,12 @@
     for (const kind of kinds) {
       docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)));
     }
+    // 猜词游戏第一名的额外修为（老师在投屏页得分榜上发放；后台还没有这张表时按 0 算）
+    const gameBonus = new Map();
+    try {
+      (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
+        .forEach((doc) => gameBonus.set(sidKey(doc.sid), (gameBonus.get(sidKey(doc.sid)) || 0) + (Number(doc.points) || 0)));
+    } catch (error) { if (!missingTable(error)) throw error; }
     const roster = rosterOf();
     const rosterMap = new Map(roster.map((person) => [sidKey(person.sid), person]));
     const people = new Map();   // 学号 → { sid, name, owners }
@@ -2086,7 +2102,7 @@
     });
     const max = realmMax();
     const rows = Array.from(people.values()).map((person) => {
-      const total = { attend: 0, done: 0, right: 0, danmaku: 0, like: 0 };
+      const total = { attend: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0 };
       perUnit.forEach((info) => {
         const { u } = info;
         const m = u.meetings;
@@ -2146,12 +2162,12 @@
         total.danmaku += Math.min(POINTS.danmaku * m, POINTS.perDanmaku * said.size);
         total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
       });
-      const points = Math.round((total.attend + total.done + total.right + total.danmaku + total.like) * 10) / 10;
+      const points = Math.round((total.attend + total.done + total.right + total.danmaku + total.like + total.game) * 10) / 10;
       const realm = window.ClassLive.realmOf(points, max);
       const round1 = (v) => Math.round(v * 10) / 10;
       return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
         title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,
-        detail: { attend: round1(total.attend), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like) } };
+        detail: { attend: round1(total.attend), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game) } };
     });
     rows.forEach((row) => {
       row.flags = [];
@@ -2165,6 +2181,9 @@
     return { rows, max, units: perUnit.filter((info) => info.held).length, total: units.length, meetings: units.reduce((s, u) => s + u.meetings, 0) };
   }
 
+  // 没有选中课堂时，试用特效用本课程第一个投屏页
+  const demoHref = () => (course.chapters[0] ? `/${course.chapters[0].file}?demo=1` : '#');
+  $('[data-realm-demo]').href = demoHref();
   const realmChip = (level, title) => `<span class="tw-realm is-r${level}">${esc(title || REALMS[level].name)}</span>`;
   let realmResult = null;
   let realmSaved = '';
@@ -2175,7 +2194,7 @@
     const meetings = realmUnits().reduce((s, u) => s + u.meetings, 0);
     $('[data-realm-legend]').innerHTML = REALMS.map((realm) => `${realmChip(realm.level)}<span>${realm.min ? `≥ ${Math.ceil(realm.min * max)} 修为（${Math.round(realm.min * 100)}%）` : '起步'}</span>`).join('');
     if (!realmResult) {
-      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}）。点“重新计算”查看本班修为。`;
+      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}）。点“重新计算”查看本班修为。`;
       box.innerHTML = '';
       return;
     }
@@ -2186,9 +2205,9 @@
       + ` 本班境界：${REALMS.map((realm, i) => `${realm.name} ${counts[i]} 人`).join('，')}。${realmSaved}`;
     box.innerHTML = rows.map((row, i) => `<tr class="${row.inRoster ? '' : 'is-muted'}"><td>${i + 1}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
       <td>${realmChip(row.realm, row.title)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
-      <td>${row.detail.attend}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td>
+      <td>${row.detail.attend}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td>
       <td class="tw-realm-flags">${row.flags.map(esc).join('<br>')}</td></tr>`).join('')
-      || '<tr><td colspan="11" class="empty">本班还没有学生记录。</td></tr>';
+      || '<tr><td colspan="12" class="empty">本班还没有学生记录。</td></tr>';
   }
   async function refreshRealms(save, quiet) {
     if (!state.klass) return;
@@ -2219,9 +2238,9 @@
   $('[data-realm-export]').addEventListener('click', () => {
     if (!realmResult) return;
     const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.done,
-      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.flags.join('；')]);
+      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '作答完成', '作答正确', '弹幕', '点赞（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一（额外）', '提示'], ...rows]));
   });
   // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
   async function autoSettle() {

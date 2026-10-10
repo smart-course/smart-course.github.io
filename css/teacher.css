@@ -150,6 +150,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-dm-actions .tw-trash { width: 30px; height: 30px; margin: 0 0 0 2px; padding: 0; border: 0; background: transparent; vertical-align: middle; }
 .tw-dm-actions .tw-trash:hover, .tw-dm-actions .tw-trash:focus-visible { background: var(--rust-soft); }
 .tw-bar .tw-secondary { margin-top: 0; }
+.tw-bar a.tw-secondary { display: inline-flex; align-items: center; text-decoration: none; }
 @media (max-width: 760px) {
   .tw-room { grid-template-columns: 1fr; }
   .tw-room-code { text-align: left; }
