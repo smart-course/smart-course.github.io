@@ -156,6 +156,25 @@
     },
   };
 
+  // 习经课堂版“资料与延伸阅读”里的匿名建议箱提示卡（默认隐藏）：投屏时显示，并显示这堂课（今天）收到几条建议；建议内容不上投屏
+  const fbCard = document.querySelector('[data-fb-projector]');
+  if (fbCard) {
+    fbCard.hidden = false;
+    const countEl = fbCard.querySelector('[data-fb-count]');
+    const refreshFeedback = async () => {
+      try {
+        const current = await roomHere();
+        const today = window.ClassLive.today();
+        const n = (await backend.fetchAll('feedback', { classroom: Number(current.id) })).filter((row) => String(row.created_on || '').slice(0, 10) === today).length;
+        countEl.textContent = n ? `这堂课已经收到 ${n} 条匿名建议，谢谢大家！（建议内容只在老师的工作台里看）` : '这堂课还没有收到建议：下课前花一分钟写一写吧。';
+      } catch (error) {
+        countEl.textContent = '';   // 不是当前课堂、未登录教师工作台或后台还没有建议箱时不显示
+      }
+    };
+    refreshFeedback();
+    setInterval(refreshFeedback, 30000);
+  }
+
   async function act(label, call) {
     openButton.disabled = true;
     stopButton.disabled = true;
