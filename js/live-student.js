@@ -399,13 +399,15 @@
       dmqCards.push({ card, tag, debate });
     });
   }
-  // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在每次课的最后
-  //   （习经每个案例两课时为一次课，放在第二课时之后；政经每个案例一次课）。网站版才有，离线版不加。后台不记录提交者，只记日期 ----------
+  // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在每次课最后的“资料与延伸阅读”之后
+  //   （习经每个案例两课时为一次课；政经每个案例一次课）。网站版才有，离线版不加。后台不记录提交者，只记日期 ----------
   const fbCards = [];
   if (!OFFLINE) {
     const spots = worksheet
       ? [{ caseNo: (/(\d{2})$/.exec(unit) || [])[1], page: document.getElementById('sources') }]
-      : $$('section[id^="case-"][id$="-questions"]').map((page) => ({ caseNo: page.id.slice(5, 7), page }));
+      // 习经：放在每个案例最后的“资料与延伸阅读”之后（学生版有这一节；没有时退回第二课时末尾）
+      : $$('section[id^="case-"][id$="-questions"]').map((page) => ({ caseNo: page.id.slice(5, 7),
+        page: document.getElementById(`case-${page.id.slice(5, 7)}-sources`) || page }));
     spots.forEach(({ caseNo, page }) => {
       if (!/^\d{2}$/.test(caseNo || '') || !page) return;
       const card = document.createElement('section');
@@ -416,7 +418,7 @@
         <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="写下你对这堂课的意见或建议（500 字内）" aria-label="本堂课的匿名建议" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
         <p class="clp-fb-state" role="status"></p>`;
-      // 政治经济学：放在最后一页“继续阅读下一案例”之前；习经：放在第二课时（出门测）之后
+      // 政治经济学：放在“资料与延伸阅读”里、“继续阅读下一案例”之前；习经：放在“资料与延伸阅读”这一节的末尾
       const pager = worksheet ? page.querySelector('.case-sequence') : null;
       if (pager) pager.insertAdjacentElement('beforebegin', card);
       else (page.querySelector('.section-inner') || page.querySelector('.inner') || page).appendChild(card);

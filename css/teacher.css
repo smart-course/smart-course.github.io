@@ -93,6 +93,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-page small { color: var(--rust); font-weight: 800; }
 .tw-page strong { display: block; margin: 4px 0 8px; font-size: 18px; }
 .tw-page span { color: var(--muted); font-size: 14px; }
+.tw-page.is-notes { background: #f1f7f4; }
 @media (max-width: 760px) {
   .tw-option, .tw-option.single { grid-template-columns: 1fr; }
   .tw-top { padding: 10px 14px; }

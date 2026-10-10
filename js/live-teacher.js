@@ -1790,7 +1790,10 @@
   function renderPages() {
     $('[data-pages]').innerHTML = course.chapters.map((chapter) => `
       <a class="tw-page" href="/${chapter.file}${state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : ''}" target="_blank" rel="noopener"><small>${esc(chapter.cn)}</small><strong>${esc(chapter.title)}</strong>
-      <span>${CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>')}</span></a>`).join('');
+      <span>${CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>')}</span></a>`).join('')
+      // 复习资料（如政经“理论知识点总结（前七章）”）：学生在每个案例页的“资料与延伸阅读”里也能打开
+      + (course.notes ? `<a class="tw-page is-notes" href="/${course.notes.file}" target="_blank" rel="noopener"><small>复习资料</small><strong>${esc(course.notes.title)}</strong>
+      <span>学生在每个案例页最后的“资料与延伸阅读”里都能打开，可导出 PDF。</span></a>` : '');
   }
 
   // ---------------- 导出 ----------------
