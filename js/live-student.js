@@ -2,6 +2,8 @@
  * 两类课程共用同一套做法：
  *   · 每道题下方有“递交”按钮：选好或写好后点“递交”（再点一次确认），交给老师；
  *     每题只收第一次，递交后不能修改（数据库同样只收第一次）。老师在工作台和投屏页统计人数与对错。
+ *     老师在投屏页“停止递交”某道题后，这道题不能再递交（数据库拒绝写入，不计修为）：本页每 30 秒和回到页面时核对一次，
+ *     把递交按钮换成“老师已停止递交”的提示；老师恢复后按钮回来。
  *   · 每道题下方有“我的备注”：只保存在这台设备上，不交给老师，导出时一起带走。
  *   · 面板里可以“导出 HTML”（单个文件，离线可打开）或“导出 PDF”（浏览器“存储为 PDF”），内含题目、作答、递交状态与备注。
  * 课程类型：
@@ -218,6 +220,7 @@
   .clp-q-state { color: #6d6259; font-size: 13px; }
   .clp-q-state[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-q-state[data-state=error] { color: #a4492d; font-weight: 700; }
+  .clp-q-state[data-state=stopped] { color: #a4492d; font-weight: 700; }
   .clp-note { margin-top: 6px; }
   .clp-note summary { color: #a4492d; font-size: 13px; font-weight: 700; cursor: pointer; }
   .clp-note textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; background: #fffdf8; color: #201c18; font: 14px/1.6 inherit; resize: vertical; }
@@ -498,9 +501,42 @@
     else setQ(q, joined ? IDLE : '', '');
   });
 
+  // ---------- 停止递交：老师在投屏页停止某道题后，这道题不再收递交（数据库拒绝写入，不计修为） ----------
+  const STOPPED = '老师已停止递交这道题，不能再递交（不计修为）；可以继续看题、写备注';
+  let stops = [];
+  const stoppedQ = (q) => Boolean(Live.isStopped) && Live.isStopped(stops, q.key);
+  function applyStops() {
+    questions.forEach((q) => {
+      if (locked[q.key]) return;
+      const on = stoppedQ(q);
+      if (on === Boolean(q.stopped)) return;
+      q.stopped = on;
+      clearTimeout(q.timer);
+      q.button.classList.remove('is-confirm');
+      q.button.textContent = '递交';
+      q.button.disabled = false;
+      q.button.hidden = on;
+      q.bar.classList.toggle('is-stopped', on);
+      setQ(q, on ? STOPPED : IDLE, on ? 'stopped' : '');
+    });
+  }
+  async function loadStops() {
+    if (OFFLINE || !joined || !Live.stopList) return;
+    try {
+      stops = Live.stopList(await backend.rpc('ck_stopped_items', { p_classroom: Number(identity.classroom) || identity.classroom }));
+      applyStops();
+    } catch (error) { /* 后台还没有“停止递交”功能时忽略 */ }
+  }
+  if (!OFFLINE && joined && questions.length) {
+    loadStops();
+    setInterval(() => { if (!document.hidden && questions.some((q) => !locked[q.key])) loadStops(); }, 30000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStops(); });
+  }
+
   // 递交：第一次点出现“确认递交？”，3 秒内再点一次才发送
   async function submit(q) {
     if (!joined || locked[q.key]) return;
+    if (q.stopped) { setQ(q, STOPPED, 'stopped'); return; }
     const value = q.read();
     const problem = q.check(value);
     if (problem) { setQ(q, problem, 'error'); return; }
@@ -538,6 +574,11 @@
         remember(q.key, entry);
         markLocked(q, entry);
         setQ(q, '这道题之前已递交过，以第一次为准', 'ok');
+      } else if (!OFFLINE && Live.isClosedError(problemError) && (/已停止递交/.test(String(problemError && problemError.message))
+        || (await loadStops(), stoppedQ(q)))) {
+        // 老师刚刚停止了这道题（政经的后台直接说明；习经的行级安全只说拒绝写入，再核对一次停止列表）
+        if (!stoppedQ(q)) stops = stops.concat(q.key);
+        applyStops();
       } else {
         q.button.disabled = false;
         q.button.textContent = '递交';
@@ -574,7 +615,7 @@
   function bindTools() {
     const next = panel.querySelector('[data-cl-next]');
     if (next) next.addEventListener('click', () => {
-      const q = questions.find((item) => !locked[item.key]);
+      const q = questions.find((item) => !locked[item.key] && !item.stopped);
       if (!q) { const state = panel.querySelector('[data-cl-state]'); if (state) { state.textContent = '全部题目都已递交'; state.dataset.state = 'ok'; } return; }
       reveal(q.bar);
     });
@@ -605,7 +646,7 @@
       const lines = entry && entry.other ? ['（本题已在其他设备递交，以第一次递交为准；本设备没有记录当时的作答）'] : q.show(value);
       const note = noteOf(q.key).trim();
       const extra = q.extra ? q.extra() : null;
-      const state = entry ? (entry.other ? '已在其他设备递交' : `已递交 ${entry.at || ''}`) : (lines.length ? '未递交（草稿）' : '未作答');
+      const state = entry ? (entry.other ? '已在其他设备递交' : `已递交 ${entry.at || ''}`) : q.stopped ? '老师已停止递交（未递交）' : (lines.length ? '未递交（草稿）' : '未作答');
       html += `<article><h3>${esc(q.title)}<span class="state${entry ? ' ok' : ''}">${esc(state)}</span></h3>
         ${q.prompt ? `<p class="prompt">${esc(q.prompt)}</p>` : ''}
         <div class="answer"><b>我的作答</b>${lines.length ? lines.map((line) => `<p>${esc(line)}</p>`).join('') : '<p class="empty">（未作答）</p>'}</div>

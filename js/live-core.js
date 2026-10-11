@@ -8,14 +8,15 @@
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
  *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
- *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝）
+ *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝）、
+ *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -87,6 +88,23 @@
   const isDuplicateError = (error) => /23505|duplicate key|already exists|已递交/i.test(errorText(error));
   // 课堂未开放或已结束提交时，数据库的行级安全会拒绝写入
   const isClosedError = (error) => !isDuplicateError(error) && /row-level security|42501|permission denied|violates|已结束提交/i.test(errorText(error));
+
+  // 停止递交：教师在投屏页停止的题号（习经“案例号:题目”，政经为作业题目编号）；末尾 * 表示同一前缀的一组题（规则同 ck_item_stopped）
+  const isStopped = (stops, key) => Array.from(stops || []).some((item) => item === key
+    || (item.endsWith('*') && String(key || '').startsWith(item.slice(0, -1))));
+  // ck_stopped_items / ck_stop_item 的返回值（text[]）整理成题号列表
+  const stopList = (value) => {
+    const out = [];
+    const walk = (v) => {
+      if (typeof v === 'string') {
+        if (/^\{.*\}$/.test(v)) v.slice(1, -1).split(',').filter(Boolean).forEach((item) => out.push(item.replace(/^"|"$/g, '')));
+        else out.push(v);
+      } else if (Array.isArray(v)) v.forEach(walk);
+      else if (v && typeof v === 'object') Object.values(v).forEach(walk);
+    };
+    walk(value);
+    return out;
+  };
 
   // 课堂码：4 个字母＋4 位数字，不区分大小写
   const normalizeCode = (value) => String(value || '').replace(/\s+/g, '').toUpperCase();
@@ -317,11 +335,15 @@
       rows.push({ id: nextId(rows), at: new Date().toISOString(), kind, ...fields });
       write('seclog', rows);
     };
+    const stopsOf = (classroom) => read('stops').filter((row) => String(row.classroom) === String(classroom)).map((row) => row.item).sort();
     const guard = (kind, doc, uid) => {
       const state = classroomState(doc.classroom);
       // 加入记录只能经 ck_join 写入；选择、作答、弹幕须与本人这次登录的加入记录一致
       if (kind === 'checkins' || !memberOk(uid, doc.classroom, doc.sid, doc.name)) throw new Error('new row violates row-level security policy (mock)');
       if (!state || state !== 'open') throw new Error('new row violates row-level security policy (mock)');
+      if ((kind === 'choices' || kind === 'answers') && isStopped(stopsOf(doc.classroom), `${doc.case}:${doc.item}`)) {
+        throw new Error('new row violates row-level security policy (mock)');
+      }
       if (kind === 'danmaku') {
         const room = read('classrooms').find((row) => row.id === doc.classroom);
         const recent = read('danmaku').some((row) => row.owner === uid && Date.now() - row.ts < 5000);
@@ -480,6 +502,7 @@
           const room = read('classrooms').find((row) => row.id === params.p_classroom && row.is_current && row.submissions_open);
           if (!room || room.chapter !== params.p_unit) throw new Error('new row violates row-level security policy (mock)');
           if (!memberOk(uid, params.p_classroom, params.p_sid, params.p_name)) throw Object.assign(new Error('请回首页重新登录（本课堂需核对身份）'), { code: '42501' });
+          if (isStopped(stopsOf(params.p_classroom), params.p_key)) throw Object.assign(new Error('老师已停止递交这道题'), { code: '42501' });
           const rows = read('homework');
           const now = new Date().toISOString();
           let row = rows.filter((item) => item.classroom === params.p_classroom && item.sid === params.p_sid).sort((a, b) => a.id - b.id)[0];
@@ -502,7 +525,20 @@
           write('homework', rows);
           return [{ accepted, progress: row.progress, keys: Object.keys(row.payload).sort() }];
         }
+        if (name === 'ck_stopped_items') {
+          await this.ensureAnonymous();
+          return stopsOf(params.p_classroom);
+        }
         teacherOnly();
+        if (name === 'ck_stop_item') {
+          const item = String(params.p_item || '');
+          if (!/^[A-Za-z0-9][A-Za-z0-9:._-]{0,46}[*]?$/.test(item)) throw new Error('题目编号不正确');
+          if (!read('classrooms').some((row) => String(row.id) === String(params.p_classroom))) throw new Error('课堂不存在');
+          const rows = read('stops').filter((row) => !(String(row.classroom) === String(params.p_classroom) && row.item === item));
+          if (params.p_stop) rows.push({ classroom: params.p_classroom, item, created_at: new Date().toISOString() });
+          write('stops', rows);
+          return stopsOf(params.p_classroom);
+        }
         const sameGroup = (row, course, classId) => row.course === course && String(row.class_id || '') === String(classId || '');
         if (name === 'ck_publish') {
           const rows = read('classrooms');
@@ -562,7 +598,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'seclog'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -776,6 +812,8 @@
     realmOf,
     isClosedError,
     isDuplicateError,
+    isStopped,
+    stopList,
     normalizeCode,
     unitOf,
     create(config) {

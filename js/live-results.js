@@ -3,6 +3,8 @@
  *   概念学习课程（讲解版，如《政治经济学》）：各概念的想一想、辨一辨、用一用（分一分 / 填一填 / 算一算 / 变一变）、
  *     一句话说清（人数），概念串联、小组辨析（人数）、出门测（每题只算学生第一次递交）。
  * 每块常显“已递交人数”，点“显示分布”才展开各选项人数、比例和正确率（由老师决定何时给全班看）。
+ * “显示分布”左边的“停止递交”（点一次变“确认停止？”，3 秒内再点才生效）：本课堂这道题不再收学生递交（数据库 ck_stop_item 拒绝写入），
+ *   还没递交的同学也就拿不到这道题的修为；停止后按钮变为“恢复递交”。证据—理论配对、圆桌秘密任务、政经出门测按整块停止。
  * 只显示“当前课堂”且与本页章节（案例）相同时的数据；需要教师已在同一浏览器登录教师工作台（读取需教师账号）。
  * 离线版（provider = offline，脚本内嵌在课程目录的离线完整版 HTML 里）：右下角“导入学生文件”，
  *   读取学生在离线学生版里导出的 HTML（内含作答数据），同一学号多份时每题取最早递交的，统计方式与在线相同。
@@ -37,7 +39,16 @@
   .lv-tag { padding: 2px 9px; border-radius: 12px; color: #fff; background: var(--teal, #23655f); font-weight: 800; font-size: 13px; }
   .lv-count { color: var(--ink, #201c18); font-weight: 800; font-size: 16px; }
   .lv-note { color: var(--muted, #6d6259); font-size: 14px; }
-  .lv-head button { margin-left: auto; padding: 5px 12px; border: 1px solid var(--teal, #23655f); border-radius: 6px; color: var(--teal, #23655f); background: #fff; font: 700 14px/1.2 inherit; cursor: pointer; }
+  .lv-acts { display: flex; gap: 8px; margin-left: auto; }
+  .lv-head button { padding: 5px 12px; border: 1px solid var(--teal, #23655f); border-radius: 6px; color: var(--teal, #23655f); background: #fff; font: 700 14px/1.2 inherit; cursor: pointer; }
+  .lv-head button[hidden] { display: none; }
+  .lv-head button[data-lv-stop] { border-color: #a4492d; color: #a4492d; }
+  .lv-head button[data-lv-stop].is-confirm { color: #fff; background: #a4492d; }
+  .lv-head button[data-lv-stop].is-on { border-color: var(--teal, #23655f); color: #fff; background: var(--teal, #23655f); }
+  .lv-head button[disabled] { opacity: .6; cursor: progress; }
+  .lv-stopped { padding: 2px 9px; border-radius: 12px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
+  .lv-stopped[hidden] { display: none; }
+  .lv.is-stopped { border-color: #a4492d; background: rgba(164, 73, 45, .07); }
   .lv-body { margin-top: 10px; }
   .lv-rate { margin: 0 0 6px; color: var(--teal, #23655f); font-weight: 800; font-size: 15px; }
   .lv-row { display: grid; grid-template-columns: minmax(0, 1.4fr) minmax(120px, 1fr) auto; gap: 10px; align-items: center; padding: 5px 0; font-size: 16px; }
@@ -85,16 +96,22 @@
     box.className = 'lv';
     box.setAttribute('data-ix', '');
     box.innerHTML = '<div class="lv-head"><span class="lv-tag">学生实时结果</span><span class="lv-count" data-lv-count>—</span>'
-      + '<span class="lv-note" data-lv-note></span><button type="button" data-lv-toggle>显示分布</button></div><div class="lv-body" data-lv-body hidden></div>';
+      + '<span class="lv-stopped" data-lv-stopped hidden>已停止递交</span><span class="lv-note" data-lv-note></span>'
+      + '<span class="lv-acts"><button type="button" data-lv-stop hidden>停止递交</button><button type="button" data-lv-toggle>显示分布</button></span></div>'
+      + '<div class="lv-body" data-lv-body hidden></div>';
     ['click', 'keydown'].forEach((type) => box.addEventListener(type, (event) => event.stopPropagation()));
     anchor.insertAdjacentElement(where, box);
-    const block = { ...spec, box, open: false };
+    // 停止递交用的题号：习经“案例号:题目”，政经为作业题目编号；只统计人数的文字题（cl-count）不设
+    const stop = OFFLINE || spec.kind === 'cl-count' ? null
+      : spec.stop !== undefined ? spec.stop : CONCEPT ? spec.key : spec.case && spec.item ? `${spec.case}:${spec.item}` : null;
+    const block = { ...spec, stop, box, open: false, confirm: false, busy: false };
     box.querySelector('[data-lv-toggle]').addEventListener('click', () => {
       block.open = !block.open;
       box.querySelector('[data-lv-toggle]').textContent = block.open ? '隐藏分布' : '显示分布';
       box.querySelector('[data-lv-body]').hidden = !block.open;
       render();
     });
+    box.querySelector('[data-lv-stop]').addEventListener('click', () => toggleStop(block));
     blocks.push(block);
   };
 
@@ -120,13 +137,13 @@
     });
     document.querySelectorAll('section.ix-prepost[data-prepost]').forEach((section) => {
       addBlock(section.querySelector('.prepost-rows'), {
-        kind: 'prepost', case: caseOf(section), ref: section.dataset.reference || null,
+        kind: 'prepost', case: caseOf(section), stop: `${caseOf(section)}:post`, ref: section.dataset.reference || null,
         options: Array.from(section.querySelectorAll('.prepost-label')).map((el, index) => ({ key: String(index + 1), label: text(el.querySelector('span')), text: text(el.querySelector('strong')) })),
       });
     });
     document.querySelectorAll('section.ix-match[data-match]').forEach((section) => {
       addBlock(section.querySelector('.match-table-wrap'), {
-        kind: 'match', case: caseOf(section),
+        kind: 'match', case: caseOf(section), stop: `${caseOf(section)}:match*`,
         clues: Array.from(section.querySelectorAll('tr[data-match-row]')).map((row, index) => {
           // 只取线索标题（如“01 制度起点”），不带下方的说明文字
           const cell = row.cells[0].cloneNode(true);
@@ -159,7 +176,7 @@
       const [caseNo, id] = box.dataset.voteKey.split(':');
       const options = Array.from(box.querySelectorAll('[data-vote-option]')).map((li) => ({ key: li.dataset.voteOption, label: text(li.querySelector('span')), text: text(li.querySelector('strong')) }));
       addBlock(box.querySelector('.vote-options'), id === 'debate-post'
-        ? { kind: 'versus', case: caseNo, options }
+        ? { kind: 'versus', case: caseNo, stop: `${caseNo}:debate-post`, options }
         : id === 'rt-vote' ? { kind: 'rt-sim', case: caseNo, item: id, options, roles: rolesOf(caseNo), ref: null }
         : { kind: 'poll', case: caseNo, item: id, options, ref: null });
     });
@@ -167,7 +184,7 @@
     document.querySelectorAll('[data-rt-tasks]').forEach((anchor) => {
       let key = {};
       try { key = JSON.parse(anchor.dataset.rtKey || '{}'); } catch (error) { key = {}; }
-      addBlock(anchor, { kind: 'rt-task', case: anchor.dataset.rtTasks, key });
+      addBlock(anchor, { kind: 'rt-task', case: anchor.dataset.rtTasks, stop: `${anchor.dataset.rtTasks}:rt-task-*`, key });
     });
     // 圆桌会议的三项议程：总分布＋按学生选的角色分组
     document.querySelectorAll('.rt-agenda[data-sim]').forEach((agenda) => {
@@ -265,7 +282,7 @@
     if (essay) addBlock(essay, { kind: 'cl-count', key: 'essay', label: '递交了课后思考（全文在工作台“作业情况 → 课后思考”查看）' });
     const exitList = document.querySelector('.cl-exit .cl-exit-list');
     if (exitList) {
-      addBlock(exitList, { kind: 'cl-exit', key: 'exit',
+      addBlock(exitList, { kind: 'cl-exit', key: 'exit', stop: 'exit.*',
         questions: Array.from(exitList.querySelectorAll('.cl-exit-item')).map((el, i) => {
           // 题干去掉前面的“概念 N · 名称”标签
           const legend = el.querySelector('legend').cloneNode(true);
@@ -278,6 +295,8 @@
   // ---------- 数据 ----------
   let room = null;
   let status = '连接中……';
+  let stops = [];           // 本课堂已停止递交的题号
+  let stopReady = false;    // 后台有“停止递交”功能（已执行相应 SQL）时才显示按钮
   let counts = new Map();   // 章节案例课程："案例|项目" → Map(选项 → 人数)
   let latestDocs = [];      // 章节案例课程：每人每题最新一条 {sid, case, item, choice}（圆桌会议按角色分组用）
   let answers = [];         // 概念学习课程：每位学生 {题目编号: 作答}（每题取第一次递交）
@@ -304,10 +323,12 @@
       noteEl.innerHTML = status;
       toggle.hidden = true;
       body.hidden = true;
+      stopView(block);
       return;
     }
-    noteEl.textContent = '';
+    noteEl.textContent = block.error || '';
     toggle.hidden = block.kind === 'cl-count';
+    stopView(block);
     body.hidden = !block.open;
     const html = CONCEPT ? conceptView(block, countEl) : caseView(block, countEl);
     if (block.open && html !== null) body.innerHTML = html;
@@ -517,6 +538,58 @@
   }
   function render() { blocks.forEach(renderBlock); }
 
+  // ---------- 停止递交 ----------
+  function stopView(block) {
+    const button = block.box.querySelector('[data-lv-stop]');
+    const on = Boolean(block.stop) && stops.includes(block.stop);
+    button.hidden = Boolean(status) || !stopReady || !block.stop;
+    button.disabled = block.busy;
+    button.classList.toggle('is-confirm', block.confirm && !on);
+    button.classList.toggle('is-on', on);
+    button.textContent = block.busy ? '正在处理……' : on ? '恢复递交' : block.confirm ? '确认停止？' : '停止递交';
+    button.title = on ? '重新允许学生递交这道题' : '停止后学生不能再递交这道题，没递交的同学拿不到这道题的修为';
+    block.box.querySelector('[data-lv-stopped]').hidden = button.hidden || !on;
+    block.box.classList.toggle('is-stopped', !button.hidden && on);
+  }
+  async function toggleStop(block) {
+    if (!room || status || !block.stop || block.busy) return;
+    const on = stops.includes(block.stop);
+    // 停止要确认：第一次点出现“确认停止？”，3 秒内再点一次才停止；恢复不用确认
+    if (!on && !block.confirm) {
+      block.confirm = true;
+      block.error = '';
+      clearTimeout(block.confirmTimer);
+      block.confirmTimer = setTimeout(() => { block.confirm = false; renderBlock(block); }, 3000);
+      renderBlock(block);
+      return;
+    }
+    clearTimeout(block.confirmTimer);
+    block.confirm = false;
+    block.busy = true;
+    renderBlock(block);
+    try {
+      stops = window.ClassLive.stopList(await backend.rpc('ck_stop_item', { p_classroom: Number(room.id), p_item: block.stop, p_stop: !on }));
+      block.error = '';
+    } catch (error) {
+      console.warn('[停止递交]', error);
+      block.error = on ? '恢复没有成功，请再试一次' : '停止没有成功，请再试一次';
+    } finally {
+      block.busy = false;
+      render();
+    }
+  }
+  async function loadStops() {
+    if (!room || status) { stops = []; return; }
+    try {
+      stops = window.ClassLive.stopList(await backend.rpc('ck_stopped_items', { p_classroom: Number(room.id) }));
+      stopReady = true;
+    } catch (error) {
+      // 后台还没有执行“停止递交”的 SQL：不显示按钮
+      stopReady = false;
+      stops = [];
+    }
+  }
+
   async function loadRoom() {
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
@@ -525,6 +598,7 @@
       else if (room.chapter !== chapter) status = `当前课堂“${esc(room.name)}”不是${HERE}，这里暂不显示学生结果。`;
       else status = '';
       if (!room || String(room.id) !== homeworkRoom) { homeworkRoom = room ? String(room.id) : ''; known.clear(); cursor = null; answers = []; }
+      await loadStops();
     } catch (error) {
       room = null;
       status = '请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>，再刷新本页。';

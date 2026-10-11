@@ -417,6 +417,7 @@
     for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
     try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
     await backend.removeAll('classrooms', { id: Number(room.id) });
     const wasSelected = state.room && String(state.room.id) === String(room.id);
     if (wasSelected) {
