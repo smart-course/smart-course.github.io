@@ -1953,7 +1953,7 @@
   // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
   const REALMS = window.ClassLive.REALMS;
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2 };
-  const LIKE = window.ClassLive.LIKE || { limit: 5, points: 5, perStudent: 2 };
+  const LIKE = window.ClassLive.LIKE || { limit: 10, points: 5, perStudent: 2 };
   const realmUnits = () => (CONCEPT
     ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
     : course.chapters.map((ch) => ({ id: ch.id, label: ch.cn, meetings: Math.max(1, ch.cases.length),

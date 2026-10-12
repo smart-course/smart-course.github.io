@@ -523,7 +523,7 @@
   const deleted = new Set();    // 本页已删除的弹幕 id（读取结果里若还带着，也不再显示）
   let wallRows = [];            // 当前弹幕墙使用的弹幕（删除后据此重排）
   // ---------- 教师点赞（每堂课有上限，额外加修为） ----------
-  const LIKE = window.ClassLive.LIKE || { limit: 5 };
+  const LIKE = window.ClassLive.LIKE || { limit: 10 };
   const liked = new Set();   // 已点赞的弹幕 id（以后台为准，每次读取时更新）
   let likesUsed = null;
   const likesEl = bar.querySelector('[data-dm-likes]');

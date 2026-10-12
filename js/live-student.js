@@ -112,6 +112,10 @@
   .clp-realm-card h3 button { border: 0; background: none; font-size: 22px; cursor: pointer; color: #6d6259; }
   .clp-realm-card h4 { margin: 12px 0 4px; font-size: 15px; color: #a4492d; }
   .clp-realm-card ul { margin: 0; padding-left: 20px; }
+  .clp-news-card li { margin: 2px 0; }
+  .clp-news-card li b { color: #463322; }
+  .clp-news-ok { display: flex; justify-content: flex-end; margin-top: 14px; }
+  .clp-news-ok button { padding: 7px 22px; border: 0; border-radius: 999px; background: #a4492d; color: #fff; font: 700 14.5px/1.4 inherit; cursor: pointer; }
   .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
   .clp-realm-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #23655f, #b98cff, #ffd36b); }
   .clp-ladder { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 6px; padding: 16px 10px 0; border-radius: 12px; background: radial-gradient(ellipse at 40% 30%, #1f1a2c 0%, #13111a 55%, #0c0b10 100%); }
@@ -342,8 +346,9 @@
   .clp-v2 [data-cl-export-state]:not([data-state]) { display: none; }
   .clp-v2 .clp-foot { position: relative; padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.12); }
   .clp-v2 .clp-mydm { margin: 0; }
-  .clp-v2 .clp-mydm summary { padding-right: 70px; }
-  .clp-v2 .clp-realm-open { position: absolute; top: 10px; right: 14px; font-size: 13px; }
+  .clp-v2 .clp-mydm summary { padding-right: 132px; }
+  .clp-v2 .clp-foot-links { position: absolute; top: 10px; right: 14px; display: flex; gap: 10px; }
+  .clp-v2 .clp-foot-links .clp-link { font-size: 13px; }
   /* 手机端收起时只留一个境界小图标（像“使用说明”的问号），点一下展开 */
   .clp-v2 .clp-mini { display: none; position: relative; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #b9b1a3; border-radius: 50%;
     color: #4a443c; background: radial-gradient(circle at 35% 30%, #f1ece2, #d9d4ca 60%, #b9b1a3); box-shadow: 0 6px 16px rgba(0,0,0,.22);
@@ -836,7 +841,7 @@
           <ul class="clp-mydm-list" data-cl-mydm-list></ul>
           <p class="clp-hint" data-cl-mydm-state></p>
         </details>
-        <button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button>
+        <span class="clp-foot-links"><button type="button" class="clp-link" data-cl-news-open>更新说明</button><button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button></span>
       </div>
     </div>`;
   document.body.appendChild(panel);
@@ -1149,7 +1154,7 @@
         <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
-        <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 5} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
+        <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 10} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
@@ -1162,6 +1167,70 @@
   realmEl.addEventListener('click', openRealm);
   panel.querySelector('[data-cl-realm-open]').addEventListener('click', openRealm);
   realmEl.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRealm(); } });
+
+  // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
+  // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
+  const NEWS_ID = '20261012';
+  const NEWS_RANGE = '10 月 9 日—10 月 12 日';
+  const newsKey = `classlive-news:${config.course}`;
+  function newsSections() {
+    const like = Live.LIKE || {};
+    const wordgame = (Live.WORDGAME || {}).points || 10;
+    return [
+      { course: 'xjp-economy', title: '案例课堂改版', items: [
+        ['新题型', '每个案例增加单选、多选、判断题和出门测，每题做完点“递交”，递交后不能修改。'],
+        ['辩论赛', '辩前投票投哪一方，就站在哪一方；质询弹幕会自动带上【正方】或【反方】。'],
+        ['圆桌协商', '递交角色后才能看到本方的秘密任务和 3 道专属题，全部答对就完成秘密任务；各方先陈述、再协商，最后形成协商意见并表决。'],
+        ['理论要点', '缩写的理论要点，点一下就能看到完整内容。'],
+        ['章节末尾', '依次是本章知识点小结、资料与延伸阅读（可下载《习近平经济思想学习纲要》《习近平经济思想的生动实践述评》）、匿名建议箱。'],
+      ] },
+      { course: 'political-economy', title: '资料与延伸阅读', items: [
+        ['知识点总结', '新增《政治经济学前七章理论知识点总结》，点开直接阅读，也可以导出 PDF，复习考试用。'],
+        ['参考书', '新增《政治经济学简明教程》（陈享光主编）、《现代政治经济学新编》（通用版，程恩富、冯艳主编）、《政治经济学》（谢地、宋冬林主编）。'],
+      ] },
+      { title: '登录更安全', items: [
+        ['个人口令', '登录改为“课堂码＋点名册＋4 位个人口令”。第一次登录时自己设口令，请记牢；忘了请老师在工作台重置。'],
+        ['防冒用', '口令输错太多次会暂时锁定，锁定时间一次比一次长；不在本班点名册上的同学，要老师允许后才能登录。'],
+        ['点名册编号', '面板上姓名前的“N号”是你在点名册上的编号，课堂抽人时用。'],
+      ] },
+      { title: '修为境界', items: [
+        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名另外加。'],
+        ['五个境界', `炼气 → 筑基 → 结丹 → 元婴 → 化神，按全学期修为占满分的比例晋升（${REALMS.slice(1).map((realm) => `${realm.name} ${Math.round(realm.min * 100)}%`).join('、')}）。点面板上的境界或“修为说明”查看进度。`],
+        ['弹幕字色', '每升一境多两种（炼气霜白、月银，筑基加青冥、翠竹，结丹加金曦、大红，元婴加樱粉、紫霄，化神加流金、七彩）；投屏上你的名字颜色也与境界一致。'],
+        ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，每次课最多祭出一件。`],
+        ['突破恭喜', '有同学突破境界时，投屏最上方会显示一行恭喜。'],
+      ] },
+      { title: '弹幕与课堂', items: [
+        ['老师点赞', `说得好的弹幕会盖上「师赞」朱印，你的页面上也会出现盖章动画；每赞加 ${like.points || 5} 修为（每次课最多算 ${like.perStudent || 2} 个），老师每堂课最多点赞 ${like.limit || 10} 次。`],
+        ['我发过的弹幕', '在面板底部查看自己发过的弹幕，可以删除（投屏上撤下，老师的记录里仍保留）。'],
+        ['匿名弹幕', '老师打开“匿名”时，投屏只显示内容、不显示姓名，老师后台仍能看到是谁发的。'],
+        ['猜词游戏', `老师抽两位同学上台，一人背对屏幕猜、一人用自己的话描述；每次课得分第一的一组两人各加 ${wordgame} 修为。`],
+        ['停止递交', '老师可以让某道题停止递交，停止后这道题不能再递交、也不计修为，请跟上课堂节奏及时递交。'],
+        ['匿名建议箱', '每次课最后可以匿名对这堂课提建议，老师的讲授、案例的呈现、希望增加的互动方式都可以说。'],
+        ['手机端', '面板收成一个境界小图标，点一下展开。'],
+      ] },
+    ].filter((section) => !section.course || section.course === config.course);
+  }
+  const newsModal = document.createElement('div');
+  newsModal.className = 'clp-realm-modal';
+  newsModal.hidden = true;
+  document.body.appendChild(newsModal);
+  function openNews() {
+    newsModal.innerHTML = `<div class="clp-realm-card clp-news-card" role="dialog" aria-modal="true" aria-label="版本更新说明">
+      <h3><span>版本更新说明</span><button type="button" data-news-close aria-label="关闭">×</button></h3>
+      <p class="clp-hint">${esc(NEWS_RANGE)}，课程网站做了这些更新。以后点面板底部的“更新说明”可以再看。</p>
+      ${newsSections().map((section) => `<h4>${esc(section.title)}</h4><ul>${section.items.map(([label, text]) => `<li><b>${esc(label)}</b>：${esc(text)}</li>`).join('')}</ul>`).join('')}
+      <div class="clp-news-ok"><button type="button" data-news-close>知道了</button></div></div>`;
+    newsModal.hidden = false;
+    newsModal.querySelector('[data-news-close]').focus();
+  }
+  function closeNews() {
+    newsModal.hidden = true;
+    save(newsKey, NEWS_ID);   // 看过这一版就不再自动弹出
+  }
+  newsModal.addEventListener('click', (event) => { if (event.target === newsModal || event.target.closest('[data-news-close]')) closeNews(); });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !newsModal.hidden) closeNews(); });
+  panel.querySelector('[data-cl-news-open]').addEventListener('click', openNews);
   function toast(text) {
     const box = document.createElement('div');
     box.className = 'clp-toast';
@@ -1259,7 +1328,8 @@
   showRealm(myRealm);
   // 本人境界：打开页面时核对一次，之后每分钟核对一次（老师课上结算后不用刷新也能看到突破）
   async function refreshRealm() {
-    if (PREVIEW) return;
+    if (PREVIEW) return false;
+    let previewed = false;
     try {
       const value = await backend.rpc('ck_my_realm', { p_classroom: Number(identity.classroom) || identity.classroom });
       const row = Array.isArray(value) ? value[0] : value;
@@ -1271,14 +1341,21 @@
         // 突破的同时，在本人页面预览这件法宝（只在自己页面上，不上投屏、不算祭出；画面在 live-gifts.js）
         if (gift && window.ClassLiveGifts) {
           window.ClassLiveGifts.play({ gift, sealName: REALMS[fresh.realm].name, who: `${identity.name}　突破${REALMS[fresh.realm].name} · 法宝预览`, fit: 'narrow' });
+          previewed = true;
         }
       }
       myRealm = fresh;
       save(realmKey, fresh);
       showRealm(fresh);
     } catch (error) { /* 后台还没有修为境界时，按上次记住的显示 */ }
+    return previewed;
   }
-  checkedIn.then(refreshRealm);
+  // 进入课堂后自动弹出更新说明（每台设备每一版一次）；刚播放突破预览时，等法宝画面放完再弹
+  checkedIn.then(refreshRealm).then((previewed) => {
+    if (load(newsKey, '') === NEWS_ID) return;
+    const gap = previewed ? ((window.ClassLiveGifts && window.ClassLiveGifts.GIFT_MS) || 3200) + 800 : 800;
+    setTimeout(() => { if (newsModal.hidden && realmModal.hidden) openNews(); }, gap);
+  });
   if (!PREVIEW) setInterval(() => { if (!document.hidden) refreshRealm(); }, 60000);
   // 本人已经祭出过的法宝：按钮显示“已祭出”（测试页法宝不限次数）
   if (!PREVIEW) {
