@@ -12,6 +12,9 @@
  *     页面里的姓名、学号、班级按课堂登录信息自动填写并锁定。
  * 两类都可发弹幕：显示在老师投屏的课堂页面上（老师开放后可用；老师开启匿名时投屏不显示姓名，后台照常记录发送人）。
  * 未从课堂码进入（或本周课堂不在这一页）时只能写备注、导出，不能递交。
+ * 学生版测试页（教师工作台“打开学生版测试页”，地址带 ?preview=<课堂编号>&staticrypt_pwd=…）：与学生页相同，区别是名字固定“韩天尊”、
+ *   化神境界（字色、法宝全开，法宝不限次数）；弹幕和法宝经教师专用函数 ck_test_danmaku 发到投屏（只有教师账号能用，学生改地址也冒充不了）；
+ *   作答只在本机锁定、不交后台，匿名建议不提交，韩天尊不在点名册上、不计修为。
  * 离线版（provider = offline，脚本内嵌在课程目录的离线 HTML 里，网络不可用时直接发给学生）：
  *   不连接后台；学生在面板里填写姓名、学号、班级；“递交”只在本机锁定答案（每题只算第一次）；
  *   做完后导出文件发给老师，老师在离线完整版里“导入学生文件”统计。导出文件内含作答数据（JSON）。
@@ -22,8 +25,10 @@
   const config = window.CLASS_LIVE_CONFIG;
   const OFFLINE = Boolean(config && config.provider === 'offline');
   if (!config || config.provider === 'off' || (!OFFLINE && !window.ClassLive)) return;
-  // 地址栏里的解密值用完即清，避免被复制转发
-  if (/staticrypt_pwd=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
+  const previewRoom = OFFLINE ? 0 : Number(new URLSearchParams(location.search).get('preview')) || 0;
+  const PREVIEW = previewRoom > 0;   // 学生版测试页
+  // 地址栏里的解密值用完即清，避免被复制转发（测试页的解密值在查询参数里，刷新、翻页都要用，保留）
+  if (!PREVIEW && /staticrypt_pwd=/.test(location.hash)) history.replaceState(null, '', location.pathname + location.search);
   let backend = null;
   if (!OFFLINE) {
     try {
@@ -45,7 +50,9 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const OFFLINE_STORE = 'classlive-offline-student';
-  const identity = OFFLINE ? load(OFFLINE_STORE, {}) : load(STORE, {});
+  const identity = OFFLINE ? load(OFFLINE_STORE, {})
+    : PREVIEW ? { name: '韩天尊', sid: 'HTZ0001', class_name: '教师测试', group_name: '', classroom: previewRoom, course: config.course, chapter: config.unit || Live.unitOf(), code: '' }
+      : load(STORE, {});
   const unit = config.unit || Live.unitOf();
   const worksheet = config.kind === 'concept-html';
   const joined = OFFLINE || Boolean(identity.classroom && identity.name && identity.sid
@@ -144,6 +151,11 @@
   @media (prefers-reduced-motion: reduce) { .clp-ladder, .clp-ladder * { animation: none !important; } }
   .clp-toast { position: fixed; z-index: 2147483001; left: 50%; top: 18px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
     color: #3b1d00; background: linear-gradient(100deg, #f3e3ff, #fff3c8); box-shadow: 0 10px 30px rgba(0,0,0,.25); font: 800 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-preview { position: fixed; z-index: 2147482990; left: 50%; top: 8px; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px;
+    max-width: calc(100vw - 24px); padding: 6px 12px; border-radius: 10px; background: rgba(120,28,20,.92); color: #fff4e0; box-shadow: 0 6px 18px rgba(0,0,0,.25);
+    font: 700 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-preview b { padding: 1px 8px; border-radius: 6px; background: #fff4e0; color: #8c2018; }
+  .clp-preview button { padding: 3px 9px; border: 1px solid rgba(255,244,224,.6); border-radius: 6px; background: transparent; color: #fff4e0; font: inherit; cursor: pointer; }
   .clp-who small, .clp-room, .clp-hint { color: #6d6259; font-size: 12.5px; }
   .clp-hint { margin: 6px 0 0; line-height: 1.5; }
   .clp-hint[data-state=ok] { color: #23655f; }
@@ -312,6 +324,9 @@
   .clp-v2 .clp-gifts .is-fenglei { border-color: #8fcfee; background: linear-gradient(180deg, #eef9ff, #d6effc); color: #0f3e57; }
   .clp-v2 .clp-gifts .is-zhangtian { border-color: #6fd39b; background: linear-gradient(180deg, #14261f, #0e1c16); color: #c9f7dc; box-shadow: 0 0 10px rgba(90,230,150,.35); }
   .clp-v2 .clp-gifts button.is-locked { border: 1px dashed #cfc5b5; background: #f6f1e8; color: #a59a8d; box-shadow: none; font-weight: 700; opacity: 1; }
+  .clp-gifts button.is-used { border-style: solid; background: #efe9df; color: #8a7f74; cursor: default; opacity: 1; }
+  .clp-v2 .clp-gifts button.is-used { border: 1px solid #d6cdbf; background: #efe9df; color: #8a7f74; box-shadow: none; }
+  .clp-gifts button.is-used small { color: #a4492d; font-weight: 800; }
   .clp-v2 .clp-gifts small { flex: 0 0 auto; margin-left: auto; font-size: 11px; font-weight: 700; }
   .clp-v2 .clp-gi { flex: 0 0 auto; display: inline-grid; place-items: center; }
   .clp-v2 .clp-gi-dan { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #fff4c4, #ffc23a 40%, #c97300); box-shadow: 0 0 6px rgba(255,190,40,.8);
@@ -454,7 +469,7 @@
   const questions = worksheet ? conceptQuestions() : caseQuestions();
 
   // 递交记录：按页面保存，每个课堂一份（同一页面在别的课堂重新发布时重新作答）
-  const LOCK_KEY = `classlive-locked:${location.pathname}`;
+  const LOCK_KEY = `classlive-locked${PREVIEW ? '-preview' : ''}:${location.pathname}`;   // 测试页的递交记录另存，可一键清空
   const lockBook = load(LOCK_KEY, {});
   const lastRoom = () => Object.keys(lockBook).sort((a, b) => (lockBook[b].$t || 0) - (lockBook[a].$t || 0))[0];
   const roomKey = OFFLINE ? 'offline' : joined ? String(identity.classroom) : lastRoom();
@@ -487,7 +502,8 @@
     q.button.addEventListener('click', () => submit(q));
   });
 
-  const IDLE = OFFLINE ? '选好或写好后点“递交”锁定答案，递交后不能修改' : '选好或写好后点“递交”交给老师，递交后不能修改';
+  const IDLE = OFFLINE ? '选好或写好后点“递交”锁定答案，递交后不能修改'
+    : PREVIEW ? '测试页：点“递交”只在本机锁定，不交给后台、不计入统计' : '选好或写好后点“递交”交给老师，递交后不能修改';
   const setQ = (q, text, state) => { q.state.textContent = text; q.state.dataset.state = state || ''; };
   const markLocked = (q, entry) => {
     q.bar.classList.add('is-locked');
@@ -500,6 +516,26 @@
     if (locked[q.key]) markLocked(q, locked[q.key]);
     else setQ(q, joined ? IDLE : '', '');
   });
+
+  // ---------- 学生版测试页：顶部提示条（清空测试作答）；同一把钥匙的附页链接带上解密值 ----------
+  if (PREVIEW) {
+    const bar = document.createElement('div');
+    bar.className = 'clp-preview';
+    bar.setAttribute('data-ix', '');
+    bar.innerHTML = '<b>学生版测试页</b><span>韩天尊 · 化神 · 弹幕和法宝照常上投屏 · 作答只在本机、不计入后台</span><button type="button">清空测试作答</button>';
+    shield(bar);
+    bar.querySelector('button').addEventListener('click', () => {
+      if (!window.confirm('清空这一页的测试作答和递交记录？（只影响这台电脑上的测试页）')) return;
+      try { localStorage.removeItem(LOCK_KEY); if (config.stateKey) localStorage.removeItem(config.stateKey); } catch (error) { /* 忽略 */ }
+      location.reload();
+    });
+    document.body.appendChild(bar);
+    backend.session().then((session) => {
+      if (!session || session.anonymous) bar.querySelector('span').textContent = '请先在这台电脑的浏览器里登录教师工作台，测试页才能发弹幕和法宝';
+    }).catch(() => { /* 忽略 */ });
+    const pagePwd = new URLSearchParams(location.search).get('staticrypt_pwd');
+    if (pagePwd) $$('a[href$="-notes.html"]').forEach((link) => { link.href = `${link.getAttribute('href')}?staticrypt_pwd=${encodeURIComponent(pagePwd)}`; });
+  }
 
   // ---------- 停止递交：老师在投屏页停止某道题后，这道题不再收递交（数据库拒绝写入，不计修为） ----------
   const STOPPED = '老师已停止递交这道题，不能再递交（不计修为）；可以继续看题、写备注';
@@ -558,8 +594,8 @@
     q.button.textContent = '正在递交……';
     q.button.disabled = true;
     try {
-      // 离线版只在本机锁定；在线版交给后台
-      const result = OFFLINE ? null : await q.send(value);
+      // 离线版、学生版测试页只在本机锁定；在线版交给后台
+      const result = OFFLINE || PREVIEW ? null : await q.send(value);
       // 服务器说这题之前已递交过（例如在另一台设备上）：以第一次为准，不记这次的作答
       const rejected = result && result.accepted === false;
       const entry = rejected ? { at: '', v: null, other: true } : { at: time(), iso: new Date().toISOString(), v: value };
@@ -773,7 +809,7 @@
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
-        <span class="clp-links"><button type="button" class="clp-link" data-cl-fold>收起</button><button type="button" class="clp-link" data-cl-switch>不是我</button></span></div>
+        <span class="clp-links"><button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
       <div class="clp-sub">${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
@@ -806,7 +842,8 @@
   document.body.appendChild(panel);
   dodge();
   // 不是我：清掉本机的身份并退出这次登录（下一位同学在这台设备上登录算新设备，要输自己的口令）
-  panel.querySelector('[data-cl-switch]').addEventListener('click', async () => {
+  const switchButton = panel.querySelector('[data-cl-switch]');   // 学生版测试页没有“不是我”（以免退出老师的工作台登录）
+  if (switchButton) switchButton.addEventListener('click', async () => {
     save(STORE, { code: identity.code });
     try { if (backend.signOutStudent) await backend.signOutStudent(); } catch (error) { /* 忽略 */ }
     location.href = joinUrl();
@@ -876,9 +913,10 @@
     : '发送失败：请检查网络后再试。');
   async function sendDanmaku(text) {
     const doc = { course: config.course, classroom: identity.classroom, name: identity.name, sid: identity.sid, text };
-    const color = myDanmakuColor();   // 元婴起才带字色（投屏页还会按境界核对）
+    const color = myDanmakuColor();   // 带上自选字色（投屏页还会按境界核对）
     if (color) doc.color = color;
-    await backend.add('danmaku', doc);
+    if (PREVIEW) await backend.rpc('ck_test_danmaku', { p_classroom: previewRoom, p_text: text, p_color: color || null, p_gift: null });
+    else await backend.add('danmaku', doc);
     cool();
     sentMine = true;
     if (typeof scheduleLikes === 'function') scheduleLikes(12000);
@@ -1030,7 +1068,7 @@
   // 每次打开本章页面都向后台核对：这台设备是否已经过首页核对（课堂码＋点名册＋口令）登录本课堂；没有就提示回首页重新登录。
   // 同一课堂分几次课上时，后台在每天第一次打开时补记一次登录，老师可按日期看每次到课
   const reloginBox = panel.querySelector('[data-cl-relogin]');
-  const checkMembership = () => backend.rpc('ck_checkin_today', { p_classroom: Number(identity.classroom) || identity.classroom, p_sid: identity.sid })
+  const checkMembership = () => (PREVIEW ? Promise.resolve('ok') : backend.rpc('ck_checkin_today', { p_classroom: Number(identity.classroom) || identity.classroom, p_sid: identity.sid }))
     .then((result) => {
       const status = Array.isArray(result) ? result[0] : result;
       loginNeeded = status === 'login';
@@ -1054,7 +1092,7 @@
     noEl.hidden = !no;
   };
   showNo(load(noKey, null));
-  checkedIn.then(() => backend.rpc('ck_my_roster_no', { p_classroom: Number(identity.classroom) || identity.classroom }))
+  checkedIn.then(() => (PREVIEW ? null : backend.rpc('ck_my_roster_no', { p_classroom: Number(identity.classroom) || identity.classroom })))
     .then((value) => {
       const raw = Array.isArray(value) ? value[0] : value;
       const no = Number(raw && typeof raw === 'object' ? Object.values(raw)[0] : raw) || null;
@@ -1073,14 +1111,14 @@
   const COLORS = Live.COLORS || [];
   const colorKey = `classlive-dmcolor:${config.course}`;
   const realmKey = `classlive-realm:${config.course}:${identity.sid}`;   // 按学号分开记（同一台设备换人时不串）
-  let myRealm = load(realmKey, null);
+  let myRealm = PREVIEW ? { realm: 4, stage: 2, ratio: 1, updated_at: '' } : load(realmKey, null);   // 测试页：化神
   const realmModal = document.createElement('div');
   realmModal.className = 'clp-realm-modal';
   realmModal.hidden = true;
   document.body.appendChild(realmModal);
   const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
   // 境界阶梯图：越往上台阶越高、材质越华贵；台阶上写解锁的法宝和弹幕特权，“你”标出本人所在境界
-  const PERKS = { 0: ['弹幕白字'], 3: ['自选字色', '紫色辉边'], 4: ['流光字色', '七彩边框'] };
+  const PERKS = { 0: ['白、灰字色'], 1: ['加天蓝、翠绿'], 2: ['加金、大红'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流光两色', '七彩边框'] };
   const ladderHtml = (mine) => `<div class="clp-ladder" role="img" aria-label="${esc(REALMS.map((realm) => {
     const gift = GIFTS.find((item) => item.level === realm.level);
     return `${realm.name}（${realm.look}，${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}${gift ? `，解锁${gift.name}` : ''}${(PERKS[realm.level] || []).map((perk) => `，${perk}`).join('')}）`;
@@ -1115,7 +1153,7 @@
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
-      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。法宝每次课可祭出一件，不加修为。</p></div>`;
+      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p></div>`;
     realmModal.hidden = false;
     realmModal.querySelector('[data-realm-close]').focus();
   }
@@ -1140,6 +1178,7 @@
     zhangtian: '<svg class="clp-gi" aria-hidden="true" width="14" height="18" viewBox="0 0 128 176"><path d="M55 12h18v22c0 6 4 9 10 13 18 11 31 31 31 58 0 36-24 63-50 63S14 141 14 105c0-27 13-47 31-58 6-4 10-7 10-13z" fill="#2fae6a" stroke="#9ff0c2" stroke-width="6"/></svg>',
   };
   const STAGES = Live.STAGES || [];
+  let usedGifts = new Set();   // 本人已经祭出过的法宝（每件只能祭出一次，后台 ck_my_gifts）
   function showRealm(r) {
     const level = r ? Math.max(0, Math.min(REALMS.length - 1, Number(r.realm) || 0)) : 0;
     realmEl.className = `clp-realm is-r${level}`;
@@ -1168,14 +1207,16 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.gift = gift.id;
-      const open = r && level >= gift.level;
+      const used = usedGifts.has(gift.id);
+      const open = r && level >= gift.level && !used;
       button.disabled = !open;
-      button.className = `is-${gift.id}${open ? '' : ' is-locked'}`;
-      button.innerHTML = open ? `${GIFT_ICONS[gift.id] || ''}<span>${esc(gift.name)}</span>` : `<span>${esc(gift.name)}</span><small>${esc(REALMS[gift.level].name)}解锁</small>`;
-      button.title = open ? `祭出法宝「${gift.name}」（每次课一件）` : `${REALMS[gift.level].name}境界解锁`;
+      button.className = `is-${gift.id}${used ? ' is-used' : open ? '' : ' is-locked'}`;
+      button.innerHTML = used ? `${GIFT_ICONS[gift.id] || ''}<span>${esc(gift.name)}</span><small>已祭出</small>`
+        : open ? `${GIFT_ICONS[gift.id] || ''}<span>${esc(gift.name)}</span>` : `<span>${esc(gift.name)}</span><small>${esc(REALMS[gift.level].name)}解锁</small>`;
+      button.title = used ? `「${gift.name}」已经祭出过了（每件只能祭出一次）` : open ? `祭出法宝「${gift.name}」（只能祭出一次）` : `${REALMS[gift.level].name}境界解锁`;
       giftBox.appendChild(button);
     });
-    // 弹幕字色：元婴解锁 8 色，化神再加两种流光色；没到元婴时显示但不能点
+    // 弹幕字色：每升一个境界多解锁两种（炼气白灰、筑基蓝绿、结丹金红、元婴粉紫、化神流光）；境界不够的显示但不能点
     colorBox.hidden = !COLORS.length;
     colorBox.querySelectorAll('button').forEach((button) => button.remove());
     const current = myDanmakuColor();
@@ -1184,26 +1225,26 @@
       button.type = 'button';
       button.dataset.color = color.id;
       button.style.background = color.flow || color.value;
-      const open = r && level >= color.level;
+      const open = level >= color.level;   // 还没有境界记录的按炼气：霜白、月银人人可选
       button.disabled = !open;
       button.setAttribute('aria-pressed', String(open && current === color.id));
       button.title = open ? `弹幕字色：${color.name}` : `${color.name}（${REALMS[color.level].name}解锁）`;
       button.setAttribute('aria-label', button.title);
       colorNote.before(button);
     });
-    colorNote.textContent = level >= 3 ? (COLORS.find((color) => color.id === current) || {}).name || '' : '元婴解锁';
-    // 元婴起：输入框直接用所选字色预览投屏上的样子（流光色用渐变字）
-    const chosen = level >= 3 ? COLORS.find((color) => color.id === current) : null;
+    colorNote.textContent = (COLORS.find((color) => color.id === current) || {}).name || '';
+    // 输入框直接用所选字色预览投屏上的样子（流光色用渐变字）
+    const chosen = COLORS.find((color) => color.id === current) || null;
     panel.classList.toggle('has-color', Boolean(chosen));
     panel.classList.toggle('has-flow', Boolean(chosen && chosen.flow));
     panel.style.setProperty('--clp-dm-color', chosen && chosen.value ? chosen.value : '#e3cfff');
     panel.style.setProperty('--clp-dm-flow', chosen && chosen.flow ? chosen.flow : 'none');
     if (!dmState.dataset.state) dmState.textContent = chosen ? '输入框里的颜色就是投屏上的字色 · 请文明发言' : DM_HINT;
   }
-  // 本人能用的弹幕字色：元婴起才有；选过且境界够就用选的，否则用本境界默认色
+  // 本人能用的弹幕字色：选过且境界够就用选的，否则用本境界默认色（炼气至结丹没有默认色，不选就是白字）
   function myDanmakuColor() {
     const level = myRealm ? Number(myRealm.realm) || 0 : 0;
-    if (level < 3 || !Live.colorFor) return null;
+    if (!Live.colorFor) return null;
     const color = Live.colorFor(level, load(colorKey, null));
     return color ? color.id : null;
   }
@@ -1216,34 +1257,57 @@
     dmState.dataset.state = 'ok';
   });
   showRealm(myRealm);
-  checkedIn.then(() => backend.rpc('ck_my_realm', { p_classroom: Number(identity.classroom) || identity.classroom }))
-    .then((value) => {
+  // 本人境界：打开页面时核对一次，之后每分钟核对一次（老师课上结算后不用刷新也能看到突破）
+  async function refreshRealm() {
+    if (PREVIEW) return;
+    try {
+      const value = await backend.rpc('ck_my_realm', { p_classroom: Number(identity.classroom) || identity.classroom });
       const row = Array.isArray(value) ? value[0] : value;
-      if (!row) { showRealm(null); return; }
+      if (!row) { showRealm(myRealm); return; }
       const fresh = { realm: Number(row.realm) || 0, stage: Number(row.stage) || 0, ratio: Number(row.ratio) || 0, updated_at: row.updated_at || '' };
       if (myRealm && fresh.realm > (Number(myRealm.realm) || 0)) {
         const gift = GIFTS.find((item) => item.level === fresh.realm);
-        toast(`恭喜突破！你已晋升「${REALMS[fresh.realm].name}」境界${gift ? `，解锁弹幕法宝「${gift.name}」${gift.icon}` : ''}。`);
+        toast(`恭喜突破！你已晋升「${REALMS[fresh.realm].name}」境界${gift ? `，解锁弹幕法宝「${gift.name}」（可祭出一次）。刚才是法宝预览，课上可在面板里祭出一次，投屏全班可见` : ''}。`);
+        // 突破的同时，在本人页面预览这件法宝（只在自己页面上，不上投屏、不算祭出；画面在 live-gifts.js）
+        if (gift && window.ClassLiveGifts) {
+          window.ClassLiveGifts.play({ gift, sealName: REALMS[fresh.realm].name, who: `${identity.name}　突破${REALMS[fresh.realm].name} · 法宝预览`, fit: 'narrow' });
+        }
       }
       myRealm = fresh;
       save(realmKey, fresh);
       showRealm(fresh);
-    })
-    .catch(() => { /* 后台还没有修为境界时，按上次记住的显示 */ });
+    } catch (error) { /* 后台还没有修为境界时，按上次记住的显示 */ }
+  }
+  checkedIn.then(refreshRealm);
+  if (!PREVIEW) setInterval(() => { if (!document.hidden) refreshRealm(); }, 60000);
+  // 本人已经祭出过的法宝：按钮显示“已祭出”（测试页法宝不限次数）
+  if (!PREVIEW) {
+    checkedIn.then(() => backend.rpc('ck_my_gifts', { p_classroom: Number(identity.classroom) || identity.classroom }))
+      .then((value) => { usedGifts = new Set(Live.stopList ? Live.stopList(value) : []); showRealm(myRealm); })
+      .catch(() => { /* 后台还没有这项功能时忽略 */ });
+  }
   giftBox.addEventListener('click', async (event) => {
     const button = event.target.closest('[data-gift]');
     if (!button || button.disabled) return;
     const gift = GIFTS.find((item) => item.id === button.dataset.gift);
     giftBox.querySelectorAll('button').forEach((item) => { item.disabled = true; });
     try {
-      await backend.rpc('ck_send_gift', { p_classroom: Number(identity.classroom) || identity.classroom, p_gift: gift.id });
-      dmState.textContent = `已祭出法宝「${gift.name}」${gift.icon}，正在飞上投屏！每次课只能祭出一件。`;
+      if (PREVIEW) {
+        await backend.rpc('ck_test_danmaku', { p_classroom: previewRoom, p_text: null, p_color: null, p_gift: gift.id });
+        dmState.textContent = `已祭出法宝「${gift.name}」，正在飞上投屏！（测试页法宝不限次数）`;
+      } else {
+        await backend.rpc('ck_send_gift', { p_classroom: Number(identity.classroom) || identity.classroom, p_gift: gift.id });
+        usedGifts.add(gift.id);
+        dmState.textContent = `已祭出法宝「${gift.name}」，正在飞上投屏！每件法宝只能祭出一次。`;
+      }
       dmState.dataset.state = 'ok';
     } catch (problem) {
       console.warn('[法宝]', problem);
       const text = String((problem && problem.message) || problem || '');
       dmState.dataset.state = 'error';
-      dmState.textContent = /每次课/.test(text) ? '这次课已经祭出过法宝了，下次课再来。'
+      if (/只能祭出一次|已经祭出过|23505|duplicate/i.test(text)) usedGifts.add(gift.id);
+      dmState.textContent = /只能祭出一次|已经祭出过|23505|duplicate/i.test(text) ? '这件法宝已经祭出过了（每件只能祭出一次）。'
+        : /每次课/.test(text) ? '这次课已经祭出过法宝了，下次课再来。'
         : /境界/.test(text) ? '境界还不够，暂时不能祭出这件法宝。'
           : /重新登录/.test(text) ? reloginText + '。'
             : /弹幕|42501/.test(text) ? '老师还没有开放弹幕，暂时不能祭出法宝。' : '祭出失败：请检查网络后再试。';
@@ -1281,6 +1345,7 @@
         sending = true;
         sync();
         try {
+          if (PREVIEW) { say('测试页：建议不会提交（学生页会匿名提交给老师）。', 'ok'); return; }
           await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
           area.value = '';
           save(key, (Number(load(key, 0)) || 0) + 1);

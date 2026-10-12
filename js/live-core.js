@@ -8,7 +8,7 @@
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
  *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
- *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝）、
+ *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
@@ -16,7 +16,7 @@
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -29,7 +29,8 @@
     { level: 4, name: '化神', look: '神光', min: 0.85 },
   ];
   const STAGES = ['初期', '中期', '后期'];
-  // 弹幕法宝（取自《凡人修仙传》）：达到相应境界解锁，每次课（同一课堂同一天）只能祭出一件；不加修为，由后台函数 ck_send_gift 核对境界。
+  // 弹幕法宝（取自《凡人修仙传》）：每升到一个境界获得该境界法宝的一次使用机会（每件只能祭出一次，记在 ck_gift_uses），
+  //   且每次课（同一课堂同一天）最多祭出一件；不加修为，由后台函数 ck_send_gift 核对。学生经 ck_my_gifts 查本人已祭出的法宝。
   // 投屏画面见 live-danmaku.js 的 .dm-gift-<id>；名牌写“某某 verb / 法宝名 / tail”
   const GIFTS = [
     { id: 'zhujidan', name: '筑基丹', icon: '🌕', level: 1, verb: '炼成一枚', tail: '丹香满室' },
@@ -37,15 +38,16 @@
     { id: 'fenglei', name: '风雷翅', icon: '⚡', level: 3, verb: '展开', tail: '雷遁千里' },
     { id: 'zhangtian', name: '掌天瓶', icon: '🏺', level: 4, verb: '催动', tail: '月华凝液' },
   ];
-  // 弹幕字色：元婴起可在面板自选（8 色），化神再加两种流光色；投屏页按发送人的境界核对，境界不够一律白字。
-  // 没选过时：元婴默认紫霄，化神默认七彩；炼气至结丹一律白字
+  // 弹幕字色：每升一个境界多解锁两种——炼气霜白、月银，筑基青冥、翠竹，结丹金曦、大红，元婴樱粉、紫霄，化神两种流光色；
+  // 投屏页按发送人的境界核对，境界不够的选择不算。没选过时：炼气至结丹白字，元婴默认紫霄，化神默认七彩。
+  // （原“赤霞”已换成大红；数据库白名单仍保留 chixia，旧记录不受影响，选过赤霞的按本境界默认色）
   const COLORS = [
-    { id: 'shuangbai', name: '霜白', value: '#ffffff', level: 3 },
-    { id: 'yueyin', name: '月银', value: '#dfe6ef', level: 3 },
-    { id: 'qingming', name: '青冥', value: '#a8e6ff', level: 3 },
-    { id: 'cuizhu', name: '翠竹', value: '#a6f5c4', level: 3 },
-    { id: 'jinxi', name: '金曦', value: '#ffe08a', level: 3 },
-    { id: 'chixia', name: '赤霞', value: '#ffb4a2', level: 3 },
+    { id: 'shuangbai', name: '霜白', value: '#ffffff', level: 0 },
+    { id: 'yueyin', name: '月银', value: '#dfe6ef', level: 0 },
+    { id: 'qingming', name: '青冥', value: '#a8e6ff', level: 1 },
+    { id: 'cuizhu', name: '翠竹', value: '#a6f5c4', level: 1 },
+    { id: 'jinxi', name: '金曦', value: '#ffe08a', level: 2 },
+    { id: 'dahong', name: '大红', value: '#ff3b2f', level: 2 },
     { id: 'yingfen', name: '樱粉', value: '#ffc2df', level: 3 },
     { id: 'zixiao', name: '紫霄', value: '#e3cfff', level: 3 },
     { id: 'liujin', name: '流金', flow: 'linear-gradient(90deg,#ffe08a,#fffaf0,#ffc94a,#ffe08a)', level: 4 },
@@ -530,6 +532,24 @@
           return stopsOf(params.p_classroom);
         }
         teacherOnly();
+        // 学生版测试页：教师以“韩天尊”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
+        if (name === 'ck_test_danmaku') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom) && row.is_current && row.submissions_open && row.danmaku !== 'off');
+          if (!room) throw Object.assign(new Error('老师未开放弹幕'), { code: '42501' });
+          const rows = read('danmaku');
+          const base = { id: Math.random().toString(36).slice(2), owner: await this.ensureAnonymous(), course: room.course, classroom: room.id, name: '韩天尊', sid: 'HTZ0001', ts: Date.now() };
+          if (params.p_gift) {
+            const gift = GIFTS.find((item) => item.id === params.p_gift);
+            if (!gift) throw new Error('没有这件法宝');
+            rows.push({ ...base, text: gift.name, status: 'shown', gift: gift.id });
+          } else {
+            const text = String(params.p_text || '').trim();
+            if (!text || text.length > 40) throw new Error('弹幕应为 1—40 字');
+            rows.push({ ...base, text, status: 'new', ...(params.p_color ? { color: params.p_color } : {}) });
+          }
+          write('danmaku', rows);
+          return true;
+        }
         if (name === 'ck_stop_item') {
           const item = String(params.p_item || '');
           if (!/^[A-Za-z0-9][A-Za-z0-9:._-]{0,46}[*]?$/.test(item)) throw new Error('题目编号不正确');
@@ -601,7 +621,7 @@
           ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
-          ['pins', 'devices', 'requests', 'seclog'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
+          ['pins', 'devices', 'requests', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
           return ids.length;
         }
         if (name === 'ck_set_open') return updateRoom(params.p_classroom, (room) => { room.submissions_open = Boolean(params.p_open); });
@@ -651,7 +671,7 @@
           write('realms', keep.concat(fresh));
           return fresh.length;
         }
-        if (name === 'ck_my_realm' || name === 'ck_send_gift') {
+        if (name === 'ck_my_realm' || name === 'ck_send_gift' || name === 'ck_my_gifts') {
           const uid = await this.ensureAnonymous();
           const key = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
@@ -661,11 +681,15 @@
           if (name === 'ck_my_realm') {
             return realm ? [{ realm: realm.realm, stage: realm.stage, ratio: realm.max_points ? realm.points / realm.max_points : 0, updated_at: realm.updated_at }] : [];
           }
+          const uses = read('giftuses');
+          const mine = (row) => room && me && row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && row.sid === key(me.sid);
+          if (name === 'ck_my_gifts') return uses.filter(mine).map((row) => row.gift).sort();
           const gift = GIFTS.find((item) => item.id === params.p_gift);
           if (!gift) throw new Error('没有这件法宝');
           if (!room || !room.is_current || !room.submissions_open || room.danmaku === 'off') throw Object.assign(new Error('老师未开放弹幕'), { code: '42501' });
           if (!me) throw Object.assign(new Error('请回首页重新登录'), { code: '42501' });
           if (!realm || realm.realm < gift.level) throw Object.assign(new Error('境界不够，还不能祭出这件法宝'), { code: '42501' });
+          if (uses.some((row) => mine(row) && row.gift === gift.id)) throw Object.assign(new Error('这件法宝已经祭出过了，每件只能祭出一次'), { code: '42501' });
           const rows = read('danmaku');
           if (rows.some((row) => String(row.classroom) === String(room.id) && row.gift && key(row.sid) === key(me.sid) && isoDay(row.ts) === today())) {
             throw Object.assign(new Error('每次课只能祭出一件法宝'), { code: '42501' });
@@ -673,6 +697,8 @@
           rows.push({ id: Math.random().toString(36).slice(2), owner: uid, course: room.course, classroom: room.id, name: me.name, sid: me.sid,
             text: gift.name, status: 'shown', gift: gift.id, ts: Date.now() });
           write('danmaku', rows);
+          uses.push({ course: room.course, class_id: Number(room.class_id) || 0, sid: key(me.sid), gift: gift.id, classroom: room.id, used_at: new Date().toISOString() });
+          write('giftuses', uses);
           return true;
         }
         // 登录安全（教师）：重置口令（连同已登录设备）、解锁、处理班外加入申请、更换课堂码、口令状态、教师登录记录

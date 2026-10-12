@@ -110,6 +110,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-room h2 { margin: 8px 0 4px; font-size: 26px; }
 .tw-room p { margin: 0 0 10px; opacity: .88; font-size: 15px; }
 .tw-room-open { color: #fff; font-weight: 800; }
+.tw-room-preview { display: block; width: fit-content; margin-top: 6px; color: #ffe2b0; font-weight: 700; }
 .tw-room-buttons { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 16px; }
 .tw-room-btn { padding: 8px 16px; border: 1.5px solid rgba(255,255,255,.6); border-radius: 8px; background: transparent; color: #fff; font: 800 14px/1.1 var(--sans); cursor: pointer; transition: background .15s, transform .1s; }
 .tw-room-btn:hover, .tw-room-btn:focus-visible { background: rgba(255,255,255,.14); outline: none; }
@@ -131,6 +132,8 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-room-actions .tw-primary, .tw-room-actions .tw-secondary { margin-top: 0; }
 .tw-room-actions select, .tw-switch select { margin-left: 6px; padding: 8px 10px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--white); font: inherit; }
 .tw-table td.ok { color: var(--teal); font-weight: 700; }
+/* 加入名单：序号、学号、姓名和递交情况不折行（三个字的姓名不要折成两行） */
+[data-checkin-rows] td:nth-child(-n+3), [data-checkin-head] th:nth-child(-n+3), .tw-table td.tw-nowrap { white-space: nowrap; }
 .tw-dialog { width: min(520px, calc(100% - 32px)); padding: 24px 26px; border: 0; border-radius: 12px; box-shadow: 0 30px 70px rgba(0,0,0,.25); }
 .tw-dialog::backdrop { background: rgba(32, 28, 24, .55); }
 .tw-dialog h2 { margin: 0 0 4px; }

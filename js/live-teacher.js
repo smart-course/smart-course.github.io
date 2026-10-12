@@ -474,6 +474,11 @@
       : `${chapterLabel(room)}：${chapter.cases.map((item) => `案例${item.number} ${item.title}`).join('；')}`;
     const open = $('[data-room-classroom]');
     open.href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}` : '#';
+    // 学生版测试页：打开真实的学生页（与学生看到的完全相同），带上本课堂编号和本章解密值；
+    //   页面认出教师账号后以“韩天尊（化神）”身份运行，弹幕照常上投屏，作答只在本机、不计入后台（见 live-student.js）
+    const preview = $('[data-room-preview]');
+    const previewKey = ((window.CLASS_PREVIEW_KEYS || {})[course.slug] || {})[room.chapter];
+    preview.href = `/${course.slug}/cases/${room.chapter}.html?preview=${encodeURIComponent(room.id)}${previewKey ? `&staticrypt_pwd=${previewKey}` : ''}`;
     // “修为境界”里的试用特效：打开本课堂的投屏页并展开试用面板（只在本机播放）
     $('[data-realm-demo]').href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}&demo=1` : demoHref();
     $('[data-room-code]').textContent = room.code;
@@ -815,7 +820,7 @@
     const workCell = (sid) => {
       const done = submitted.get(sid);
       const work = progress.get(sid);
-      return `<td class="${done ? 'ok' : 'warn'}">${done ? `全部递交 ${clock(done)}` : work ? `已递交 ${work.done}/${work.total} 题` : '还没有递交'}</td>`;
+      return `<td class="${done ? 'ok' : 'warn'} tw-nowrap">${done ? `全部递交 ${clock(done)}` : work ? `已递交 ${work.done}/${work.total} 题` : '还没有递交'}</td>`;
     };
     const query = $('[data-checkin-search]').value.trim();
     const hit = (values) => !query || values.some((value) => String(value || '').includes(query));
