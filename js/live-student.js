@@ -553,7 +553,10 @@
       if (!session || session.anonymous) bar.querySelector('span').textContent = '请先在这台电脑的浏览器里登录教师工作台，测试页才能发弹幕和法宝';
     }).catch(() => { /* 忽略 */ });
     const pagePwd = new URLSearchParams(location.search).get('staticrypt_pwd');
-    if (pagePwd) $$('a[href$="-notes.html"]').forEach((link) => { link.href = `${link.getAttribute('href')}?staticrypt_pwd=${encodeURIComponent(pagePwd)}`; });
+    if (pagePwd) $$('a[href*="-notes.html"]').forEach((link) => {   // 附页链接可能带 #章节 锚点：解密参数放在锚点之前
+      const [path, hash] = link.getAttribute('href').split('#');
+      link.href = `${path}?staticrypt_pwd=${encodeURIComponent(pagePwd)}${hash ? `#${hash}` : ''}`;
+    });
   }
 
   // ---------- 停止递交：老师在投屏页停止某道题后，这道题不再收递交（数据库拒绝写入，不计修为） ----------
@@ -1184,13 +1187,17 @@
 
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
-  const NEWS_ID = '20261012';
-  const NEWS_RANGE = '10 月 9 日—10 月 12 日';
+  // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
+  const NEWS_ID = ({ 'xjp-economy': '20261014' })[config.course] || '20261012';
+  const NEWS_RANGE = ({ 'xjp-economy': '10 月 9 日—10 月 14 日' })[config.course] || '10 月 9 日—10 月 12 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     return [
+      { course: 'xjp-economy', title: '最新（10 月 14 日）', items: [
+        ['理论知识点总结', '每章最后“资料与延伸阅读”新增“复习资料”一栏，按教材整理导论和第一至十五章的核心知识点，含教材原文、记忆口诀、易错判断和课后思考答题要点，点开直接定位到本章，可导出 PDF。'],
+      ] },
       { course: 'xjp-economy', title: '案例课堂改版', items: [
         ['新题型', '每个案例增加单选、多选、判断题和出门测，每题做完点“递交”，递交后不能修改。'],
         ['辩论赛', '辩前投票投哪一方，就站在哪一方；质询弹幕会自动带上【正方】或【反方】。'],
