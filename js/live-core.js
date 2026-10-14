@@ -9,7 +9,8 @@
  *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
- *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
+ *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）、
+ *       ck_my_map（课程地图：本人所在班级已发布的章节，往期可进入复习）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
@@ -498,6 +499,23 @@
             write('checkins', rows);
           }
           return 'ok';
+        }
+        // 课程地图：本人所在班级已发布的章节；往期课堂可进入复习，本周课堂须已用本周课堂码登录（规则同 cloudbase-pg.sql 的 ck_my_map）
+        if (name === 'ck_my_map') {
+          const uid = await this.ensureAnonymous();
+          if (!myCheckin(uid, params.p_classroom)) return { status: 'login' };
+          const rooms = read('classrooms');
+          const room = rooms.find((row) => String(row.id) === String(params.p_classroom));
+          const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+          const latest = {};
+          rooms.filter((row) => row.course === room.course && String(row.class_id) === String(room.class_id))
+            .sort((a, b) => (a.is_current - b.is_current) || (Date.parse(a.created_at) || 0) - (Date.parse(b.created_at) || 0) || a.id - b.id)
+            .forEach((row) => { latest[row.chapter] = row; });
+          const units = Object.values(latest).sort((a, b) => a.chapter.localeCompare(b.chapter)).map((row) => {
+            const open = !row.is_current || Boolean(myCheckin(uid, row.id));
+            return { chapter: row.chapter, classroom: row.id, name: row.name, current: row.is_current, open, at: row.created_at, key: open ? '' : null };
+          });
+          return { status: 'ok', course: room.course, class_name: klass ? klass.name : null, units };
         }
         if (name === 'ck_submit_answer') {
           const uid = await this.ensureAnonymous();

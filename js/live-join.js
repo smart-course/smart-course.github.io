@@ -1,4 +1,5 @@
-/* 学生登录（首页）：填写课堂码和个人信息 → 后台 ck_join 一并核对：课堂码、点名册（学号、姓名一致）、4 位个人口令 → 记录加入 → 打开本周章节。
+/* 学生登录（首页）：填写课堂码和个人信息 → 后台 ck_join 一并核对：课堂码、点名册（学号、姓名一致）、4 位个人口令 → 记录加入 → 打开课程地图
+ * （live-atlas.js；没有地图时直接打开本周章节）。
  *   · 第一次登录设口令；同一设备登录过不用再输，换设备要输；连续输错 10 次锁定（15 分钟→1 小时→须老师解锁），忘记由老师重置；
  *   · 学号不在点名册上：自动向老师申请，老师在工作台允许后本页自动继续；班级没有点名册时不能登录。
  * 章节页各自加密，ck_join 只在全部核对通过后返回该章节的解密值，页面凭它自动打开（并记住 30 天）。
@@ -29,6 +30,15 @@
     return;
   }
   const normalize = window.ClassLive.normalizeCode;
+  // 课程地图（live-atlas.js）共用这个后台连接和表单
+  const mapLink = form.querySelector('[data-join-map]');
+  window.ClassJoin = {
+    backend,
+    showError: (message) => showError(message),
+    focus: (name) => field(name).focus(),
+    refresh: () => { const me = load(); if (mapLink) mapLink.hidden = !(me.classroom && me.sid && me.course); },
+    clear: () => { ['name', 'sid', 'class_name', 'group_name'].forEach((name) => { field(name).value = ''; }); setPinMode(''); clearPins(); window.ClassJoin.refresh(); },
+  };
 
   // 预填：加入链接 ?join=课堂码，其余信息沿用这台设备上次填写的内容（口令从不保存）
   const saved = load();
@@ -36,6 +46,7 @@
   field('code').value = normalize(params.get('join') || '');
   ['name', 'sid', 'class_name', 'group_name'].forEach((key) => { if (saved[key]) field(key).value = saved[key]; });
   field('agree').checked = Boolean(saved.agreed);
+  window.ClassJoin.refresh();
   field('code').addEventListener('input', () => {
     const input = field('code');
     const position = input.selectionStart;
@@ -110,8 +121,7 @@
       if (status !== 'pending') stopWaiting();
       switch (status) {
         case 'ok':
-          leaving = true;
-          enter(request, result);
+          leaving = enter(request, result);
           return;
         case 'pending':
           showError('');
@@ -189,9 +199,16 @@
       agreed: true, course: room.course, chapter: room.chapter, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
     });
     clearPins();
+    setPinMode('');
+    showError('');
+    if (window.ClassAtlas) {
+      window.ClassAtlas.open(room);
+      return false;
+    }
     button.disabled = true;
     button.textContent = '正在进入课堂……';
     location.href = `/${room.course}/cases/${room.chapter}.html` + (room.pwd_hash ? `#staticrypt_pwd=${room.pwd_hash}&remember_me` : '');
+    return true;
   }
 
   form.addEventListener('submit', async (event) => {

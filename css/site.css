@@ -118,3 +118,30 @@ main.wrap { padding: 40px 0 56px; }
   .join-row { grid-template-columns: 1fr; gap: 0; }
   .join-card { padding: 22px 18px; }
 }
+
+/* 课程地图（登录后先看到本课程全部章节；地图本身由 live-map.js 绘制） */
+.join[hidden], .atlas[hidden] { display: none; }
+.join-map { margin: 12px 0 0; text-align: center; font-size: 14px; font-weight: 700; }
+.join-map[hidden] { display: none; }
+.atlas-head { display: flex; flex-wrap: wrap; align-items: flex-end; justify-content: space-between; gap: 14px 24px; margin-bottom: 14px; }
+.atlas-head h1 { margin: 0; font: 800 clamp(28px, 4vw, 40px)/1.2 var(--serif); }
+.atlas-who { margin: 4px 0 0; color: var(--muted); font-weight: 650; font-size: 15px; }
+.atlas-actions { display: flex; flex-wrap: wrap; gap: 8px; }
+.atlas-btn { padding: 9px 16px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--white); color: var(--ink); font: 750 15px/1.2 var(--sans); cursor: pointer; }
+.atlas-btn:hover { border-color: var(--teal); color: var(--teal); }
+.atlas-btn.is-main { border-color: var(--teal); background: var(--teal); color: #fff; }
+.atlas-btn.is-main:hover { background: #1b514c; color: #fff; }
+.atlas-legend { display: flex; flex-wrap: wrap; gap: 6px 18px; margin: 0 0 12px; padding: 0; list-style: none; color: var(--muted); font-size: 14px; font-weight: 650; }
+.atlas-legend li { display: flex; align-items: center; gap: 7px; }
+.atlas-legend i { width: 14px; height: 14px; border-radius: 50%; }
+.atlas-legend .is-current { border-radius: 0; background: #c8402c; clip-path: polygon(0 0, 100% 50%, 0 100%); }
+.atlas-legend .is-open { background: linear-gradient(135deg, #a6cf77 0 50%, #efc35c 50%); }
+.atlas-legend .is-off { background: #cbc5bb; }
+.atlas-status { margin: 0 0 12px; padding: 10px 14px; border-radius: 8px; background: var(--teal-soft); color: var(--teal); font-weight: 700; font-size: 14.5px; }
+.atlas-status[hidden] { display: none; }
+.atlas-status.is-bad { background: var(--rust-soft); color: var(--rust); }
+.atlas-note { margin: 14px 0 0; color: var(--muted); font-size: 14px; line-height: 1.7; }
+@media (max-width: 640px) {
+  .atlas-map { margin: 0 -16px; }
+  .atlas-map .cm-wrap { border-radius: 0; }
+}

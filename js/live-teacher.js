@@ -1,4 +1,5 @@
-/* 教师工作台：登录（第二道锁）后先选择课程、再选择班级（一门课可有多个班级，各班数据分开，可单独删除），再管理“我的课堂”——发布本周课堂（选定章节或案例、生成课堂码）、
+/* 教师工作台：登录（第二道锁）后先选择课程、再选择班级（一门课可有多个班级，各班数据分开，可单独删除）、再在课程地图上选章节，进入“我的课堂”——
+ * 课程是大陆、班级是大陆上的国家、章节是小岛和山（地图由 live-map.js 绘制，下方保留卡片列表）；管理“我的课堂”：发布本周课堂（选定章节或案例、生成课堂码）、
  * 结束提交、重新发布；查看加入名单、弹幕，以及作答情况：
  *   章节案例课程（case-html）：投票与选择、文字作答；
  *   概念学习课程（concept-html，如《政治经济学》）：作业情况（逐题分布与正确率）、学生作答（逐人批阅）。
@@ -38,6 +39,11 @@
   const isoDay = (ts) => ts ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(ts)) : '';
   const pct = (value, total) => (total ? Math.round(value / total * 100) : 0);
   const joinLink = (code) => `${location.origin}/?join=${encodeURIComponent(code)}`;
+  // 课程地图（live-map.js 没加载时退回卡片列表）
+  const MAP = window.ClassMap;
+  const maps = {};
+  const remap = (name, make) => { if (maps[name]) maps[name].destroy(); maps[name] = MAP ? make() : null; return maps[name]; };
+  const unitName = (id) => { const chapter = chapterMap.get(id); return chapter ? chapter.cn : id; };
   $('[data-course-title]').textContent = mustPick ? '请选择课程' : course.title;
   document.title = mustPick ? '教师工作台' : `教师工作台 · ${course.title}`;
 
@@ -141,6 +147,7 @@
   async function openApp() {
     $('[data-course-picker]').hidden = true;
     $('[data-class-picker]').hidden = true;
+    $('[data-unit-picker]').hidden = true;
     $('[data-app]').hidden = false;
     showClassInfo();
     if (!state.started) {
@@ -165,6 +172,7 @@
   function showPicker() {
     $('[data-app]').hidden = true;
     $('[data-class-picker]').hidden = true;
+    $('[data-unit-picker]').hidden = true;
     $('[data-course-picker]').hidden = false;
     updateNav('course');
     if (!state.started) setLive('请选择课程');
@@ -175,6 +183,16 @@
         <strong>${esc(item.title)}</strong>
         <span data-course-room>正在读取当前课堂……</span>
       </button>`).join('');
+    // 世界地图：每门课程一块大陆，点大陆＝点下面对应的卡片
+    remap('world', () => MAP.world($('[data-world-map]'), {
+      seed: 'courses', label: '课程地图：每门课程是一块大陆',
+      items: DATA.courses.map((item) => ({
+        id: item.slug, label: item.title, sub: '正在读取……', clickable: true,
+        flag: !mustPick && item.slug === course.slug ? '正在使用' : '',
+        tip: `<strong>${esc(item.title)}</strong><small>${item.kind === 'concept-html' ? '概念学习案例' : '章节案例'} · 共 ${item.chapters.length} 个${esc(item.unit_label || '章节')}</small><em>点击进入，选择班级</em>`,
+      })),
+      onPick: (item) => { const card = list.querySelector(`[data-course="${item.id}"]`); if (card) card.click(); },
+    }));
     DATA.courses.forEach(async (item) => {
       const label = list.querySelector(`[data-course="${item.slug}"] [data-course-room]`);
       try {
@@ -183,8 +201,11 @@
         label.textContent = current.length
           ? `开放中的课堂：${current.map((room) => `${room.name}（${room.code}）`).join('、')}`
           : `暂无开放中的课堂${rooms.length ? `（历史课堂 ${rooms.length} 个）` : ''}`;
+        const classes = await backend.fetchAll('classes', { course: item.slug });
+        if (maps.world) maps.world.setSub(item.slug, `${classes.length} 个班级 · ${current.length ? `开放中的课堂 ${current.length} 个` : '暂无开放中的课堂'}`);
       } catch (error) {
         label.textContent = '无法读取课堂信息';
+        if (maps.world) maps.world.setSub(item.slug, '无法读取课堂信息');
       }
     });
   }
@@ -232,6 +253,7 @@
   async function showClassPicker(notice) {
     $('[data-app]').hidden = true;
     $('[data-course-picker]').hidden = true;
+    $('[data-unit-picker]').hidden = true;
     $('[data-class-picker]').hidden = false;
     updateNav('class');
     $('[data-class-course]').textContent = course.title;
@@ -243,9 +265,33 @@
       rooms = await backend.fetchAll('classrooms', { course: course.slug });
     } catch (error) {
       console.error(error);
+      remap('classes', () => null);
       $('[data-class-list]').innerHTML = `<p class="tw-empty">读取班级失败：${esc(failReason(error))}</p>`;
       return;
     }
+    // 大陆地图：每个班级是一个国家，海上的小岛是“新建班级”
+    remap('classes', () => MAP.continent($('[data-class-map]'), {
+      seed: course.slug, label: `${course.title}：每个班级是一个国家`, empty: '还没有班级',
+      items: state.classes.map((klass) => {
+        const mine = rooms.filter((room) => sameClass(room, klass));
+        const current = mine.find((room) => room.is_current);
+        const roster = Array.isArray(klass.roster) ? klass.roster.length : 0;
+        return {
+          id: String(klass.id), label: klass.name, clickable: true,
+          sub: `点名册 ${roster ? `${roster} 人` : '未上传'} · 课堂 ${mine.length} 个`,
+          flag: current ? `开放中 · ${unitName(current.chapter)}` : '',
+          tip: `<strong>${esc(klass.name)}</strong><small>点名册 ${roster ? `${roster} 人` : '未上传'}；已发布课堂 ${mine.length} 个</small>`
+            + `<em${current ? ' class="is-current"' : ''}>${current ? `当前课堂：${esc(current.name)}（${esc(current.code)}）${current.submissions_open ? '' : ' · 已结束提交'}` : '暂无开放中的课堂'} · 点击选${esc(UNIT)}</em>`,
+        };
+      }),
+      extra: { id: '__new', label: '新建班级', clickable: true, tip: '<strong>新建班级</strong><small>在下方“新建班级”里填写班级名称，例如“2026秋 经济学一班”。</small>' },
+      onPick: (item) => {
+        if (item.id !== '__new') { pickClass(item.id); return; }
+        const input = $('[data-class-form]').elements.name;
+        input.scrollIntoView({ behavior: 'smooth', block: 'center' });
+        input.focus({ preventScroll: true });
+      },
+    }));
     $('[data-class-list]').innerHTML = state.classes.map((klass) => {
       const mine = rooms.filter((room) => sameClass(room, klass));
       const current = mine.find((room) => room.is_current);
@@ -296,10 +342,75 @@
     }
     const button = event.target.closest('[data-class]');
     if (!button) return;
-    state.klass = state.classes.find((item) => String(item.id) === button.dataset.class);
-    store.set(CLASS_KEY, state.klass.id);
-    await openApp();
+    await pickClass(button.dataset.class);
   });
+  async function pickClass(id) {
+    const klass = state.classes.find((item) => String(item.id) === String(id));
+    if (!klass) return;
+    state.klass = klass;
+    store.set(CLASS_KEY, klass.id);
+    await showUnitPicker();
+  }
+
+  // ---------------- 选择章节：本班的课程地图 ----------------
+  // 插红旗＝当前课堂，彩色＝发布过，灰色＝还没发布；点发布过的进入它的课堂，点灰色的直接发布
+  async function showUnitPicker() {
+    if (!state.klass) { await showClassPicker(); return; }
+    if (!MAP) { await openApp(); return; }
+    stopWatching();
+    $('[data-app]').hidden = true;
+    $('[data-course-picker]').hidden = true;
+    $('[data-class-picker]').hidden = true;
+    $('[data-unit-picker]').hidden = false;
+    updateNav('unit');
+    $('[data-course-title]').textContent = `${course.title} · ${state.klass.name}`;
+    $('[data-unit-word]').textContent = UNIT;
+    $('[data-unit-class]').textContent = state.klass.name;
+    $('[data-unit-hint]').textContent = `从海边出发，经过小岛、山丘，登上雪山，每一处是一个${UNIT}。插红旗的是当前课堂，彩色的发布过，灰色的还没有发布：`
+      + `点发布过的${UNIT}进入它的课堂（加入名单、弹幕、作答），点灰色的直接发布本周课堂；也可以点右上角“进入工作台”。`;
+    let rooms = [];
+    try {
+      rooms = (await backend.fetchAll('classrooms', { course: course.slug })).filter((room) => sameClass(room, state.klass));
+      if (!state.started) setLive('请选择' + UNIT);
+    } catch (error) {
+      console.error(error);
+      setLive(`读取课堂失败：${failReason(error)}`, true);
+    }
+    const units = course.chapters.map((chapter) => {
+      const mine = rooms.filter((room) => room.chapter === chapter.id).sort((a, b) => Number(b.id) - Number(a.id));
+      const current = mine.find((room) => room.is_current);
+      const room = current || mine[0] || null;
+      const cases = CONCEPT ? (chapter.chapter ? `<small>教材${esc(chapter.chapter)}</small>` : '')
+        : chapter.cases.map((item) => `<small>案例 ${esc(item.number)}　${esc(item.title)}</small>`).join('');
+      const line = current ? `<em class="is-current">当前课堂：${esc(current.name)}（${esc(current.code)}）${current.submissions_open ? '' : ' · 已结束提交'}</em>`
+        : room ? `<em>已发布 ${mine.length} 次，最近一次：${esc(room.name)}（${esc(isoDay(millis(room.created_at)))}）</em>`
+          : `<em class="is-off">还没有发布：点击发布本周课堂</em>`;
+      return {
+        id: chapter.id, no: CONCEPT ? chapter.id.replace(/\D/g, '') : String(Number(chapter.id.replace(/\D/g, ''))),
+        label: chapter.short || chapter.title, room, clickable: true,
+        state: current ? 'current' : room ? 'open' : 'off', flag: current ? '当前' : '',
+        go: room ? '进入课堂 →' : '发布本章 →',
+        tip: `<strong>${esc(chapter.cn)}　${esc(chapter.title)}</strong>${cases}${line}`,
+        aria: `${chapter.cn} ${chapter.title}（${current ? '当前课堂' : room ? '已发布' : '未发布'}）`,
+      };
+    });
+    remap('units', () => MAP.journey($('[data-unit-map]'), {
+      seed: course.slug, label: `${state.klass.name}的${UNIT}地图`, units,
+      onPick: async (unit) => {
+        if (unit.room) {
+          store.set(`room:${state.klass.id}`, unit.room.id);
+          await openApp();
+        } else {
+          await openApp();
+          openPublish(unit.id);
+        }
+      },
+    }));
+    const current = units.find((unit) => unit.state === 'current');
+    if (current) setTimeout(() => maps.units && maps.units.reveal(current.id), 0);
+  }
+  $('[data-unit-enter]').addEventListener('click', () => openApp());
+  $('[data-unit-open]').addEventListener('click', () => showUnitPicker());
   $('[data-class-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -567,12 +678,20 @@
       ? `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（教材：${esc(chapter.chapter)}）</option>`
       : `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（案例 ${chapter.cases.map((item) => item.number).join('、')}）</option>`).join('');
   }
-  $('[data-publish-open]').addEventListener('click', () => {
+  // chapter：从课程地图点了还没发布的章节时预先选好它，课堂名称空着就填上章节名
+  function openPublish(chapter) {
     $('[data-publish-error]').textContent = '';
-    if (state.room) publishForm.elements.chapter.value = state.room.chapter;
+    if (chapter && chapterMap.has(chapter)) {
+      publishForm.elements.chapter.value = chapter;
+      if (!publishForm.elements.name.value.trim()) {
+        const item = chapterMap.get(chapter);
+        publishForm.elements.name.value = `${item.cn.replace(/\s+/g, '')} ${item.short || ''}`.trim().slice(0, 40);
+      }
+    } else if (state.room) publishForm.elements.chapter.value = state.room.chapter;
     if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
     publishForm.elements.name.focus();
-  });
+  }
+  $('[data-publish-open]').addEventListener('click', () => openPublish());
   $('[data-publish-cancel]').addEventListener('click', () => dialog.close());
   publishForm.addEventListener('submit', async (event) => {
     event.preventDefault();

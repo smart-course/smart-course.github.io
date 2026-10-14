@@ -283,3 +283,16 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-sec-table td .tw-secondary + .tw-secondary { margin-left: 6px; }
 .tw-sec-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #f3ead9; color: #6b4a14; font-size: 12px; font-weight: 700; }
 .tw-sec-bad { color: #a4492d; font-weight: 700; }
+
+/* 课程地图：课程＝大陆、班级＝国家、章节＝小岛与山（地图由 live-map.js 绘制） */
+.tw-map { margin: 18px 0 8px; }
+.tw-map:empty { display: none; }
+.tw-unit-picker { max-width: 1240px; }
+.tw-unit-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 20px; }
+.tw-unit-head h1 small, .tw-picker h1 small { color: var(--muted); font-size: 18px; font-weight: 700; }
+.tw-unit-head .tw-primary { margin-top: 0; }
+.tw-head-actions { display: flex; flex-wrap: wrap; gap: 10px; }
+.tw-head-actions .tw-primary, .tw-head-actions .tw-secondary { margin-top: 0; }
+@media (max-width: 700px) {
+  .tw-map { margin-left: -12px; margin-right: -12px; }
+}

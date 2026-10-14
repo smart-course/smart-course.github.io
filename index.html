@@ -6,7 +6,7 @@
   <meta name="robots" content="noindex, nofollow">
   <meta name="description" content="任课教师为课程制作的案例学习材料，仅供选课学生使用。">
   <title>进入本周课堂 · 课程学习网站</title>
-  <link rel="stylesheet" href="/css/site.css?v=5e39534dc0">
+  <link rel="stylesheet" href="/css/site.css?v=44c798501c">
 <meta name="generator" content="Hexo 8.1.2"></head>
 <body>
   <header class="site-header">
@@ -18,7 +18,7 @@
       </nav>
     </div>
   </header>
-  <main class="wrap"><section class="join">
+  <main class="wrap"><section class="join" data-join-view>
   <div class="join-intro">
     <p class="eyebrow">案例教学资料 · 互动课堂</p>
     <h1>进入本周课堂</h1>
@@ -26,7 +26,7 @@
 <p>每个课堂码对应老师指定的一门课程和本周内容（章节或案例）；新一周课堂发布后，请使用新的课堂码。</p>
 </div>
     <ol class="join-steps">
-      <li><b>1</b><span>填写课堂码和个人信息（姓名、学号与点名册一致），进入老师本周发布的学习内容。第一次登录要设置 4 位个人口令，换手机或电脑登录时输入。</span></li>
+      <li><b>1</b><span>填写课堂码和个人信息（姓名、学号与点名册一致）登录。第一次登录要设置 4 位个人口令，换手机或电脑登录时输入。登录后先看到课程地图：插小红旗的是本周课堂，彩色的章节可以进入复习，灰色的还没有发布。</span></li>
       <li><b>2</b><span>每道题选好或写好后，点题目下方的“递交”交给老师；每题只能递交一次，递交后不能修改。</span></li>
       <li><b>3</b><span>题目下方可以写“我的备注”（只存在自己的设备上）；左下角面板可以导出作答和备注，课后复习。</span></li>
     </ol>
@@ -63,17 +63,44 @@
     <p class="join-note">仅能进入老师当前发布的课堂，姓名、学号须与本班点名册一致（不在点名册上的同学需老师允许）。请使用自己的手机或电脑登录；口令不要告诉别人。</p>
     <p class="join-error" role="alert" data-join-error></p>
     <button type="submit" class="join-submit">登录并进入课堂 →</button>
+    <p class="join-map" data-join-map hidden><a href="#map">这台设备登录过：打开课程地图，进入往期章节复习 →</a></p>
   </form>
 </section>
+
+<section class="atlas" data-atlas hidden>
+  <header class="atlas-head">
+    <div>
+      <p class="eyebrow">课程地图 · <span data-atlas-count></span></p>
+      <h1 data-atlas-title></h1>
+      <p class="atlas-who" data-atlas-who></p>
+    </div>
+    <div class="atlas-actions">
+      <button type="button" class="atlas-btn is-main" data-atlas-code>输入课堂码</button>
+      <button type="button" class="atlas-btn" data-atlas-out>不是我</button>
+    </div>
+  </header>
+  <ul class="atlas-legend" aria-label="图例">
+    <li><i class="is-current" aria-hidden="true"></i>小红旗：本周课堂</li>
+    <li><i class="is-open" aria-hidden="true"></i>彩色：已开放，点击进入</li>
+    <li><i class="is-off" aria-hidden="true"></i>灰色：老师还没有发布</li>
+  </ul>
+  <p class="atlas-status" data-atlas-status role="status" hidden></p>
+  <div class="atlas-map" data-atlas-map></div>
+  <p class="atlas-note">从海边出发，经过小岛、山丘，最后登上雪山——按课程顺序一路向前。往期章节可以随时进入复习（只能查看、写备注、导出，不能再递交）；本周课堂要先输入老师公布的课堂码。</p>
+</section>
+
+<script>window.CLASS_COURSES = [{"slug":"xjp-economy","kind":"case-html","title":"习近平经济思想概论","chapters":[{"id":"ch01","file":"xjp-economy/cases/ch01.html","cn":"第一章","title":"以经济建设为中心扎实推进中国式现代化","short":"中国式现代化","chapter":"","cases":[{"number":"17","title":"深圳：从经济特区到中国特色社会主义先行示范区"}]},{"id":"ch02","file":"xjp-economy/cases/ch02.html","cn":"第二章","title":"加强党对经济工作的全面领导","short":"党的全面领导","chapter":"","cases":[{"number":"01","title":"中央经济工作会议：党领导经济工作的制度化实践"}]},{"id":"ch03","file":"xjp-economy/cases/ch03.html","cn":"第三章","title":"坚持以人民为中心的发展思想","short":"以人民为中心","chapter":"","cases":[{"number":"02","title":"脱贫攻坚与共同富裕"},{"number":"03","title":"“双减”政策与教育民生治理"}]},{"id":"ch04","file":"xjp-economy/cases/ch04.html","cn":"第四章","title":"坚持和完善社会主义基本经济制度","short":"基本经济制度","chapter":"","cases":[{"number":"04","title":"中国联通混合所有制改革：资本合作与公司治理"},{"number":"05","title":"平台“二选一”反垄断案：有效市场与有为政府"}]},{"id":"ch05","file":"xjp-economy/cases/ch05.html","cn":"第五章","title":"全面深化改革开放","short":"深化改革开放","chapter":"","cases":[{"number":"18","title":"海南自由贸易港：以高水平开放促进深层次改革"}]},{"id":"ch06","file":"xjp-economy/cases/ch06.html","cn":"第六章","title":"完整准确全面贯彻新发展理念","short":"新发展理念","chapter":"","cases":[{"number":"19","title":"成都公园城市示范区：把新发展理念落到一座城市"}]},{"id":"ch07","file":"xjp-economy/cases/ch07.html","cn":"第七章","title":"构建新发展格局","short":"新发展格局","chapter":"","cases":[{"number":"16","title":"宁波舟山港：联通国内国际双循环的枢纽"}]},{"id":"ch08","file":"xjp-economy/cases/ch08.html","cn":"第八章","title":"推动高质量发展","short":"高质量发展","chapter":"","cases":[{"number":"20","title":"“两重”“两新”：用超长期特别国债撬动高质量发展"}]},{"id":"ch09","file":"xjp-economy/cases/ch09.html","cn":"第九章","title":"加快发展新质生产力","short":"新质生产力","chapter":"","cases":[{"number":"06","title":"“双碳”目标与绿色新质生产力"},{"number":"07","title":"新型举国体制与重大科技创新"}]},{"id":"ch10","file":"xjp-economy/cases/ch10.html","cn":"第十章","title":"加快建设现代化产业体系","short":"现代化产业体系","chapter":"","cases":[{"number":"08","title":"新能源汽车价格战与现代化产业体系"},{"number":"09","title":"数字人民币与中国特色现代金融体系"}]},{"id":"ch11","file":"xjp-economy/cases/ch11.html","cn":"第十一章","title":"推动城乡融合发展","short":"城乡融合发展","chapter":"","cases":[{"number":"10","title":"余村的绿色复兴：乡村全面振兴的生动实践"}]},{"id":"ch12","file":"xjp-economy/cases/ch12.html","cn":"第十二章","title":"促进区域协调发展","short":"区域协调发展","chapter":"","cases":[{"number":"11","title":"雄安新区：京津冀协同发展的战略支点"}]},{"id":"ch13","file":"xjp-economy/cases/ch13.html","cn":"第十三章","title":"倡导普惠包容的经济全球化","short":"经济全球化","chapter":"","cases":[{"number":"12","title":"中巴经济走廊：高质量共建“一带一路”的实践"},{"number":"13","title":"中企出海与“产能过剩”之争：普惠包容的全球化"}]},{"id":"ch14","file":"xjp-economy/cases/ch14.html","cn":"第十四章","title":"统筹发展和安全","short":"统筹发展和安全","chapter":"","cases":[{"number":"14","title":"城投债与地方债务风险治理"},{"number":"15","title":"“小院高墙”与中美科技战：产业链供应链安全"}]},{"id":"ch15","file":"xjp-economy/cases/ch15.html","cn":"第十五章","title":"做好经济工作的方法论","short":"经济工作方法论","chapter":"","cases":[{"number":"21","title":"“八八战略”二十年：一张蓝图绘到底的方法论"}]}]},{"slug":"political-economy","kind":"concept-html","title":"政治经济学","chapters":[{"id":"case01","file":"political-economy/cases/case01.html","cn":"案例 01","title":"校园食堂：换了新蒸箱，为什么还排队","short":"校园食堂","chapter":"导论","cases":[{"number":"01","title":"校园食堂：换了新蒸箱，为什么还排队"}]},{"id":"case02","file":"political-economy/cases/case02.html","cn":"案例 02","title":"手作杯：用途、劳动与商品价值","short":"手作杯","chapter":"第一章 商品","cases":[{"number":"02","title":"手作杯：用途、劳动与商品价值"}]},{"id":"case03","file":"political-economy/cases/case03.html","cn":"案例 03","title":"数字人民币：货币形式与职能","short":"数字人民币","chapter":"第二章 货币","cases":[{"number":"03","title":"数字人民币：货币形式与职能"}]},{"id":"case04","file":"political-economy/cases/case04.html","cn":"案例 04","title":"新能源汽车竞争：价格信号与价值规律","short":"新能源汽车","chapter":"第三章 市场经济和价值规律","cases":[{"number":"04","title":"新能源汽车竞争：价格信号与价值规律"}]},{"id":"case05","file":"political-economy/cases/case05.html","cn":"案例 05","title":"平台集中与垄断竞争","short":"平台垄断","chapter":"第四章 资本主义经济制度及其演变","cases":[{"number":"05","title":"平台集中与垄断竞争"}]},{"id":"case06","file":"political-economy/cases/case06.html","cn":"案例 06","title":"富士康：生产过程中的价值增殖","short":"富士康","chapter":"第五章 资本主义生产","cases":[{"number":"06","title":"富士康：生产过程中的价值增殖"}]},{"id":"case07","file":"political-economy/cases/case07.html","cn":"案例 07","title":"从“996”看工作日与价值增殖","short":"“996”工作日","chapter":"第五章 资本主义生产","cases":[{"number":"07","title":"从“996”看工作日与价值增殖"}]},{"id":"case08","file":"political-economy/cases/case08.html","cn":"案例 08","title":"数字游民：劳动地点与雇佣关系","short":"数字游民","chapter":"第五章 资本主义生产","cases":[{"number":"08","title":"数字游民：劳动地点与雇佣关系"}]},{"id":"case09","file":"political-economy/cases/case09.html","cn":"案例 09","title":"SHEIN与Temu：订单与资本周转","short":"SHEIN与Temu","chapter":"第六章 资本循环和周转","cases":[{"number":"09","title":"SHEIN与Temu：订单与资本周转"}]},{"id":"case10","file":"political-economy/cases/case10.html","cn":"案例 10","title":"直播销售：商业利润从哪里来","short":"直播销售","chapter":"第七章 剩余价值的分配","cases":[{"number":"10","title":"直播销售：商业利润从哪里来"}]},{"id":"case11","file":"political-economy/cases/case11.html","cn":"案例 11","title":"债券收益与价格：利息背后的资本关系","short":"债券收益","chapter":"第七章 剩余价值的分配","cases":[{"number":"11","title":"债券收益与价格：利息背后的资本关系"}]},{"id":"case12","file":"political-economy/cases/case12.html","cn":"案例 12","title":"土地收益与价格：从地租出发","short":"土地收益","chapter":"第七章 剩余价值的分配","cases":[{"number":"12","title":"土地收益与价格：从地租出发"}]},{"id":"case13","file":"political-economy/cases/case13.html","cn":"案例 13","title":"平台扩张与就业：资本积累的影响","short":"平台扩张","chapter":"第八章 资本主义再生产和经济危机","cases":[{"number":"13","title":"平台扩张与就业：资本积累的影响"}]},{"id":"case14","file":"political-economy/cases/case14.html","cn":"案例 14","title":"单车扩张与再生产：投入怎样获得补偿","short":"共享单车","chapter":"第八章 资本主义再生产和经济危机","cases":[{"number":"14","title":"单车扩张与再生产：投入怎样获得补偿"}]},{"id":"case15","file":"political-economy/cases/case15.html","cn":"案例 15","title":"自动化工厂的效率与矛盾","short":"自动化工厂","chapter":"第九章 资本主义的历史地位和发展趋势","cases":[{"number":"15","title":"自动化工厂的效率与矛盾"}]},{"id":"case16","file":"political-economy/cases/case16.html","cn":"案例 16","title":"从脱贫到共同富裕：发展任务与发展目的","short":"共同富裕","chapter":"第十章 社会主义经济制度及其根本任务","cases":[{"number":"16","title":"从脱贫到共同富裕：发展任务与发展目的"}]},{"id":"case17","file":"political-economy/cases/case17.html","cn":"案例 17","title":"大国工程与民营创新：市场和计划的结合","short":"大国工程","chapter":"第十一章 经济体制改革和社会主义市场经济体制","cases":[{"number":"17","title":"大国工程与民营创新：市场和计划的结合"}]},{"id":"case18","file":"political-economy/cases/case18.html","cn":"案例 18","title":"蜜雪冰城：民营经营与多种所有制","short":"蜜雪冰城","chapter":"第十二章 社会主义初级阶段的基本经济制度","cases":[{"number":"18","title":"蜜雪冰城：民营经营与多种所有制"}]},{"id":"case19","file":"political-economy/cases/case19.html","cn":"案例 19","title":"一户家庭的收入账本","short":"家庭账本","chapter":"第十三章 社会主义初级阶段的分配制度","cases":[{"number":"19","title":"一户家庭的收入账本"}]},{"id":"case20","file":"political-economy/cases/case20.html","cn":"案例 20","title":"绿色转型：增长方式与可持续发展","short":"绿色转型","chapter":"第十四章 中国特色社会主义的经济发展","cases":[{"number":"20","title":"绿色转型：增长方式与可持续发展"}]},{"id":"case21","file":"political-economy/cases/case21.html","cn":"案例 21","title":"双减之后：新东方如何转身","short":"新东方转身","chapter":"第十五章 社会主义市场经济中的政府经济职能","cases":[{"number":"21","title":"双减之后：新东方如何转身"}]},{"id":"case22","file":"political-economy/cases/case22.html","cn":"案例 22","title":"芯片供应链：全球化中的联系与冲击","short":"芯片供应链","chapter":"第十六章 经济全球化和国际经济秩序","cases":[{"number":"22","title":"芯片供应链：全球化中的联系与冲击"}]},{"id":"case23","file":"political-economy/cases/case23.html","cn":"案例 23","title":"中企出海：开放合作与经济安全","short":"中企出海","chapter":"第十七章 经济全球化条件下的中国对外开放","cases":[{"number":"23","title":"中企出海：开放合作与经济安全"}]}]}];</script>
 </main>
   <footer class="site-footer">
     <div class="wrap"><span>任课教师 · 课程学习网站</span><span>本站内容仅供选课学生学习使用，请勿转发课堂码或页面内容。</span></div>
   </footer>
   
-  <script>window.CLASS_LIVE_CONFIG = {"provider":"cloudbase","env":"courselearning-d4gmetucqc52de2d4","region":"ap-shanghai","version":"5e39534dc0"};</script>
+  <script>window.CLASS_LIVE_CONFIG = {"provider":"cloudbase","env":"courselearning-d4gmetucqc52de2d4","region":"ap-shanghai","version":"44c798501c"};</script>
   <script src="/js/cloudbase-js-sdk-3.10.1.js"></script>
-  <script src="/js/live-core.js?v=5e39534dc0"></script>
-  <script src="/js/live-join.js?v=5e39534dc0"></script>
+  <script src="/js/live-core.js?v=44c798501c"></script>
+  <script src="/js/live-map.js?v=44c798501c"></script>
+  <script src="/js/live-join.js?v=44c798501c"></script>
+  <script src="/js/live-atlas.js?v=44c798501c"></script>
   
 </body>
 </html>
