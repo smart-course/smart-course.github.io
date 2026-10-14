@@ -226,7 +226,6 @@
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
-  .clp-panel.is-gate a.is-plain { margin-left: 6px; color: #a4492d; background: #f5e7df; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
   .clp-q { margin: 10px 0 6px; padding: 8px 10px; border: 1px dashed rgba(35,101,95,.4); border-radius: 8px; background: rgba(228,239,235,.45); color: #201c18; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-q.is-locked { border-style: solid; background: rgba(228,239,235,.7); }
@@ -779,7 +778,7 @@
     panel.classList.add('is-gate');
     const elsewhere = identity.classroom && identity.course === config.course && identity.chapter && identity.chapter !== unit;
     panel.innerHTML = (elsewhere
-      ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="/#map">课程地图</a> <a href="${joinUrl()}" class="is-plain">输入课堂码</a>`
+      ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>`
       : '<strong>还没有进入课堂</strong><div class="clp-room">请在首页输入老师发布的课堂码并填写个人信息，才能递交作答。本页可以写备注、导出复习。</div><a href="/">去登录</a>')
       + (questions.length ? tools : '');
     document.body.appendChild(panel);
@@ -859,7 +858,7 @@
           <ul class="clp-mydm-list" data-cl-mydm-list></ul>
           <p class="clp-hint" data-cl-mydm-state></p>
         </details>
-        <span class="clp-foot-links">${PREVIEW ? '' : '<a class="clp-link" href="/#map" title="本课程全部章节：往期章节进入复习">课程地图</a>'}<button type="button" class="clp-link" data-cl-news-open>更新说明</button><button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button></span>
+        <span class="clp-foot-links"><button type="button" class="clp-link" data-cl-news-open>更新说明</button><button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button></span>
       </div>
     </div>`;
   document.body.appendChild(panel);
@@ -1189,16 +1188,15 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = '20261014-map';
-  const NEWS_RANGE = '10 月 9 日—10 月 14 日';
+  const NEWS_ID = '20261014-map';   // 沿用课程地图版（已撤下）的编号，看过的同学不再重复弹出
+  const NEWS_RANGE = ({ 'xjp-economy': '10 月 9 日—10 月 14 日' })[config.course] || '10 月 9 日—10 月 12 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     return [
-      { title: '最新（10 月 14 日）', items: [
-        ['课程地图', `登录后先看到本课程的课程地图：从海边小岛出发，经过金色山丘，最后登上紫色雪山，每一处是一个${worksheet ? '案例' : '章节'}。插小红旗的是本周课堂；彩色的已开放，往期的可以随时进入复习；灰色的老师还没有发布。面板底部的“课程地图”随时回到地图。`],
-        ...(config.course === 'xjp-economy' ? [['理论知识点总结', '每章最后“资料与延伸阅读”新增“复习资料”一栏，按教材整理导论和第一至十五章的核心知识点，含教材原文、记忆口诀、易错判断和课后思考答题要点，点开直接定位到本章，可导出 PDF。']] : []),
+      { course: 'xjp-economy', title: '最新（10 月 14 日）', items: [
+        ['理论知识点总结', '每章最后“资料与延伸阅读”新增“复习资料”一栏，按教材整理导论和第一至十五章的核心知识点，含教材原文、记忆口诀、易错判断和课后思考答题要点，点开直接定位到本章，可导出 PDF。'],
       ] },
       { course: 'xjp-economy', title: '案例课堂改版', items: [
         ['新题型', '每个案例增加单选、多选、判断题和出门测，每题做完点“递交”，递交后不能修改。'],
