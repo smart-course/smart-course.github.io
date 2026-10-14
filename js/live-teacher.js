@@ -26,7 +26,8 @@
   const chapterMap = new Map(course.chapters.map((item) => [item.id, item]));
   const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
   const ACTION_HEAD = '<th class="tw-col-action"><span class="sr-only">删除</span></th>';
-  const deleteCell = (row) => `<td class="tw-col-action"><button type="button" class="tw-trash" data-student-delete="${esc(row.sid)}" title="删除该学生在本课堂的记录" aria-label="删除 ${esc(Array.from(row.names).join('、'))} 在本课堂的记录">${TRASH_ICON}</button></td>`;
+  // 班外同学（老师在“登录安全”允许后加进点名册的，标 extra）：删除时一并撤销允许、从本班点名册移除，名单里就不再显示
+  const deleteCell = (row, extra) => `<td class="tw-col-action"><button type="button" class="tw-trash" data-student-delete="${esc(row.sid)}"${extra ? ' data-student-extra="1"' : ''} title="${extra ? '把这位班外同学从本班移除' : '删除该学生在本课堂的记录'}" aria-label="${extra ? `把 ${esc(Array.from(row.names).join('、'))} 从本班移除` : `删除 ${esc(Array.from(row.names).join('、'))} 在本课堂的记录`}">${TRASH_ICON}</button></td>`;
   const KINDS = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
   const emptyDocs = () => ({ checkins: [], choices: [], answers: [], danmaku: [], homework: [] });
   // 班级：本机记住每门课上次选的班级（投屏页据此挑选当前课堂，见 ClassLive.pickRoom）
@@ -861,7 +862,7 @@
       return `<tr class="${row ? '' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
         <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
-        ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${row ? deleteCell(row) : '<td></td>'}</tr>`;
+        ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${person.extra ? deleteCell(row || { sid: person.sid, names: new Set([person.name]) }, true) : row ? deleteCell(row) : '<td></td>'}</tr>`;
     }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td>${esc(Array.from(row.names).join('、'))}</td>
         <td class="warn">名单外登录 ${esc(loginText(row, day))}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
         <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td>${deleteCell(row)}</tr>`).join('')
@@ -873,9 +874,13 @@
     if (!trash || !state.room) return;
     const sid = trash.dataset.studentDelete;
     const row = students().find((item) => String(item.sid) === sid);
-    const name = row ? Array.from(row.names).join('、') : '';
+    const extra = trash.dataset.studentExtra ? rosterOf().find((person) => person.extra && sidKey(person.sid) === sidKey(sid)) : null;
+    const name = row ? Array.from(row.names).join('、') : extra ? extra.name : '';
     const room = state.room;
-    if (!window.confirm(`确定删除 ${name}（学号 ${sid}）在本课堂“${room.name}”的加入记录、选择、作答、作业和弹幕吗？此操作无法恢复，其他课堂不受影响。\n\n（学生如果再次用课堂码登录，会重新出现在名单里。）`)) return;
+    const klass = state.klass;
+    if (!window.confirm(extra
+      ? `确定把班外同学 ${name}（学号 ${sid}）从本班移除吗？\n\n会删除该生在本课堂“${room.name}”的加入记录、选择、作答、作业和弹幕，并撤销允许：从本班点名册移除，已登录的设备不能再递交，也不能再登录。此操作无法恢复，其他课堂的记录不受影响。\n\n（以后要加回，可在“登录安全”的班外加入申请里改为允许。）`
+      : `确定删除 ${name}（学号 ${sid}）在本课堂“${room.name}”的加入记录、选择、作答、作业和弹幕吗？此操作无法恢复，其他课堂不受影响。\n\n（学生如果再次用课堂码登录，会重新出现在名单里。）`)) return;
     const status = $('[data-checkin-status]');
     trash.disabled = true;
     status.textContent = '正在删除……';
@@ -883,7 +888,22 @@
       const where = { classroom: Number(room.id), sid: row ? row.sid : sid };
       for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
       try { await backend.removeAll('bonus', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
-      status.textContent = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
+      let done = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
+      if (extra && klass) {
+        // 撤销允许（同“登录安全”里的“撤销允许”）：从本班点名册移除、解除已登录的设备
+        const request = (await backend.fetchAll('requests', { class_id: Number(klass.id) || klass.id }))
+          .find((item) => sidKey(item.sid) === sidKey(sid) && item.status === 'approved');
+        if (request) {
+          await backend.rpc('ck_decide_request', { p_id: Number(request.id) || request.id, p_allow: false });
+          await loadClasses();
+          showClassInfo();
+          done = `已把 ${name}（学号 ${sid}）从本班移除，并删除了该生在本课堂的记录。`;
+        } else {
+          done += '没有找到该生的加入申请，请到“登录安全”里撤销允许。';
+        }
+      }
+      status.textContent = done;
+      renderCheckins();
       if (state.room && String(state.room.id) === String(room.id)) subscribe();
     } catch (error) {
       console.error(error);

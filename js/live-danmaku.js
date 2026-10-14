@@ -13,7 +13,7 @@
  * 恭喜突破：每 20 秒读一次全班境界，课上有人境界提升（老师结算后），页面最上方正中显示一行“恭喜某某突破至某境界”，3 秒，新的直接替换。
  * 法宝弹幕（ck_send_gift 写入，gift 列；筑基丹、青竹蜂云剑、风雷翅、掌天瓶）只在新到时播放一次全屏动画（画面在 live-gifts.js，约 3.2 秒），不进入循环和弹幕墙。
  * 教师点赞：鼠标停在弹幕上出现“点赞”和垃圾桶；每堂课最多 ClassLive.LIKE.limit 个赞（ck_like_danmaku 核对），被赞弹幕带 👍，发送人结算时额外加修为。
- * 试用特效（左下角“试用特效”，或工作台“修为境界”里的链接带 ?demo=1 打开）：任选境界和字色发试用弹幕、一键演示五个境界、
+ * 试用特效（左下角“试用特效”，或工作台“修为境界”里的链接带 ?demo=1 打开）：任选境界和字色发试用弹幕、一键演示五个境界（每个境界用本境界的两种字色各发一条）、
  *   播放四件法宝画面；只在本机播放，不写入弹幕记录、不计修为，也不经过后台。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
  *   [data-mech-wall]（每个箭头显示最新 3 条，新来的弹入并让节点闪一下）；显示规则与滚动弹幕相同（模式、审核、清屏）。
@@ -300,6 +300,7 @@
     badge.className = 'dm-liked';
     badge.innerHTML = '师<br>赞';
     item.dataset.dmId = id;
+    if (doc.demoLiked) item.dataset.demoLiked = '1';   // 试用弹幕的朱印只在本机，后台点赞刷新（markLiked）不清掉
     item.classList.toggle('is-liked', liked.has(id) || Boolean(doc.demoLiked));
     if (doc.demo) item.append(badge); else item.append(badge, hoverTools(doc, item));
     item.style.top = `calc(${lane * (100 / LANES)}% + 12px)`;   // 上面留 12px：最上一行的师赞朱印不被切掉
@@ -445,8 +446,13 @@
       return;
     }
     if (event.target.closest('[data-demo-all]')) {
-      const lines = ['炼气：素石称号，可选霜白、月银', '筑基：青玉称号，再加青冥、翠竹', '结丹：金丹称号，再加金曦、大红', '元婴：紫色辉边，再加樱粉、紫霄', '化神：七彩流光边框，再加两种流光字'];
-      REALMS.forEach((realm, i) => setTimeout(() => sendDemo(realm.level, lines[i] || realm.name, demoState.color[realm.level], false), i * 700));
+      // 每个境界用本境界解锁的两种字色各发一条（炼气霜白、月银 … 化神流金、七彩），文字说明这一境的特色
+      const looks = ['素石称号', '青玉称号', '金丹称号', '紫色辉边', '七彩流光边框'];
+      const lines = [];
+      REALMS.forEach((realm) => DEMO_COLORS.filter((color) => color.level === realm.level).forEach((color) => {
+        lines.push([realm.level, `${color.name}字 · ${realm.name}${realm.level ? '解锁' : '起步可选'}（${looks[realm.level] || realm.name}）`, color.id]);
+      }));
+      lines.forEach(([level, text, colorId], i) => setTimeout(() => sendDemo(level, text, colorId, false), i * 600));
       return;
     }
     if (giftButton) {
@@ -530,7 +536,7 @@
   const showLikes = () => { likesEl.textContent = likesUsed == null ? '' : `赞 ${likesUsed}/${LIKE.limit}`; };
   function markLiked() {
     document.querySelectorAll('[data-dm-id]').forEach((el) => {
-      const on = liked.has(el.dataset.dmId);
+      const on = liked.has(el.dataset.dmId) || el.dataset.demoLiked === '1';
       el.classList.toggle('is-liked', on);
       const button = el.querySelector(':scope > .dm-tools .dm-like');
       if (button && !button.disabled) paintLike(button, on);
