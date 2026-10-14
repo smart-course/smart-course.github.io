@@ -142,6 +142,18 @@
   .dmq-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .dmq-wall > em { color: #6d6259; font-style: normal; font-size: 15px; }
   .dmq-wall .dm-bubble { font-size: 17px; }
+  /* 辩论质询：正方、反方两栏，各自按时间倒序（最新的在最上面），栏头显示条数 */
+  .dmq-debate { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
+  .dmq-side { min-width: 0; border-radius: 12px; padding: 10px 12px 12px; }
+  .dmq-side.is-pro { background: rgba(35, 101, 95, .08); border: 1.5px solid rgba(35, 101, 95, .35); }
+  .dmq-side.is-con { background: rgba(164, 73, 45, .07); border: 1.5px solid rgba(164, 73, 45, .35); }
+  .dmq-side-head { display: flex; align-items: center; justify-content: space-between; margin-bottom: 8px; font-weight: 800; font-size: 15px; }
+  .dmq-side-head .dm-side { font-size: 16px; padding: 2px 14px; }
+  .dmq-side.is-pro .dmq-side-head b { color: #23655f; }
+  .dmq-side.is-con .dmq-side-head b { color: #a4492d; }
+  .dmq-side-wall { display: flex; flex-direction: column; gap: 8px; min-height: 64px; }
+  .dmq-side-wall .dm-bubble { font-size: 17px; }
+  @media (max-width: 760px) { .dmq-debate { grid-template-columns: 1fr; } }
   .dm-item { pointer-events: auto; }
   .dm-item:hover, .dm-item.is-holding { animation-play-state: paused; z-index: 1; box-shadow: 0 0 0 2px rgba(255, 217, 138, .9); }
   .dm-del { display: none; align-items: center; gap: 4px; margin-left: 10px; padding: 2px 10px; border: 0; border-radius: 14px; color: #fff; background: #a4492d;
@@ -493,8 +505,14 @@
       const box = slot || page.querySelector('.inner') || page;
       const card = document.createElement('section');
       card.className = 'dmq-card';
+      // 习经辩论质询：弹幕带【正方】/【反方】，分两栏即时显示（各栏最新的在最上面）
+      const debate = /-debate$/.test(item.slot || '');
+      const sideCol = (side, cls) => `<div class="dmq-side ${cls}"><div class="dmq-side-head"><span class="dm-side ${cls}">${side}</span><b data-side-count>0 条</b></div>
+        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${side}" data-max="8"><em>还没有${side}的质询</em></div></div>`;
+      if (debate) card.classList.add('is-debate');
       card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
-        <h4></h4><p class="dmq-hint"></p><div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"></div>`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
+        <h4></h4><p class="dmq-hint"></p>${debate ? `<div class="dmq-debate">${sideCol('正方', 'is-pro')}${sideCol('反方', 'is-con')}</div>`
+          : `<div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"></div>`}`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
       card.querySelector('.dmq-label').textContent = item.label || '';
       card.querySelector('h4').textContent = item.prompt;
       const hint = card.querySelector('.dmq-hint');
@@ -658,7 +676,7 @@
   }
   const WALL_MAX = 3;
   const walls = new Map();
-  document.querySelectorAll('[data-mech-wall]').forEach((el) => walls.set(`${el.dataset.case}|${el.dataset.link}`, el));
+  document.querySelectorAll('[data-mech-wall]').forEach((el) => walls.set(`${el.dataset.case}|${el.dataset.link}${el.dataset.side ? `|${el.dataset.side}` : ''}`, el));
   const wallShown = new Map();   // 箭头 → 正在显示的弹幕 id
   let wallsPrimed = false;
   function renderWalls(docs) {
@@ -666,15 +684,19 @@
     const groups = new Map();
     docs.forEach((doc) => {
       const tag = tagOf(doc);
-      if (!tag || !walls.has(tag.key)) return;
-      if (!groups.has(tag.key)) groups.set(tag.key, []);
-      groups.get(tag.key).push({ doc, tag });
+      if (!tag) return;
+      const key = tag.side && walls.has(`${tag.key}|${tag.side}`) ? `${tag.key}|${tag.side}` : tag.key;   // 辩论质询：进正方或反方那一栏
+      if (!walls.has(key)) return;
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push({ doc, tag });
     });
     walls.forEach((wall, key) => {
       const list = groups.get(key) || [];
+      const sideWall = Boolean(wall.dataset.side);
       const latest = list.slice(-(Number(wall.dataset.max) || WALL_MAX));
-      const counter = wall.closest('.dmq-card') && wall.closest('.dmq-card').querySelector('.dmq-count');
-      if (counter) counter.textContent = list.length ? `${list.length} 条` : '';
+      if (sideWall) latest.reverse();   // 正反两栏：最新的在最上面
+      const counter = sideWall ? wall.parentElement.querySelector('[data-side-count]') : wall.closest('.dmq-card') && wall.closest('.dmq-card').querySelector('.dmq-count');
+      if (counter) counter.textContent = sideWall ? `${list.length} 条` : list.length ? `${list.length} 条` : '';
       const before = wallShown.get(key) || [];
       const ids = latest.map(({ doc }) => String(doc.id));
       const placeholder = wall.querySelector('em');
@@ -692,7 +714,7 @@
           const realm = realmFor(doc);
           who.className = `is-r${realm ? realm.realm : 0}`;
           who.textContent = `${doc.name}：`;
-          if (tag.side) bubble.append(sideBadge(tag.side));
+          if (tag.side && !sideWall) bubble.append(sideBadge(tag.side));   // 分栏里不重复标正反方
           if (!anonymous()) bubble.append(who);
           const badge = document.createElement('span');
           badge.className = 'dm-liked';
@@ -711,10 +733,15 @@
           setTimeout(() => node.classList.remove('dm-hit'), 2400);
         }
       }
-      if (!counter && list.length > WALL_MAX) {
+      if (!counter && !sideWall && list.length > WALL_MAX) {
         if (!count) { count = document.createElement('span'); count.className = 'dm-wall-count'; wall.appendChild(count); }
         count.textContent = `共 ${list.length} 条`;
       } else if (count) count.remove();
+    });
+    // 辩论质询卡片头：两方合计
+    document.querySelectorAll('.dmq-card.is-debate').forEach((card) => {
+      const total = Array.from(card.querySelectorAll('[data-side-count]')).reduce((sum, el) => sum + (parseInt(el.textContent, 10) || 0), 0);
+      card.querySelector('.dmq-count').textContent = total ? `共 ${total} 条` : '';
     });
     wallsPrimed = true;
   }

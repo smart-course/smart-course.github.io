@@ -263,7 +263,7 @@
     --clp-bar: linear-gradient(90deg, #ffb347, #ff8fc4, #9b6bff, #ffb347); --clp-track: rgba(255,255,255,.14); --clp-input-border: #c9a24a; --clp-ring: rgba(255,214,110,.2); --clp-label: #8a5a1a;
     border: 2px solid transparent; background: linear-gradient(#fffaf3, #fffaf3) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
     background-size: 100% 100%, 300% 100%; animation: clp-flow 5s linear infinite; }
-  .clp-v2 .clp-head { position: relative; flex: 0 0 auto; padding: 12px 14px 10px; background: var(--clp-head-bg); color: var(--clp-head-ink); }
+  .clp-v2 .clp-head { position: relative; flex: 0 0 auto; padding: 10px 14px 8px; background: var(--clp-head-bg); color: var(--clp-head-ink); }
   .clp-v2 .clp-who { display: flex; align-items: center; gap: 7px; }
   .clp-v2 .clp-no { margin: 0; flex: 0 0 auto; }
   .clp-v2 .clp-name { min-width: 0; overflow: hidden; font-size: 17px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
@@ -271,7 +271,7 @@
   .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 10px; margin-left: auto; }
   .clp-v2 .clp-head .clp-link { color: var(--clp-link); font-size: 13px; }
   .clp-v2 .clp-sub { margin-top: 3px; color: var(--clp-head-sub); font-size: 12.5px; }
-  .clp-v2 .clp-rise { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: var(--clp-head-sub); font-size: 12px; }
+  .clp-v2 .clp-rise { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--clp-head-sub); font-size: 12px; }
   .clp-v2 .clp-rise[hidden] { display: none; }
   .clp-v2 .clp-rise-bar { flex: 1 1 auto; height: 6px; border-radius: 3px; background: var(--clp-track); overflow: hidden; }
   .clp-v2 .clp-rise-bar i { display: block; height: 100%; border-radius: 3px; background: var(--clp-bar); background-size: 300% 100%; }
@@ -288,19 +288,19 @@
   @keyframes clp-twinkle { 0%, 100% { opacity: .25; } 50% { opacity: 1; } }
   @keyframes clp-textflow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
   .clp-v2 .clp-body { flex: 1 1 auto; min-height: 0; overflow: auto; }
-  .clp-v2 .clp-sec { padding: 12px 14px; }
+  .clp-v2 .clp-sec { padding: 9px 14px; }
   .clp-v2 .clp-sec[hidden] { display: none; }
   .clp-v2 .clp-sec + .clp-sec { border-top: 1px dashed rgba(70,51,34,.18); }
-  .clp-v2 .clp-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 8px; }
+  .clp-v2 .clp-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
   .clp-v2 .clp-sec-title, .clp-v2 .clp-count { font-size: 15px; font-weight: 800; }
   .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; }
   .clp-v2 .clp-sec-note[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-v2 .clp-relogin { margin: 0 0 10px; }
   .clp-v2 .clp-danmaku { gap: 8px; margin: 0; padding: 0; border: 0; }
   .clp-v2 .clp-dm-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; }
-  .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 46px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
+  .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 40px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
   .clp-v2 .clp-danmaku input:focus { border-color: var(--clp-input-border); box-shadow: 0 0 0 3px var(--clp-ring); }
-  .clp-v2 .clp-danmaku button { min-width: 74px; height: 46px; padding: 0 14px; border-radius: 12px; color: var(--clp-accent-ink); background: var(--clp-accent);
+  .clp-v2 .clp-danmaku button { min-width: 74px; height: 40px; padding: 0 14px; border-radius: 12px; color: var(--clp-accent-ink); background: var(--clp-accent);
     background-size: 300% 100%; box-shadow: var(--clp-accent-glow); font-size: 16px; }
   .clp-v2.is-r4 .clp-danmaku button:not([disabled]) { animation: clp-textflow 4s linear infinite; }
   .clp-v2.has-color .clp-danmaku input { border-color: #8b5fe0; background: #1d1630; color: var(--clp-dm-color, #e3cfff); font-weight: 700; caret-color: #fff; }
@@ -309,18 +309,18 @@
   .clp-v2.has-flow .clp-dm-field { background: #140d24; }
   .clp-v2.has-flow .clp-danmaku input { background-color: transparent; background-image: var(--clp-dm-flow); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
     color: transparent; -webkit-text-fill-color: transparent; caret-color: #ffe08a; animation: clp-textflow 4s linear infinite; }
-  .clp-v2 .clp-dm-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 6px; color: #8a7f74; font-size: 12px; }
+  .clp-v2 .clp-dm-meta { display: flex; justify-content: space-between; gap: 10px; margin-top: 4px; color: #8a7f74; font-size: 12px; }
   .clp-v2 .clp-dm-meta .clp-hint { margin: 0; font-size: 12px; }
   .clp-v2 .clp-dm-meta > span { flex: 0 0 auto; }
-  .clp-v2 .clp-colors { gap: 5px; margin: 10px 0 0; font-size: 12.5px; color: #8a7f74; }
+  .clp-v2 .clp-colors { gap: 5px; margin: 7px 0 0; font-size: 12.5px; color: #8a7f74; }
   .clp-v2 .clp-label { margin-right: 3px; color: var(--clp-label); font-weight: 700; }
   .clp-v2.is-r4 .clp-label { color: #8a5a1a; }
   .clp-v2 .clp-colors button { width: 20px; height: 20px; border-radius: 50%; }
   .clp-v2 .clp-colors button[aria-pressed="true"] { outline: 2px solid #201c18; outline-offset: 2px; }
   .clp-v2 .clp-colors em { margin-left: 4px; font-size: 12px; }
-  .clp-v2 .clp-gifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px; margin: 10px 0 0; }
+  .clp-v2 .clp-gifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 7px 0 0; }
   .clp-v2 .clp-gifts[hidden] { display: none; }
-  .clp-v2 .clp-gifts button { display: flex; align-items: center; gap: 7px; min-width: 0; height: 34px; padding: 0 10px; border: 1px solid #e0b64a; border-radius: 9px;
+  .clp-v2 .clp-gifts button { display: flex; align-items: center; gap: 7px; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid #e0b64a; border-radius: 9px;
     background: linear-gradient(180deg, #fff8e1, #ffefc2); color: #5a3a00; font: 800 13px/1 inherit; text-align: left; white-space: nowrap; }
   .clp-v2 .clp-gifts button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .clp-v2 .clp-gifts button[disabled] { opacity: .7; }
@@ -332,22 +332,36 @@
   .clp-v2 .clp-gifts button.is-used { border: 1px solid #d6cdbf; background: #efe9df; color: #8a7f74; box-shadow: none; }
   .clp-gifts button.is-used small { color: #a4492d; font-weight: 800; }
   .clp-v2 .clp-gifts small { flex: 0 0 auto; margin-left: auto; font-size: 11px; font-weight: 700; }
+  /* 电脑上收起时：只留编号、姓名、境界、“展开”和“距下一境界”进度，窄一些、矮一些（学号、班级和“不是我”展开后再看） */
+  @media (min-width: 701px) {
+    .clp-panel.clp-v2.is-folded { width: 290px; }
+    .clp-v2.is-folded .clp-head { padding: 8px 14px 7px; }
+    .clp-v2.is-folded .clp-sub { display: none; }
+    .clp-v2.is-folded [data-cl-switch] { display: none; }   /* “不是我”展开后再点 */
+  }
+  @media (min-width: 701px) {
+    .clp-v2 .clp-gifts { display: flex; gap: 5px; }
+    .clp-v2 .clp-gifts button { flex: 1 1 auto; justify-content: center; gap: 4px; padding: 0 6px; font-size: 12.5px; }
+    .clp-v2 .clp-gifts small { display: none; }
+  }
   .clp-v2 .clp-gi { flex: 0 0 auto; display: inline-grid; place-items: center; }
   .clp-v2 .clp-gi-dan { width: 18px; height: 18px; border-radius: 50%; background: radial-gradient(circle at 34% 28%, #fff4c4, #ffc23a 40%, #c97300); box-shadow: 0 0 6px rgba(255,190,40,.8);
     color: #7a1a0a; font: 700 11px/1 "Kaiti SC", STKaiti, KaiTi, serif; }
   .clp-v2 .clp-progress { margin: 0; border-top: 1px dashed rgba(70,51,34,.18); }
-  .clp-v2 .clp-prog { height: 6px; margin: -2px 0 8px; border-radius: 3px; background: #ece4d6; overflow: hidden; }
+  .clp-v2 .clp-prog { height: 6px; margin: -1px 0 0; border-radius: 3px; background: #ece4d6; overflow: hidden; }
   .clp-v2 .clp-prog i { display: block; width: 0; height: 100%; border-radius: 3px; background: var(--clp-bar); background-size: 300% 100%; transition: width .4s; }
   .clp-v2.is-r0 .clp-prog i { background: #23655f; }
   .clp-v2 .clp-state { font-size: 12.5px; }
   .clp-v2 .clp-tools { flex-wrap: nowrap; gap: 8px; margin-top: 8px; }
-  .clp-v2 .clp-tools button { height: 38px; padding: 0 11px; border-radius: 10px; white-space: nowrap; }
+  .clp-v2 .clp-state:not([data-state]) { display: none; }   /* 操作提示并进进度行右侧的小字；只在有新状态（如全部递交）时显示 */
+  .clp-v2 .clp-state[data-state] { margin-top: 6px; }
+  .clp-v2 .clp-tools button { height: 34px; padding: 0 11px; border-radius: 10px; white-space: nowrap; }
   .clp-v2 .clp-tools button.is-main { flex: 1 1 auto; font-size: 14.5px; }
   .clp-v2 [data-cl-export-state]:not([data-state]) { display: none; }
-  .clp-v2 .clp-foot { position: relative; padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.12); }
+  .clp-v2 .clp-foot { position: relative; padding: 8px 14px; border-top: 1px solid rgba(70,51,34,.12); }
   .clp-v2 .clp-mydm { margin: 0; }
   .clp-v2 .clp-mydm summary { padding-right: 132px; }
-  .clp-v2 .clp-foot-links { position: absolute; top: 10px; right: 14px; display: flex; gap: 10px; }
+  .clp-v2 .clp-foot-links { position: absolute; top: 8px; right: 14px; display: flex; gap: 10px; }
   .clp-v2 .clp-foot-links .clp-link { font-size: 13px; }
   /* 手机端收起时只留一个境界小图标（像“使用说明”的问号），点一下展开 */
   .clp-v2 .clp-mini { display: none; position: relative; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #b9b1a3; border-radius: 50%;
@@ -831,7 +845,7 @@
         <div class="clp-gifts" data-cl-gifts hidden></div>
       </section>
       <section class="clp-sec clp-progress"${questions.length ? '' : ' hidden'}>
-        <div class="clp-sec-head"><span class="clp-count" data-cl-count></span><span class="clp-sec-note" data-cl-count-note>递交后不能修改</span></div>
+        <div class="clp-sec-head"><span class="clp-count" data-cl-count></span><span class="clp-sec-note" data-cl-count-note>每题点下方“递交”，递交后不能修改</span></div>
         <div class="clp-prog"><i data-cl-prog></i></div>
         <span class="clp-state" data-cl-state>每题做完点题目下方的“递交”</span>${tools}
       </section>
@@ -866,7 +880,7 @@
     if (bar) bar.style.width = `${questions.length ? Math.round(done / questions.length * 100) : 0}%`;
     const note = panel.querySelector('[data-cl-count-note]');
     const all = questions.length > 0 && done >= questions.length;
-    if (note) { note.textContent = all ? '全部递交 ✓' : '递交后不能修改'; note.dataset.state = all ? 'ok' : ''; }
+    if (note) { note.textContent = all ? '全部递交 ✓' : '每题点下方“递交”，递交后不能修改'; note.dataset.state = all ? 'ok' : ''; }
     const next = panel.querySelector('[data-cl-next]');
     if (next && panel.classList.contains('clp-v2')) next.textContent = all ? '全部已递交 ✓' : '下一道未递交 ↓';
   }
