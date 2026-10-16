@@ -283,3 +283,11 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-sec-table td .tw-secondary + .tw-secondary { margin-left: 6px; }
 .tw-sec-tag { display: inline-block; margin-left: 6px; padding: 0 6px; border-radius: 4px; background: #f3ead9; color: #6b4a14; font-size: 12px; font-weight: 700; }
 .tw-sec-bad { color: #a4492d; font-weight: 700; }
+
+/* 请假：加入名单里请假的同学、本班请假记录 */
+.tw-table td.leave { color: #7a5a12; font-weight: 800; }
+.tw-table tr.tw-leave td { background: #fff8e6; }
+.tw-leaves { margin-top: 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.tw-leaves > summary { cursor: pointer; font-weight: 800; }
+.tw-leaves .tw-table { margin-top: 10px; }
+

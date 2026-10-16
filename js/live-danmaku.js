@@ -154,6 +154,15 @@
   .dmq-side-wall { display: flex; flex-direction: column; gap: 8px; min-height: 64px; }
   .dmq-side-wall .dm-bubble { font-size: 17px; }
   @media (max-width: 760px) { .dmq-debate { grid-template-columns: 1fr; } }
+  /* 圆桌表态：四方分栏（按学生递交的角色），各栏最新的在最上面 */
+  .dmq-roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
+  .dmq-side.is-role { background: rgba(176, 132, 52, .08); border: 1.5px solid rgba(176, 132, 52, .38); }
+  .dmq-side.is-role .dmq-side-head b { color: #8a6424; }
+  .dmq-side.is-role .dmq-side-head { flex-wrap: wrap; gap: 4px 8px; }
+  .dmq-side.is-role .dmq-side-head .dm-side { font-size: 15px; padding: 2px 10px; white-space: nowrap; }
+  .dmq-side-head b { white-space: nowrap; }
+  @media (max-width: 1000px) { .dmq-roles { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+  @media (max-width: 600px) { .dmq-roles { grid-template-columns: 1fr; } }
   .dm-item { pointer-events: auto; }
   .dm-item:hover, .dm-item.is-holding { animation-play-state: paused; z-index: 1; box-shadow: 0 0 0 2px rgba(255, 217, 138, .9); }
   .dm-del { display: none; align-items: center; gap: 4px; margin-left: 10px; padding: 2px 10px; border: 0; border-radius: 14px; color: #fff; background: #a4492d;
@@ -172,8 +181,10 @@
   .dm-side { margin-right: 6px; padding: 0 8px; border-radius: 9px; color: #fff; font-size: .78em; font-weight: 800; vertical-align: 1px; }
   .dm-side.is-pro { background: #23655f; }
   .dm-side.is-con { background: #a4492d; }
+  .dm-side.is-role { background: #8a6424; }
   .dm-item .dm-side.is-pro { background: #2f8a80; }
   .dm-item .dm-side.is-con { background: #c4572f; }
+  .dm-item .dm-side.is-role { background: #a77a2c; }
   .dm-bubble.is-pro { border-color: rgba(35, 101, 95, .55); background: #eef6f4; }
   .dm-bubble.is-con { border-color: rgba(164, 73, 45, .5); background: #fbefea; }
   /* 试用特效面板 */
@@ -495,6 +506,12 @@
   const TAG = /^【(\d{2})([①②③④])→([①②③④])】\s*/;
   const QTAG = /^【问(\d{1,2})】\s*/;
   const SIDE = /^【(正方|反方)】\s*/;
+  const ROLE = /^【([^】]{1,12})】\s*/;
+  // 圆桌表态（slot“NN-roundtable”）：问题编号 → 四方角色名（弹幕带【角色名】，进对应角色那一栏）
+  const ROLES_OF = new Map();
+  (Array.isArray(config.danmaku) ? config.danmaku : []).forEach((item, index) => {
+    if (/-roundtable$/.test(item.slot || '') && Array.isArray(item.roles)) ROLES_OF.set(String(index + 1), item.roles);
+  });
   // 弹幕小问题（政治经济学讲解版）：在对应页面放一张问题卡片，下面是这道题的弹幕墙
   if (Array.isArray(config.danmaku)) {
     config.danmaku.forEach((item, index) => {
@@ -509,9 +526,13 @@
       const debate = /-debate$/.test(item.slot || '');
       const sideCol = (side, cls) => `<div class="dmq-side ${cls}"><div class="dmq-side-head"><span class="dm-side ${cls}">${side}</span><b data-side-count>0 条</b></div>
         <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${side}" data-max="8"><em>还没有${side}的质询</em></div></div>`;
-      if (debate) card.classList.add('is-debate');
+      const roles = ROLES_OF.get(String(index + 1));
+      const roleCol = (role) => `<div class="dmq-side is-role"><div class="dmq-side-head"><span class="dm-side is-role">${esc(role)}</span><b data-side-count>0 条</b></div>
+        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${esc(role)}" data-max="6"><em>还没有表态</em></div></div>`;
+      if (debate || roles) card.classList.add('is-debate');
       card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
         <h4></h4><p class="dmq-hint"></p>${debate ? `<div class="dmq-debate">${sideCol('正方', 'is-pro')}${sideCol('反方', 'is-con')}</div>`
+          : roles ? `<div class="dmq-roles">${roles.map(roleCol).join('')}</div>`
           : `<div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"></div>`}`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
       card.querySelector('.dmq-label').textContent = item.label || '';
       card.querySelector('h4').textContent = item.prompt;
@@ -532,12 +553,14 @@
     const question = QTAG.exec(doc.text || '');
     if (!question) return null;
     const rest = doc.text.slice(question[0].length);
-    const side = SIDE.exec(rest);
+    const roles = ROLES_OF.get(question[1]);
+    const roleTag = roles ? ROLE.exec(rest) : null;
+    const side = SIDE.exec(rest) || (roleTag && roles.includes(roleTag[1]) ? roleTag : null);
     return { key: `q|${question[1]}`, link: `问${question[1]}`, text: side ? rest.slice(side[0].length) : rest, side: side ? side[1] : '' };
   }
   function sideBadge(side) {
     const badge = document.createElement('span');
-    badge.className = `dm-side ${side === '正方' ? 'is-pro' : 'is-con'}`;
+    badge.className = `dm-side ${side === '正方' ? 'is-pro' : side === '反方' ? 'is-con' : 'is-role'}`;
     badge.textContent = side;
     return badge;
   }
@@ -709,7 +732,7 @@
           const bubble = document.createElement('div');
           const isNew = wallsPrimed && !before.includes(String(doc.id));
           fresh = fresh || isNew;
-          bubble.className = (isNew ? 'dm-bubble is-pop' : 'dm-bubble') + (tag.side ? (tag.side === '正方' ? ' is-pro' : ' is-con') : '');
+          bubble.className = (isNew ? 'dm-bubble is-pop' : 'dm-bubble') + (tag.side ? (tag.side === '正方' ? ' is-pro' : tag.side === '反方' ? ' is-con' : ' is-role') : '');
           const who = document.createElement('b');
           const realm = realmFor(doc);
           who.className = `is-r${realm ? realm.realm : 0}`;
@@ -738,7 +761,7 @@
         count.textContent = `共 ${list.length} 条`;
       } else if (count) count.remove();
     });
-    // 辩论质询卡片头：两方合计
+    // 辩论质询、圆桌表态卡片头：各栏合计
     document.querySelectorAll('.dmq-card.is-debate').forEach((card) => {
       const total = Array.from(card.querySelectorAll('[data-side-count]')).reduce((sum, el) => sum + (parseInt(el.textContent, 10) || 0), 0);
       card.querySelector('.dmq-count').textContent = total ? `共 ${total} 条` : '';

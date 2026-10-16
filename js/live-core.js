@@ -10,13 +10,14 @@
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
+ *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -65,6 +66,8 @@
   const LIKE = { limit: 10, points: 5, perStudent: 2 };
   // 猜词游戏：每次课（同一课堂同一天）得分第一的一组（并列都算），老师在投屏页得分榜上给两人各加 points 修为（额外奖励，不计入满分）
   const WORDGAME = { points: 10 };
+  // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
+  const LEAVE = { points: 20 };
   // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）
   function realmOf(points, max) {
     const ratio = max > 0 ? Math.max(0, Math.min(1, points / max)) : 0;
@@ -499,6 +502,35 @@
           }
           return 'ok';
         }
+        // 请假（规则同 cloudbase-pg.sql 的 ck_request_leave / ck_my_leaves / ck_cancel_leave）
+        if (name === 'ck_request_leave' || name === 'ck_my_leaves' || name === 'ck_cancel_leave') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!me || !room || !room.class_id) return name === 'ck_my_leaves' ? [] : name === 'ck_cancel_leave' ? false : { status: 'login' };
+          const sid = sidKey(me.sid);
+          const rows = read('leaves');
+          const mine = rows.filter((row) => String(row.class_id) === String(room.class_id) && row.sid === sid);
+          const todayStr = today();
+          if (name === 'ck_my_leaves') return mine.sort((a, b) => b.start_day.localeCompare(a.start_day) || b.id - a.id).slice(0, 30);
+          if (name === 'ck_cancel_leave') {
+            const target = mine.find((row) => String(row.id) === String(params.p_id) && row.end_day >= todayStr);
+            if (!target) return false;
+            write('leaves', rows.filter((row) => row !== target));
+            return true;
+          }
+          const day = (text) => (/^\d{4}-\d{2}-\d{2}$/.test(String(text)) && !Number.isNaN(Date.parse(`${text}T00:00:00Z`)) ? String(text) : null);
+          const start = day(params.p_start), end = day(params.p_end);
+          const offset = (text) => Math.round((Date.parse(`${text}T00:00:00Z`) - Date.parse(`${todayStr}T00:00:00Z`)) / 86400000);
+          if (!start || !end || end < start || offset(start) < -7 || offset(end) > 60 || offset(end) - offset(start) > 30) return { status: 'bad_date' };
+          const reason = String(params.p_reason || '').replace(/\s+/g, ' ').trim();
+          if (reason.length < 2 || reason.length > 200) return { status: 'bad_reason' };
+          if (mine.filter((row) => Date.now() - Date.parse(row.created_at) < 86400000).length >= 10) return { status: 'too_many' };
+          const row = { id: nextId(rows), course: room.course, class_id: room.class_id, sid, name: me.name, start_day: start, end_day: end, reason, owner: uid, created_at: new Date().toISOString() };
+          rows.push(row);
+          write('leaves', rows);
+          return { status: 'ok', id: row.id, start_day: start, end_day: end, reason };
+        }
         if (name === 'ck_submit_answer') {
           const uid = await this.ensureAnonymous();
           const room = read('classrooms').find((row) => row.id === params.p_classroom && row.is_current && row.submissions_open);
@@ -835,6 +867,7 @@
     colorFor,
     LIKE,
     WORDGAME,
+    LEAVE,
     realmOf,
     isClosedError,
     isDuplicateError,

@@ -66,6 +66,7 @@
     klass: null,               // 当前班级（含点名册 roster）
     openStudents: new Set(),   // 学生作答：已展开的学号
     openTexts: new Set(),      // 作业情况：已展开的文字题
+    leaves: [],                // 本班请假记录（ck_leaves）
   };
 
   // ---------------- 登录 ----------------
@@ -151,6 +152,8 @@
     stopWatching();
     state.room = null;
     await loadRooms(store.get(`room:${state.klass.id}`));
+    await loadLeaves();
+    renderCheckins();
     realmResult = null;
     realmSaved = '';
     renderRealms();
@@ -759,7 +762,7 @@
   };
   // 章节案例课程：每人递交过的题目（投票、推演每轮、配对整体、每道文字题各算一题）
   const caseKey = (doc) => (/^match-/.test(doc.item) ? `${doc.case}:match` : `${doc.case}:${doc.item}`);
-  // 实操改版案例另加客观题、辩论、圆桌（角色、秘密任务 3 题、表决）的题数（practice.count）
+  // 实操改版案例另加客观题、辩论、圆桌（认领角色）的题数（practice.count）
   const roomTotal = () => roomCases().reduce((sum, item) => sum + 2 + item.sim.rounds.length + (item.matching.clues.length ? 1 : 0) + (item.transfer ? 1 : 0) + item.items.length + ((item.practice && item.practice.count) || 0), 0);
   const caseProgress = () => {
     const cases = new Set(roomCases().map((item) => item.number));
@@ -812,6 +815,61 @@
   // 登录记录：选了日期只显示当天时间；全部日期时列出每一天第一次登录的时间
   const loginText = (row, day) => (day ? clock(row.days.get(day))
     : Array.from(row.days.entries()).map(([d, ts]) => `${shortDay(d)} ${clock(ts).slice(0, 5)}`).join('、'));
+  // ---------------- 请假 ----------------
+  // 学生在章节页面板或首页提交（ck_request_leave），不需要审批；本班全部记录在“加入名单”下方，老师可以撤销不实的请假
+  async function loadLeaves() {
+    if (!state.klass) { state.leaves = []; return; }
+    try {
+      state.leaves = await backend.fetchAll('leaves', { class_id: Number(state.klass.id) || state.klass.id });
+    } catch (error) {
+      if (!missingTable(error)) console.warn('[请假] 记录没有读到：', error);
+      state.leaves = [];
+    }
+    renderLeaves();
+  }
+  const leavesOf = (sid, days) => state.leaves.filter((row) => sidKey(row.sid) === sidKey(sid) && days.some((day) => row.start_day <= day && day <= row.end_day));
+  const leaveRange = (row) => (row.start_day === row.end_day ? shortDay(row.start_day) : `${shortDay(row.start_day)}—${shortDay(row.end_day)}`);
+  // 本课堂的上课日：有登录记录的日期，当前课堂再加上今天
+  const roomDays = () => {
+    const days = new Set(state.docs.checkins.map(dayOf).filter(Boolean));
+    if (state.room && state.room.is_current) days.add(window.ClassLive.today());
+    return Array.from(days);
+  };
+  function renderLeaves() {
+    const box = $('[data-leave-box]');
+    if (!box) return;
+    const rows = state.leaves.slice().sort((a, b) => String(b.start_day).localeCompare(String(a.start_day)) || Number(b.id) - Number(a.id));
+    box.hidden = !state.klass;
+    $('[data-leave-count]').textContent = rows.length ? `（${rows.length} 条）` : '（暂无）';
+    $('[data-leave-rows]').innerHTML = rows.map((row) => `<tr><td class="tw-nowrap">${esc(leaveRange(row))}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
+      <td>${esc(row.reason)}</td><td class="tw-nowrap">${esc(isoDay(millis(row.created_at)))} ${esc(clock(millis(row.created_at)).slice(0, 5))}</td>
+      <td class="tw-col-action"><button type="button" class="tw-trash" data-leave-delete="${esc(row.id)}" title="撤销这条请假" aria-label="撤销 ${esc(row.name)} 的请假">${TRASH_ICON}</button></td></tr>`).join('')
+      || '<tr><td colspan="6" class="empty">本班还没有同学请假。</td></tr>';
+  }
+  $('[data-leave-rows]').addEventListener('click', async (event) => {
+    const trash = event.target.closest('[data-leave-delete]');
+    if (!trash) return;
+    const row = state.leaves.find((item) => String(item.id) === trash.dataset.leaveDelete);
+    if (!row || !window.confirm(`撤销 ${row.name}（${row.sid}）${leaveRange(row)} 的请假吗？撤销后那几天按未登录处理（结算修为时也不再计请假）。`)) return;
+    const status = $('[data-leave-status]');
+    try {
+      await backend.removeAll('leaves', { id: Number(row.id) || row.id });
+      status.textContent = `已撤销 ${row.name} ${leaveRange(row)} 的请假。`;
+    } catch (error) {
+      console.error(error);
+      status.textContent = `撤销失败：${error.message || error}`;
+    }
+    await loadLeaves();
+    renderCheckins();
+  });
+  // 回到工作台窗口、或每隔 1 分钟：重新读取请假记录（学生随时可能提交）
+  const refreshLeaves = async () => {
+    if (!state.klass || $('[data-app]').hidden || document.hidden) return;
+    await loadLeaves();
+    renderCheckins();
+  };
+  window.addEventListener('focus', refreshLeaves);
+  setInterval(refreshLeaves, 60000);
   $('[data-roster-filter]').addEventListener('change', renderCheckins);
   function renderCheckins() {
     const submitted = submissions();
@@ -841,26 +899,32 @@
       }).join('') || `<tr><td colspan="9" class="empty">${day ? '这一天没有登录记录。' : '还没有学生加入这个课堂。把课堂码或加入链接展示给学生。'}</td></tr>`;
       return;
     }
-    // 按点名册核对：已登录 / 未登录 / 名单外
+    // 按点名册核对：已登录 / 请假 / 未登录 / 名单外（请假看选中的那一天；全部日期时看本课堂各上课日）
     const joined = new Map(joinedList.map((row) => [sidKey(row.sid), row]));
     const inRoster = new Set(roster.map((person) => sidKey(person.sid)));
     const extra = joinedList.filter((row) => !inRoster.has(sidKey(row.sid)));
     const present = roster.filter((person) => joined.has(sidKey(person.sid))).length;
+    const scope = day ? [day] : roomDays();
+    const leaveOf = new Map(roster.map((person) => [sidKey(person.sid), leavesOf(person.sid, scope)]));
+    const onLeave = roster.filter((person) => !joined.has(sidKey(person.sid)) && leaveOf.get(sidKey(person.sid)).length).length;
     $('[data-roster-total]').textContent = roster.length;
     $('[data-roster-present]').textContent = present;
-    $('[data-roster-absent]').textContent = roster.length - present;
+    $('[data-roster-leave]').textContent = onLeave;
+    $('[data-roster-absent]').textContent = roster.length - present - onLeave;
     $('[data-roster-extra]').textContent = extra.length;
     const filter = $('[data-roster-filter]').value;
     $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>${day ? `${shortDay(day)} 登录` : '本次课堂'}</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
     const rosterRows = filter === 'extra' ? [] : roster.map((person, index) => ({ person, index, row: joined.get(sidKey(person.sid)) }))
-      .filter(({ row }) => filter === 'all' || (filter === 'present' ? row : !row))
+      .filter(({ person, row }) => filter === 'all' || (filter === 'present' ? row : filter === 'leave' ? !row && leaveOf.get(sidKey(person.sid)).length : !row && !leaveOf.get(sidKey(person.sid)).length))
       .filter(({ person, row }) => hit([person.sid, person.name, person.class, row && row.group_name, ...(row ? Array.from(row.names) : [])]));
     const extraRows = filter === 'all' || filter === 'extra' ? extra.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names])) : [];
     $('[data-checkin-rows]').innerHTML = rosterRows.map(({ person, index, row }) => {
       const names = row ? Array.from(row.names) : [];
-      const remark = (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
-      return `<tr class="${row ? '' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
-        <td class="${row ? 'ok' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : '未登录'}</td>
+      const leave = leaveOf.get(sidKey(person.sid));
+      const leaveText = leave.length ? `请假（${leave.map((item) => `${leaveRange(item)}：${item.reason}`).join('；')}） ` : '';
+      const remark = leaveText + (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
+      return `<tr class="${row ? '' : leave.length ? 'tw-leave' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
+        <td class="${row ? 'ok' : leave.length ? 'leave' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : leave.length ? '请假' : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
         ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${person.extra ? deleteCell(row || { sid: person.sid, names: new Set([person.name]) }, true) : row ? deleteCell(row) : '<td></td>'}</tr>`;
     }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td>${esc(Array.from(row.names).join('、'))}</td>
@@ -1096,13 +1160,16 @@
     const joined = new Map(list.map((row) => [sidKey(row.sid), row]));
     const inRoster = new Set(rosterOf().map((p) => sidKey(p.sid)));
     const times = (row) => Array.from(row.days.entries()).map(([d, ts]) => `${d} ${clock(ts)}`).join('、');
+    const scope = day ? [day] : roomDays();
     const rows = rosterOf().map((p, i) => {
       const row = joined.get(sidKey(p.sid));
-      return [i + 1, p.sid, p.name, p.class, row ? '已登录' : '未登录', row ? times(row) : '', row ? Array.from(row.names).join('、') : '', row ? row.group_name : ''];
+      const leave = leavesOf(p.sid, scope);
+      return [i + 1, p.sid, p.name, p.class, row ? '已登录' : leave.length ? '请假' : '未登录', row ? times(row) : '', row ? Array.from(row.names).join('、') : '', row ? row.group_name : '',
+        leave.map((item) => `${leaveRange(item)} ${item.reason}`).join('；')];
     });
-    list.filter((row) => !inRoster.has(sidKey(row.sid))).forEach((row) => rows.push(['名单外', row.sid, '', row.class_name, '名单外登录', times(row), Array.from(row.names).join('、'), row.group_name]));
+    list.filter((row) => !inRoster.has(sidKey(row.sid))).forEach((row) => rows.push(['名单外', row.sid, '', row.class_name, '名单外登录', times(row), Array.from(row.names).join('、'), row.group_name, '']));
     download(`${course.title}_${safeName(state.klass.name)}_${safeName(state.room.name)}_考勤_${day || window.ClassLive.today()}.csv`,
-      csv([['序号', '学号', '姓名（点名册）', '班级（点名册）', day ? `${day} 登录` : '本次课堂', '登录时间（每天第一次）', '登录时填写的姓名', '小组'], ...rows]));
+      csv([['序号', '学号', '姓名（点名册）', '班级（点名册）', day ? `${day} 登录` : '本次课堂', '登录时间（每天第一次）', '登录时填写的姓名', '小组', '请假（日期 原因）'], ...rows]));
   });
   $('[data-attendance-export]').addEventListener('click', async () => {
     const info = $('[data-roster-info]');
@@ -1119,11 +1186,11 @@
         (days.length ? days : [isoDay(millis(room.created_at))]).forEach((day) => columns.push({ key: `${room.id}|${day}`, title: `${room.name}（${day}）` }));
       });
       checkins.forEach((doc) => { const key = sidKey(doc.sid); const set = seen.get(key) || new Set(); set.add(`${doc.classroom}|${dayOf(doc)}`); seen.set(key, set); });
-      const header = ['学号', '姓名', ...columns.map((column) => column.title), '出勤次数'];
+      const header = ['学号', '姓名', ...columns.map((column) => column.title), '出勤次数', '请假次数'];
       const line = (sid, name) => {
         const set = seen.get(sidKey(sid)) || new Set();
-        const marks = columns.map((column) => (set.has(column.key) ? '✓' : ''));
-        return [sid, name, ...marks, marks.filter(Boolean).length];
+        const marks = columns.map((column) => (set.has(column.key) ? '✓' : leavesOf(sid, [column.key.split('|')[1]]).length ? '假' : ''));
+        return [sid, name, ...marks, marks.filter((mark) => mark === '✓').length, marks.filter((mark) => mark === '假').length];
       };
       const rows = rosterOf().map((p) => line(p.sid, p.name));
       const inRoster = new Set(rosterOf().map((p) => sidKey(p.sid)));
@@ -1269,7 +1336,7 @@
       // 用猜词游戏代替圆桌会议的章节（如第二章）没有圆桌数据，猜词不在网上递交，这里不显示
       const roundtable = !P.roundtable ? '' : `
       <article class="tw-card wide">
-        <h2>圆桌会议 · 按角色看协商意见、秘密任务和表决 <small>${roleOf.size} 人选了角色</small></h2>
+        <h2>圆桌会议 · 按角色看三项议程的投票 <small>${roleOf.size} 人选了角色</small></h2>
         <table class="tw-table compact"><thead><tr><th>议程</th><th>角色</th><th>A</th><th>B</th><th>C</th><th>人数</th></tr></thead><tbody>
         ${P.roundtable.rounds.map((round) => {
           const rows = P.roundtable.roles.concat(['未选角色'])
@@ -1286,28 +1353,6 @@
           }).join('')}<td>${mine.length}</td></tr>`).join('');
         }).join('')}
         </tbody></table>
-        ${(() => {
-          // 秘密任务：题号相同、题目随角色不同，按角色核对；3 题全对＝完成秘密任务
-          const key = P.roundtable.tasks || {};
-          const answerOf = new Map(docs.filter((doc) => /^rt-task-[123]$/.test(doc.item)).map((doc) => [`${doc.sid}|${doc.item}`, String(doc.choice)]));
-          const taskRows = Object.keys(key).map((role) => {
-            const people = Array.from(roleOf.entries()).filter(([, chosen]) => chosen === role).map(([sid]) => sid);
-            const ok = (sid, i) => answerOf.get(`${sid}|rt-task-${i}`) === key[role][i - 1];
-            const done = people.filter((sid) => [1, 2, 3].every((i) => ok(sid, i))).length;
-            return `<tr><th>${esc(role)}</th><td>${people.length}</td>${[1, 2, 3].map((i) => `<td>${people.filter((sid) => ok(sid, i)).length}</td>`).join('')}<td class="${showRef ? 'is-answer' : ''}">${done}</td></tr>`;
-          }).join('');
-          const vote = P.roundtable.vote || [];
-          const voteRows = P.roundtable.roles.concat(['未选角色']).map((role) => {
-            const mine = docs.filter((doc) => doc.item === 'rt-vote' && (roleOf.get(doc.sid) || '未选角色') === role);
-            return mine.length ? `<tr><th>${esc(role)}</th>${vote.map(([choice]) => `<td>${mine.filter((doc) => String(doc.choice) === choice).length}</td>`).join('')}<td>${mine.length}</td></tr>` : '';
-          }).join('');
-          return `<p class="tw-q">秘密任务完成情况 <small>3 题全部答对＝完成</small></p>
-            <table class="tw-table compact"><thead><tr><th>角色</th><th>人数</th><th>题1 答对</th><th>题2 答对</th><th>题3 答对</th><th>完成秘密任务</th></tr></thead>
-            <tbody>${taskRows}</tbody></table>
-            <p class="tw-q">协商意见表决</p>
-            <table class="tw-table compact"><thead><tr><th>角色</th>${vote.map(([, label]) => `<th>${esc(label.split('：')[0])}</th>`).join('')}<th>人数</th></tr></thead>
-            <tbody>${voteRows || `<tr><td colspan="${vote.length + 2}">还没有人表决</td></tr>`}</tbody></table>`;
-        })()}
       </article>`;
       return P.groups.map(quizCard).join('') + debate + roundtable;
     })() : '';
@@ -1972,7 +2017,8 @@
   //   · 境界只由教师账号写入（ck_save_realms），点名册里没有的学号不结算。
   // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
   const REALMS = window.ClassLive.REALMS;
-  const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2 };
+  // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
+  const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
   const LIKE = window.ClassLive.LIKE || { limit: 10, points: 5, perStudent: 2 };
   const realmUnits = () => (CONCEPT
     ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
@@ -2013,13 +2059,8 @@
     (c.items || []).forEach((entry) => qs.push({ kind: 'text', items: [entry.key], min: 10 }));
     (P.groups || []).forEach((group) => group.items.forEach((q) => qs.push({ kind: 'obj', items: [q.key], score: (m) => (sameSet(m[q.key], q.answer) ? 1 : 0) })));
     if (P.debate) ['debate-pre', 'debate-post', 'debate-cards'].forEach((key) => qs.push({ kind: 'part', items: [key] }));
-    if (P.roundtable) {
-      const tasks = P.roundtable.tasks || {};
-      qs.push({ kind: 'part', items: ['rt-role'] });
-      [1, 2, 3].forEach((i) => qs.push({ kind: 'obj', items: [`rt-task-${i}`],
-        score: (m) => (tasks[m['rt-role']] && String(m[`rt-task-${i}`]) === String(tasks[m['rt-role']][i - 1]) ? 1 : 0) }));
-      qs.push({ kind: 'part', items: ['rt-vote'] });
-    }
+    // 圆桌会议（2026-10-16 简化）：只计认领角色；三项议程的投票在上面 sim-1—3 里（参与即可）
+    if (P.roundtable) qs.push({ kind: 'part', items: ['rt-role'] });
     return qs;
   }
   // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
@@ -2083,6 +2124,9 @@
       (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
         .forEach((doc) => gameBonus.set(sidKey(doc.sid), (gameBonus.get(sidKey(doc.sid)) || 0) + (Number(doc.points) || 0)));
     } catch (error) { if (!missingTable(error)) throw error; }
+    let leaves = [];
+    try { leaves = await backend.fetchAll('leaves', { class_id: Number(state.klass.id) || state.klass.id }); } catch (error) { if (!missingTable(error)) throw error; }
+    const leaveDay = (sid, day) => leaves.some((row) => sidKey(row.sid) === sid && row.start_day <= day && day <= row.end_day);
     const roster = rosterOf();
     const rosterMap = new Map(roster.map((person) => [sidKey(person.sid), person]));
     const people = new Map();   // 学号 → { sid, name, owners }
@@ -2131,14 +2175,20 @@
     });
     const max = realmMax();
     const rows = Array.from(people.values()).map((person) => {
-      const total = { attend: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0 };
+      const total = { attend: 0, leave: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0 };
+      let excusedTimes = 0;
       perUnit.forEach((info) => {
         const { u } = info;
         const m = u.meetings;
-        // 签到
+        // 签到、请假：上课日既没登录也没请假的单元不得修为
         if (info.held) {
           const mine = info.classDays.filter((day) => info.days.get(day).has(person.sid)).length;
-          total.attend += POINTS.attend * m * Math.min(mine, info.held) / info.held;
+          const excused = info.classDays.filter((day) => !info.days.get(day).has(person.sid) && leaveDay(person.sid, day)).length;
+          if (!mine && !excused) return;
+          const attended = Math.min(mine, info.held);
+          total.attend += POINTS.attend * m * attended / info.held;
+          total.leave += POINTS.leave * m * Math.min(excused, info.held - attended) / info.held;
+          excusedTimes += Math.min(excused, info.held - attended);
         }
         // 作答
         let done = 0;
@@ -2191,16 +2241,18 @@
         total.danmaku += Math.min(POINTS.danmaku * m, POINTS.perDanmaku * said.size);
         total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
       });
-      const points = Math.round((total.attend + total.done + total.right + total.danmaku + total.like + total.game) * 10) / 10;
+      const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game) * 10) / 10;
       const realm = window.ClassLive.realmOf(points, max);
       const round1 = (v) => Math.round(v * 10) / 10;
       return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
         title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,
-        detail: { attend: round1(total.attend), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game) } };
+        excused: excusedTimes,
+        detail: { attend: round1(total.attend), leave: round1(total.leave), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game) } };
     });
     rows.forEach((row) => {
       row.flags = [];
       if (!row.inRoster) row.flags.push('不在点名册（不结算境界）');
+      if (row.excused) row.flags.push(`请假 ${row.excused} 次`);
       if (row.owners > 1) row.flags.push(`${row.owners} 台设备登录过`);
       let same = 0;
       textOwners.forEach((sids) => { if (sids.size > 1 && sids.has(row.sid)) same += 1; });
@@ -2223,7 +2275,7 @@
     const meetings = realmUnits().reduce((s, u) => s + u.meetings, 0);
     $('[data-realm-legend]').innerHTML = REALMS.map((realm) => `${realmChip(realm.level)}<span>${realm.min ? `≥ ${Math.ceil(realm.min * max)} 修为（${Math.round(realm.min * 100)}%）` : '起步'}</span>`).join('');
     if (!realmResult) {
-      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}）。点“重新计算”查看本班修为。`;
+      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为）。点“重新计算”查看本班修为。`;
       box.innerHTML = '';
       return;
     }
@@ -2234,9 +2286,9 @@
       + ` 本班境界：${REALMS.map((realm, i) => `${realm.name} ${counts[i]} 人`).join('，')}。${realmSaved}`;
     box.innerHTML = rows.map((row, i) => `<tr class="${row.inRoster ? '' : 'is-muted'}"><td>${i + 1}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
       <td>${realmChip(row.realm, row.title)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
-      <td>${row.detail.attend}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td>
+      <td>${row.detail.attend}</td><td>${row.detail.leave || 0}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td>
       <td class="tw-realm-flags">${row.flags.map(esc).join('<br>')}</td></tr>`).join('')
-      || '<tr><td colspan="12" class="empty">本班还没有学生记录。</td></tr>';
+      || '<tr><td colspan="13" class="empty">本班还没有学生记录。</td></tr>';
   }
   async function refreshRealms(save, quiet) {
     if (!state.klass) return;
@@ -2266,10 +2318,10 @@
   $('[data-realm-search]').addEventListener('input', renderRealms);
   $('[data-realm-export]').addEventListener('click', () => {
     if (!realmResult) return;
-    const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.done,
+    const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
       row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一（额外）', '提示'], ...rows]));
   });
   // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
   async function autoSettle() {

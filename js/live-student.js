@@ -226,6 +226,7 @@
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
+  .clp-panel.is-gate .clp-gate-leave { margin: 8px 0 0 6px; padding: 8px 12px; border: 0; border-radius: 7px; color: #a4492d; background: #f5e7df; font: inherit; font-weight: 800; cursor: pointer; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
   .clp-q { margin: 10px 0 6px; padding: 8px 10px; border: 1px dashed rgba(35,101,95,.4); border-radius: 8px; background: rgba(228,239,235,.45); color: #201c18; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-q.is-locked { border-style: solid; background: rgba(228,239,235,.7); }
@@ -415,16 +416,19 @@
       const tag = `【问${index + 1}】`;
       // 辩论质询（习经 slot“NN-debate”）：弹幕自动加上【正方】或【反方】，按本人递交的辩前投票
       const debate = (/^(\d{2})-debate$/.exec(item.slot || '') || [])[1] || '';
+      // 圆桌表态（习经 slot“NN-roundtable”）：弹幕自动加上【角色名】，按本人递交的“认领角色”
+      const rt = (/^(\d{2})-roundtable$/.exec(item.slot || '') || [])[1] || '';
+      const roleRoom = rt ? Math.max(0, ...(item.roles || []).map((role) => role.length)) + 2 : 0;
       const card = document.createElement('section');
       card.className = 'clp-dmq';
       card.dataset.dmq = String(index + 1);
       card.innerHTML = `<div class="clp-dmq-head"><span class="clp-dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="clp-dmq-label">${esc(item.label)}</span></div>
         <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
-        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length - (debate ? 4 : 0)}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
+        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length - (debate ? 4 : roleRoom)}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
       if (slot) {
         slot.replaceChildren(card);
-        dmqCards.push({ card, tag, debate });
+        dmqCards.push({ card, tag, debate, rt });
         return;
       }
       const head = box.querySelector('.page-head');
@@ -433,7 +437,7 @@
       if (spot) spot.insertAdjacentElement('afterend', card);
       else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
-      dmqCards.push({ card, tag, debate });
+      dmqCards.push({ card, tag, debate, rt });
     });
   }
   // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在页面最后的“资料与延伸阅读”之后
@@ -771,6 +775,14 @@
     setTimeout(done, 60000);
   }
 
+  // 请假（live-leave.js）：面板上的“请假”打开请假框，凭本机登录过的课堂核对身份
+  function bindLeave() {
+    panel.addEventListener('click', (event) => {
+      if (!event.target.closest('[data-cl-leave]') || !window.ClassLeave || !backend) return;
+      window.ClassLeave.open({ backend, identity });
+    });
+  }
+
   // ---------- 面板 ----------
   const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-export="html">导出 HTML</button><button type="button" data-cl-export="pdf">导出 PDF</button></div>
     <p class="clp-hint" data-cl-export-state>导出内容：题目、我的作答、递交状态${questions.some((q) => q.extra) ? '、自检' : ''}和备注，方便课后复习。</p>`;
@@ -778,12 +790,13 @@
     panel.classList.add('is-gate');
     const elsewhere = identity.classroom && identity.course === config.course && identity.chapter && identity.chapter !== unit;
     panel.innerHTML = (elsewhere
-      ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>`
+      ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>${window.ClassLeave ? '<button type="button" class="clp-gate-leave" data-cl-leave>请假</button>' : ''}`
       : '<strong>还没有进入课堂</strong><div class="clp-room">请在首页输入老师发布的课堂码并填写个人信息，才能递交作答。本页可以写备注、导出复习。</div><a href="/">去登录</a>')
       + (questions.length ? tools : '');
     document.body.appendChild(panel);
     dodge();
     bindTools();
+    if (elsewhere) bindLeave();
     setupMechDanmaku(false, elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
     setupFeedback(false, elsewhere ? '本周课堂不在这一页，这里不能提交建议。' : '进入课堂后才能提交建议：请先在首页输入老师发布的课堂码。');
     return;
@@ -831,7 +844,7 @@
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
-        <span class="clp-links"><button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
+        <span class="clp-links">${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
       <div class="clp-sub">${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
@@ -871,6 +884,7 @@
     location.href = joinUrl();
   });
   setupFold();
+  bindLeave();
   if (window.ClassLive) window.ClassLive.attached = true;
   bindTools();
 
@@ -1170,6 +1184,7 @@
         <li>作答完成：每道题点“递交”就算（投票、站队也算）；要写的题认真写满一句话，只填几个字或留着空格线不算。</li>
         <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
+        <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 10} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -1188,20 +1203,30 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = '20261014-map';   // 沿用课程地图版（已撤下）的编号，看过的同学不再重复弹出
-  const NEWS_RANGE = ({ 'xjp-economy': '10 月 9 日—10 月 14 日' })[config.course] || '10 月 9 日—10 月 12 日';
+  const NEWS_ID = '20261016-roundtable';
+  const NEWS_RANGE = '10 月 9 日—10 月 16 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
+    const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { course: 'xjp-economy', title: '最新（10 月 14 日）', items: [
+      { title: '最新（10 月 15—16 日）', items: [
+        ['请假', `不能来上课时，点面板上姓名旁边的“请假”，选好日期、写明原因提交，老师在加入名单里能看到；没过完的请假可以撤销。请假的那次课计 ${leave} 修为（相当于签到），没有登录也没有请假的课不得任何修为。`],
+        ...(config.course === 'political-economy' ? [['使用说明', '页面右下角新增“使用说明”：每个案例怎么学、怎么递交、怎么翻页，都在里面。']] : []),
+        ...(config.course === 'xjp-economy' ? [
+          ['先读案例再投票', '第一课时改为先读案例，再投“课堂投票 · 前测”。'],
+          ['圆桌会议', '改为四步：认领角色 → 以角色身份发弹幕表态（自动带上【角色名】）→ 三项议程各投一票 → 老师揭晓参考方案，看看各方的底线守住没有、提案写进去没有。'],
+          ['猜词游戏', '第二课时圆桌会议之后加一轮本章概念猜词游戏：被抽到就上台，一人描述、一人猜。'],
+        ] : []),
+      ] },
+      { course: 'xjp-economy', title: '10 月 14 日', items: [
         ['理论知识点总结', '每章最后“资料与延伸阅读”新增“复习资料”一栏，按教材整理导论和第一至十五章的核心知识点，含教材原文、记忆口诀、易错判断和课后思考答题要点，点开直接定位到本章，可导出 PDF。'],
       ] },
       { course: 'xjp-economy', title: '案例课堂改版', items: [
         ['新题型', '每个案例增加单选、多选、判断题和出门测，每题做完点“递交”，递交后不能修改。'],
         ['辩论赛', '辩前投票投哪一方，就站在哪一方；质询弹幕会自动带上【正方】或【反方】。'],
-        ['圆桌协商', '递交角色后才能看到本方的秘密任务和 3 道专属题，全部答对就完成秘密任务；各方先陈述、再协商，最后形成协商意见并表决。'],
+        ['圆桌协商', '先递交角色，再以角色身份发弹幕表态，然后为三项议程各投一票，最后对照老师揭晓的参考方案。'],
         ['理论要点', '缩写的理论要点，点一下就能看到完整内容。'],
         ['章节末尾', '依次是本章知识点小结、资料与延伸阅读（可下载《习近平经济思想学习纲要》《习近平经济思想的生动实践述评》）、匿名建议箱。'],
       ] },
@@ -1515,7 +1540,7 @@
 
   // 弹幕小问题：与左下角弹幕、机制图弹幕共用每 5 秒一条的冷却
   function setupQuestionDanmaku(enabled, note) {
-    dmqCards.forEach(({ card, tag, debate }) => {
+    dmqCards.forEach(({ card, tag, debate, rt }) => {
       const form = card.querySelector('form');
       const input = form.querySelector('input');
       const button = form.querySelector('button');
@@ -1526,7 +1551,17 @@
       input.disabled = false;
       dmButtons.push({ button, ready: () => true });
       showCooling();
-      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。' : '写一句话后点“发送”，会显示在投屏上（老师开启匿名时不显示姓名）。');
+      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。'
+        : rt ? '先在上面“① 认领角色”里递交你代表的角色，再写一句话点“发送”：投屏上会标出你的角色。'
+        : '写一句话后点“发送”，会显示在投屏上（老师开启匿名时不显示姓名）。');
+      // 圆桌表态：角色以本人已递交的“认领角色”为准
+      const roleOf = () => {
+        const key = `${rt}:rt-role`;
+        if (!locked[key]) return '';
+        const group = document.querySelector(`[data-live-choice][data-live-case="${rt}"][data-live-item="rt-role"]`);
+        const pressedOption = group && group.querySelector('[data-live-option][aria-pressed="true"]');
+        return locked[key].v || (pressedOption && pressedOption.dataset.liveOption) || '';
+      };
       // 辩论质询：站哪一方以本人已递交的辩前投票为准（在别的设备递交的，看页面上恢复的选择）
       const sideOf = () => {
         const key = `${debate}:debate-pre`;
@@ -1540,7 +1575,9 @@
         event.preventDefault();
         const text = input.value.replace(/\s+/g, ' ').trim();
         if (!text || cooling > 0) return;
-        const side = debate ? sideOf() : '';
+        const role = rt ? roleOf() : '';
+        if (rt && !role) { say('请先在上面“① 认领角色”里选好你代表的一方并递交，弹幕才能标出你的角色。', 'error'); return; }
+        const side = debate ? sideOf() : role ? `【${role}】` : '';
         if (debate && !side) { say('请先在上面“① 辩前投票”里选好一方并递交，弹幕才能标出你是正方还是反方。', 'error'); return; }
         button.disabled = true;
         try {
@@ -1609,7 +1646,7 @@
       });
       list.push({
         key: `${box.dataset.liveCase}:${box.dataset.liveItem}`, section: caseTitle(box), title: box.dataset.quizTitle || '客观题',
-        // 圆桌会议的秘密任务题在学生递交角色后才填入题目，所以题干在用到时再读
+        // 题干在用到时再读（旧版圆桌会议的秘密任务题曾在递交角色后才填入）
         get prompt() { return textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断|选 \d+ 张)/, ''); },
         anchor: (bar) => box.appendChild(bar),
         read: () => { const value = picked(); return value.length ? value.join(',') : null; },

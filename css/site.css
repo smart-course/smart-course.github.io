@@ -118,3 +118,11 @@ main.wrap { padding: 40px 0 56px; }
   .join-row { grid-template-columns: 1fr; gap: 0; }
   .join-card { padding: 22px 18px; }
 }
+
+/* 首页请假入口（这台设备登录过时显示，请假框由 live-leave.js 提供） */
+.join-leave { margin: 12px 0 0; color: var(--muted); font-size: 14px; text-align: center; }
+.join-leave[hidden] { display: none; }
+.join-leave button { margin: 0 4px; padding: 4px 12px; border: 1.5px solid var(--rust); border-radius: 7px; background: var(--white); color: var(--rust); font: 800 14px/1.4 var(--sans); cursor: pointer; }
+.join-leave button:hover { background: var(--rust-soft); }
+.join-leave small { display: block; margin-top: 4px; font-size: 12.5px; }
+

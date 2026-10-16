@@ -36,6 +36,12 @@
   field('code').value = normalize(params.get('join') || '');
   ['name', 'sid', 'class_name', 'group_name'].forEach((key) => { if (saved[key]) field(key).value = saved[key]; });
   field('agree').checked = Boolean(saved.agreed);
+  // 请假（live-leave.js）：这台设备登录过（本机保存着身份）时，首页也能请假，不必先进课堂
+  const leaveBox = form.querySelector('[data-join-leave]');
+  if (leaveBox && window.ClassLeave && saved.classroom && saved.sid) {
+    leaveBox.hidden = false;
+    leaveBox.querySelector('[data-join-leave-open]').addEventListener('click', () => window.ClassLeave.open({ backend, identity: load() }));
+  }
   field('code').addEventListener('input', () => {
     const input = field('code');
     const position = input.selectionStart;
