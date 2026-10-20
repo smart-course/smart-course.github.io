@@ -2,7 +2,8 @@
  * 选择请假日期（从哪天到哪天）、填写原因，提交后老师在工作台“加入名单”的备注里看到“请假”和原因；
  * 请假的那次课计基础修为（ClassLive.LEAVE.points，相当于签到），没登录也没请假的课不得修为。
  * 后台函数：ck_request_leave / ck_my_leaves / ck_cancel_leave（凭本设备登录过的课堂核对是本班学生，只能给自己请假）。
- * 用法：ClassLeave.open({ backend, identity })，identity 是本机保存的学生身份（含 classroom、name、sid）。
+ * 用法：ClassLeave.open({ backend, identity })，identity 是本机保存的学生身份（含 classroom、name、sid）；
+ * 首页分不清是哪门课时传 identities（这台设备各门课最近一次登录的身份），请学生先选课程；notice：显示在顶部的提醒。
  */
 (function () {
   'use strict';
@@ -23,6 +24,11 @@
 .cl-leave-head h3{margin:0;font:800 21px/1.3 "Songti SC",STSong,SimSun,serif}
 .cl-leave-head button{width:34px;height:34px;border:1px solid #d7d7ca;border-radius:50%;background:#fff;color:#223832;font-size:20px;line-height:1;cursor:pointer}
 .cl-leave-who{margin:0 0 12px;color:#64706a;font-size:13.5px}
+.cl-leave-pick{margin:0 0 12px;padding:10px 12px;border:1.5px solid #e2a08a;border-radius:8px;background:#fff6f1}
+.cl-leave-pick[hidden]{display:none}
+.cl-leave-pick p{margin:0 0 6px;font-weight:800;font-size:14px;color:#7a2a14}
+.cl-leave .cl-leave-pick label{display:flex;align-items:center;gap:8px;margin:4px 0;font-weight:600}
+.cl-leave .cl-leave-pick input{display:inline-block;width:auto;margin:0;padding:0;border:0}
 .cl-leave-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:end;gap:8px}
 .cl-leave-row span{padding-bottom:10px;color:#64706a}
 .cl-leave label{display:block;font-weight:750;font-size:14px}
@@ -63,6 +69,7 @@
     box.innerHTML = `<form class="cl-leave-card" data-leave-form novalidate>
       <div class="cl-leave-head"><h3>请假</h3><button type="button" data-leave-close aria-label="关闭">×</button></div>
       <p class="cl-leave-who" data-leave-who></p>
+      <div class="cl-leave-pick" data-leave-pick hidden><p>这次请假是哪门课？</p><div data-leave-pick-list></div></div>
       <div class="cl-leave-row">
         <label>从<input type="date" name="start" required></label><span>到</span><label>（含）<input type="date" name="end" required></label>
       </div>
@@ -89,6 +96,14 @@
       event.stopPropagation();
     }, true);
     form.addEventListener('submit', submit);
+    box.querySelector('[data-leave-pick]').addEventListener('change', (event) => {
+      const chosen = ctx.choices[Number(event.target.value)];
+      if (!chosen) return;
+      ctx.identity = chosen;
+      box.querySelector('[data-leave-who]').textContent = whoText(chosen);
+      setError('');
+      loadMine();
+    });
     box.querySelector('[data-leave-mine]').addEventListener('click', cancel);
   }
   const setError = (text, ok) => {
@@ -122,6 +137,7 @@
     const form = event.currentTarget;
     const start = form.elements.start.value, end = form.elements.end.value || start;
     const text = form.elements.reason.value.replace(/\s+/g, ' ').trim();
+    if (!ctx.identity) { setError('先在上面选好这次请假是哪门课'); return; }
     if (!start) { setError('请选择请假日期'); form.elements.start.focus(); return; }
     if (end < start) { setError('结束日期不能早于开始日期'); form.elements.end.focus(); return; }
     if (text.length < 2) { setError('请写明请假原因'); form.elements.reason.focus(); return; }
@@ -171,10 +187,13 @@
     }
     loadMine();
   }
+  const COURSE_NAMES = { 'xjp-economy': '习近平经济思想概论', 'political-economy': '政治经济学' };
+  const whoText = (identity) => [identity.name, identity.sid, identity.class_name, COURSE_NAMES[identity.course] || identity.course].filter(Boolean).join(' · ');
   let lastFocus = null;
   function open(options) {
-    if (!options || !options.backend || !options.identity || !options.identity.classroom) return;
-    ctx = options;
+    const choices = ((options && options.identities) || []).filter((item) => item && item.classroom && item.sid);
+    if (!options || !options.backend || !((options.identity && options.identity.classroom) || choices.length)) return;
+    ctx = { backend: options.backend, identity: options.identity || (choices.length === 1 ? choices[0] : null), choices: options.identity ? [] : choices };
     if (!box) build();
     lastFocus = document.activeElement;
     const form = box.querySelector('[data-leave-form]');
@@ -185,12 +204,20 @@
     form.elements.end.max = shift(day, 60);
     if (!form.elements.start.value) { form.elements.start.value = day; form.elements.end.value = day; }
     const points = ((window.ClassLive && window.ClassLive.LEAVE) || {}).points || 20;
-    box.querySelector('[data-leave-who]').textContent = [ctx.identity.name, ctx.identity.sid, ctx.identity.class_name].filter(Boolean).join(' · ');
+    // 首页分不清是哪门课（这台设备登录过两门课、加入链接又是新的课堂码）：先选课程
+    const pick = box.querySelector('[data-leave-pick]');
+    const choosing = !ctx.identity && ctx.choices.length > 1;
+    pick.hidden = !choosing && !options.notice;
+    pick.querySelector('p').textContent = choosing ? '这次请假是哪门课？' : options.notice || '';
+    box.querySelector('[data-leave-pick-list]').innerHTML = !choosing ? '' : ctx.choices.map((item, index) =>
+      `<label><input type="radio" name="who" value="${index}">${esc(whoText(item))}</label>`).join('');
+    box.querySelector('[data-leave-who]').textContent = ctx.identity ? whoText(ctx.identity) : '';
     box.querySelector('[data-leave-note]').textContent = `请假的那次课计 ${points} 修为（相当于签到）；没有登录也没有请假的课，不得任何修为。`
       + '老师在加入名单的备注里能看到“请假”和你写的原因。还没过完的请假可以撤销。';
     setError('');
     box.hidden = false;
-    loadMine();
+    if (ctx.identity) loadMine();
+    else box.querySelector('[data-leave-mine]').innerHTML = '<p>先在上面选好课程。</p>';
     setTimeout(() => form.elements.reason.focus(), 30);
   }
   function close() {

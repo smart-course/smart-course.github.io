@@ -562,6 +562,91 @@
     }
   });
 
+  // 扫码登录：把加入链接做成二维码（vendor/qrcode-generator，本机生成，不经第三方），可全屏投屏或存成图片
+  const qrDialog = $('[data-qr-dialog]');
+  const qrTitle = () => [course.title, (chapterMap.get(state.room.chapter) && chapterLabel(state.room)) || state.room.name].filter(Boolean).join(' · ');
+  const qrSvg = (link) => {
+    const qr = window.qrcode(0, 'M');
+    qr.addData(link);
+    qr.make();
+    return qr.createSvgTag({ cellSize: 8, margin: 16, scalable: true, title: '扫码进入课堂' });
+  };
+  $('[data-show-qr]').addEventListener('click', () => {
+    if (!state.room) return;
+    if (!window.qrcode) { actionStatus('二维码组件没有加载成功，请刷新页面后再试'); return; }
+    const link = joinLink(state.room.code);
+    $('[data-qr-code]', qrDialog).innerHTML = qrSvg(link);
+    $('[data-qr-room]', qrDialog).textContent = qrTitle();
+    $('[data-qr-room-code]', qrDialog).textContent = state.room.code;
+    $('[data-qr-link]', qrDialog).textContent = link;
+    const warn = $('[data-qr-warn]', qrDialog);
+    warn.hidden = Boolean(state.room.is_current);
+    warn.textContent = state.room.is_current ? '' : '注意：这是历史课堂，课堂码现在不能登录。请先点“发布为当前课堂”，或选当前课堂再打开二维码。';
+    if (typeof qrDialog.showModal === 'function') qrDialog.showModal(); else qrDialog.setAttribute('open', '');
+  });
+  const setMax = (on) => {
+    qrDialog.classList.toggle('is-max', on);
+    $('[data-qr-full]', qrDialog).textContent = on ? '退出全屏' : '全屏投屏';
+  };
+  const closeQr = () => {
+    if (document.fullscreenElement) document.exitFullscreen().catch(() => {});
+    setMax(false);
+    if (typeof qrDialog.close === 'function') qrDialog.close(); else qrDialog.removeAttribute('open');
+  };
+  qrDialog.addEventListener('close', () => { if (document.fullscreenElement) document.exitFullscreen().catch(() => {}); setMax(false); });
+  $('[data-qr-close]', qrDialog).addEventListener('click', closeQr);
+  qrDialog.addEventListener('click', (event) => { if (event.target === qrDialog) closeQr(); });
+  // 全屏投屏：先请浏览器全屏；不允许（如嵌在别的页面里）就铺满浏览器窗口，需要时再按 F11
+  $('[data-qr-full]', qrDialog).addEventListener('click', () => {
+    const box = $('[data-qr-box]', qrDialog);
+    if (document.fullscreenElement) { document.exitFullscreen().catch(() => {}); return; }
+    if (qrDialog.classList.contains('is-max')) { setMax(false); return; }
+    if (box.requestFullscreen) box.requestFullscreen().then(() => setMax(false)).catch(() => setMax(true));
+    else setMax(true);
+  });
+  document.addEventListener('fullscreenchange', () => {
+    const on = document.fullscreenElement === $('[data-qr-box]', qrDialog);
+    $('[data-qr-full]', qrDialog).textContent = on || qrDialog.classList.contains('is-max') ? '退出全屏' : '全屏投屏';
+  });
+  $('[data-qr-copy]', qrDialog).addEventListener('click', async (event) => {
+    const button = event.currentTarget;
+    try { await navigator.clipboard.writeText(joinLink(state.room.code)); button.textContent = '已复制'; } catch (error) { button.textContent = '复制失败，请手动复制下方链接'; }
+    setTimeout(() => { button.textContent = '复制加入链接'; }, 2000);
+  });
+  // 保存成 PNG：二维码上方写课程和课堂、下方写课堂码，方便发到班级群或放进课件
+  $('[data-qr-png]', qrDialog).addEventListener('click', () => {
+    const link = joinLink(state.room.code);
+    const img = new Image();
+    img.onload = () => {
+      const W = 720, Q = 560, canvas = document.createElement('canvas');
+      canvas.width = W; canvas.height = 860;
+      const g = canvas.getContext('2d');
+      g.fillStyle = '#fff'; g.fillRect(0, 0, W, canvas.height);
+      g.fillStyle = '#201c18'; g.textAlign = 'center';
+      g.font = '700 30px "PingFang SC", "Microsoft YaHei", sans-serif';
+      g.fillText('扫码进入课堂', W / 2, 56);
+      // 标题太长时缩小字号，还放不下就截短
+      let size = 22, title = qrTitle();
+      const fontOf = (px) => `${px}px "PingFang SC", "Microsoft YaHei", sans-serif`;
+      g.font = fontOf(size);
+      while (size > 15 && g.measureText(title).width > W - 40) { size -= 1; g.font = fontOf(size); }
+      while (title.length > 4 && g.measureText(title).width > W - 40) title = title.slice(0, -2) + '…';
+      g.fillText(title, W / 2, 96);
+      g.drawImage(img, (W - Q) / 2, 120, Q, Q);
+      g.font = '700 34px "PingFang SC", "Microsoft YaHei", sans-serif';
+      g.fillText(`课堂码 ${state.room.code}`, W / 2, 730);
+      g.font = '18px "PingFang SC", "Microsoft YaHei", sans-serif';
+      g.fillStyle = '#6d6259';
+      g.fillText(link, W / 2, 776);
+      g.fillText('用手机相机或微信扫一扫，填写姓名、学号登录', W / 2, 812);
+      const a = document.createElement('a');
+      a.href = canvas.toDataURL('image/png');
+      a.download = `课堂二维码_${state.room.code}.png`;
+      a.click();
+    };
+    img.src = 'data:image/svg+xml;charset=utf-8,' + encodeURIComponent(qrSvg(link));
+  });
+
   // 发布本周课堂
   const dialog = $('[data-publish-dialog]');
   const publishForm = $('[data-publish-form]');

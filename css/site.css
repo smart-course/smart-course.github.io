@@ -125,4 +125,5 @@ main.wrap { padding: 40px 0 56px; }
 .join-leave button { margin: 0 4px; padding: 4px 12px; border: 1.5px solid var(--rust); border-radius: 7px; background: var(--white); color: var(--rust); font: 800 14px/1.4 var(--sans); cursor: pointer; }
 .join-leave button:hover { background: var(--rust-soft); }
 .join-leave small { display: block; margin-top: 4px; font-size: 12.5px; }
+.join-leave small.is-warn { margin-top: 8px; padding: 8px 10px; border: 1.5px solid #e2a08a; border-radius: 8px; background: #fff1ec; color: #7a2a14; font-size: 13px; line-height: 1.55; text-align: left; }
 

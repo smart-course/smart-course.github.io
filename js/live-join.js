@@ -18,6 +18,23 @@
   const SUBMIT_TEXT = '登录并进入课堂 →';
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null') || {}; } catch (error) { return {}; } };
   const save = (value) => { try { localStorage.setItem(STORE, JSON.stringify(value)); } catch (error) { /* 无痕模式等情况下忽略 */ } };
+  // 请假用：每门课最近一次登录的身份（STORE 只记最后一次，两门课都上的同学会互相覆盖）
+  const IDS_STORE = 'classlive-leave-ids';
+  const loadIds = () => {
+    let ids = {};
+    try { ids = JSON.parse(localStorage.getItem(IDS_STORE) || 'null') || {}; } catch (error) { ids = {}; }
+    const last = load();
+    if (last.classroom && last.sid && last.course && !ids[last.course]) ids[last.course] = last;
+    return ids;
+  };
+  const rememberId = (identity) => {
+    try {
+      const ids = loadIds();
+      ids[identity.course] = { course: identity.course, classroom: identity.classroom, code: identity.code, name: identity.name, sid: identity.sid,
+        class_name: identity.class_name, joined_at: identity.joined_at };
+      localStorage.setItem(IDS_STORE, JSON.stringify(ids));
+    } catch (error) { /* 忽略 */ }
+  };
   const showError = (message, focus) => { errorBox.textContent = message; if (focus) focus.focus(); };
   const hhmm = (value) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 
@@ -36,11 +53,27 @@
   field('code').value = normalize(params.get('join') || '');
   ['name', 'sid', 'class_name', 'group_name'].forEach((key) => { if (saved[key]) field(key).value = saved[key]; });
   field('agree').checked = Boolean(saved.agreed);
-  // 请假（live-leave.js）：这台设备登录过（本机保存着身份）时，首页也能请假，不必先进课堂
+  // 请假（live-leave.js）：首页也能请假，不必先进课堂。要凭这台设备登录过的课堂核对是本人，所以按课程记下每门课最近一次登录的身份：
+  // 加入链接的课堂码和某门课上次登录的课堂码相同就用那门课；分不清（两门课都登录过、课堂码又是新的）时请学生先选课程
   const leaveBox = form.querySelector('[data-join-leave]');
-  if (leaveBox && window.ClassLeave && saved.classroom && saved.sid) {
+  if (leaveBox && window.ClassLeave) {
     leaveBox.hidden = false;
-    leaveBox.querySelector('[data-join-leave-open]').addEventListener('click', () => window.ClassLeave.open({ backend, identity: load() }));
+    leaveBox.querySelector('[data-join-leave-open]').addEventListener('click', () => {
+      const ids = Object.values(loadIds()).filter((item) => item && item.classroom && item.sid)
+        .sort((a, b) => (b.joined_at || 0) - (a.joined_at || 0));
+      const tip = leaveBox.querySelector('[data-join-leave-tip]');
+      if (!ids.length) {
+        tip.textContent = '这台设备还没有登录过课堂，没法核对是你本人。请用上课时登录过的手机或电脑打开这个链接请假；都没有的话，请直接联系老师。';
+        tip.classList.add('is-warn');
+        return;
+      }
+      const code = normalize(field('code').value);
+      const same = ids.find((item) => item.code && item.code === code);
+      // 加入链接带了课堂码、但这台设备只登录过另一门课：照样用那门课，并提醒学生看清课程
+      const notice = !same && code && ids.length === 1
+        ? '注意：这台设备只登录过下面这门课。要给别的课请假，请用上那门课时登录过的手机或电脑。' : '';
+      window.ClassLeave.open(same || ids.length === 1 ? { backend, identity: same || ids[0], notice } : { backend, identities: ids });
+    });
   }
   field('code').addEventListener('input', () => {
     const input = field('code');
@@ -190,10 +223,12 @@
     // 当天已记过登录：章节页不再重复记（章节页每天第一次打开会自动补记，见 live-student）
     try { localStorage.setItem(`classlive-checkin:${room.classroom}`, JSON.stringify(window.ClassLive.today())); } catch (error) { /* 忽略 */ }
     // 姓名、学号按点名册上的写法保存，之后递交作答、发弹幕都用它
-    save({
+    const identity = {
       code: request.code, name: room.name || request.name, sid: room.sid || request.sid, class_name: request.className, group_name: request.groupName,
       agreed: true, course: room.course, chapter: room.chapter, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
-    });
+    };
+    save(identity);
+    rememberId(identity);
     clearPins();
     button.disabled = true;
     button.textContent = '正在进入课堂……';
