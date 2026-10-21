@@ -425,6 +425,7 @@
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('presence', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('puzzleguesses', where); await backend.removeAll('puzzles', where); } catch (error) { if (!missingTable(error)) throw error; }
     await backend.removeAll('classrooms', { id: Number(room.id) });
     const wasSelected = state.room && String(state.room.id) === String(room.id);
     if (wasSelected) {
@@ -1074,6 +1075,7 @@
       for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
       try { await backend.removeAll('bonus', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
       try { await backend.removeAll('presence', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
+      try { await backend.removeAll('puzzleguesses', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
       let done = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
       if (extra && klass) {
         // 撤销允许（同“登录安全”里的“撤销允许”）：从本班点名册移除、解除已登录的设备
@@ -2240,7 +2242,7 @@
     for (const kind of kinds) {
       docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)));
     }
-    // 猜词游戏第一名的额外修为（老师在投屏页得分榜上发放；后台还没有这张表时按 0 算）
+    // 猜词游戏第一名、情境猜谜第一个猜中的额外修为（ck_bonus 的 wordgame、puzzle 两类；后台还没有这张表时按 0 算）
     const gameBonus = new Map();
     try {
       (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
@@ -2397,7 +2399,7 @@
     const meetings = realmUnits().reduce((s, u) => s + u.meetings, 0);
     $('[data-realm-legend]').innerHTML = REALMS.map((realm) => `${realmChip(realm.level)}<span>${realm.min ? `≥ ${Math.ceil(realm.min * max)} 修为（${Math.round(realm.min * 100)}%）` : '起步'}</span>`).join('');
     if (!realmResult) {
-      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为）。点“重新计算”查看本班修为。`;
+      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}；情境猜谜第一个猜中另加 ${(window.ClassLive.PUZZLE || {}).points || 5}；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为）。点“重新计算”查看本班修为。`;
       box.innerHTML = '';
       return;
     }
@@ -2443,7 +2445,7 @@
     const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
       row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答（额外）', '提示'], ...rows]));
   });
   // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
   async function autoSettle() {

@@ -207,6 +207,26 @@
   .clp-dmq-state[data-state="ok"] { color: #23655f; }
   .clp-dmq-state[data-state="error"] { color: #a4492d; }
   @media print { .clp-dmq { display: none !important; } }
+  .clp-subm { margin: 22px 0 8px; padding: 16px 18px; border: 1.5px solid rgba(164,73,45,.35); border-radius: 12px; background: #fffaf3; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-sub-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .clp-sub-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
+  .clp-sub-who { color: #6d6259; font-size: 13px; }
+  .clp-sub-head button { margin-left: auto; padding: 5px 12px; border: 1.5px solid rgba(164,73,45,.45); border-radius: 8px; background: #fff; color: #a4492d; font: 800 13px/1.2 inherit; cursor: pointer; }
+  .clp-sub-big { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 6px; }
+  .clp-sub-big b { font-size: 30px; line-height: 1; color: #a4492d; }
+  .clp-sub-big.is-all b { color: #23655f; }
+  .clp-sub-bar { height: 8px; border-radius: 999px; background: rgba(70,51,34,.12); overflow: hidden; }
+  .clp-sub-bar i { display: block; height: 100%; width: 0; background: #a4492d; transition: width .4s; }
+  .clp-sub-big.is-all + .clp-sub-bar i { background: #23655f; }
+  .clp-sub-state { margin: 8px 0 4px; font-weight: 700; }
+  .clp-sub-state[data-state="ok"] { color: #23655f; }
+  .clp-sub-state[data-state="error"] { color: #a4492d; }
+  .clp-subm details { margin-top: 6px; }
+  .clp-subm summary { cursor: pointer; color: #a4492d; font-weight: 700; }
+  .clp-subm ol { margin: 6px 0 0; padding-left: 22px; }
+  .clp-subm li button { padding: 0; border: 0; background: none; color: #23655f; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; }
+  .clp-subm li small { color: #6d6259; margin-left: 6px; }
+  .clp-sub-note { margin: 8px 0 0; color: #6d6259; font-size: 12.5px; }
   .clp-fb { margin: 28px 0 8px; padding: 16px 18px; border: 1.5px solid rgba(35,101,95,.35); border-radius: 12px; background: #f4f8f6; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .clp-fb-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #23655f; font-weight: 800; font-size: 13px; }
@@ -297,6 +317,21 @@
   .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; }
   .clp-v2 .clp-sec-note[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-v2 .clp-relogin { margin: 0 0 10px; }
+  .clp-v2 .clp-pz { background: linear-gradient(180deg, #fff3d6, #fffaf0); }
+  .clp-v2 .clp-pz .clp-sec-title { color: #a4492d; }
+  .clp-pz-form { display: flex; gap: 8px; margin: 0; }
+  .clp-pz-form input { flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 12px; border: 1.5px solid #dcae57; border-radius: 12px; background: #fff; color: #2b2118; font-size: 16px; }
+  .clp-pz-form input:focus { outline: none; box-shadow: 0 0 0 3px rgba(220,174,87,.35); }
+  .clp-pz-form button { min-width: 74px; height: 40px; padding: 0 14px; border: 0; border-radius: 12px; color: #fff; background: #a4492d; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
+  .clp-pz-form :disabled { opacity: .55; cursor: default; }
+  .clp-pz-surface { margin: 0 0 7px; color: #5b4a3a; font-size: 13px; }
+  .clp-pz-surface summary { color: #a4492d; font-weight: 700; cursor: pointer; }
+  .clp-pz-surface p { margin: 4px 0 0; line-height: 1.6; }
+  .clp-pz .clp-hint { margin: 6px 0 0; }
+  .clp-pz .clp-hint[data-state=ok] { color: #23655f; font-weight: 800; }
+  .clp-pz .clp-hint[data-state=bad] { color: #a4492d; font-weight: 700; }
+  .clp-pz.is-won { animation: clp-pz-pop .7s ease; }
+  @keyframes clp-pz-pop { 0% { transform: scale(.96); } 50% { transform: scale(1.03); } 100% { transform: none; } }
   .clp-v2 .clp-danmaku { gap: 8px; margin: 0; padding: 0; border: 0; }
   .clp-v2 .clp-dm-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; }
   .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 40px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
@@ -375,6 +410,95 @@
     background-size: 100% 100%, 300% 100%; box-shadow: 0 6px 16px rgba(0,0,0,.25), 0 0 12px rgba(255,214,110,.6); animation: clp-flow 3s linear infinite; }
   .clp-mini-dot { position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #c8452d; }
   .clp-mini-dot[hidden] { display: none; }
+  /* 修为榜：面板头部的金色按钮＋星空弹窗（前三名领奖台、第四名起逐行飞入、本人高亮） */
+  .clp-v2 .clp-sub { display: flex; align-items: center; gap: 8px; }
+  .clp-v2 .clp-sub > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clp-rankbtn { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; overflow: hidden; border: 1px solid #b8801a; border-radius: 999px;
+    color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 55%, #d9a032); box-shadow: 0 0 8px rgba(242,198,79,.45), inset 0 1px 0 rgba(255,255,255,.8);
+    font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
+  .clp-rankbtn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .clp-rankbtn::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.8) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat; animation: clp-sweep 3.6s ease-in-out 1.2s infinite; }
+  @keyframes clp-sweep { to { background-position: 260% 0; } }
+  .clp-rank-link { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 2px; padding: 4px 12px; border: 1px solid #b8801a; border-radius: 999px;
+    color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f); font: 800 13px/1.5 inherit; cursor: pointer; }
+  .clp-rank-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .clp-rank-modal { background: rgba(8,6,16,.62); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
+  .clp-rank-card { position: relative; isolation: isolate; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 16px 18px 18px; border: 1px solid rgba(255,214,110,.35); border-radius: 18px;
+    color: #f4ecff; background: radial-gradient(ellipse at 50% -10%, #43307a 0%, #1a1233 46%, #0b0914 100%);
+    box-shadow: 0 24px 70px rgba(0,0,0,.55), 0 0 40px rgba(185,140,255,.2); font: 14px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-rank-stars { position: absolute; inset: 0; z-index: -1; pointer-events: none; border-radius: inherit;
+    background-image: radial-gradient(1.3px 1.3px at 12% 18%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 28% 62%, #ffe8a8 50%, transparent 51%),
+      radial-gradient(1.5px 1.5px at 46% 9%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 66% 40%, #cfe6ff 50%, transparent 51%),
+      radial-gradient(1.4px 1.4px at 86% 20%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 92% 72%, #ffd6f0 50%, transparent 51%),
+      radial-gradient(1.2px 1.2px at 7% 86%, #fff 50%, transparent 51%), radial-gradient(1px 1px at 58% 92%, #fff 50%, transparent 51%);
+    background-size: 220px 260px; animation: clp-twinkle 3.2s ease-in-out infinite; }
+  .clp-rank-stars.is-b { background-position: 90px 130px; animation-delay: 1.6s; }
+  .clp-rank-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .clp-rank-head span { color: rgba(244,236,255,.66); font-size: 12.5px; letter-spacing: .06em; }
+  .clp-rank-head h3 { margin: 0; font: 900 30px/1.25 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: .2em; color: #ffd36b;
+    background: linear-gradient(90deg, #fff3c4, #ffd36b 30%, #ff9fd0 50%, #ffd36b 70%, #fff3c4) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 10px rgba(255,200,90,.45)); animation: clp-rank-shine 4s linear infinite; }
+  @keyframes clp-rank-shine { to { background-position: -220% 0; } }
+  .clp-rank-head button { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid rgba(255,255,255,.22); border-radius: 50%; background: rgba(255,255,255,.06); color: #f4ecff; font-size: 20px; line-height: 1; cursor: pointer; }
+  .clp-rank-meta { margin: 0 0 4px; color: rgba(244,236,255,.6); font-size: 12px; }
+  .clp-podium { display: grid; grid-template-columns: 1fr 1.18fr 1fr; align-items: end; gap: 8px; margin: 30px 0 12px; }
+  .clp-pod { position: relative; display: flex; flex-direction: column; align-items: center; gap: 5px; min-width: 0;
+    animation: clp-pod-in .65s cubic-bezier(.2,.9,.3,1.25) both; animation-delay: calc(var(--d, 0) * .18s + .25s); }
+  @keyframes clp-pod-in { from { opacity: 0; transform: translateY(26px) scale(.85); } }
+  .clp-pod.is-empty { visibility: hidden; }
+  .clp-ava, .clp-rank-ava { position: relative; display: grid; place-items: center; border-radius: 50%; font-family: "Kaiti SC", STKaiti, KaiTi, serif; font-weight: 800; }
+  .clp-ava { width: 52px; height: 52px; font-size: 24px; }
+  .clp-pod.is-1 .clp-ava { width: 68px; height: 68px; font-size: 32px; }
+  .clp-ava::before { content: ''; position: absolute; inset: -7px; z-index: -1; border-radius: 50%; opacity: 0;
+    background: conic-gradient(#ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b); filter: blur(2px); animation: clp-rank-spin 5s linear infinite; }
+  @keyframes clp-rank-spin { to { transform: rotate(1turn); } }
+  .clp-pod.is-1 .clp-ava::before { opacity: 1; }
+  .clp-pod.is-1 .clp-ava { box-shadow: 0 0 0 3px #ffd36b, 0 0 26px rgba(255,211,107,.8); }
+  .clp-pod.is-2 .clp-ava { box-shadow: 0 0 0 3px #dfe3ec, 0 0 16px rgba(220,226,240,.55); }
+  .clp-pod.is-3 .clp-ava { box-shadow: 0 0 0 3px #d79a63, 0 0 16px rgba(215,154,99,.5); }
+  .clp-ava.is-r0, .clp-rank-ava.is-r0 { color: #4a443c; background: radial-gradient(circle at 35% 30%, #f1ece2, #d9d4ca 60%, #b9b1a3); }
+  .clp-ava.is-r1, .clp-rank-ava.is-r1 { color: #f2fffa; background: radial-gradient(circle at 35% 30%, #9fe3cc, #3fa88d 55%, #2a7d69); text-shadow: 0 1px 1px rgba(10,60,48,.6); }
+  .clp-ava.is-r2, .clp-rank-ava.is-r2 { color: #3e2400; background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c64f 45%, #b8801a); }
+  .clp-ava.is-r3, .clp-rank-ava.is-r3 { color: #f6eaff; background: radial-gradient(circle at 35% 30%, #8a55ea, #4b1d8f 60%, #3a1673); text-shadow: 0 0 6px rgba(220,190,255,.8); }
+  .clp-ava.is-r4, .clp-rank-ava.is-r4 { color: #ffe08a; background: radial-gradient(circle at 35% 30%, #4a3478, #140d24 72%); text-shadow: 0 0 8px rgba(255,214,110,.9); }
+  .clp-crown { position: absolute; z-index: 2; top: -30px; left: 50%; width: 48px; transform: translateX(-50%) rotate(-8deg); filter: drop-shadow(0 0 8px rgba(255,211,107,.85)); animation: clp-crown 2.6s ease-in-out infinite; }
+  .clp-crown svg { display: block; width: 100%; height: auto; }
+  @keyframes clp-crown { 50% { transform: translateX(-50%) translateY(-4px) rotate(5deg); } }
+  .clp-pod-name { max-width: 100%; overflow: hidden; color: #fff; font-size: 14.5px; text-overflow: ellipsis; white-space: nowrap; }
+  .clp-pod.is-1 .clp-pod-name { color: #ffe8a8; font-size: 16px; text-shadow: 0 0 10px rgba(255,211,107,.6); }
+  .clp-pod .clp-realm, .clp-rank-row .clp-realm, .clp-rank-mine .clp-realm { margin: 0; font-size: 12px; cursor: default; white-space: nowrap; }
+  .clp-pod-base { position: relative; display: grid; place-items: center; width: 100%; margin-top: 3px; overflow: hidden; border-radius: 10px 10px 4px 4px;
+    transform-origin: bottom; animation: clp-base-up .7s cubic-bezier(.2,.9,.3,1) both; animation-delay: calc(var(--d, 0) * .18s); }
+  @keyframes clp-base-up { from { transform: scaleY(0); } }
+  .clp-pod.is-1 .clp-pod-base { height: 78px; background: linear-gradient(180deg, #ffe7a3, #f2c64f 40%, #a8720f); box-shadow: 0 0 24px rgba(255,200,80,.5), inset 0 2px 0 rgba(255,255,255,.7); }
+  .clp-pod.is-2 .clp-pod-base { height: 56px; background: linear-gradient(180deg, #f6f8fc, #c3c9d6 45%, #7f8796); box-shadow: inset 0 2px 0 rgba(255,255,255,.8); }
+  .clp-pod.is-3 .clp-pod-base { height: 42px; background: linear-gradient(180deg, #f7d2ac, #d79a63 45%, #8e5528); box-shadow: inset 0 2px 0 rgba(255,255,255,.6); }
+  .clp-pod-base::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.6) 50%, transparent 70%) -160% 0 / 220% 100% no-repeat;
+    animation: clp-sweep 3.2s ease-in-out 1.4s infinite; }
+  .clp-pod-base em { font: italic 900 30px/1 Georgia, "Times New Roman", serif; color: rgba(60,36,0,.78); text-shadow: 0 1px 0 rgba(255,255,255,.6); }
+  .clp-pod.is-1 .clp-pod-base em { font-size: 40px; }
+  .clp-pod.is-2 .clp-pod-base em { color: rgba(40,46,60,.75); }
+  .clp-pod-name i, .clp-rank-name i { margin-left: 4px; padding: 0 6px; border-radius: 999px; background: #c8452d; color: #fff; font: 800 11px/1.6 -apple-system, "PingFang SC", sans-serif; font-style: normal; vertical-align: 2px; }
+  .clp-pod.is-me .clp-ava { outline: 2px dashed #ffd36b; outline-offset: 5px; }
+  .clp-rank-list { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; }
+  .clp-rank-row { display: flex; align-items: center; gap: 10px; padding: 7px 10px; border: 1px solid rgba(255,255,255,.08); border-radius: 12px;
+    background: linear-gradient(90deg, rgba(255,255,255,.08), rgba(255,255,255,.02)); animation: clp-row-in .45s ease both; animation-delay: calc(.8s + var(--i, 0) * .08s); }
+  @keyframes clp-row-in { from { opacity: 0; transform: translateX(-22px); } }
+  .clp-rank-no { flex: 0 0 26px; color: rgba(244,236,255,.75); font: italic 900 19px/1 Georgia, "Times New Roman", serif; text-align: center; }
+  .clp-rank-ava { flex: 0 0 30px; width: 30px; height: 30px; font-size: 15px; }
+  .clp-rank-name { flex: 1 1 auto; min-width: 0; overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+  .clp-rank-row.is-me { border-color: rgba(255,211,107,.75); background: linear-gradient(90deg, rgba(255,211,107,.24), rgba(255,211,107,.05)); box-shadow: 0 0 16px rgba(255,211,107,.28); }
+  .clp-rank-mine { margin: 12px 0 0; padding: 10px 12px; border: 1px dashed rgba(255,211,107,.55); border-radius: 12px; background: rgba(255,211,107,.08); color: #ffe8a8; font-weight: 700; }
+  .clp-rank-note { margin: 10px 0 0; color: rgba(244,236,255,.5); font-size: 11.5px; line-height: 1.55; }
+  .clp-rank-state { margin: 28px 0 20px; color: rgba(244,236,255,.82); text-align: center; }
+  @media (max-width: 420px) {
+    .clp-rank-card { padding: 14px 12px 16px; }
+    .clp-ava { width: 44px; height: 44px; font-size: 20px; }
+    .clp-pod.is-1 .clp-ava { width: 56px; height: 56px; font-size: 26px; }
+    .clp-pod .clp-realm { font-size: 11px; padding: 0 5px; }
+  }
+  @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after { animation: none !important; } }
   @media (max-width: 700px) {
     .clp-panel.clp-v2.is-folded { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
     .clp-panel.clp-v2.is-folded > :not(.clp-mini) { display: none; }
@@ -651,6 +775,7 @@
       }
     }
     refreshCount();
+    document.dispatchEvent(new Event('classlive:submitted'));
   }
   // 概念学习课程：服务器返回本人已递交的全部题目（可能来自另一台设备）
   function syncKeys(keys) {
@@ -841,16 +966,26 @@
   // 已进入课堂的面板：境界头部（编号、姓名、称号、学号·班级·课堂、距下一境界）→ 发弹幕（字色、法宝）→ 作答进度 → 我发过的弹幕
   panel.classList.add('clp-v2', 'is-r0');
   const STAR = '<i class="clp-star" aria-hidden="true">✦</i>';
+  const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4.5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1.5A3 3 0 0 0 7 10.5M17 6h3v1.5a3 3 0 0 1-3 3M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></svg>';
   const DM_HINT = '投屏可见 · 老师能看到发送人 · 请文明发言';
   panel.innerHTML = `
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
         <span class="clp-links">${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
-      <div class="clp-sub">${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</div>
+      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button></div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
+      <section class="clp-sec clp-pz" data-cl-pz hidden>
+        <div class="clp-sec-head"><span class="clp-sec-title">情境猜谜抢答</span><span class="clp-sec-note" data-cl-pz-label></span></div>
+        <details class="clp-pz-surface" data-cl-pz-surface hidden><summary>看汤面</summary><p></p></details>
+        <form class="clp-pz-form" data-cl-pz-form>
+          <input type="text" maxlength="20" placeholder="输入谜底（一个概念）" aria-label="情境猜谜的谜底" autocomplete="off">
+          <button type="submit">抢答</button>
+        </form>
+        <p class="clp-hint" data-cl-pz-state role="status"></p>
+      </section>
       <section class="clp-sec">
         <div class="clp-relogin" data-cl-relogin hidden><b>请回首页重新登录</b>：本课堂要核对身份（课堂码＋点名册＋个人口令），核对通过后才能递交作答、发弹幕。<a href="${joinUrl()}" data-cl-relogin-link>去首页登录 →</a></div>
         <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span></div>
@@ -1136,6 +1271,203 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
   }
 
+  // 情境猜谜抢答：老师在投屏页出题时开一轮（ck_puzzle_open）；本面板在页面前台时每 15 秒问一次后台有没有正在进行的一轮（ck_puzzle_live），
+  // 有就在面板最上方显示输入框。谜底由后台核对（学生页拿不到谜底），每题最多猜 PUZZLE.tries 次，第一个猜中的自动加修为；
+  // 后台还没有这组函数（未执行 SQL）时安静停止
+  if (!PREVIEW) setupPuzzle();
+  function setupPuzzle() {
+    const sec = panel.querySelector('[data-cl-pz]');
+    const form = sec.querySelector('[data-cl-pz-form]');
+    const input = form.querySelector('input');
+    const button = form.querySelector('button');
+    const stateEl = sec.querySelector('[data-cl-pz-state]');
+    const labelEl = sec.querySelector('[data-cl-pz-label]');
+    const surfaceBox = sec.querySelector('[data-cl-pz-surface]');
+    const P = Live.PUZZLE || { points: 5, tries: 3 };
+    const room = Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    let round = null;
+    let off = false;
+    let busy = false;
+    const say = (text, state) => { stateEl.textContent = text; stateEl.dataset.state = state || ''; };
+    function apply(data) {
+      if (!data || data.status !== 'open') {
+        round = null;
+        sec.hidden = true;
+        return;
+      }
+      const fresh = !round || String(round.round) !== String(data.round);
+      round = data;
+      sec.hidden = false;
+      labelEl.textContent = `${data.label || '这一题'}进行中`;
+      surfaceBox.hidden = !data.surface;
+      surfaceBox.querySelector('p').textContent = data.surface || '';
+      if (fresh) {
+        input.value = '';
+        sec.classList.remove('is-won');
+        // 新的一轮：面板收起时展开一次，方便马上抢答
+        if (panel.classList.contains('is-folded')) panel.querySelector('[data-cl-fold]').click();
+      }
+      const tries = data.tries || P.tries;
+      const used = Number(data.used) || 0;
+      const done = data.mine === 'won' || data.mine === 'right' || used >= tries;
+      input.disabled = done;
+      button.disabled = done;
+      if (data.mine === 'won') say(`恭喜！你第一个猜中，修为 +${data.points || P.points}（老师结算修为时计入）。`, 'ok');
+      else if (data.mine === 'right') say('你猜对了！不过已经有同学抢先一步，等老师揭晓汤底吧。', 'ok');
+      else if (used >= tries) say(`${tries} 次机会已经用完，等老师揭晓谜底吧。`, '');
+      else say(`${data.won ? '已经有同学猜中了，你也可以试试' : `第一个猜中的同学加 ${data.points || P.points} 修为`}；每题最多猜 ${tries} 次${used ? `，还剩 ${tries - used} 次` : ''}。`, '');
+    }
+    async function check() {
+      if (off || document.hidden || loginNeeded) return;
+      try {
+        const result = await backend.rpc('ck_puzzle_live', { p_classroom: room });
+        apply(Array.isArray(result) ? result[0] : result);
+      } catch (problem) {
+        if (missing(problem)) { off = true; sec.hidden = true; }
+      }
+    }
+    form.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const text = input.value.trim();
+      if (!round || busy) return;
+      if (!text) { say('先输入谜底再抢答。', 'bad'); input.focus(); return; }
+      busy = true;
+      button.disabled = true;
+      say('正在核对……', '');
+      try {
+        const result = await backend.rpc('ck_puzzle_guess', { p_classroom: room, p_round: Number(round.round) || round.round, p_text: text });
+        const data = Array.isArray(result) ? result[0] : result;
+        const status = data && data.status;
+        if (status === 'won') {
+          round.mine = 'won';
+          sec.classList.add('is-won');
+          say(`恭喜！你第一个猜中，修为 +${data.points || P.points}（老师结算修为时计入）。`, 'ok');
+        } else if (status === 'right') {
+          round.mine = 'right';
+          say('你猜对了！不过已经有同学抢先一步，等老师揭晓汤底吧。', 'ok');
+        } else if (status === 'wrong') {
+          round.used = data.used;
+          const left = (data.tries || P.tries) - (Number(data.used) || 0);
+          say(left > 0 ? `“${text}”不对，再想想，还能猜 ${left} 次。` : `“${text}”不对，${data.tries || P.tries} 次机会已经用完，等老师揭晓谜底吧。`, 'bad');
+          input.select();
+        } else if (status === 'used') {
+          round.used = data.used;
+          say(`${data.tries || P.tries} 次机会已经用完，等老师揭晓谜底吧。`, '');
+        } else if (status === 'closed') {
+          say('这一题已经结束了。', '');
+          setTimeout(check, 1500);
+        } else if (status === 'login') {
+          say('这台设备还没有通过本堂课的登录核对：请回首页用课堂码重新登录。', 'bad');
+          onBlocked();
+        } else {
+          say('先输入谜底再抢答。', 'bad');
+        }
+        const tries = (data && data.tries) || P.tries;
+        const over = round.mine === 'won' || round.mine === 'right' || (Number(round.used) || 0) >= tries || status === 'closed';
+        input.disabled = over;
+        button.disabled = over;
+      } catch (problem) {
+        say(missing(problem) ? '情境猜谜抢答还没有开通（老师后台尚未更新）。' : '没有交上去：请检查网络后再点“抢答”。', 'bad');
+        button.disabled = false;
+      } finally {
+        busy = false;
+      }
+    });
+    checkedIn.then(check);
+    setInterval(check, 15000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }
+
+  // 本堂作业递交情况（页面最下方，匿名建议箱之后）：读后台收到的本人递交记录（ck_my_submissions），
+  // 与教师工作台“递交情况”同一来源；在别的设备递交过的题，这台设备上也标成已递交
+  if (!PREVIEW && !OFFLINE && questions.length) setupSubmissions();
+  function setupSubmissions() {
+    const card = document.createElement('section');
+    card.className = 'clp-subm';
+    card.setAttribute('data-ix', '');
+    card.innerHTML = `<div class="clp-sub-head"><span class="clp-sub-tag">本堂作业递交情况</span><span class="clp-sub-who"></span><button type="button" data-sub-refresh>刷新</button></div>
+      <div class="clp-sub-big"><b data-sub-count>—</b><span>题已递交（以老师后台收到的为准）</span></div>
+      <div class="clp-sub-bar"><i data-sub-bar></i></div>
+      <p class="clp-sub-state" data-sub-state role="status">正在读取后台的递交记录……</p>
+      <details data-sub-missing hidden><summary></summary><ol></ol></details>
+      <p class="clp-sub-note" data-sub-note>和老师工作台“加入名单”里的“递交情况”一致。如果这里和左下角面板的数字不一样，以这里为准；有疑问可以截图给老师。</p>`;
+    shield(card);
+    card.querySelector('.clp-sub-who').textContent = [identity.name, identity.sid].filter(Boolean).join(' · ');
+    const lastFb = fbCards.length ? fbCards[fbCards.length - 1].card : null;
+    if (lastFb) lastFb.insertAdjacentElement('afterend', card);
+    else {
+      const pages = $$('section.page[id], section[id^="case-"], section.page-section');
+      const host = pages.length ? pages[pages.length - 1] : document.body;
+      (host.querySelector('.section-inner') || host.querySelector('.inner') || host).appendChild(card);
+    }
+    const countEl = card.querySelector('[data-sub-count]');
+    const stateEl = card.querySelector('[data-sub-state]');
+    const missing = card.querySelector('[data-sub-missing]');
+    const clockOf = (ts) => (ts ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(Number(ts))) : '');
+    let busy = false;
+    let lastAt = 0;
+    async function load() {
+      if (busy) return;
+      busy = true;
+      try {
+        const result = await backend.rpc('ck_my_submissions', { p_classroom: Number(identity.classroom) || identity.classroom });
+        const data = Array.isArray(result) ? result[0] : result;
+        if (!data || data.status === 'login') {
+          stateEl.textContent = '这台设备还没有通过本堂课的登录核对，读不到递交记录：请回首页用课堂码重新登录。';
+          stateEl.dataset.state = 'error';
+          return;
+        }
+        const got = new Map((data.items || []).map((item) => [String(item.key), Number(item.ts) || 0]));
+        // 别的设备递交过、这台设备不知道的题：标成已递交（每题只算第一次）
+        syncKeys(Array.from(got.keys()));
+        refreshCount();
+        const done = questions.filter((q) => got.has(q.key));
+        const todo = questions.filter((q) => !got.has(q.key));
+        const all = todo.length === 0;
+        const lastTs = Math.max(0, ...done.map((q) => got.get(q.key)));
+        countEl.textContent = `${done.length} / ${questions.length}`;
+        countEl.parentElement.classList.toggle('is-all', all);
+        card.querySelector('[data-sub-bar]').style.width = `${questions.length ? Math.round(done.length / questions.length * 100) : 0}%`;
+        stateEl.textContent = all ? `全部递交 ✓（最后一题 ${clockOf(lastTs)} 递交）`
+          : done.length ? `已递交 ${done.length}/${questions.length} 题，还有 ${todo.length} 题没有递交。` : '还没有递交：每题选好或写好后，点题目下方的“递交”。';
+        stateEl.dataset.state = all ? 'ok' : '';
+        missing.hidden = all;
+        missing.querySelector('summary').textContent = `还没递交的 ${todo.length} 题（点题目跳过去）`;
+        const list = missing.querySelector('ol');
+        list.innerHTML = '';
+        todo.forEach((q) => {
+          const li = document.createElement('li');
+          const go = document.createElement('button');
+          go.type = 'button';
+          go.textContent = [q.section, q.title].filter(Boolean).join(' · ');
+          go.addEventListener('click', () => reveal(q.bar));
+          li.appendChild(go);
+          if (q.stopped) { const tip = document.createElement('small'); tip.textContent = '老师已停止递交'; li.appendChild(tip); }
+          list.appendChild(li);
+        });
+        card.querySelector('[data-sub-note]').textContent = `核对时间 ${new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())}。`
+          + '和老师工作台“加入名单”里的“递交情况”一致；如果这里和左下角面板的数字不一样，以这里为准，有疑问可以截图给老师。';
+        lastAt = Date.now();
+      } catch (problem) {
+        const text = String((problem && problem.message) || problem || '');
+        stateEl.textContent = /PGRST202|42883|Could not find the function|未知的后台函数/.test(text)
+          ? '递交情况还没有开通（老师后台尚未更新），可以先看左下角面板的数字。' : '读取递交记录失败：请检查网络后点“刷新”。';
+        stateEl.dataset.state = 'error';
+      } finally {
+        busy = false;
+      }
+    }
+    card.querySelector('[data-sub-refresh]').addEventListener('click', load);
+    checkedIn.then(load);
+    // 递交以后、翻到这张卡片时（15 秒内不重复读）再核对一次
+    let soon = null;
+    document.addEventListener('classlive:submitted', () => { clearTimeout(soon); soon = setTimeout(load, 1500); });
+    if ('IntersectionObserver' in window) {
+      new IntersectionObserver((entries) => { if (entries.some((entry) => entry.isIntersecting) && Date.now() - lastAt > 15000) load(); }).observe(card);
+    }
+  }
+
   // 点名册编号（点名册第几行）：老师在课堂工具里抽人上台时按这个编号叫人。先显示上次记住的，再向后台核对；
   // 后台函数只认本人这次登录对应的学号，看不到别人的；不在点名册里或后台还没有这个函数时不显示
   const noEl = panel.querySelector('[data-cl-no]');
@@ -1194,6 +1526,7 @@
       ${r ? `<div class="clp-realm-bar" title="本境界进度"><i style="width:${Math.round(within * 100)}%"></i></div>
         <p class="clp-hint">${next ? `再积累一些修为就能突破到「${next.name}」。` : '已达化神境界，继续保持！'}${r.updated_at ? ` 上次结算：${String(r.updated_at).slice(0, 10)}` : ''}</p>`
         : '<p class="clp-hint">老师结算后这里会显示你的境界（第一次结算前都是炼气）。</p>'}
+      <button type="button" class="clp-rank-link" data-realm-rank>${TROPHY}看本班修为榜（前十名）</button>
       <h4>怎样积累修为</h4>
       <ul>
         <li>本学期每次课都能积累修为，每次课最多 100：上课签到 20、作答完成 35、作答正确 35、发弹幕最多 10。</li>
@@ -1203,6 +1536,7 @@
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
+        <li>情境猜谜抢答：老师出题后，在面板最上方“情境猜谜抢答”里输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
       <h4>境界与奖励</h4>
@@ -1211,8 +1545,81 @@
     realmModal.hidden = false;
     realmModal.querySelector('[data-realm-close]').focus();
   }
-  realmModal.addEventListener('click', (event) => { if (event.target === realmModal || event.target.closest('[data-realm-close]')) realmModal.hidden = true; });
+  realmModal.addEventListener('click', (event) => {
+    if (event.target.closest('[data-realm-rank]')) { realmModal.hidden = true; openRank(); return; }
+    if (event.target === realmModal || event.target.closest('[data-realm-close]')) realmModal.hidden = true;
+  });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !realmModal.hidden) realmModal.hidden = true; });
+  // ---------- 修为榜：本班修为前十名（ck_realm_top；按老师最近一次结算排名，只显示名次、姓名、境界，不显示分数） ----------
+  const CROWN = '<svg viewBox="0 0 64 42" aria-hidden="true"><defs><linearGradient id="clp-crown-g" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff6c8"/><stop offset=".5" stop-color="#ffd36b"/><stop offset="1" stop-color="#c88a12"/></linearGradient></defs>'
+    + '<path d="M5 34 L9 11 L22 24 L32 5 L42 24 L55 11 L59 34 Z" fill="url(#clp-crown-g)" stroke="#8a5a06" stroke-width="2" stroke-linejoin="round"/>'
+    + '<rect x="5" y="33" width="54" height="6" rx="2" fill="url(#clp-crown-g)" stroke="#8a5a06" stroke-width="2"/>'
+    + '<circle cx="9" cy="10" r="3.6" fill="#ff8fc4"/><circle cx="32" cy="5" r="4" fill="#7fd8ff"/><circle cx="55" cy="10" r="3.6" fill="#b98cff"/><circle cx="32" cy="36" r="2.4" fill="#c8452d"/></svg>';
+  const rankModal = document.createElement('div');
+  rankModal.className = 'clp-realm-modal clp-rank-modal';
+  rankModal.hidden = true;
+  document.body.appendChild(rankModal);
+  let rankCache = null;   // 30 秒内重复打开不再读后台
+  const realmText = (row) => `${REALMS[row.realm] ? REALMS[row.realm].name : '炼气'}${(Live.STAGES || [])[row.stage || 0] || ''}`;
+  const initial = (name) => Array.from(String(name || '').trim())[0] || '？';
+  const youTag = (row) => (row.me ? '<i>你</i>' : '');
+  const rankShell = (inner) => `<div class="clp-rank-card" role="dialog" aria-modal="true" aria-label="修为榜">
+      <i class="clp-rank-stars" aria-hidden="true"></i><i class="clp-rank-stars is-b" aria-hidden="true"></i>
+      <header class="clp-rank-head"><div><span>${esc(identity.class_name || '本班')} · 修为前十名</span><h3>修为榜</h3></div><button type="button" data-rank-close aria-label="关闭">×</button></header>
+      ${inner}</div>`;
+  function podiumHtml(top) {
+    // 领奖台：左第二、中第一、右第三（并列时按名单顺序站位，台座上写实际名次）
+    return `<div class="clp-podium">${[[top[1], 'is-2', 1], [top[0], 'is-1', 0], [top[2], 'is-3', 2]].map(([row, cls, d]) => (row
+      ? `<div class="clp-pod ${cls}${row.me ? ' is-me' : ''}" style="--d:${d}">${cls === 'is-1' ? `<span class="clp-crown">${CROWN}</span>` : ''}
+          <span class="clp-ava is-r${Number(row.realm) || 0}"><b>${esc(initial(row.name))}</b></span>
+          <strong class="clp-pod-name">${esc(row.name)}${youTag(row)}</strong>${chip(Number(row.realm) || 0, realmText(row))}
+          <span class="clp-pod-base"><em>${Number(row.rank) || ''}</em></span></div>`
+      : `<div class="clp-pod ${cls} is-empty" aria-hidden="true"><span class="clp-pod-base"></span></div>`)).join('')}</div>`;
+  }
+  function rankBody(data) {
+    if (!data || data.status === 'login') return '<p class="clp-rank-state">这台设备还没有通过本堂课的登录核对，看不到修为榜：请回首页用课堂码重新登录。</p>';
+    const top = data.top || [];
+    if (!top.length) return '<p class="clp-rank-state">老师还没有结算修为。结算以后，这里会显示本班修为前十名。</p>';
+    const when = data.updated_at ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(data.updated_at)) : '';
+    const rest = top.slice(3);
+    const mine = data.mine;
+    const onBoard = top.some((row) => row.me);
+    const mineHtml = PREVIEW ? ''
+      : mine && onBoard ? `<p class="clp-rank-mine">你在榜上：第 ${Number(mine.rank)} 名！${Number(mine.rank) === 1 ? '傲视全班，' : ''}继续保持。</p>`
+      : mine ? `<p class="clp-rank-mine">你目前第 ${Number(mine.rank)} 名（共 ${Number(data.total) || 0} 人上榜），境界 ${chip(Number(mine.realm) || 0, realmText(mine))}。签到、作答、发弹幕都能积累修为，冲进前十！</p>`
+      : '<p class="clp-rank-mine">你还没有上榜：老师下次结算修为时，签到、作答、发弹幕积累的修为都会算进来。</p>';
+    return `<p class="clp-rank-meta">共 ${Number(data.total) || 0} 人上榜${when ? ` · 结算于 ${esc(when)}` : ''}</p>
+      ${podiumHtml(top)}
+      ${rest.length ? `<ol class="clp-rank-list">${rest.map((row, i) => `<li class="clp-rank-row${row.me ? ' is-me' : ''}" style="--i:${i}">
+        <span class="clp-rank-no">${Number(row.rank) || ''}</span><span class="clp-rank-ava is-r${Number(row.realm) || 0}">${esc(initial(row.name))}</span>
+        <span class="clp-rank-name">${esc(row.name)}${youTag(row)}</span>${chip(Number(row.realm) || 0, realmText(row))}</li>`).join('')}</ol>` : ''}
+      ${mineHtml}
+      <p class="clp-rank-note">按老师最近一次结算的全学期修为排名，修为相同名次并列；榜上只显示境界，不显示分数。老师结算后这里随之更新。</p>`;
+  }
+  async function openRank() {
+    rankModal.innerHTML = rankShell('<p class="clp-rank-state">正在读取修为榜……</p>');
+    rankModal.hidden = false;
+    rankModal.querySelector('[data-rank-close]').focus();
+    try {
+      let data = rankCache && Date.now() - rankCache.at < 30000 ? rankCache.data : null;
+      if (!data) {
+        const value = await backend.rpc('ck_realm_top', { p_classroom: Number(identity.classroom) || identity.classroom });
+        data = Array.isArray(value) ? value[0] : value;
+        if (data && data.status === 'ok') rankCache = { at: Date.now(), data };
+      }
+      if (rankModal.hidden) return;
+      rankModal.innerHTML = rankShell(rankBody(data));
+    } catch (problem) {
+      if (rankModal.hidden) return;
+      const missing = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+      rankModal.innerHTML = rankShell(`<p class="clp-rank-state">${missing ? '修为榜还没有开通（老师后台尚未更新）。' : '读取修为榜失败：请检查网络后再打开一次。'}</p>`);
+    }
+    const close = rankModal.querySelector('[data-rank-close]');
+    if (close) close.focus();
+  }
+  rankModal.addEventListener('click', (event) => { if (event.target === rankModal || event.target.closest('[data-rank-close]')) rankModal.hidden = true; });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !rankModal.hidden) rankModal.hidden = true; });
+  panel.querySelectorAll('[data-cl-rank-open]').forEach((button) => button.addEventListener('click', openRank));
   realmEl.addEventListener('click', openRealm);
   panel.querySelector('[data-cl-realm-open]').addEventListener('click', openRealm);
   realmEl.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); openRealm(); } });
@@ -1220,15 +1627,22 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = '20261016-roundtable';
-  const NEWS_RANGE = '10 月 9 日—10 月 16 日';
+  const NEWS_ID = '20261021-puzzle';
+  const NEWS_RANGE = '10 月 9 日—10 月 21 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 15—16 日）', items: [
+      { title: '最新（10 月 21 日）', items: [
+        ['修为榜', '面板上学号那一行右边的金色“修为榜”：看本班修为前十名（前三名站领奖台），也能看到自己排第几；按老师最近一次结算排名，只显示境界，不显示分数。'],
+        ['情境猜谜抢答', `老师在大屏出“情境猜谜”时，面板最上方会出现“情境猜谜抢答”：输入谜底（本章或本案例的一个概念）点“抢答”，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为，投屏上会出现恭喜。`],
+        ['递交情况', '页面最下方新增“本堂作业递交情况”：以老师后台收到的为准，显示已递交几题、还有哪些没交（点一下就跳过去），和老师工作台看到的一样。'],
+        ['学习方法', '“资料与延伸阅读”里新增“学习方法小锦囊”：番茄工作法、西蒙学习法、记忆宫殿、费曼学习法、间隔重复、主动回忆，每种都有用在这门课的例子。'],
+        ['弹幕', `回答弹幕小问题、弹幕接龙最多可以写 50 字；老师每堂课最多点 ${like.limit || 20} 个赞。`],
+      ] },
+      { title: '10 月 15—16 日', items: [
         ['请假', `不能来上课时，点面板上姓名旁边的“请假”，选好日期、写明原因提交，老师在加入名单里能看到；没过完的请假可以撤销。请假的那次课计 ${leave} 修为（相当于签到），没有登录也没有请假的课不得任何修为。`],
         ...(config.course === 'political-economy' ? [['使用说明', '页面右下角新增“使用说明”：每个案例怎么学、怎么递交、怎么翻页，都在里面。']] : []),
         ...(config.course === 'xjp-economy' ? [
@@ -1257,7 +1671,7 @@
         ['点名册编号', '面板上姓名前的“N号”是你在点名册上的编号，课堂抽人时用。'],
       ] },
       { title: '修为境界', items: [
-        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名另外加。'],
+        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名、情境猜谜第一个猜中另外加。'],
         ['五个境界', `炼气 → 筑基 → 结丹 → 元婴 → 化神，按全学期修为占满分的比例晋升（${REALMS.slice(1).map((realm) => `${realm.name} ${Math.round(realm.min * 100)}%`).join('、')}）。点面板上的境界或“修为说明”查看进度。`],
         ['弹幕字色', '每升一境多两种（炼气霜白、月银，筑基加青冥、翠竹，结丹加金曦、大红，元婴加樱粉、紫霄，化神加流金、七彩）；投屏上你的名字颜色也与境界一致。'],
         ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，每次课最多祭出一件。`],

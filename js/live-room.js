@@ -174,6 +174,31 @@
     },
   };
 
+  // 情境猜谜抢答（投屏页“课堂工具 → 情境猜谜”调用，见 #政治经济学/情境猜谜/situation_puzzle.js）：出题时开一轮（谜底只交给后台），
+  // 学生在自己页面的面板里抢答，后台核对，第一个猜中的自动加修为；投屏页每隔几秒读这一轮，有人猜中就显示恭喜；揭晓或关闭大屏时结束
+  const winnerOf = (row) => (row && row.winner_sid ? { sid: row.winner_sid, name: row.winner_name, at: row.won_at } : null);
+  window.ClassLivePuzzle = {
+    points: (window.ClassLive.PUZZLE || {}).points || 5,
+    tries: (window.ClassLive.PUZZLE || {}).tries || 3,
+    async open({ key, label, surface, answer, accept }) {
+      const current = await roomHere();
+      const result = await backend.rpc('ck_puzzle_open', { p_classroom: Number(current.id), p_key: String(key).slice(0, 60), p_label: label || '',
+        p_surface: surface || '', p_answer: answer, p_accept: accept || [], p_points: this.points });
+      const row = Array.isArray(result) ? result[0] : result;
+      return { id: row.id, points: row.points, winner: winnerOf(row) };
+    },
+    async status(id) {
+      const row = (await backend.fetchAll('puzzles', { id: Number(id) || id }))[0];
+      if (!row) return null;
+      const guesses = await backend.fetchAll('puzzleguesses', { round_id: Number(id) || id });
+      return { open: Boolean(row.is_open), points: row.points, winner: winnerOf(row), guesses: guesses.length, people: new Set(guesses.map((g) => g.sid)).size };
+    },
+    async close() {
+      const current = await roomHere();
+      return backend.rpc('ck_puzzle_close', { p_classroom: Number(current.id) });
+    },
+  };
+
   // 习经课堂版“资料与延伸阅读”里的匿名建议箱提示卡（默认隐藏）：投屏时显示，并显示这堂课（今天）收到几条建议；建议内容不上投屏
   const fbCard = document.querySelector('[data-fb-projector]');
   if (fbCard) {

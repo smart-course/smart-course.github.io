@@ -8,18 +8,22 @@
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
  *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
- *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
+ *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，不含分数）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
  *       ck_ping（学生页在前台时每 45 秒报一次在线；教师读 ck_presence，工作台加入名单显示小绿灯）
  *       ck_record_draws（教师在投屏页记下猜词游戏抽中的同学；教师读、删 ck_draws）
+ *       ck_my_submissions（学生读本人在这个课堂已经递交到后台的题目，学生页最下方“本堂作业递交情况”）
+ *       ck_puzzle_open / ck_puzzle_close（教师在投屏页“情境猜谜”开始、结束一轮抢答；教师读、删 ck_puzzle_rounds、ck_puzzle_guesses）
+ *       ck_puzzle_live / ck_puzzle_guess（学生面板看正在进行的一轮、抢答；后台核对谜底，第一个猜中的自动加修为）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
+    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -68,6 +72,9 @@
   const LIKE = { limit: 20, points: 5, perStudent: 2 };
   // 猜词游戏：每次课（同一课堂同一天）得分第一的一组（并列都算），老师在投屏页得分榜上给两人各加 points 修为（额外奖励，不计入满分）
   const WORDGAME = { points: 10 };
+  // 情境猜谜抢答：老师在投屏页出题时开一轮，学生在面板里抢答，每题最多 tries 次；第一个猜中的自动加 points 修为
+  // （同一课堂同一天每人最多累计 cap，额外奖励，不计入满分；后台 ck_puzzle_guess 核对）
+  const PUZZLE = { points: 5, tries: 3, cap: 20 };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
   const LEAVE = { points: 20 };
   // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）
@@ -504,6 +511,85 @@
           }
           return 'ok';
         }
+        // 本人递交情况（规则同 cloudbase-pg.sql 的 ck_my_submissions）
+        if (name === 'ck_my_submissions') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const mine = (doc) => String(doc.classroom) === String(params.p_classroom) && sidKey(doc.sid) === sid;
+          const first = new Map();
+          const add = (key, ts) => { if (!first.has(key) || ts < first.get(key)) first.set(key, ts); };
+          read('choices').filter(mine).forEach((doc) => add(`${doc.case}:${/^match-/.test(doc.item) ? 'match' : doc.item}`, Number(doc.ts) || 0));
+          read('answers').filter(mine).forEach((doc) => add(`${doc.case}:${doc.item}`, Number(doc.ts) || 0));
+          read('homework').filter(mine).forEach((doc) => Object.keys(doc.payload || {}).forEach((key) => add(key, Number(doc.ts) || 0)));
+          return { status: 'ok', items: Array.from(first.entries()).map(([key, ts]) => ({ key, ts })).sort((a, b) => a.ts - b.ts) };
+        }
+        // 情境猜谜抢答（规则同 cloudbase-pg.sql 的 ck_puzzle_open / close / live / guess）
+        const puzzleNorm = (text) => String(text == null ? '' : text).replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase().slice(0, 40);
+        if (name === 'ck_puzzle_open') {
+          teacherOnly();
+          const points = Number(params.p_points);
+          if (!(points >= 1 && points <= 10)) throw new Error('每题加分应为 1—10');
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) throw new Error('课堂不存在');
+          const answers = Array.from(new Set([params.p_answer, ...(params.p_accept || [])].map(puzzleNorm).filter(Boolean)));
+          if (!puzzleNorm(params.p_answer)) throw new Error('谜底不正确');
+          const day = today();
+          const rows = read('puzzles');
+          rows.forEach((row) => { if (String(row.classroom) === String(room.id) && row.is_open && !(row.day === day && row.pkey === params.p_key)) row.is_open = false; });
+          let row = rows.find((item) => String(item.classroom) === String(room.id) && item.day === day && item.pkey === params.p_key);
+          const fields = { is_open: true, label: String(params.p_label || '').slice(0, 40), surface: String(params.p_surface || '').slice(0, 240), answer: String(params.p_answer).slice(0, 40), answers };
+          if (row) Object.assign(row, fields, row.winner_sid ? {} : { points });
+          else rows.push(row = { id: Date.now(), course: room.course, classroom: room.id, day, pkey: params.p_key, points, opened_at: new Date().toISOString(), winner_sid: null, winner_name: null, won_at: null, ...fields });
+          write('puzzles', rows);
+          return { id: row.id, points: row.points, winner_sid: row.winner_sid, winner_name: row.winner_name, won_at: row.won_at };
+        }
+        if (name === 'ck_puzzle_close') {
+          teacherOnly();
+          const rows = read('puzzles');
+          let n = 0;
+          rows.forEach((row) => { if (String(row.classroom) === String(params.p_classroom) && row.is_open) { row.is_open = false; n += 1; } });
+          write('puzzles', rows);
+          return n;
+        }
+        if (name === 'ck_puzzle_live' || name === 'ck_puzzle_guess') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const rows = read('puzzles');
+          const guesses = read('puzzleguesses');
+          const mineOf = (row) => guesses.filter((g) => String(g.round_id) === String(row.id) && g.sid === sid);
+          if (name === 'ck_puzzle_live') {
+            const row = rows.filter((item) => String(item.classroom) === String(params.p_classroom) && item.is_open && item.day === today()).pop();
+            if (!row) return { status: 'none' };
+            const mine = mineOf(row);
+            return { status: 'open', round: row.id, label: row.label, surface: row.surface, points: row.points, tries: PUZZLE.tries, used: mine.length,
+              won: Boolean(row.winner_sid), mine: row.winner_sid === sid ? 'won' : mine.some((g) => g.ok) ? 'right' : null };
+          }
+          const guess = puzzleNorm(params.p_text);
+          if (!guess) return { status: 'empty' };
+          const row = rows.find((item) => String(item.id) === String(params.p_round) && String(item.classroom) === String(params.p_classroom));
+          if (!row || !row.is_open || row.day !== today()) return { status: 'closed' };
+          const mine = mineOf(row);
+          if (mine.some((g) => g.ok)) return { status: row.winner_sid === sid ? 'won' : 'right', points: row.points };
+          if (mine.length >= PUZZLE.tries) return { status: 'used', used: mine.length, tries: PUZZLE.tries };
+          const ok = row.answers.includes(guess);
+          guesses.push({ id: `${Date.now()}-${guesses.length}`, round_id: row.id, classroom: row.classroom, sid, name: me.name, text: String(params.p_text || '').trim().slice(0, 40), ok, created_at: new Date().toISOString() });
+          write('puzzleguesses', guesses);
+          if (ok && !row.winner_sid) {
+            Object.assign(row, { winner_sid: sid, winner_name: me.name, won_at: new Date().toISOString() });
+            write('puzzles', rows);
+            const bonus = read('bonus');
+            const have = bonus.find((b) => String(b.classroom) === String(row.classroom) && b.day === row.day && b.kind === 'puzzle' && b.sid === sid);
+            if (have) have.points = Math.min(have.points + row.points, PUZZLE.cap);
+            else bonus.push({ id: `${Date.now()}-p`, course: row.course, classroom: row.classroom, day: row.day, kind: 'puzzle', sid, name: me.name, points: row.points, created_at: new Date().toISOString() });
+            write('bonus', bonus);
+            return { status: 'won', points: row.points };
+          }
+          return { status: ok ? 'right' : 'wrong', used: mine.length + 1, tries: PUZZLE.tries };
+        }
         // 在线报到（规则同 cloudbase-pg.sql 的 ck_ping：本设备登录过这个课堂才记，20 秒内不重复写）
         if (name === 'ck_ping') {
           const uid = await this.ensureAnonymous();
@@ -578,6 +664,24 @@
         if (name === 'ck_stopped_items') {
           await this.ensureAnonymous();
           return stopsOf(params.p_classroom);
+        }
+        // 修为榜（规则同 cloudbase-pg.sql 的 ck_realm_top：修为相同名次并列，并列第十的都列出、最多 15 行，修为 0 的不上榜，不返回分数）
+        if (name === 'ck_realm_top') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) return { status: 'login' };
+          let sid = null;
+          if (!localStorage.getItem(prefix + 'teacher')) {
+            const me = myCheckin(await this.ensureAnonymous(), params.p_classroom);
+            if (!me) return { status: 'login' };
+            sid = sidKey(me.sid);
+          }
+          const rows = read('realms').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && Number(row.points) > 0)
+            .sort((a, b) => Number(b.points) - Number(a.points) || String(a.sid).localeCompare(String(b.sid)));
+          const ranked = rows.map((row) => ({ ...row, rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
+          const mine = ranked.find((row) => row.sid === sid);
+          return { status: 'ok', total: ranked.length, updated_at: ranked.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
+            top: ranked.filter((row, i) => row.rank <= 10 && i < 15).map((row) => ({ rank: row.rank, name: row.name, realm: row.realm, stage: row.stage, me: sid !== null && row.sid === sid })),
+            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage } : null };
         }
         teacherOnly();
         // 学生版测试页：教师以“韩天尊”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
@@ -666,7 +770,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -896,6 +1000,7 @@
     colorFor,
     LIKE,
     WORDGAME,
+    PUZZLE,
     LEAVE,
     realmOf,
     isClosedError,
