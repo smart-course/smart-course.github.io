@@ -407,6 +407,8 @@
   // 弹幕小问题：政治经济学插在没有题目的页面（学习路线、线索页、概念小结）；习经章节页放在生成器留好的位置（data-dm-slot）。
   // 弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
   const dmqCards = [];
+  // 回答弹幕小问题、弹幕接龙：内容最多 50 字（前面的“【问N】【角色】”等标签另算，后台弹幕总长上限 80）；左下角自由发的弹幕仍是 40 字
+  const DMQ_MAX = 50;
   if (Array.isArray(config.danmaku)) {
     config.danmaku.forEach((item, index) => {
       const slot = item.slot ? document.querySelector(`[data-dm-slot="${item.slot}"]`) : null;
@@ -424,7 +426,7 @@
       card.dataset.dmq = String(index + 1);
       card.innerHTML = `<div class="clp-dmq-head"><span class="clp-dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="clp-dmq-label">${esc(item.label)}</span></div>
         <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
-        <form class="clp-dmq-form"><input type="text" maxlength="${40 - tag.length - (debate ? 4 : roleRoom)}" placeholder="写一句话，发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
+        <form class="clp-dmq-form"><input type="text" maxlength="${DMQ_MAX}" placeholder="写一句话（最多 ${DMQ_MAX} 字），发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
       if (slot) {
         slot.replaceChildren(card);
@@ -1119,6 +1121,21 @@
   const checkedIn = checkMembership();
   checkedIn.then(() => scheduleLikes(3000));
 
+  // 在线状态：页面在前台（没有切走、手机没锁屏）时每 45 秒向后台报一次“在线”，老师在工作台加入名单里看到小绿灯；
+  // 后台还没有 ck_ping（未执行 SQL）时安静停止
+  if (!PREVIEW) {
+    let pingOff = false;
+    const ping = () => {
+      if (pingOff || document.hidden || loginNeeded) return;
+      backend.rpc('ck_ping', { p_classroom: Number(identity.classroom) || identity.classroom }).catch((problem) => {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) pingOff = true;
+      });
+    };
+    checkedIn.then(ping);
+    setInterval(ping, 45000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+  }
+
   // 点名册编号（点名册第几行）：老师在课堂工具里抽人上台时按这个编号叫人。先显示上次记住的，再向后台核对；
   // 后台函数只认本人这次登录对应的学号，看不到别人的；不在点名册里或后台还没有这个函数时不显示
   const noEl = panel.querySelector('[data-cl-no]');
@@ -1186,7 +1203,7 @@
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
-        <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 10} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
+        <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
@@ -1526,7 +1543,7 @@
         if (!text || cooling > 0) return;
         button.disabled = true;
         try {
-          await sendDanmaku(`【${box.dataset.case}${link}】${text}`.slice(0, 40));
+          await sendDanmaku(`【${box.dataset.case}${link}】${text.slice(0, DMQ_MAX)}`);
           input.value = '';
           say(`已发送（${time()}），会出现在投屏机制图 ${link} 的位置。若老师开启了审核，通过后才会上屏。`, 'ok');
         } catch (problem) {
@@ -1581,7 +1598,7 @@
         if (debate && !side) { say('请先在上面“① 辩前投票”里选好一方并递交，弹幕才能标出你是正方还是反方。', 'error'); return; }
         button.disabled = true;
         try {
-          await sendDanmaku(`${tag}${side}${text}`.slice(0, 40));
+          await sendDanmaku(`${tag}${side}${text.slice(0, DMQ_MAX)}`);
           input.value = '';
           say(`已发送（${time()}）。若老师开启了审核，通过后才会上屏。`, 'ok');
         } catch (problem) {

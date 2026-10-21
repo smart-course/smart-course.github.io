@@ -2,7 +2,8 @@
  * 需要教师已在同一浏览器登录教师工作台（读取弹幕需教师账号）。
  * 弹幕模式：关闭 / 直接上屏（未隐藏的都显示）/ 审核后上屏（只显示已通过的）。左下角控件里可以直接切换（与工作台“弹幕”下拉框相同，ck_set_danmaku）。
  * 播放规则：新来的弹幕立即上屏；空档时按顺序循环播放本课堂可显示的弹幕（最近 60 条），被隐藏的立即撤下。
- * 清屏：撤下屏幕上现有弹幕，并让它们不再循环（本机按课堂记住，刷新页面也不会回来）；之后的新弹幕照常上屏和循环。
+ * 清屏：撤下屏幕上流动的弹幕，并让它们不再循环（本机按课堂记住，刷新页面也不会回来）；之后的新弹幕照常上屏和循环。
+ *       正文里弹幕墙上的弹幕不受清屏影响，整堂课一直保留。
  *       清屏只影响投屏显示，工作台里的弹幕记录不受影响。
  * 左下角小控件：循环开关、暂停、清屏、收起。页面需先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
  * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
@@ -16,7 +17,10 @@
  * 试用特效（左下角“试用特效”，或工作台“修为境界”里的链接带 ?demo=1 打开）：任选境界和字色发试用弹幕、一键演示五个境界（每个境界用本境界的两种字色各发一条）、
  *   播放四件法宝画面；只在本机播放，不写入弹幕记录、不计修为，也不经过后台。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
- *   [data-mech-wall]（每个箭头显示最新 3 条，新来的弹入并让节点闪一下）；显示规则与滚动弹幕相同（模式、审核、清屏）。
+ *   [data-mech-wall]（新来的弹入并让节点闪一下）。
+ * 正文里的弹幕墙（弹幕小问题卡片、辩论/圆桌分栏、机制图节点）：显示本堂课这一题的全部弹幕，最新的在最上面，多了在墙内用滚轮上下翻看；
+ *   墙上的弹幕整堂课一直保留（重新打开页面也在），“清屏”只撤下屏幕上流动的弹幕；弹幕设为“关闭”时墙上照样显示。
+ *   审核模式下只显示已通过的；工作台隐藏、删除的和学生撤回的不显示。
  */
 (function () {
   'use strict';
@@ -126,6 +130,12 @@
     animation: dm-flowtext 4s linear infinite; }
   .dm-bubble.is-pop { animation: dm-pop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
   .dm-wall-count { justify-self: end; color: #23655f; font: 800 12px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  /* 弹幕墙：全部显示、最新在上，超出高度在墙内滚动（滚到头不带动整页） */
+  .dmq-wall, .dmq-side-wall, [data-mech-wall] { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .dmq-wall { max-height: 340px; align-content: start; padding-right: 4px; }
+  .dmq-side-wall { max-height: 380px; padding-right: 4px; }
+  .dmq-side-wall .dm-bubble { flex: none; }
+  .mechanism-node [data-mech-wall] { max-height: 180px; padding-right: 4px; }
   .mechanism-node.dm-hit::before { content: ""; position: absolute; inset: -2px; border-radius: 10px; pointer-events: none; animation: dm-hit 1.1s ease-out 2; }
   @keyframes dm-pop { 0% { opacity: 0; transform: translateY(12px) scale(.6); } 100% { opacity: 1; transform: none; } }
   @keyframes dm-hit { 0% { box-shadow: 0 0 0 0 rgba(164, 73, 45, .55); } 100% { box-shadow: 0 0 0 22px rgba(164, 73, 45, 0); } }
@@ -220,7 +230,7 @@
   bar.innerHTML = '<label>弹幕<select data-dm-mode disabled aria-label="弹幕模式"><option value="off">关闭</option><option value="direct">直接上屏</option><option value="review">审核后上屏</option></select></label>'
     + '<button type="button" data-dm-anon aria-pressed="false" disabled title="开启后投屏不显示学生姓名；工作台和导出里仍记录是谁发的">匿名：关</button>'
     + '<span data-dm-state>连接中</span><span data-dm-likes title="鼠标停在弹幕上可点赞；被赞的同学额外加修为"></span><button type="button" data-dm-loop aria-pressed="true">循环：开</button>'
-    + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下现有弹幕，且不再循环播放；之后的新弹幕照常显示">清屏</button>'
+    + '<button type="button" data-dm-pause>暂停</button><button type="button" data-dm-clear title="撤下屏幕上流动的弹幕，且不再循环播放；正文里弹幕墙上的弹幕保留，之后的新弹幕照常显示">清屏</button>'
     + '<button type="button" data-dm-demo aria-expanded="false" title="在投屏上试放各境界的弹幕特效和法宝画面（只在本机播放，不写入记录）">试用特效</button><button type="button" data-dm-toggle>收起</button>';
   ['click', 'keydown'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   const giftLayer = document.createElement('div');
@@ -570,7 +580,7 @@
   const deleted = new Set();    // 本页已删除的弹幕 id（读取结果里若还带着，也不再显示）
   let wallRows = [];            // 当前弹幕墙使用的弹幕（删除后据此重排）
   // ---------- 教师点赞（每堂课有上限，额外加修为） ----------
-  const LIKE = window.ClassLive.LIKE || { limit: 10 };
+  const LIKE = window.ClassLive.LIKE || { limit: 20 };
   const liked = new Set();   // 已点赞的弹幕 id（以后台为准，每次读取时更新）
   let likesUsed = null;
   const likesEl = bar.querySelector('[data-dm-likes]');
@@ -716,8 +726,7 @@
     walls.forEach((wall, key) => {
       const list = groups.get(key) || [];
       const sideWall = Boolean(wall.dataset.side);
-      const latest = list.slice(-(Number(wall.dataset.max) || WALL_MAX));
-      if (sideWall) latest.reverse();   // 正反两栏：最新的在最上面
+      const latest = list.slice().reverse();   // 全部显示，最新的在最上面（多了在墙内滚动翻看）
       const counter = sideWall ? wall.parentElement.querySelector('[data-side-count]') : wall.closest('.dmq-card') && wall.closest('.dmq-card').querySelector('.dmq-count');
       if (counter) counter.textContent = sideWall ? `${list.length} 条` : list.length ? `${list.length} 条` : '';
       const before = wallShown.get(key) || [];
@@ -726,6 +735,8 @@
       if (placeholder) placeholder.hidden = list.length > 0;
       let count = wall.querySelector('.dm-wall-count');
       if (ids.join() !== before.join()) {
+        // 老师正在往下翻看时，新弹幕加在最上面不把正在看的内容顶走
+        const keep = wall.scrollTop > 4 ? wall.scrollHeight - wall.scrollTop : null;
         wall.querySelectorAll('.dm-bubble').forEach((el) => el.remove());
         let fresh = false;
         latest.forEach(({ doc, tag }) => {
@@ -745,8 +756,9 @@
           bubble.dataset.dmId = String(doc.id);
           bubble.classList.toggle('is-liked', liked.has(String(doc.id)));
           bubble.append(document.createTextNode(tag.text), badge, hoverTools(doc, bubble));
-          wall.insertBefore(bubble, count);
+          wall.appendChild(bubble);
         });
+        if (keep != null) wall.scrollTop = wall.scrollHeight - keep;
         wallShown.set(key, ids);
         const node = wall.closest('.mechanism-node') || wall.closest('.dmq-card');
         if (fresh && node) {
@@ -757,7 +769,7 @@
         }
       }
       if (!counter && !sideWall && list.length > WALL_MAX) {
-        if (!count) { count = document.createElement('span'); count.className = 'dm-wall-count'; wall.appendChild(count); }
+        if (!count) { count = document.createElement('span'); count.className = 'dm-wall-count'; wall.prepend(count); }
         count.textContent = `共 ${list.length} 条`;
       } else if (count) count.remove();
     });
@@ -823,12 +835,36 @@
     }
   }
 
+  // 本堂课的全部弹幕：打开页面、换课堂时和每 30 秒全量读取一次；其余每次只读最新 120 条合并进来（状态、点赞、撤回随之更新）
+  const allDocs = new Map();
+  let allRoom = '';
+  let fullAt = 0;
+  const FULL_MS = 30000;
+  const RECENT = 120;
+  const order = (a, b) => (Number(a.ts) || 0) - (Number(b.ts) || 0) || (Number(a.id) || 0) - (Number(b.id) || 0);
+  async function readDanmaku() {
+    const where = { classroom: Number(room.id) };
+    if (allRoom !== String(room.id) || Date.now() - fullAt > FULL_MS) {
+      const rows = await backend.fetchAll('danmaku', where);
+      allDocs.clear();
+      rows.forEach((doc) => allDocs.set(String(doc.id), doc));
+      allRoom = String(room.id);
+      fullAt = Date.now();
+    } else {
+      const recent = await backend.fetchAll('danmaku', where, { limit: RECENT });
+      const ids = new Set(recent.map((doc) => String(doc.id)));
+      const oldest = Math.min(...recent.map((doc) => Number(doc.ts) || 0));
+      // 最新这一段里没有了的＝工作台删掉的
+      if (recent.length) Array.from(allDocs.values()).filter((doc) => (Number(doc.ts) || 0) >= oldest && !ids.has(String(doc.id))).forEach((doc) => allDocs.delete(String(doc.id)));
+      recent.forEach((doc) => allDocs.set(String(doc.id), doc));
+    }
+    return Array.from(allDocs.values()).sort(order);
+  }
   async function pollDanmaku() {
-    if (!room || room.danmaku === 'off') return;
+    if (!room) return;
     if (clearedRoom !== String(room.id)) { clearedRoom = String(room.id); cleared = loadCleared(clearedRoom); }
     try {
-      const rows = (await backend.fetchAll('danmaku', { classroom: Number(room.id) }, { limit: 80 })).reverse()
-        .filter((doc) => !deleted.has(String(doc.id)));
+      const rows = (await readDanmaku()).filter((doc) => !deleted.has(String(doc.id)));
       // 老师点赞：以后台为准（换了设备或在工作台改过也一致）；本堂课已用的赞＝今天点的
       liked.clear();
       rows.forEach((doc) => { if (doc.liked_at) liked.add(String(doc.id)); });
@@ -838,6 +874,10 @@
       // 工作台删除的弹幕：不再出现在读取结果里，从循环和屏幕上撤下
       const present = new Set(rows.map((doc) => String(doc.id)));
       Array.from(inPool).filter((id) => !present.has(id)).forEach(dropFromPool);
+      // 正文里的弹幕墙：整堂课的全部弹幕（清屏不影响，弹幕关闭时也照样显示）
+      wallRows = rows.filter((doc) => visible(doc) && !doc.gift);
+      renderWalls(wallRows);
+      if (room.danmaku === 'off') { refreshState(); return; }
       rows.forEach((doc) => {
         const id = String(doc.id);
         if (cleared.has(id)) { seen.add(id); dropFromPool(id); return; }
@@ -858,8 +898,6 @@
         }
       });
       primed = true;
-      wallRows = rows.filter((doc) => !cleared.has(String(doc.id)) && visible(doc) && !doc.gift);
-      renderWalls(wallRows);
       refreshState();
     } catch (error) {
       console.warn('[弹幕]', error);
@@ -895,8 +933,7 @@
     stage.innerHTML = '';
     flying.clear();
     laneFree.fill(0);
-    renderWalls([]);
-    if (room) setState('已清屏，之前的弹幕不再循环');
+    if (room) setState('已清屏：屏幕上流动的弹幕已撤下、不再循环；正文里弹幕墙上的弹幕保留');
   });
   // 直接在投屏页切换弹幕模式（教师账号）；关闭时学生不能发送，开启后新弹幕照常上屏
   modeSelect.addEventListener('change', async () => {

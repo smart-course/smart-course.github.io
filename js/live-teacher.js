@@ -67,6 +67,7 @@
     openStudents: new Set(),   // 学生作答：已展开的学号
     openTexts: new Set(),      // 作业情况：已展开的文字题
     leaves: [],                // 本班请假记录（ck_leaves）
+    presence: { room: '', map: new Map() },   // 本课堂学生最近一次报到在线的时间（ck_presence，学号→毫秒）
   };
 
   // ---------------- 登录 ----------------
@@ -153,6 +154,7 @@
     state.room = null;
     await loadRooms(store.get(`room:${state.klass.id}`));
     await loadLeaves();
+    await loadPresence();
     renderCheckins();
     realmResult = null;
     realmSaved = '';
@@ -422,6 +424,7 @@
     try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('presence', where); } catch (error) { if (!missingTable(error)) throw error; }
     await backend.removeAll('classrooms', { id: Number(room.id) });
     const wasSelected = state.room && String(state.room.id) === String(room.id);
     if (wasSelected) {
@@ -462,7 +465,7 @@
     store.set(`room:${state.klass.id}`, room.id);
     renderRoom();
     renderSecAlert();
-    if (changed) { state.openStudents.clear(); state.openTexts.clear(); setupSelectors(); subscribe(); }
+    if (changed) { state.openStudents.clear(); state.openTexts.clear(); setupSelectors(); subscribe(); loadPresence().then(renderCheckins); }
   }
 
   function renderRoom() {
@@ -956,6 +959,35 @@
   window.addEventListener('focus', refreshLeaves);
   setInterval(refreshLeaves, 60000);
   $('[data-roster-filter]').addEventListener('change', renderCheckins);
+  // 在线状态：学生页在前台时每 45 秒报到一次（ck_ping）；2 分钟内报到过＝在线（小绿灯），报到过但超过 2 分钟＝灰点
+  const ONLINE_MS = 2 * 60 * 1000;
+  async function loadPresence() {
+    const room = state.room;
+    if (!room) return;
+    try {
+      const rows = await backend.fetchAll('presence', { classroom: Number(room.id) || room.id });
+      state.presence = { room: String(room.id), map: new Map(rows.map((row) => [sidKey(row.sid), millis(row.last_seen)])) };
+    } catch (error) {
+      if (!missingTable(error)) console.warn('[在线状态]', error);
+      state.presence = { room: String(room.id), map: new Map() };
+    }
+  }
+  const seenAt = (sid) => (state.room && state.presence.room === String(state.room.id) ? state.presence.map.get(sidKey(sid)) || 0 : 0);
+  const isOnline = (sid) => { const at = seenAt(sid); return Boolean(at) && Date.now() - at < ONLINE_MS; };
+  const onlineDot = (sid) => {
+    const at = seenAt(sid);
+    if (!at) return '';
+    const on = Date.now() - at < ONLINE_MS;
+    return `<i class="tw-dot${on ? ' is-on' : ''}" title="${on ? '在线' : '不在线'}（最近一次在线 ${clock(at).slice(0, 5)}）" aria-label="${on ? '在线' : '不在线'}"></i>`;
+  };
+  // 每 20 秒（加入名单页开着、工作台在前台时）、回到工作台窗口时：重新读取在线状态
+  const refreshPresence = async () => {
+    if (!state.room || $('[data-app]').hidden || document.hidden || $('[data-panel="checkins"]').hidden) return;
+    await loadPresence();
+    renderCheckins();
+  };
+  setInterval(refreshPresence, 20000);
+  window.addEventListener('focus', refreshPresence);
   function renderCheckins() {
     const submitted = submissions();
     const total = CONCEPT ? 0 : roomTotal();
@@ -973,13 +1005,17 @@
     ['[data-roster-filter]', '[data-roster-export]', '[data-attendance-export]', '[data-roster-stats]'].forEach((selector) => { $(selector).hidden = !hasRoster; });
     const day = checkinDay();
     const joinedList = students(day);
+    // 现在在线：本课堂所有登录过的学号里，2 分钟内报到过的人数（与按日期查看无关）
+    const onlineCount = students().filter((row) => isOnline(row.sid)).length;
+    $('[data-online-count]').textContent = onlineCount;
+    $('[data-roster-online]').textContent = onlineCount;
     if (!hasRoster) {
       $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>${day ? `登录时间（${shortDay(day)}）` : '登录记录'}</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
       const rows = joinedList.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names]));
       $('[data-checkin-rows]').innerHTML = rows.map((row, index) => {
         const names = Array.from(row.names);
         const remark = names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '';
-        return `<tr><td>${index + 1}</td><td>${esc(row.sid)}</td><td>${esc(names[0])}</td><td>${esc(row.class_name)}</td><td>${esc(row.group_name)}</td><td>${esc(loginText(row, day))}</td>
+        return `<tr><td>${index + 1}</td><td>${esc(row.sid)}</td><td class="tw-nowrap">${onlineDot(row.sid)}${esc(names[0])}</td><td>${esc(row.class_name)}</td><td>${esc(row.group_name)}</td><td>${esc(loginText(row, day))}</td>
           ${workCell(row.sid)}<td class="warn">${esc(remark)}</td>${deleteCell(row)}</tr>`;
       }).join('') || `<tr><td colspan="9" class="empty">${day ? '这一天没有登录记录。' : '还没有学生加入这个课堂。把课堂码或加入链接展示给学生。'}</td></tr>`;
       return;
@@ -1008,11 +1044,11 @@
       const leave = leaveOf.get(sidKey(person.sid));
       const leaveText = leave.length ? `请假（${leave.map((item) => `${leaveRange(item)}：${item.reason}`).join('；')}） ` : '';
       const remark = leaveText + (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
-      return `<tr class="${row ? '' : leave.length ? 'tw-leave' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}</td>
+      return `<tr class="${row ? '' : leave.length ? 'tw-leave' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td class="tw-nowrap">${onlineDot(person.sid)}${esc(person.name)}</td>
         <td class="${row ? 'ok' : leave.length ? 'leave' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : leave.length ? '请假' : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
         ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${person.extra ? deleteCell(row || { sid: person.sid, names: new Set([person.name]) }, true) : row ? deleteCell(row) : '<td></td>'}</tr>`;
-    }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td>${esc(Array.from(row.names).join('、'))}</td>
+    }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td class="tw-nowrap">${onlineDot(row.sid)}${esc(Array.from(row.names).join('、'))}</td>
         <td class="warn">名单外登录 ${esc(loginText(row, day))}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
         <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td>${deleteCell(row)}</tr>`).join('')
       || '<tr><td colspan="8" class="empty">没有符合条件的学生。</td></tr>';
@@ -1037,6 +1073,7 @@
       const where = { classroom: Number(room.id), sid: row ? row.sid : sid };
       for (const kind of ['checkins', 'choices', 'answers', 'danmaku', 'homework']) await backend.removeAll(kind, where);
       try { await backend.removeAll('bonus', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
+      try { await backend.removeAll('presence', { classroom: where.classroom, sid: sidKey(where.sid) }); } catch (error) { if (!missingTable(error)) throw error; }
       let done = `已删除 ${name}（学号 ${sid}）在本课堂的记录。`;
       if (extra && klass) {
         // 撤销允许（同“登录安全”里的“撤销允许”）：从本班点名册移除、解除已登录的设备
@@ -2104,7 +2141,7 @@
   const REALMS = window.ClassLive.REALMS;
   // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
-  const LIKE = window.ClassLive.LIKE || { limit: 10, points: 5, perStudent: 2 };
+  const LIKE = window.ClassLive.LIKE || { limit: 20, points: 5, perStudent: 2 };
   const realmUnits = () => (CONCEPT
     ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
     : course.chapters.map((ch) => ({ id: ch.id, label: ch.cn, meetings: Math.max(1, ch.cases.length),

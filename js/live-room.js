@@ -135,6 +135,24 @@
     return { students: Array.from(people.values()).sort((a, b) => (a.no || 9999) - (b.no || 9999)), today: Boolean(todays.length) };
   };
 
+  // 猜词游戏抽人记录（投屏页“课堂工具”抽人时调用）：本班以前各次课被抽过的同学按班级记在后台，换章节、换电脑都在；
+  // 只有教师能读写。后台还没有 ck_draws（未执行 SQL）时由调用方退回只记在本机
+  window.ClassLiveDraws = {
+    async history() {
+      const current = await roomHere();
+      if (!current.class_id) return [];
+      return (await backend.fetchAll('draws', { class_id: Number(current.class_id) || current.class_id })).filter((row) => (row.kind || 'wordgame') === 'wordgame');
+    },
+    async record(people) {
+      const current = await roomHere();
+      return backend.rpc('ck_record_draws', { p_classroom: Number(current.id), p_people: people.map((person) => ({ sid: person.sid, name: person.name })) });
+    },
+    async clear() {
+      const current = await roomHere();
+      if (current.class_id) await backend.removeAll('draws', { class_id: Number(current.class_id) || current.class_id });
+    },
+  };
+
   // 猜词游戏加修为（投屏页“课堂工具”的得分榜调用）：本课堂今天得分第一的同学每人加 WORDGAME.points 修为，
   // 再次发放整份替换（改给新的第一名），空名单＝撤销；老师在工作台结算修为时计入
   const roomHere = async () => {

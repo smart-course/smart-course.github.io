@@ -322,3 +322,11 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-qr:fullscreen .tw-qr-hint, .tw-qr-dialog.is-max .tw-qr-hint { font-size: 2.4vh; }
 /* 手机上表格自己横向滚动，不把整页撑宽（否则弹窗会偏到一边） */
 @media (max-width: 700px) { .tw-table { display: block; max-width: 100%; overflow-x: auto; } }
+
+/* 在线状态：姓名前的小绿灯（2 分钟内报到过）/ 灰点（登录过、现在不在线） */
+.tw-dot { display: inline-block; width: 10px; height: 10px; margin-right: 6px; border-radius: 50%; background: #c9c4bb; vertical-align: 1px; }
+.tw-dot.is-on { background: #2fb36b; box-shadow: 0 0 0 3px rgba(47, 179, 107, .22); animation: tw-dot-pulse 2.4s ease-in-out infinite; }
+@keyframes tw-dot-pulse { 0%, 100% { box-shadow: 0 0 0 3px rgba(47, 179, 107, .22); } 50% { box-shadow: 0 0 0 5px rgba(47, 179, 107, .10); } }
+.tw-online-hint .tw-dot { margin: 0 4px 0 2px; }
+.tw-online-hint b { color: #1f8a4f; }
+.tw-stat.is-online b { color: #1f8a4f; }

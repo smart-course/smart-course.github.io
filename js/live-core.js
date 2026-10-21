@@ -11,13 +11,15 @@
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
+ *       ck_ping（学生页在前台时每 45 秒报一次在线；教师读 ck_presence，工作台加入名单显示小绿灯）
+ *       ck_record_draws（教师在投屏页记下猜词游戏抽中的同学；教师读、删 ck_draws）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
   'use strict';
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
-    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves' };
+    requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -63,7 +65,7 @@
   }
   // 教师点赞：投屏上鼠标停在弹幕上可点赞；每堂课（同一课堂同一天）最多 limit 次（后台 ck_like_danmaku 核对）；
   // 被赞弹幕的发送人每个赞额外加 points 修为，每人每次课最多算 perStudent 个（额外奖励，不计入满分）
-  const LIKE = { limit: 10, points: 5, perStudent: 2 };
+  const LIKE = { limit: 20, points: 5, perStudent: 2 };
   // 猜词游戏：每次课（同一课堂同一天）得分第一的一组（并列都算），老师在投屏页得分榜上给两人各加 points 修为（额外奖励，不计入满分）
   const WORDGAME = { points: 10 };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
@@ -502,6 +504,20 @@
           }
           return 'ok';
         }
+        // 在线报到（规则同 cloudbase-pg.sql 的 ck_ping：本设备登录过这个课堂才记，20 秒内不重复写）
+        if (name === 'ck_ping') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return false;
+          const rows = read('presence');
+          const sid = sidKey(me.sid);
+          const row = rows.find((item) => String(item.classroom) === String(params.p_classroom) && item.sid === sid);
+          const now = new Date().toISOString();
+          if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now });
+          else if (Date.now() - Date.parse(row.last_seen) > 20000) Object.assign(row, { name: me.name, owner: uid, last_seen: now });
+          write('presence', rows);
+          return true;
+        }
         // 请假（规则同 cloudbase-pg.sql 的 ck_request_leave / ck_my_leaves / ck_cancel_leave）
         if (name === 'ck_request_leave' || name === 'ck_my_leaves' || name === 'ck_cancel_leave') {
           const uid = await this.ensureAnonymous();
@@ -576,7 +592,7 @@
             rows.push({ ...base, text: gift.name, status: 'shown', gift: gift.id });
           } else {
             const text = String(params.p_text || '').trim();
-            if (!text || text.length > 40) throw new Error('弹幕应为 1—40 字');
+            if (!text || text.length > 80) throw new Error('弹幕应为 1—80 字');
             rows.push({ ...base, text, status: 'new', ...(params.p_color ? { color: params.p_color } : {}) });
           }
           write('danmaku', rows);
@@ -793,6 +809,19 @@
           return true;
         }
         // 猜词游戏第一名加修为：整份替换本课堂今天的名单（空名单＝撤销），只收本班点名册上的学号
+        // 猜词游戏抽人记录（规则同 cloudbase-pg.sql 的 ck_record_draws）
+        if (name === 'ck_record_draws') {
+          teacherOnly();
+          const people = params.p_people || [];
+          if (!Array.isArray(people) || people.length > 10) throw new Error('一次最多记录 10 人');
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room || !room.class_id) throw new Error('课堂不存在或不属于任何班级');
+          const rows = read('draws');
+          const fresh = people.filter((person) => person && person.sid).map((person, i) => ({ id: `${Date.now()}-${i}`, course: room.course, class_id: room.class_id,
+            classroom: room.id, sid: sidKey(person.sid), name: String(person.name || '').slice(0, 40), kind: 'wordgame', drawn_at: new Date().toISOString() }));
+          write('draws', rows.concat(fresh));
+          return fresh.length;
+        }
         if (name === 'ck_set_wordgame_winners') {
           teacherOnly();
           const points = Number(params.p_points);
