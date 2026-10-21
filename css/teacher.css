@@ -330,3 +330,11 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-online-hint .tw-dot { margin: 0 4px 0 2px; }
 .tw-online-hint b { color: #1f8a4f; }
 .tw-stat.is-online b { color: #1f8a4f; }
+
+/* 班级上课范围（新建班级、导出与清理 → 班级）：快捷按钮＋勾选框 */
+.tw-scope-box { margin: 10px 0; padding: 10px 12px; border: 1px dashed rgba(70, 51, 34, .28); border-radius: 8px; background: #fffaf2; }
+.tw-scope-box summary { cursor: pointer; font-weight: 700; color: #a4492d; }
+.tw-scope-presets { display: flex; flex-wrap: wrap; gap: 6px; margin: 8px 0; }
+.tw-scope-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 4px 12px; max-height: 300px; overflow: auto; padding: 4px 2px; }
+.tw-scope-grid label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
+

@@ -21,6 +21,70 @@
   const mustPick = DATA.courses.length > 1 && !DATA.courses.some((item) => item.slug === savedCourse);
   const CONCEPT = course.kind === 'concept-html';
   const UNIT = course.unit_label || '章节';
+  // 班级上课范围：本课程全部单元（政经按案例、习经按章节）、按章节号的快捷选择、范围的简短写法
+  const scopeUnits = () => (course.units && course.kind === 'concept-html'
+    ? course.units.map((u) => ({ id: u.unit, short: `案例${u.number}`, label: `案例${u.number} · ${u.chapter}`, chapter: u.chapter }))
+    : (course.chapters || []).map((ch) => ({ id: ch.id, short: ch.cn, label: `${ch.cn} ${ch.title}`, chapter: ch.cn })));
+  const CN_DIGITS = '零一二三四五六七八九';
+  const chapterNo = (text) => {
+    if (/导论/.test(text)) return 0;
+    const m = String(text).match(/第([一二三四五六七八九十]+)章/);
+    if (!m) return null;
+    const [a, b, c] = m[1];
+    if (m[1] === '十') return 10;
+    if (a === '十') return 10 + CN_DIGITS.indexOf(b);
+    if (b === '十') return CN_DIGITS.indexOf(a) * 10 + (c ? CN_DIGITS.indexOf(c) : 0);
+    return CN_DIGITS.indexOf(a);
+  };
+  const scopeIds = (klass) => (klass && Array.isArray(klass.units) && klass.units.length ? klass.units : null);
+  function scopeText(klass) {
+    const all = scopeUnits();
+    const ids = scopeIds(klass);
+    if (!ids) return `全部 ${all.length} 个${UNIT}`;
+    const groups = [];
+    all.forEach((u, i) => {
+      if (!ids.includes(u.id)) return;
+      const last = groups[groups.length - 1];
+      if (last && last.end === i - 1) last.end = i; else groups.push({ start: i, end: i });
+    });
+    const text = groups.map(({ start, end }) => (start === end ? all[start].short
+      : `${all[start].short}—${all[end].short.replace(/^案例/, '')}`)).join('、');
+    return `${groups.reduce((n, g) => n + g.end - g.start + 1, 0)} 个${UNIT}（${text}）`;
+  }
+  // 范围编辑器：快捷按钮＋每个单元一个勾选框；get() 返回所选单元（全选＝空数组，表示全部）
+  function scopeEditor(host, selected) {
+    const all = scopeUnits();
+    const nums = all.map((u) => chapterNo(u.chapter));
+    const presets = [{ label: `全部（${all.length} 个）`, ids: all.map((u) => u.id) }];
+    const intro7 = all.filter((u, i) => nums[i] !== null && nums[i] <= 7).map((u) => u.id);
+    const only7 = all.filter((u, i) => nums[i] !== null && nums[i] >= 1 && nums[i] <= 7).map((u) => u.id);
+    if (intro7.length > only7.length && intro7.length < all.length) presets.push({ label: `导论＋第一至七章（${intro7.length} 个）`, ids: intro7 });
+    if (only7.length && only7.length < all.length) presets.push({ label: `第一至七章（${only7.length} 个）`, ids: only7 });
+    const chosen = new Set(selected && selected.length ? selected : all.map((u) => u.id));
+    host.innerHTML = `<div class="tw-scope-presets">${presets.map((p, i) => `<button type="button" class="tw-secondary" data-scope-preset="${i}">${esc(p.label)}</button>`).join('')}</div>
+      <div class="tw-scope-grid">${all.map((u) => `<label><input type="checkbox" value="${esc(u.id)}"${chosen.has(u.id) ? ' checked' : ''}> ${esc(u.label)}</label>`).join('')}</div>
+      <p class="tw-hint" data-scope-count></p>`;
+    const boxes = Array.from(host.querySelectorAll('input[type="checkbox"]'));
+    const count = () => {
+      const n = boxes.filter((box) => box.checked).length;
+      const meetings = CONCEPT ? n : boxes.filter((box) => box.checked).reduce((sum, box) => {
+        const ch = (course.chapters || []).find((item) => item.id === box.value);
+        return sum + Math.max(1, ch ? ch.cases.length : 1);
+      }, 0);
+      host.querySelector('[data-scope-count]').textContent = `已选 ${n} 个${UNIT}，共 ${meetings} 次课，修为满分 ${meetings * 100}。`;
+    };
+    host.querySelectorAll('[data-scope-preset]').forEach((button) => button.addEventListener('click', () => {
+      const ids = presets[Number(button.dataset.scopePreset)].ids;
+      boxes.forEach((box) => { box.checked = ids.includes(box.value); });
+      count();
+    }));
+    boxes.forEach((box) => box.addEventListener('change', count));
+    count();
+    return {
+      get() { const ids = boxes.filter((box) => box.checked).map((box) => box.value); return ids.length === all.length ? [] : ids; },
+      reset() { boxes.forEach((box) => { box.checked = true; }); count(); },
+    };
+  }
   const caseMap = new Map((course.cases || []).map((item) => [item.number, item]));
   const unitMap = new Map((course.units || []).map((item) => [item.unit, item]));
   const chapterMap = new Map(course.chapters.map((item) => [item.id, item]));
@@ -163,6 +227,7 @@
     sec.requests = [];
     sec.pins = [];
     loadSecurity(!$('[data-panel="security"]').hidden);
+    syncPractice(false).catch((error) => console.warn('[修炼场] 题库同步没有完成：', error));
     autoSettle().catch((error) => console.warn('[修为境界] 自动结算没有完成：', error));
   }
 
@@ -305,6 +370,7 @@
     store.set(CLASS_KEY, state.klass.id);
     await openApp();
   });
+  const newScope = scopeEditor($('[data-new-scope]'), null);
   $('[data-class-form]').addEventListener('submit', async (event) => {
     event.preventDefault();
     const form = event.currentTarget;
@@ -313,9 +379,13 @@
     error.textContent = '';
     if (!name) { error.textContent = '请填写班级名称'; return; }
     try {
-      await backend.rpc('ck_create_class', { p_course: course.slug, p_name: name });
+      const created = await backend.rpc('ck_create_class', { p_course: course.slug, p_name: name });
+      const row = Array.isArray(created) ? created[0] : created;
+      const units = newScope.get();
+      if (units.length && row && row.id != null) await backend.rpc('ck_set_class_units', { p_class: Number(row.id) || row.id, p_units: units });
       form.elements.name.value = '';
-      await showClassPicker(`已新建班级“${name}”，点上方卡片进入。`);
+      newScope.reset();
+      await showClassPicker(`已新建班级“${name}”（上课范围：${units.length ? `${units.length} 个${UNIT}` : '全部'}），点上方卡片进入。`);
     } catch (problem) {
       console.error(problem);
       error.textContent = window.ClassLive.isDuplicateError(problem) ? '已有同名班级' : `新建失败：${problem.message || problem}`;
@@ -366,6 +436,7 @@
     document.title = `教师工作台 · ${course.title} · ${klass.name}`;
     $('[data-class-name]').textContent = klass.name;
     $('[data-class-rooms]').textContent = state.rooms.length;
+    $('[data-class-scope]').textContent = scopeText(klass);
     updateNav();
     const roster = rosterOf();
     $('[data-roster-info]').textContent = roster.length
@@ -2091,6 +2162,33 @@
     }
   }));
 
+  // ---------------- 班级：上课范围（2026-10-21：政经这学期只上前七章，满分不再是全部单元）----------------
+  const scopeBox = $('[data-class-scope-box]');
+  let classScope = null;
+  $('[data-class-scope-edit]').addEventListener('click', () => {
+    classScope = scopeEditor($('[data-class-scope-editor]'), scopeIds(state.klass));
+    scopeBox.hidden = false;
+  });
+  $('[data-class-scope-cancel]').addEventListener('click', () => { scopeBox.hidden = true; });
+  $('[data-class-scope-save]').addEventListener('click', async () => {
+    const status = $('[data-class-status]');
+    const units = classScope ? classScope.get() : [];
+    try {
+      const saved = await backend.rpc('ck_set_class_units', { p_class: Number(state.klass.id) || state.klass.id, p_units: units });
+      state.klass = { ...state.klass, ...(Array.isArray(saved) ? saved[0] : saved) };
+      await loadClasses();
+      showClassInfo();
+      scopeBox.hidden = true;
+      realmResult = null;
+      renderRealms();
+      status.textContent = `已保存上课范围：${scopeText(state.klass)}。满分改为 ${realmMax()} 修为；请到“修为境界”点“结算修为并更新学生称号”，学生的境界就按新的满分更新。`;
+    } catch (problem) {
+      console.error(problem);
+      status.textContent = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))
+        ? '保存失败：后台还没有“上课范围”功能（数据库语句尚未执行）。' : `保存失败：${problem.message || problem}`;
+    }
+  });
+
   // ---------------- 班级：重命名、删除 ----------------
   $('[data-class-rename]').addEventListener('click', async () => {
     const name = (window.prompt('新的班级名称', state.klass.name) || '').trim();
@@ -2144,10 +2242,15 @@
   // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
   const LIKE = window.ClassLive.LIKE || { limit: 20, points: 5, perStudent: 2 };
-  const realmUnits = () => (CONCEPT
-    ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
-    : course.chapters.map((ch) => ({ id: ch.id, label: ch.cn, meetings: Math.max(1, ch.cases.length),
-      cases: ch.cases.map((item) => caseMap.get(item.number)).filter(Boolean) })));
+  // 只算本班上课范围内的单元（班级设置里选；没选＝全部）：满分＝范围内的课次 × 100，范围外单元的记录不计
+  const realmUnits = () => {
+    const ids = scopeIds(state.klass);
+    const all = CONCEPT
+      ? course.units.map((u) => ({ id: u.unit, label: `案例${u.number}`, meetings: 1, unit: u }))
+      : course.chapters.map((ch) => ({ id: ch.id, label: ch.cn, meetings: Math.max(1, ch.cases.length),
+        cases: ch.cases.map((item) => caseMap.get(item.number)).filter(Boolean) }));
+    return ids ? all.filter((u) => ids.includes(u.id)) : all;
+  };
   const realmMax = () => realmUnits().reduce((sum, u) => sum + 100 * u.meetings, 0);
   const meaningful = (text) => String(text == null ? '' : text).replace(/[\s\p{P}\p{S}＿_]/gu, '');
   const validText = (text, min) => {
@@ -2248,6 +2351,12 @@
       (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
         .forEach((doc) => gameBonus.set(sidKey(doc.sid), (gameBonus.get(sidKey(doc.sid)) || 0) + (Number(doc.points) || 0)));
     } catch (error) { if (!missingTable(error)) throw error; }
+    // 修炼场（2026-10-22）：本班每人在本课程修炼场累计得到的修为（后台已按每天上限、每题一次核对；还没建表时按 0 算）
+    const practicePoints = new Map();
+    try {
+      const list = await backend.rpc('ck_practice_totals', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id });
+      (Array.isArray(list) ? list : []).forEach((row) => practicePoints.set(sidKey(row.sid), Number(row.points) || 0));
+    } catch (error) { if (!missingTable(error) && !missingFunction(error)) throw error; }
     let leaves = [];
     try { leaves = await backend.fetchAll('leaves', { class_id: Number(state.klass.id) || state.klass.id }); } catch (error) { if (!missingTable(error)) throw error; }
     const leaveDay = (sid, day) => leaves.some((row) => sidKey(row.sid) === sid && row.start_day <= day && day <= row.end_day);
@@ -2299,7 +2408,7 @@
     });
     const max = realmMax();
     const rows = Array.from(people.values()).map((person) => {
-      const total = { attend: 0, leave: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0 };
+      const total = { attend: 0, leave: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0, practice: practicePoints.get(person.sid) || 0 };
       let excusedTimes = 0;
       perUnit.forEach((info) => {
         const { u } = info;
@@ -2365,13 +2474,13 @@
         total.danmaku += Math.min(POINTS.danmaku * m, POINTS.perDanmaku * said.size);
         total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
       });
-      const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game) * 10) / 10;
+      const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game + total.practice) * 10) / 10;
       const realm = window.ClassLive.realmOf(points, max);
       const round1 = (v) => Math.round(v * 10) / 10;
       return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
         title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,
         excused: excusedTimes,
-        detail: { attend: round1(total.attend), leave: round1(total.leave), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game) } };
+        detail: { attend: round1(total.attend), leave: round1(total.leave), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game), practice: round1(total.practice) } };
     });
     rows.forEach((row) => {
       row.flags = [];
@@ -2399,20 +2508,20 @@
     const meetings = realmUnits().reduce((s, u) => s + u.meetings, 0);
     $('[data-realm-legend]').innerHTML = REALMS.map((realm) => `${realmChip(realm.level)}<span>${realm.min ? `≥ ${Math.ceil(realm.min * max)} 修为（${Math.round(realm.min * 100)}%）` : '起步'}</span>`).join('');
     if (!realmResult) {
-      $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}；情境猜谜第一个猜中另加 ${(window.ClassLive.PUZZLE || {}).points || 5}；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为）。点“重新计算”查看本班修为。`;
+      $('[data-realm-summary]').textContent = `本班上课范围：${scopeText(state.klass)}（在“导出与清理 → 班级”里设置）。共 ${meetings} 次课，满分 ${max} 修为（每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；老师点赞另加，每赞 ${LIKE.points}；猜词游戏第一名每人另加 ${(window.ClassLive.WORDGAME || {}).points || 10}；情境猜谜第一个猜中另加 ${(window.ClassLive.PUZZLE || {}).points || 5}；PK 对决胜者另加 ${(window.ClassLive.PK || {}).points || 5}；修炼场每人每天最多另加 ${PRACTICE.of(course.slug).cap}；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为）。点“重新计算”查看本班修为。`;
       box.innerHTML = '';
       return;
     }
     const query = $('[data-realm-search]').value.trim().toUpperCase();
     const rows = realmResult.rows.filter((row) => !query || row.sid.includes(query) || String(row.name).toUpperCase().includes(query));
     const counts = REALMS.map((realm) => realmResult.rows.filter((row) => row.inRoster && row.realm === realm.level).length);
-    $('[data-realm-summary]').textContent = `本课程共 ${meetings} 次课，满分 ${max} 修为；已上过 ${realmResult.units}/${realmResult.total} 个${UNIT}。`
+    $('[data-realm-summary]').textContent = `本班上课范围：${scopeText(state.klass)}；共 ${meetings} 次课，满分 ${max} 修为；已上过 ${realmResult.units}/${realmResult.total} 个${UNIT}。`
       + ` 本班境界：${REALMS.map((realm, i) => `${realm.name} ${counts[i]} 人`).join('，')}。${realmSaved}`;
     box.innerHTML = rows.map((row, i) => `<tr class="${row.inRoster ? '' : 'is-muted'}"><td>${i + 1}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
       <td>${realmChip(row.realm, row.title)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
-      <td>${row.detail.attend}</td><td>${row.detail.leave || 0}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td>
+      <td>${row.detail.attend}</td><td>${row.detail.leave || 0}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td><td>${row.detail.practice || 0}</td>
       <td class="tw-realm-flags">${row.flags.map(esc).join('<br>')}</td></tr>`).join('')
-      || '<tr><td colspan="13" class="empty">本班还没有学生记录。</td></tr>';
+      || '<tr><td colspan="14" class="empty">本班还没有学生记录。</td></tr>';
   }
   async function refreshRealms(save, quiet) {
     if (!state.klass) return;
@@ -2443,10 +2552,66 @@
   $('[data-realm-export]').addEventListener('click', () => {
     if (!realmResult) return;
     const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
-      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.flags.join('；')]);
+      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.detail.practice || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答、PK 胜者（额外）', '修炼场（额外）', '提示'], ...rows]));
   });
+  // ---------------- 修炼场题库（2026-10-22）：工作台里带着本课程题库（gzip＋base64），按单元版本号同步到后台 ----------------
+  const PRACTICE = window.ClassLive.PRACTICE || { delay: 3, essayMin: 200, of: () => ({ cap: 3, item: 1 }) };
+  const missingFunction = (error) => /PGRST202|42883|Could not find the function/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`);
+  const practiceSynced = new Set();
+  async function unpackPractice(gz) {
+    const bytes = Uint8Array.from(atob(gz), (c) => c.charCodeAt(0));
+    const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
+    return JSON.parse(await new Response(stream).text());
+  }
+  // 两份题库都带在工作台里：修炼场题库（ck_practice_*）与题目解答（ck_explain_*，学生递交后、结丹以上可展开）
+  const BANKS = [
+    { field: 'practice', name: '修炼场题库', versions: 'ck_practice_versions', sql: 'cloudbase-pg-20261022-修炼场.sql',
+      load: (u) => ['ck_practice_load', { p_course: course.slug, p_unit: u.unit, p_title: u.title, p_order: u.order, p_version: u.version, p_items: u.items }],
+      clear: (unit) => ['ck_practice_load', { p_course: course.slug, p_unit: unit, p_title: unit, p_order: 0, p_version: 'gone', p_items: [] }] },
+    { field: 'explain', name: '题目解答', versions: 'ck_explain_versions', sql: 'cloudbase-pg-20261022-题目解答.sql',
+      load: (u) => ['ck_explain_load', { p_course: course.slug, p_unit: u.unit, p_version: u.version, p_items: u.items }],
+      clear: (unit) => ['ck_explain_load', { p_course: course.slug, p_unit: unit, p_version: 'gone', p_items: [] }] },
+  ];
+  async function syncBank(bank, force) {
+    const pack = course[bank.field];
+    if (!pack) return '';
+    const size = `${Object.keys(pack.versions).length} 个${UNIT}、${pack.items} 题`;
+    try {
+      const current = (await backend.rpc(bank.versions, { p_course: course.slug })) || {};
+      const changed = Object.keys(pack.versions).filter((unit) => force || current[unit] !== pack.versions[unit]);
+      const gone = Object.keys(current).filter((unit) => !(unit in pack.versions));
+      if (!changed.length && !gone.length) return `${bank.name}：已是最新（${size}）`;
+      const data = await unpackPractice(pack.gz);
+      for (const u of data.units.filter((x) => changed.includes(x.unit))) {
+        const [name, params] = bank.load(u);
+        await backend.rpc(name, params);
+      }
+      for (const unit of gone) {
+        const [name, params] = bank.clear(unit);
+        await backend.rpc(name, params);
+      }
+      return `${bank.name}：已同步（${size}，本次更新 ${changed.length} 个${UNIT}）`;
+    } catch (error) {
+      practiceSynced.delete(course.slug);
+      return missingTable(error) || missingFunction(error)
+        ? `${bank.name}：后台还没有建好，请先在云开发 SQL 编辑器执行 tools/${bank.sql}`
+        : `${bank.name}同步失败：${failReason(error)}`;
+    }
+  }
+  async function syncPractice(force) {
+    const status = $('[data-practice-status]');
+    if (!backend || (!force && practiceSynced.has(course.slug))) return;
+    practiceSynced.add(course.slug);
+    if (status) status.textContent = '正在核对修炼场题库和题目解答……';
+    const lines = [];
+    for (const bank of BANKS) lines.push(await syncBank(bank, force));
+    if (status) status.textContent = `${lines.filter(Boolean).join('；')}（${clock(Date.now())}）。`;
+  }
+  const practiceButton = $('[data-practice-sync]');
+  if (practiceButton) practiceButton.addEventListener('click', () => syncPractice(true));
+
   // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
   async function autoSettle() {
     const last = Number(store.get(`realm-saved:${course.slug}:${state.klass && state.klass.id}`)) || 0;

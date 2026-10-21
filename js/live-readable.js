@@ -4,19 +4,25 @@
  * 档位：0 标准（已比原来大）／1 大／2 特大，存 localStorage classlive-font，各页面、两门课通用；学生面板上的“字号”按钮切换。
  * 样式表的 data-readable：panel＝学生面板（面板宽度固定，倍数温和一些）；skip＝不改（如法宝画面）。原值记在 WeakMap 里，换档时从原值重算。
  * 放在 <head> 末尾同步执行，页面第一次显示时字号就是改好的；之后插入的样式（面板、弹窗）由 MutationObserver 补上。
- * 提供 window.ClassReadable：{ LEVELS, level(), set(n), onChange(fn) }。
+ * 教师投屏页（课堂版／讲解版，2026-10-21 用户要求“教师投屏的字也调大”）：script 标签带 data-screen="1"，用投屏档位（放得更大、标题也多放大一些），
+ * 选择另存 classlive-font-screen（与学生页分开，同一台电脑看学生版测试页不互相影响）；切换按钮在右下角课堂控件条（live-room.js）。
+ * 提供 window.ClassReadable：{ LEVELS, screen, level(), set(n), onChange(fn) }。
  */
 (function () {
   'use strict';
-  const KEY = 'classlive-font';
+  const SCREEN = Boolean(document.currentScript && document.currentScript.dataset.screen === '1');
+  const KEY = SCREEN ? 'classlive-font-screen' : 'classlive-font';
   const LEVELS = ['标准', '大', '特大'];
-  // k：正文放大倍数；floor：小字下限（11px 以下的角标、图标字不拉到下限，只按倍数放大）
-  const PROFILE = {
+  // k：正文放大倍数；floor：小字下限（11px 以下的角标、图标字不拉到下限，只按倍数放大）；
+  // cap、ratio：24px 以上的标题最多多放大 cap 的 ratio 倍（学生页手机屏小，标题只略放大；投屏多放大一些）
+  const STUDENT = {
     phone: [{ k: 1.06, floor: 14 }, { k: 1.18, floor: 15 }, { k: 1.3, floor: 16 }],
     tablet: [{ k: 1.12, floor: 15 }, { k: 1.24, floor: 16 }, { k: 1.38, floor: 17 }],
     desktop: [{ k: 1.12, floor: 15 }, { k: 1.24, floor: 16 }, { k: 1.38, floor: 17 }],
   };
-  const PANEL = [{ k: 1, floor: 13.5 }, { k: 1.08, floor: 14 }, { k: 1.16, floor: 15 }];
+  const PROJECTOR = [{ k: 1.25, floor: 17, cap: 10, ratio: 0.6 }, { k: 1.4, floor: 19, cap: 16, ratio: 0.6 }, { k: 1.55, floor: 21, cap: 22, ratio: 0.6 }];
+  const PROFILE = SCREEN ? { phone: PROJECTOR, tablet: PROJECTOR, desktop: PROJECTOR } : STUDENT;
+  const PANEL = SCREEN ? [{ k: 1.1, floor: 14 }, { k: 1.2, floor: 15 }, { k: 1.3, floor: 16 }] : [{ k: 1, floor: 13.5 }, { k: 1.08, floor: 14 }, { k: 1.16, floor: 15 }];
   let level = 0;
   try { level = Math.max(0, Math.min(2, Math.round(Number(localStorage.getItem(KEY)) || 0))); } catch (error) { level = 0; }
   const device = () => (window.matchMedia('(max-width: 699px)').matches ? 'phone'
@@ -25,7 +31,7 @@
 
   function scale(px, p) {
     let out = px * p.k;
-    if (px >= 24) out = px + Math.min(out - px, 4) * 0.5;
+    if (px >= 24) out = px + Math.min(out - px, p.cap || 4) * (p.ratio || 0.5);
     else if (px >= 11 && px < p.floor) out = Math.max(out, px + (p.floor - px) * 0.75);
     return Math.round(out * 2) / 2;
   }
@@ -84,6 +90,7 @@
   const listeners = [];
   window.ClassReadable = {
     LEVELS,
+    screen: SCREEN,
     level: () => level,
     set(next) {
       level = Math.max(0, Math.min(2, Math.round(Number(next) || 0)));

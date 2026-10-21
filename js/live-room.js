@@ -17,6 +17,7 @@
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
 
   const style = document.createElement('style');
+  style.dataset.readable = 'panel';   // 控件条宽度有限：字号按温和倍数调整（live-readable.js）
   style.textContent = `
   .rm-bar { position: fixed; z-index: 301; right: 22px; bottom: 22px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(560px, calc(100vw - 44px)); padding: 5px 8px; border-radius: 8px;
     background: rgba(32, 28, 24, .72); color: #fff; font: 700 12.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; opacity: .45; transition: opacity .2s ease; }
@@ -27,6 +28,11 @@
   .rm-bar a { color: #ffd98a; }
   .rm-bar b { color: #ffd98a; letter-spacing: .06em; }
   .rm-bar.is-min > :not([data-rm-min]) { display: none; }
+  .rm-font { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px;
+    background: rgba(32, 28, 24, .92); box-shadow: 0 8px 24px rgba(0,0,0,.3); white-space: nowrap; }
+  .rm-font[hidden] { display: none; }
+  .rm-bar .rm-font button { min-width: 48px; padding: 5px 10px; }
+  .rm-bar .rm-font button.is-on { border-color: #ffd98a; color: #2b2118; background: #ffd98a; }
   @media print { .rm-bar { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -40,6 +46,8 @@
     + '<button type="button" data-rm-open hidden>结束提交</button>'
     + '<button type="button" class="is-warn" data-rm-stop hidden>停止课堂</button>'
     + '<button type="button" data-rm-reset title="清空本页的选择和填写，恢复到初始状态">复原</button>'
+    + (window.ClassReadable ? '<button type="button" data-rm-font aria-haspopup="true" aria-expanded="false" title="调整投屏字号（标准、大、特大），本机记住">字号</button>'
+      + `<div class="rm-font" data-rm-font-pop role="group" aria-label="投屏字号" hidden><span>投屏字号</span>${window.ClassReadable.LEVELS.map((name, i) => `<button type="button" data-font="${i}">${esc(name)}</button>`).join('')}</div>` : '')
     + '<button type="button" data-rm-min title="收起 / 展开课堂控件">课堂</button>';
   ['click', 'keydown', 'keyup'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   document.body.appendChild(bar);
@@ -48,6 +56,28 @@
   const stopButton = bar.querySelector('[data-rm-stop]');
   const minButton = bar.querySelector('[data-rm-min]');
   const resetButton = bar.querySelector('[data-rm-reset]');
+  // 投屏字号：三档（live-readable.js 改写页面字号），选择存在这台电脑上，与学生页分开
+  const fontButton = bar.querySelector('[data-rm-font]');
+  const fontPop = bar.querySelector('[data-rm-font-pop]');
+  if (fontButton && fontPop) {
+    const R = window.ClassReadable;
+    const paintFont = () => fontPop.querySelectorAll('[data-font]').forEach((button) => {
+      const on = Number(button.dataset.font) === R.level();
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+    const showFont = (open) => { fontPop.hidden = !open; fontButton.setAttribute('aria-expanded', String(open)); };
+    paintFont();
+    R.onChange(paintFont);
+    fontButton.addEventListener('click', () => showFont(fontPop.hidden));
+    fontPop.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-font]');
+      if (!button) return;
+      R.set(Number(button.dataset.font));
+      paintFont();
+    });
+    document.addEventListener('click', (event) => { if (!fontPop.hidden && !bar.contains(event.target)) showFont(false); });
+  }
   const setMin = (value) => {
     bar.classList.toggle('is-min', value);
     minButton.textContent = value ? '课堂' : '收起';
@@ -171,6 +201,15 @@
     async setWinners(people) {
       const current = await roomHere();
       return backend.rpc('ck_set_wordgame_winners', { p_classroom: Number(current.id), p_people: people.map((person) => ({ sid: person.sid, name: person.name })), p_points: this.points });
+    },
+  };
+
+  // PK 对决（替换部分案例的圆桌会议，见 #政治经济学/PK游戏/pk_games.js）：结束后给今天各局的胜者每人加修为，再点一次按最新名单整份替换
+  window.ClassLivePK = {
+    points: (window.ClassLive.PK || {}).points || 5,
+    async setWinners(people) {
+      const current = await roomHere();
+      return backend.rpc('ck_set_pk_winners', { p_classroom: Number(current.id), p_people: people.map((person) => ({ sid: person.sid, name: person.name })), p_points: this.points });
     },
   };
 
