@@ -92,6 +92,7 @@ main.wrap { padding: 40px 0 56px; }
 .join-field input { display: block; width: 100%; margin-top: 6px; padding: 11px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: #fff; font: 500 16px/1.4 var(--sans); }
 .join-field input:focus { outline: none; border-color: var(--teal); box-shadow: 0 0 0 3px var(--teal-soft); }
 .join-field input[name=code] { font: 800 20px/1.3 var(--sans); letter-spacing: .12em; text-transform: uppercase; }
+.join-field input[name=code]::placeholder { font-weight: 600; font-size: .78em; letter-spacing: 0; text-transform: none; }   /* 提示文字较长：缩小、不加字距，手机上放得下 */
 .join-row { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .join-consent { display: flex; gap: 8px; align-items: flex-start; margin: 16px 0 0; padding: 10px 12px; border-radius: 8px; background: var(--paper); color: #4d443c; font-size: 13.5px; line-height: 1.6; }
 .join-consent input { margin-top: 4px; }

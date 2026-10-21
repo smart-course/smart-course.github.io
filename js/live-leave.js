@@ -57,6 +57,7 @@
     if (!document.getElementById('cl-leave-style')) {
       const style = document.createElement('style');
       style.id = 'cl-leave-style';
+      style.dataset.readable = 'panel';   // 字号按面板的温和倍数调整（live-readable.js）
       style.textContent = CSS;
       document.head.appendChild(style);
     }

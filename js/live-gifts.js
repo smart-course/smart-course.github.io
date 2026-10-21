@@ -11,6 +11,7 @@
   if (window.ClassLiveGifts) return;
   const config = window.CLASS_LIVE_CONFIG || {};
   const style = document.createElement('style');
+  style.dataset.readable = 'skip';   // 法宝画面按 1280×720 场景缩放，不参与学生页字号调整（live-readable.js）
   style.textContent = `
   @keyframes dm-flowtext { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
   /* ---------- 法宝画面：全屏暗幕＋1280×720 场景（按屏幕等比缩放）＋法宝名牌，约 3.2 秒（课上常有，不宜久挡） ---------- */

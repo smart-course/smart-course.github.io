@@ -74,6 +74,7 @@
   const shield = (el, types = ['click', 'keydown', 'keyup', 'input']) => types.forEach((type) => el.addEventListener(type, (event) => event.stopPropagation()));
 
   const style = document.createElement('style');
+  style.dataset.readable = 'panel';   // 面板宽度固定：字号按温和倍数调整（live-readable.js）
   style.textContent = `
   .clp-panel { position: fixed; z-index: 90; left: 16px; bottom: 80px; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid rgba(35,101,95,.28); border-radius: 10px; background: rgba(255,253,248,.97); color: #201c18; box-shadow: 0 12px 30px rgba(0,0,0,.14); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-who { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
@@ -410,6 +411,17 @@
     background-size: 100% 100%, 300% 100%; box-shadow: 0 6px 16px rgba(0,0,0,.25), 0 0 12px rgba(255,214,110,.6); animation: clp-flow 3s linear infinite; }
   .clp-mini-dot { position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #c8452d; }
   .clp-mini-dot[hidden] { display: none; }
+  /* 字号：面板头部“字号”按钮弹出三档（live-readable.js 改写页面字号）；未进入课堂的面板直接显示三档 */
+  .clp-font-pop { position: absolute; z-index: 6; top: 46px; right: 10px; display: flex; align-items: center; gap: 6px; padding: 8px 10px;
+    border: 1px solid rgba(70,51,34,.2); border-radius: 12px; background: #fffdf8; color: #463322; box-shadow: 0 10px 28px rgba(0,0,0,.2); font-size: 13.5px; font-weight: 800; }
+  .clp-font-pop[hidden] { display: none; }
+  .clp-font-pop button, .clp-gate-font button { min-width: 46px; height: 32px; padding: 0 10px; border: 1px solid #d6cdbf; border-radius: 999px; background: #fff; color: #463322;
+    font-family: inherit; font-weight: 800; line-height: 1; cursor: pointer; }
+  .clp-font-pop button[data-font="0"], .clp-gate-font button[data-font="0"] { font-size: 13px; }
+  .clp-font-pop button[data-font="1"], .clp-gate-font button[data-font="1"] { font-size: 15px; }
+  .clp-font-pop button[data-font="2"], .clp-gate-font button[data-font="2"] { font-size: 17px; }
+  .clp-font-pop button.is-on, .clp-gate-font button.is-on { border-color: #a4492d; background: #a4492d; color: #fff; }
+  .clp-gate-font { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; color: #6d6259; font-size: 13px; font-weight: 700; }
   /* 修为榜：面板头部的金色按钮＋星空弹窗（前三名领奖台、第四名起逐行飞入、本人高亮） */
   .clp-v2 .clp-sub { display: flex; align-items: center; gap: 8px; }
   .clp-v2 .clp-sub > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
@@ -903,6 +915,38 @@
   }
 
   // 请假（live-leave.js）：面板上的“请假”打开请假框，凭本机登录过的课堂核对身份
+  // ---------- 字号：三档（标准／大／特大），由 live-readable.js 改写页面字号，选择存在本机、各页面通用 ----------
+  function fontChoices(cls, pop) {
+    const R = window.ClassReadable;
+    if (!R) return '';
+    return `<div class="${cls}" data-cl-font-choices${pop ? ' hidden role="group" aria-label="字号"' : ''}><span>字号</span>${R.LEVELS.map((name, i) =>
+      `<button type="button" data-font="${i}" class="${R.level() === i ? 'is-on' : ''}" aria-pressed="${R.level() === i}">${esc(name)}</button>`).join('')}</div>`;
+  }
+  function bindFont() {
+    const R = window.ClassReadable;
+    const box = panel.querySelector('[data-cl-font-choices]');
+    if (!R || !box) return;
+    const toggle = panel.querySelector('[data-cl-font]');
+    const paint = () => box.querySelectorAll('[data-font]').forEach((button) => {
+      const on = Number(button.dataset.font) === R.level();
+      button.classList.toggle('is-on', on);
+      button.setAttribute('aria-pressed', String(on));
+    });
+    box.addEventListener('click', (event) => {
+      const button = event.target.closest('[data-font]');
+      if (!button) return;
+      R.set(Number(button.dataset.font));
+      paint();
+      dodge();
+    });
+    R.onChange(paint);
+    if (!toggle) return;
+    const show = (open) => { box.hidden = !open; toggle.setAttribute('aria-expanded', String(open)); };
+    toggle.addEventListener('click', (event) => { event.stopPropagation(); show(box.hidden); });
+    document.addEventListener('click', (event) => { if (!box.hidden && !box.contains(event.target) && event.target !== toggle) show(false); });
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !box.hidden) show(false); });
+  }
+
   function bindLeave() {
     panel.addEventListener('click', (event) => {
       if (!event.target.closest('[data-cl-leave]') || !window.ClassLeave || !backend) return;
@@ -919,10 +963,11 @@
     panel.innerHTML = (elsewhere
       ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>${window.ClassLeave ? '<button type="button" class="clp-gate-leave" data-cl-leave>请假</button>' : ''}`
       : '<strong>还没有进入课堂</strong><div class="clp-room">请在首页输入老师发布的课堂码并填写个人信息，才能递交作答。本页可以写备注、导出复习。</div><a href="/">去登录</a>')
-      + (questions.length ? tools : '');
+      + (questions.length ? tools : '') + fontChoices('clp-gate-font');
     document.body.appendChild(panel);
     dodge();
     bindTools();
+    bindFont();
     if (elsewhere) bindLeave();
     setupMechDanmaku(false, elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
     setupFeedback(false, elsewhere ? '本周课堂不在这一页，这里不能提交建议。' : '进入课堂后才能提交建议：请先在首页输入老师发布的课堂码。');
@@ -972,7 +1017,7 @@
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
-        <span class="clp-links">${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
+        <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button></div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
@@ -1011,8 +1056,10 @@
         <span class="clp-foot-links"><button type="button" class="clp-link" data-cl-news-open>更新说明</button><button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button></span>
       </div>
     </div>`;
+  if (window.ClassReadable) panel.insertAdjacentHTML('beforeend', fontChoices('clp-font-pop', true));
   document.body.appendChild(panel);
   dodge();
+  bindFont();
   // 不是我：清掉本机的身份并退出这次登录（下一位同学在这台设备上登录算新设备，要输自己的口令）
   const switchButton = panel.querySelector('[data-cl-switch]');   // 学生版测试页没有“不是我”（以免退出老师的工作台登录）
   if (switchButton) switchButton.addEventListener('click', async () => {
