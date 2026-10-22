@@ -5,6 +5,7 @@
  * 样式表的 data-readable：panel＝学生面板（面板宽度固定，倍数温和一些）；skip＝不改（如法宝画面）。原值记在 WeakMap 里，换档时从原值重算。
  * 同一条规则里宽、高都写成 px 的（×关闭按钮、序号圆点、头像、印章等定尺寸的小框），框随字号同比例放大，免得字放大了框没变、字挤出框外
  * （2026-10-22 用户反映政经“课堂工具”的 × 跑出了按钮框）。
+ * 定宽的侧边目录栏（.rail，约 100px 宽）也用面板的温和倍数：按正文倍数放大后连“案例起点”都要折成两行（同日逐页检查发现）。
  * 放在 <head> 末尾同步执行，页面第一次显示时字号就是改好的；之后插入的样式（面板、弹窗）由 MutationObserver 补上。
  * 教师投屏页（课堂版／讲解版，2026-10-21 用户要求“教师投屏的字也调大”）：script 标签带 data-screen="1"，用投屏档位（放得更大、标题也多放大一些），
  * 选择另存 classlive-font-screen（与学生页分开，同一台电脑看学生版测试页不互相影响）；切换按钮在右下角课堂控件条（live-room.js）。
@@ -81,9 +82,10 @@
     st.setProperty('font', value, o.fontPrio);
     fit(ratio);
   }
+  const COMPACT = /(^|,)\s*\.rail\b/;   // 定宽的侧边目录栏
   function walk(rules, p) {
     for (const rule of Array.from(rules)) {
-      if (rule.style && 'selectorText' in rule) processRule(rule, p);
+      if (rule.style && 'selectorText' in rule) processRule(rule, COMPACT.test(rule.selectorText) ? PANEL[level] : p);
       if (rule.cssRules && rule.cssRules.length) walk(rule.cssRules, p);
     }
   }
