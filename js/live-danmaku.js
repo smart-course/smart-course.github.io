@@ -199,26 +199,30 @@
   .dm-item .dm-side.is-role { background: #a77a2c; }
   .dm-bubble.is-pro { border-color: rgba(35, 101, 95, .55); background: #eef6f4; }
   .dm-bubble.is-con { border-color: rgba(164, 73, 45, .5); background: #fbefea; }
-  /* 试用特效面板 */
-  .dm-demo { position: fixed; z-index: 302; left: 108px; bottom: 64px; width: min(420px, calc(100vw - 130px)); padding: 12px 14px; border-radius: 12px;
-    background: rgba(24, 20, 30, .94); color: #fff4e0; box-shadow: 0 16px 40px rgba(0,0,0,.45); font: 700 13px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  /* 试用特效面板：宽度随内容（境界五个一行、法宝四件一行），不超过屏幕；投屏字号档位会把这里的字号放大（live-readable.js），
+     所以标签宽、按钮内边距都按字号（em）算，放大后不会挤成竖排 */
+  .dm-demo { position: fixed; z-index: 302; left: 108px; bottom: 64px; width: max-content; max-width: calc(100vw - 130px); max-height: calc(100vh - 84px); overflow-y: auto;
+    box-sizing: border-box; padding: 14px 18px 16px; border-radius: 14px; background: rgba(24, 20, 30, .95); color: #fff4e0; box-shadow: 0 16px 40px rgba(0,0,0,.45);
+    font: 700 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .dm-demo[hidden] { display: none; }
-  .dm-demo h4 { display: flex; justify-content: space-between; align-items: center; margin: 0 0 2px; font-size: 15px; color: #f3d58c; }
-  .dm-demo h4 button { border: 0; background: none; color: #d9cbb4; font-size: 18px; cursor: pointer; }
-  .dm-demo p { margin: 0 0 8px; color: #b9afa0; font-weight: 600; font-size: 12px; }
-  .dm-demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 0; }
-  .dm-demo-row > b { flex: 0 0 auto; width: 34px; color: #d9cbb4; font-size: 12.5px; }
-  .dm-demo-row .dm-title { margin: 0; font-size: 15px; cursor: pointer; opacity: .55; }
+  .dm-demo h4 { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin: 0 0 2px; font-size: 16px; color: #f3d58c; }
+  .dm-demo h4 button { border: 0; background: none; color: #d9cbb4; font-size: 20px; cursor: pointer; }
+  .dm-demo p { margin: 0 0 4px; color: #b9afa0; font-weight: 600; font-size: 12.5px; }
+  .dm-demo-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 10px 0 0; }
+  .dm-demo-row > b { flex: 0 0 2.8em; color: #d9cbb4; font-size: 13px; white-space: nowrap; }
+  .dm-demo-row[data-demo-realms], .dm-demo-row[data-demo-gifts] { flex-wrap: nowrap; }
+  .dm-demo-row .dm-title { margin: 0; font-size: 16px; white-space: nowrap; cursor: pointer; opacity: .55; }
   .dm-demo-row .dm-title[aria-pressed="true"] { opacity: 1; outline: 2px solid #fff4e0; outline-offset: 2px; }
   .dm-demo-colors button { width: 22px; height: 22px; padding: 0; border: 1px solid rgba(255,255,255,.35); border-radius: 50%; cursor: pointer; }
   .dm-demo-colors button[aria-pressed="true"] { outline: 2px solid #fff4e0; outline-offset: 2px; }
   .dm-demo-colors em { color: #b9afa0; font-style: normal; font-weight: 600; font-size: 12px; }
   .dm-demo input[type=text] { flex: 1 1 auto; min-width: 0; padding: 6px 9px; border: 1px solid rgba(255,255,255,.35); border-radius: 7px; background: rgba(255,255,255,.1); color: #fff; font: inherit; }
-  .dm-demo .dm-demo-btn { padding: 5px 10px; border: 1px solid rgba(255,255,255,.4); border-radius: 7px; color: #fff; background: rgba(255,255,255,.08); font: inherit; cursor: pointer; }
+  .dm-demo .dm-demo-btn { padding: .38em .8em; border: 1px solid rgba(255,255,255,.4); border-radius: 8px; color: #fff; background: rgba(255,255,255,.08); font: inherit; white-space: nowrap; cursor: pointer; }
+  .dm-demo .dm-demo-btn small { color: #b9afa0; font-size: 12px; font-weight: 600; }
   .dm-demo .dm-demo-btn.is-main { border-color: #e0b64a; background: #a4492d; }
   .dm-demo .dm-demo-btn:hover { background: rgba(255,255,255,.18); }
   .dm-demo .dm-demo-btn.is-main:hover { background: #b9573a; }
-  .dm-demo label.dm-demo-check { display: inline-flex; align-items: center; gap: 5px; color: #d9cbb4; font-weight: 600; }
+  .dm-demo label.dm-demo-check { display: inline-flex; align-items: center; gap: 5px; color: #d9cbb4; font-weight: 600; white-space: nowrap; }
   /* 内容框：与学生面板发弹幕的输入框同一个样子（live-student.js 的 .clp-dm-field），随所点的境界和字色变——
      炼气、筑基白底；结丹一道金光绕框，元婴紫霄紫、冰蓝两道电光对绕并呼吸发光，化神七彩光环旋转、外晕变色；
      选了字色就用深底预览投屏上的字色，流光色用渐变字 */
@@ -227,7 +231,7 @@
   .dm-demo-field.is-r2 { --dm-input-border: #e4c88a; --dm-ring: rgba(216,164,58,.2); }
   .dm-demo-field.is-r3 { --dm-input-border: #8b5fe0; --dm-ring: rgba(170,120,255,.2); }
   .dm-demo-field.is-r4 { --dm-input-border: #c9a24a; --dm-ring: rgba(255,214,110,.2); }
-  .dm-demo .dm-demo-field input[type=text] { flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 12px; border: 1.5px solid var(--dm-input-border); border-radius: 12px;
+  .dm-demo .dm-demo-field input[type=text] { flex: 1 1 auto; min-width: 0; height: 2.5em; padding: 0 .75em; border: 1.5px solid var(--dm-input-border); border-radius: 12px;
     background: #fff; color: #201c18; font: 500 16px/1.2 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .dm-demo .dm-demo-field input[type=text]:focus { outline: none; box-shadow: 0 0 0 3px var(--dm-ring); }
   .dm-demo-field.has-color { --dm-fill: #1d1630; }
@@ -243,7 +247,7 @@
   .dm-demo-field.is-r2::after, .dm-demo-field.is-r3::after, .dm-demo-field.is-r4::after { content: ''; position: absolute; z-index: -1; inset: 2px; border-radius: 11px;
     background: var(--dm-fill); pointer-events: none; }
   .dm-demo .dm-demo-field.is-r2 input[type=text], .dm-demo .dm-demo-field.is-r3 input[type=text], .dm-demo .dm-demo-field.is-r4 input[type=text] {
-    height: 36px; border: 0; border-radius: 11px; background-color: transparent; }
+    height: 2.25em; border: 0; border-radius: 11px; background-color: transparent; }
   .dm-demo .dm-demo-field.is-r2 input[type=text]:focus, .dm-demo .dm-demo-field.is-r3 input[type=text]:focus, .dm-demo .dm-demo-field.is-r4 input[type=text]:focus { box-shadow: none; }
   .dm-demo-field.is-r2 { box-shadow: 0 0 8px rgba(242,198,79,.45); }
   .dm-demo-field.is-r2::before { background: conic-gradient(from 0deg, transparent 0 58%, rgba(255,214,110,.35) 68%, #f2b52f 80%, #ffffff 88%, #ffd36b 92%, transparent 100%), #e6c98a; }
@@ -478,9 +482,8 @@
     <div class="dm-demo-row dm-demo-colors" data-demo-colors><b>字色</b></div>
     <div class="dm-demo-row"><b>内容</b><span class="dm-demo-field" data-demo-field><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></span></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
-      <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label></div>
-    <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
-    <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small style="color:#b9afa0;font-weight:600">（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
+      <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
+    <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small>（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
   document.body.appendChild(demo);
   const demoText = demo.querySelector('[data-demo-text]');
   function paintDemo() {
@@ -552,8 +555,39 @@
   function toggleDemo(open) {
     demo.hidden = !open;
     demoToggle.setAttribute('aria-expanded', String(open));
-    if (open) { paintDemo(); if (paused) bar.querySelector('[data-dm-pause]').click(); }
+    if (open) { paintDemo(); placeDemo(); if (paused) bar.querySelector('[data-dm-pause]').click(); }
   }
+  // 位置跟着字号走（投屏字号放大后页码、控件条都变大，写死的 108px、64px 会叠在一起）：
+  // 弹幕条放在左下角页码（.page-counter／.page-progress）的右边；试用面板放在弹幕条上方，左边与弹幕条对齐，
+  // 和右下角的课堂控件条（.rm-bar）左右有重叠时，再抬到控件条上方
+  function placeBar() {
+    let left = 108;
+    document.querySelectorAll('.page-counter, .page-progress').forEach((el) => {
+      const r = el.getBoundingClientRect();
+      if (r.width && getComputedStyle(el).position === 'fixed' && r.left < innerWidth / 2 && r.bottom > innerHeight - 140) left = Math.max(left, Math.ceil(r.right) + 12);
+    });
+    bar.style.left = `${left}px`;
+    bar.style.maxWidth = `calc(100vw - ${left + 22}px)`;
+    demo.style.left = `${left}px`;
+    demo.style.maxWidth = `calc(100vw - ${left + 22}px)`;
+  }
+  function placeDemo() {
+    if (demo.hidden) return;
+    let bottom = Math.max(64, Math.ceil(innerHeight - bar.getBoundingClientRect().top) + 10);
+    demo.style.bottom = `${bottom}px`;
+    const room = document.querySelector('.rm-bar');
+    if (room && room.getBoundingClientRect().width) {
+      const a = demo.getBoundingClientRect(), b = room.getBoundingClientRect();
+      if (a.right > b.left && a.left < b.right && a.bottom > b.top && a.top < b.bottom) bottom = Math.max(bottom, Math.ceil(innerHeight - b.top) + 10);
+    }
+    demo.style.bottom = `${bottom}px`;
+    demo.style.maxHeight = `calc(100vh - ${bottom + 12}px)`;
+  }
+  const place = () => { placeBar(); placeDemo(); };
+  place();
+  window.addEventListener('resize', place);
+  if (window.ClassReadable && window.ClassReadable.onChange) window.ClassReadable.onChange(() => setTimeout(place, 80));
+  setTimeout(place, 1200);   // 页码、课堂控件条是别的脚本后建的
   demoToggle.addEventListener('click', () => toggleDemo(demo.hidden));
   // 工作台“修为境界”里的“试用境界特效与法宝”链接带 ?demo=1：打开投屏页时直接展开试用面板
   if (new URLSearchParams(location.search).get('demo') === '1') toggleDemo(true);

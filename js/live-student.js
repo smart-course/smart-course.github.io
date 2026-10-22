@@ -57,8 +57,17 @@
       : load(STORE, {});
   const unit = config.unit || Live.unitOf();
   const worksheet = config.kind === 'concept-html';
-  const joined = OFFLINE || Boolean(identity.classroom && identity.name && identity.sid
-    && identity.course === config.course && identity.chapter === unit);
+  // 用历史课堂码进来“只查看”的（live-join.js 记下）：比本机保存的课堂身份新，就按只查看处理（2026-10-23；习经同一章两个案例分开上时，
+  // 本周课堂是案例 03、又用上周案例 02 的码回看，就会遇到）
+  const viewFlag = OFFLINE || PREVIEW ? null : load(`classlive-view:${config.course}:${unit}`, null);
+  const viewing = Boolean(viewFlag && (!identity.joined_at || Number(viewFlag.at) > Number(identity.joined_at)));
+  const joined = OFFLINE || (!viewing && Boolean(identity.classroom && identity.name && identity.sid
+    && identity.course === config.course && identity.chapter === unit));
+  // 一章两个案例分开上（2026-10-23，习经）：本周课堂只上其中一个时，页面只显示这个案例、只收这个案例的题
+  // （案例号来自登录时后台返回的课堂；只查看时取查看的课堂；学生版测试页取地址里的 case 参数）
+  const activeCase = worksheet ? 0 : Number(PREVIEW ? new URLSearchParams(location.search).get('case')
+    : viewing ? viewFlag.case_no : joined ? identity.case_no : 0) || 0;
+  if (activeCase && window.ChapterCases) window.ChapterCases.show(activeCase);
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const clean = (value) => String(value == null ? '' : value).replace(/\s+/g, ' ').trim();
   const textOf = (el) => (el ? clean(el.textContent) : '');
@@ -148,6 +157,8 @@
   .clp-step.is-r4 .clp-stone b { background: linear-gradient(90deg, #ffe08a, #fff6dc, #ffb3d6, #d9c2ff, #a8e6ff, #ffe08a); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; animation: clp-textflow 4s linear infinite; }
   .clp-step.is-me .clp-stone { outline: 1.5px solid rgba(255,255,255,.6); outline-offset: -1.5px; }
   .clp-me { position: absolute; z-index: 1; top: -11px; right: 0; padding: 0 5px; border-radius: 999px; background: #c8452d; color: #fff; font: 800 11px/1.5 -apple-system, "PingFang SC", sans-serif; font-style: normal; box-shadow: 0 0 0 2px #13111a; }
+  /* 阶梯里的说明按词断行（“加青冥、／翠竹”“青竹／蜂云剑”），字号放大后不把一个词拆开 */
+  .clp-stone span { word-break: keep-all; overflow-wrap: anywhere; }
   @media (max-width: 480px) {
     .clp-ladder { gap: 4px; padding: 14px 6px 0; }
     .clp-step .clp-realm { padding: 1px 4px; font-size: 13px; }
@@ -161,6 +172,8 @@
   .clp-preview { position: fixed; z-index: 2147482990; left: 50%; top: 8px; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px;
     max-width: calc(100vw - 24px); padding: 6px 12px; border-radius: 10px; background: rgba(120,28,20,.92); color: #fff4e0; box-shadow: 0 6px 18px rgba(0,0,0,.25);
     font: 700 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-preview span { text-wrap: pretty; }
+  @media (max-width: 700px) { .clp-preview span { display: none; } .clp-preview { padding: 4px 8px; } }   /* 手机上只留标签和按钮，不挡面板 */
   .clp-preview b { padding: 1px 8px; border-radius: 6px; background: #fff4e0; color: #8c2018; }
   .clp-preview button { padding: 3px 9px; border: 1px solid rgba(255,244,224,.6); border-radius: 6px; background: transparent; color: #fff4e0; font: inherit; cursor: pointer; }
   .clp-who small, .clp-room, .clp-hint { color: #6d6259; font-size: 12.5px; }
@@ -334,9 +347,10 @@
   .clp-v2 .clp-sec { padding: 9px 14px; }
   .clp-v2 .clp-sec[hidden] { display: none; }
   .clp-v2 .clp-sec + .clp-sec { border-top: 1px dashed rgba(70,51,34,.18); }
-  .clp-v2 .clp-sec-head { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
-  .clp-v2 .clp-sec-title, .clp-v2 .clp-count { font-size: 15px; font-weight: 800; }
-  .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; }
+  /* 字号放大后（live-readable.js）：“已递交 0/26 题”不拆开，说明放不下就换到下一行 */
+  .clp-v2 .clp-sec-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin-bottom: 6px; }
+  .clp-v2 .clp-sec-title, .clp-v2 .clp-count { font-size: 15px; font-weight: 800; white-space: nowrap; }
+  .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; text-wrap: pretty; }
   .clp-v2 .clp-sec-note[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-v2 .clp-relogin { margin: 0 0 10px; }
   .clp-v2 .clp-pz { background: linear-gradient(180deg, #fff3d6, #fffaf0); }
@@ -437,7 +451,7 @@
   .clp-v2 .clp-prog i { display: block; width: 0; height: 100%; border-radius: 3px; background: var(--clp-bar); background-size: 300% 100%; transition: width .4s; }
   .clp-v2.is-r0 .clp-prog i { background: #23655f; }
   .clp-v2 .clp-state { font-size: 12.5px; }
-  .clp-v2 .clp-tools { flex-wrap: nowrap; gap: 8px; margin-top: 8px; }
+  .clp-v2 .clp-tools { flex-wrap: wrap; gap: 8px; margin-top: 8px; }   /* 手机上字号放大后“导出 PDF”放不下就换行，不被裁掉 */
   .clp-v2 .clp-state:not([data-state]) { display: none; }   /* 操作提示并进进度行右侧的小字；只在有新状态（如全部递交）时显示 */
   .clp-v2 .clp-state[data-state] { margin-top: 6px; }
   .clp-v2 .clp-tools button { height: 34px; padding: 0 11px; border-radius: 10px; white-space: nowrap; }
@@ -703,7 +717,8 @@
 
   // ---------- 题目 ----------
   // 每道题：{ key, section, title, prompt, el, anchor, read(), check(v), show(v), lock(), restore(v), send(v) }
-  const questions = worksheet ? conceptQuestions() : caseQuestions();
+  const questions = (worksheet ? conceptQuestions() : caseQuestions())
+    .filter((q) => !activeCase || String(q.key).startsWith(`${String(activeCase).padStart(2, '0')}:`));
 
   // 递交记录：按页面保存，每个课堂一份（同一页面在别的课堂重新发布时重新作答）
   const LOCK_KEY = `classlive-locked${PREVIEW ? '-preview' : ''}:${location.pathname}`;   // 测试页的递交记录另存，可一键清空
@@ -819,26 +834,43 @@
   if (worksheet && joined && !OFFLINE) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）
 
   // ---------- 政经“课后自修”计分（2026-10-22）：主动回忆、温故、讲给别人听交到修炼场后台（ck_practice_essay / answer），计入修炼场每日上限 ----------
+  // 都写成函数声明：setupSelfStudy 在本段之前就被调用
+  async function xlCall(name, params) {
+    const value = await backend.rpc(name, { p_classroom: Number(identity.classroom) || identity.classroom, p_unit: unit, ...params });
+    return (Array.isArray(value) ? value[0] : value) || {};
+  }
+  function xlSay(host, res, fallback) {
+    const P = Live.PRACTICE || { of: () => ({ cap: 10 }) };
+    let el = host.querySelector(':scope > .clp-xl-state');
+    if (!el) { el = document.createElement('p'); el.className = 'clp-xl-state'; host.appendChild(el); }
+    const why = { earned: '这一项以前已经得过修为。', today: '今天先答错过：隔天在修炼场“回炉巩固”再答对才计修为。', cap: `今天的修炼修为已满 ${P.of(config.course).cap} 点，明天再来。` };
+    const text = res && res.status === 'ok' ? (res.points ? `+${res.points} 修为（今日 ${res.today}/${res.cap}）` : res.correct === false ? '没答对，这题不计修为。' : why[res.reason] || '已记录。')
+      : res && res.status === 'short' ? `还没写满 ${res.min} 个字，写满再递交才计修为。`
+        : res && res.status === 'closed' ? '本单元还没有上课，暂不计修为。' : fallback || '暂时没能记上修为，请稍后再试。';
+    el.textContent = text;
+    el.dataset.state = res && res.status === 'ok' && res.points ? 'ok' : '';
+  }
+  function xlFailed(host) {
+    return (problem) => xlSay(host, null, /PGRST202|42883|Could not find the function/.test(String((problem && problem.message) || problem))
+      ? '课后自修计分还没有开通（老师后台尚未更新）。' : '网络不通，没能记上修为，请稍后再试。');
+  }
+  // 课后自修里的出门测、课后思考（2026-10-23 起）：照常逐题递交给老师（作业记录、工作台和投屏统计照旧；结算课堂修为时不再算这两类），
+  // 递交锁定后再交修炼场后台计修为——出门测每题第一次作答答对 +2，课后思考写满 100 字 +5（测试页也计，记在王不凡名下、不计入班级）；
+  // 本机记下已计过的，10-23 以前递交、还没计过的进入课堂后补计一次
+  function xlFlag(key) { return `classlive-xl-award:${config.course}:${unit}:${key}`; }
+  function xlAward(key, value, host, quiet) {
+    const exit = /^exit\.(\d+)$/.exec(key);
+    const [name, params] = exit ? ['ck_practice_answer', { p_item: `exit${Number(exit[1]) + 1}`, p_answer: value }]
+      : ['ck_practice_essay', { p_item: 'essay', p_text: String(value || '') }];
+    xlCall(name, params).then((res) => {
+      if (res.status === 'ok') save(xlFlag(key), 1);
+      if (!quiet || (res.status === 'ok' && res.points)) xlSay(host, res);
+    }).catch(quiet ? () => {} : xlFailed(host));
+  }
   function setupSelfStudy() {
     const box = document.querySelector('[data-xl]');
     if (!box) return;
-    const P = Live.PRACTICE || { of: () => ({ cap: 10 }) };
-    const call = async (name, params) => {
-      const value = await backend.rpc(name, { p_classroom: Number(identity.classroom) || identity.classroom, p_unit: unit, ...params });
-      return (Array.isArray(value) ? value[0] : value) || {};
-    };
-    const say = (host, res, fallback) => {
-      let el = host.querySelector(':scope > .clp-xl-state');
-      if (!el) { el = document.createElement('p'); el.className = 'clp-xl-state'; host.appendChild(el); }
-      const why = { earned: '这一项以前已经得过修为。', today: '今天先答错过：隔天在修炼场“回炉巩固”再答对才计修为。', cap: `今天的修炼修为已满 ${P.of(config.course).cap} 点，明天再来。` };
-      const text = res && res.status === 'ok' ? (res.points ? `+${res.points} 修为（今日 ${res.today}/${res.cap}）` : why[res.reason] || '已记录。')
-        : res && res.status === 'short' ? `还没写满 ${res.min} 个字，写满再递交才计修为。`
-          : res && res.status === 'closed' ? '本单元还没有上课，暂不计修为。' : fallback || '暂时没能记上修为，请稍后再试。';
-      el.textContent = text;
-      el.dataset.state = res && res.status === 'ok' && res.points ? 'ok' : '';
-    };
-    const failed = (host) => (problem) => say(host, null, /PGRST202|42883|Could not find the function/.test(String((problem && problem.message) || problem))
-      ? '课后自修计分还没有开通（老师后台尚未更新）。' : '网络不通，没能记上修为，请稍后再试。');
+    const call = xlCall, say = xlSay, failed = xlFailed;
     const sent = new Set();
     // 主动回忆：写满 8 个字后点“翻开对照”即递交
     box.querySelectorAll('[data-xl-recall]').forEach((li) => {
@@ -952,7 +984,11 @@
 
   // 递交：第一次点出现“确认递交？”，3 秒内再点一次才发送
   async function submit(q) {
-    if (!joined || locked[q.key]) return;
+    if (locked[q.key]) return;
+    if (!joined) {   // 没进入本周课堂（含用历史课堂码只查看的）：点“递交”时说明原因，不再没反应
+      setQ(q, viewing ? '历史课堂只能查看，不能递交，也不计修为' : '进入本周课堂后才能递交：请先在首页输入老师发布的课堂码', 'error');
+      return;
+    }
     if (q.stopped) { setQ(q, STOPPED, 'stopped'); return; }
     const value = q.read();
     const problem = q.check(value);
@@ -983,6 +1019,7 @@
       remember(q.key, entry);
       markLocked(q, entry);
       if (rejected) setQ(q, '这道题之前已递交过，以第一次为准', 'ok');
+      else if (q.after && !OFFLINE) q.after(value);   // 课后自修里的出门测、课后思考：再交修炼场后台计修为
       if (result && Array.isArray(result.keys)) syncKeys(result.keys);
     } catch (problemError) {
       console.error(problemError);
@@ -1177,7 +1214,12 @@
   if (!joined) {
     panel.classList.add('is-gate');
     const elsewhere = identity.classroom && identity.course === config.course && identity.chapter && identity.chapter !== unit;
-    panel.innerHTML = (elsewhere
+    // 用历史课堂（停止的、提前发布还没开课的）的课堂码进来的：只能查看（首页 live-join.js 记下）
+    const viewed = viewing ? viewFlag : null;
+    const pastNote = '历史课堂只能查看，';
+    panel.innerHTML = (viewed
+      ? `<strong>历史课堂：只能查看</strong><div class="clp-room">你用“${esc(viewed.room || '历史课堂')}”的课堂码进入。这一课现在不是本周课堂：可以查看、写备注、导出复习，但不能递交、发弹幕，也不计修为。</div><a href="${joinUrl()}">回到登录页</a>`
+      : elsewhere
       ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>${window.ClassLeave ? '<button type="button" class="clp-gate-leave" data-cl-leave>请假</button>' : ''}`
       : '<strong>还没有进入课堂</strong><div class="clp-room">请在首页输入老师发布的课堂码并填写个人信息，才能递交作答。本页可以写备注、导出复习。</div><a href="/">去登录</a>')
       + (questions.length ? tools : '') + fontChoices('clp-gate-font');
@@ -1186,8 +1228,8 @@
     bindTools();
     bindFont();
     if (elsewhere) bindLeave();
-    setupMechDanmaku(false, elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
-    setupFeedback(false, elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
+    setupMechDanmaku(false, viewed ? `${pastNote}这里不能发弹幕。` : elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
+    setupFeedback(false, viewed ? `${pastNote}这里不能提交${FB.what}。` : elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
     return;
   }
 
@@ -1520,6 +1562,10 @@
   let blockedAt = 0;
   onBlocked = () => { if (Date.now() - blockedAt > 10000) { blockedAt = Date.now(); checkMembership(); } };
   const checkedIn = checkMembership();
+  if (!OFFLINE && joined) checkedIn.then(() => questions.forEach((q) => {
+    const entry = locked[q.key];
+    if (q.after && entry && entry.v != null && !load(xlFlag(q.key), 0)) q.after(entry.v, true);
+  }));
   checkedIn.then(() => scheduleLikes(3000));
 
   // 在线状态：页面在前台（没有切走、手机没锁屏）时每 45 秒向后台报一次“在线”，老师在工作台加入名单里看到小绿灯；
@@ -1660,8 +1706,15 @@
       <p class="clp-sub-note" data-sub-note>和老师工作台“加入名单”里的“递交情况”一致。如果这里和左下角面板的数字不一样，以这里为准；有疑问可以截图给老师。</p>`;
     shield(card);
     card.querySelector('.clp-sub-who').textContent = [identity.name, identity.sid].filter(Boolean).join(' · ');
+    // 2026-10-23 起放在“课后自修”页的最后（用户：“本堂作业递交情况放到课后自修后面”）；没有这一页时仍放在匿名建议箱之后
+    // 习经（2026-10-23 用户：“把本堂作业递交情况放到本章知识点小结前面”）：放在显示的最后一个案例那一节的末尾，紧挨着“本章知识点小结”
+    const selfStudy = document.querySelector('#practice [data-xl]');
+    const lastCase = document.getElementById('chapter-summary')
+      ? $$('section[id^="case-"]').filter((section) => !section.hidden).pop() : null;
     const lastFb = fbCards.length ? fbCards[fbCards.length - 1].card : null;
-    if (lastFb) lastFb.insertAdjacentElement('afterend', card);
+    if (selfStudy) selfStudy.insertAdjacentElement('afterend', card);
+    else if (lastCase) (lastCase.querySelector('.section-inner') || lastCase).appendChild(card);
+    else if (lastFb) lastFb.insertAdjacentElement('afterend', card);
     else {
       const pages = $$('section.page[id], section[id^="case-"], section.page-section');
       const host = pages.length ? pages[pages.length - 1] : document.body;
@@ -1772,7 +1825,8 @@
   document.body.appendChild(realmModal);
   const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
   // 境界阶梯图：越往上台阶越高、材质越华贵；台阶上写解锁的法宝和弹幕特权，“你”标出本人所在境界
-  const PERKS = { 0: ['白、灰字色'], 1: ['加天蓝、翠绿'], 2: ['加金、大红'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流光两色', '七彩边框'] };
+  // 每境解锁的弹幕字色（与 live-core.js 的 ClassLive.COLORS 同名）和边框
+  const PERKS = { 0: ['霜白、月银'], 1: ['加青冥、翠竹'], 2: ['加金曦、大红'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流金、七彩', '七彩边框'] };
   const ladderHtml = (mine) => `<div class="clp-ladder" role="img" aria-label="${esc(REALMS.map((realm) => {
     const gift = GIFTS.find((item) => item.level === realm.level);
     return `${realm.name}（${realm.look}，${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}${gift ? `，解锁${gift.name}` : ''}${(PERKS[realm.level] || []).map((perk) => `，${perk}`).join('')}）`;
@@ -1780,14 +1834,14 @@
     const gift = GIFTS.find((item) => item.level === realm.level);
     return `<div class="clp-step is-r${realm.level}${realm.level === mine ? ' is-me' : ''}" aria-hidden="true">
       ${realm.level === mine ? '<i class="clp-me">你</i>' : ''}${chip(realm.level)}
-      <div class="clp-stone"><b>${esc(realm.look)}</b><em>${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}</em>${gift ? `<span class="clp-step-gift">${GIFT_ICONS[gift.id] || ''}${esc(gift.name)}</span>` : ''}${(PERKS[realm.level] || []).map((perk) => `<span>${esc(perk)}</span>`).join('')}</div>
+      <div class="clp-stone"><b>${esc(realm.look)}</b><em>${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}</em>${gift ? `<span class="clp-step-gift">${GIFT_ICONS[gift.id] || ''}${esc(gift.name).replace(/^(.{2})(.{3,})$/, '$1<wbr>$2')}</span>` : ''}${(PERKS[realm.level] || []).map((perk) => `<span>${esc(perk)}</span>`).join('')}</div>
     </div>`;
   }).join('')}</div>`;
   // 修炼场规则说明（分值按课程，见 live-core.js 的 ClassLive.PRACTICE）
   function practiceRule() {
     const P = Live.PRACTICE || { gap: 3, of: () => ({ cap: 10 }), text: () => '' };
     const r = P.of(config.course);
-    return `题目是另写的新题，和课堂上的题不重复；老师开过的每一次课，对应的题都开放（以前的课也能复习；提前发布、还没开课的只能查看，开课后才开放、才计修为）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）；隔 ${P.gap || 3} 天以上再答对，还能再得一次（复习巩固，每题最多两次）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3，只算一次）' : ''}；每天最多 ${r.cap} 修为。境界按全学期满分算，平时天天练、修为攒得早的同学，能更早冲上「化神」；临时突击受每日上限所限，补不回来。`;
+    return `题目是另写的新题，和课堂上的题不重复；老师开过的每一次课，对应的题都开放（以前的课也能复习；提前发布、还没开课的只能查看，开课后才开放、才计修为）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）；隔 ${P.gap || 3} 天以上再答对，还能再得一次（复习巩固，每题最多两次）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（出门测每题答对 +2、主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3、课后思考写满 100 字 +5，只算一次）' : ''}；每天最多 ${r.cap} 修为。境界按全学期满分算，平时天天练、修为攒得早的同学，能更早冲上「化神」；临时突击受每日上限所限，补不回来。`;
   }
   function openRealm() {
     const r = myRealm;
@@ -1911,23 +1965,29 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = '20261022-practice2';
-  const NEWS_RANGE = '10 月 9 日—10 月 22 日';
+  const NEWS_ID = config.course === 'political-economy' ? '20261023-selfstudy' : '20261023-xjp-cases';   // 两门课各自有新内容时才改自己的
+  const NEWS_RANGE = '10 月 9 日—10 月 23 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 21—22 日）', items: [
+      { title: '最新（10 月 21—23 日）', items: [
         ['修炼场多攒修为', `修炼场每天最多 ${(Live.PRACTICE || {}).of ? Live.PRACTICE.of(config.course).cap : 10} 修为（原来${config.course === 'political-economy' ? ' 10' : ' 3'}）；答对过的题隔 ${(Live.PRACTICE || {}).gap || 3} 天以上再答对，还能再得一次（“回炉巩固”里会出现到期的题）。境界按全学期满分算，平时天天练的同学能更早冲上「化神」。`],
         ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、回炉巩固（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
         ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深）。'],
         ...(config.course === 'political-economy' ? [
+          ['课后自修', '出门测、课后思考（申论式大题）并入每个案例页的“课后自修”，下课后完成：出门测每题答对 +2 修为，课后思考写满 100 字递交 +5 修为（不评对错），照常逐题递交给老师；“本堂作业递交情况”移到课后自修的最后。'],
           ['提问', '概念小结的“提问墙”弹幕取消：没想通的地方写进每个案例页最后的“匿名建议和提问箱”，老师看到后在下一堂课统一解答。'],
           ['豁然开朗', '前七章每个案例新增一个“本课悬念”：学习路线页先抛出一个反常识的问题，出门测之后揭晓——先凭直觉选，再看讲解和教材原文。不计分。'],
           ['课后自修', '前七章每个案例的出门测之后新增“课后自修”页，也积累修为：主动回忆（凭记忆写满 8 字再翻开对照 +1）、温故（前面案例的概念换个情境再考，答对 +2）、讲给没学过的人听（写满 30 字递交 +3），计入修炼场每日上限。'],
+        ] : []),
+        ...(config.course === 'xjp-economy' ? [
+          ['一章两个案例', '第三、四章这样有两个案例的章，老师可以一次只上一个案例：这次课的页面只显示这个案例，下次课再上另一个。'],
+          ['情境猜谜', '第二章第二课时在猜词游戏之后加了“情境猜谜 · 抢答”：看大屏上的小情境，在面板最上方的“情境猜谜抢答”里输入谜底，第一个猜中的加修为。'],
+          ['递交情况', '“本堂作业递交情况”移到“本章知识点小结”的前面，做完本堂课的题就能看到还有哪些没交。'],
         ] : []),
         ...(config.course === 'xjp-economy' ? [['PK 对决', '部分案例第二课时的圆桌会议换成了 PK 对决：老师抽两位同学上台一对一，比擂台抢答、时间轴排排站、因果链拼图或数据猜猜猜，获胜的同学加修为；台下同学先自己作答，揭晓时对照。']] : []),
         ['修为榜', '面板上学号那一行右边的金色“修为榜”：看本班修为前十名（前三名站领奖台），也能看到自己排第几；按老师最近一次结算排名，显示境界和修为。'],
@@ -2619,7 +2679,7 @@
       const count = box && box.querySelector('[data-essay-count]');
       const target = Number(count && count.dataset.target) || 0;
       list.push({
-        key: 'essay', section: '课后思考', title: textOf(document.querySelector('#essay h2')) || '申论式大题',
+        key: 'essay', section: '课后自修 · 课后思考', title: textOf(box && box.closest('[data-xl-block]') && box.closest('[data-xl-block]').querySelector('h3')) || '申论式大题',
         prompt: textOf(box && box.querySelector('.cl-essay-q')),
         anchor: (bar) => (count || essay).insertAdjacentElement('afterend', bar),
         read: () => text(essay),
@@ -2628,6 +2688,7 @@
         lock: () => { essay.readOnly = true; },
         restore: (value) => { if (!essay.value.trim()) essay.value = value; },
         send: send('essay'),
+        after: (value, quiet) => xlAward('essay', value, box, quiet),
       });
     }
     // 出门测：每题单独递交
@@ -2635,13 +2696,14 @@
       const legend = item.querySelector('legend').cloneNode(true);
       legend.querySelectorAll('.cl-exit-tag').forEach((tag) => tag.remove());
       list.push({
-        key: `exit.${i}`, section: '出门测', title: `第 ${i + 1} 题`, prompt: textOf(legend), anchor: (bar) => item.appendChild(bar),
+        key: `exit.${i}`, section: '课后自修 · 出门测', title: `第 ${i + 1} 题`, prompt: textOf(legend), anchor: (bar) => item.appendChild(bar),
         read: () => { const value = radio(item); return value === null ? null : Number(value); },
         check: (value) => (value === null ? '请先选一项，再点“递交”' : ''),
         show: (value) => (value === null || value === undefined ? [] : [`${LET(value)}. ${textOf($$('.cl-option-text', item)[value])}`]),
         lock: () => disable(item, 'input'),
         restore: (value) => setRadio(item, value),
         send: send(`exit.${i}`),
+        after: (value, quiet) => xlAward(`exit.${i}`, value, item, quiet),
       });
     });
     // 案例 01：课堂投票

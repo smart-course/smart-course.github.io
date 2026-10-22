@@ -447,7 +447,7 @@
             && ['bad_code', 'bad_name', 'bad_pin', 'request'].includes(row.kind)).length;
           if (fails >= 20) return { status: 'too_many' };
           const code = normalizeCode(params.p_code).replace(/[^A-Z0-9]/g, '');
-          const room = read('classrooms').find((row) => row.code === code && row.is_current);
+          const room = read('classrooms').find((row) => row.code === code);   // 历史课堂的码也认，最后只给查看（规则同 cloudbase-pg.sql）
           if (!room) { secLog('bad_code', { owner: uid, detail: code.slice(0, 12) }); return { status: 'bad_code' }; }
           const sid = sidKey(params.p_sid);
           const nm = plain(params.p_name);
@@ -511,12 +511,16 @@
             fresh.push({ class_id: room.class_id, sid, owner: uid, first_at: at, last_at: at });
             write('devices', fresh);
           }
+          if (!room.is_current) {   // 历史课堂：只查看，不记登录
+            secLog('view_past', ctx);
+            return { status: 'view', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name, pwd_hash: '', name: person.name, sid: person.sid };
+          }
           const rows = read('checkins');
           rows.push({ id: nextId(rows), owner: uid, course: room.course, session: today(), name: person.name, sid: person.sid, page: room.chapter, path: '/',
             ts: now, classroom: room.id, class_name: String(params.p_class || '').trim().slice(0, 40) || null,
             group_name: String(params.p_group || '').trim().slice(0, 20) || null, verified: true });
           write('checkins', rows);
-          return { status: 'ok', classroom: room.id, course: room.course, chapter: room.chapter, room_name: room.name,
+          return { status: 'ok', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name,
             submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid };
         }
         // 章节页核对本人是否已登录本课堂；每天第一次打开补记一次加入
@@ -884,7 +888,7 @@
           rows.forEach((row) => { if (sameGroup(row, params.p_course, params.p_class)) row.is_current = false; });
           const now = new Date().toISOString();
           const room = { id: Math.max(Date.now(), ...rows.map((row) => Number(row.id) + 1 || 0)), course: params.p_course, code: newCode(), name: String(params.p_name).trim(),
-            chapter: params.p_chapter, is_current: true, submissions_open: true, danmaku: 'off', class_id: params.p_class || null, created_at: now, updated_at: now };
+            chapter: params.p_chapter, case_no: Number(params.p_case) || null, is_current: true, submissions_open: true, danmaku: 'off', class_id: params.p_class || null, created_at: now, updated_at: now };
           rows.push(room);
           write('classrooms', rows);
           return { ...room };

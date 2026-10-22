@@ -109,6 +109,7 @@
   $$('[data-kind-only]').forEach((tab) => { tab.hidden = tab.dataset.kindOnly !== course.kind; });
   $$('[data-unit-label]').forEach((el) => { el.textContent = UNIT; });
   $('[data-publish-unit]').textContent = `本次${UNIT}`;
+  $('[data-publish-case-hint]').hidden = CONCEPT;   // 只有习经有“一章两个案例”
   $('[data-room-empty]').textContent = `还没有发布课堂。点击右上角“发布本周课堂”，选择${UNIT}后生成课堂码，再把课堂码或加入链接展示给学生。`;
   if (CONCEPT) {
     $('[data-room-classroom]').textContent = '打开本案例讲解版（投屏，弹幕和学生作答分布在此显示）↗';
@@ -449,13 +450,15 @@
     if (!room.is_current) return { text: '历史课堂（未开放）', cls: 'is-past' };
     return room.submissions_open ? { text: '当前课堂 · 学生可进入', cls: 'is-live' } : { text: '当前课堂 · 已结束提交', cls: 'is-closed' };
   };
+  // 一章两个案例分开上（2026-10-23，习经）：课堂的 case_no 是只上的那个案例，空＝整章
   const chapterLabel = (room) => {
     const chapter = chapterMap.get(room.chapter);
-    return chapter ? `${chapter.cn} ${chapter.title}` : room.chapter;
+    return (chapter ? `${chapter.cn} ${chapter.title}` : room.chapter) + (room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : '');
   };
   const roomCases = () => {
     const chapter = state.room && chapterMap.get(state.room.chapter);
-    return chapter ? chapter.cases.map((item) => caseMap.get(item.number)).filter(Boolean) : [];
+    const only = state.room && Number(state.room.case_no);
+    return chapter ? chapter.cases.map((item) => caseMap.get(item.number)).filter((item) => item && (!only || Number(item.number) === only)) : [];
   };
 
   async function loadRooms(preferId) {
@@ -557,13 +560,13 @@
     //   页面认出教师账号后以“王不凡（化神）”身份运行，弹幕照常上投屏，作答只在本机、不计入后台（见 live-student.js）
     const preview = $('[data-room-preview]');
     const previewKey = ((window.CLASS_PREVIEW_KEYS || {})[course.slug] || {})[room.chapter];
-    preview.href = `/${course.slug}/cases/${room.chapter}.html?preview=${encodeURIComponent(room.id)}${previewKey ? `&staticrypt_pwd=${previewKey}` : ''}`;
+    preview.href = `/${course.slug}/cases/${room.chapter}.html?preview=${encodeURIComponent(room.id)}${room.case_no ? `&case=${encodeURIComponent(room.case_no)}` : ''}${previewKey ? `&staticrypt_pwd=${previewKey}` : ''}`;
     // “修为境界”里的试用特效：打开本课堂的投屏页并展开试用面板（只在本机播放）
     $('[data-realm-demo]').href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}&demo=1` : demoHref();
     $('[data-room-code]').textContent = room.code;
-    $('[data-room-code-label]').textContent = room.is_current ? '当前课堂码' : '历史课堂码（未开放）';
+    $('[data-room-code-label]').textContent = room.is_current ? '当前课堂码' : '历史课堂码（未开放：学生用它只能查看，不能递交、不计修为）';
     $('[data-room-link]').value = joinLink(room.code);
-    $('[data-rotate-code]').hidden = !room.is_current;
+    $('[data-rotate-code]').hidden = false;   // 历史课堂也能换码：换了以后学生就不能再用旧码进来查看
     $('[data-set-current]').hidden = room.is_current;
     $('[data-toggle-open]').hidden = !room.is_current;
     $('[data-toggle-open]').textContent = room.submissions_open ? '结束提交' : '重新开放提交';
@@ -624,9 +627,12 @@
     const on = event.target.checked;
     roomAction(on ? '开启弹幕匿名' : '关闭弹幕匿名', () => backend.rpc('ck_set_danmaku_anon', { p_classroom: Number(state.room.id), p_anon: on }));
   });
-  // 课堂码外传时：换一个新码，旧码立即失效；已经进入本课堂的同学（设备已核对）不受影响
+  // 课堂码外传时：换一个新码，旧码立即失效；已经进入本课堂的同学（设备已核对）不受影响。
+  // 历史课堂（2026-10-23 起学生用历史课堂码可以进来查看）：不想让学生再查看这一课时也换码
   $('[data-rotate-code]').addEventListener('click', () => {
-    if (!window.confirm(`更换“${state.room.name}”的课堂码？\n\n旧码 ${state.room.code} 立即失效；已经进入本课堂的同学不受影响，还没进入的同学要用新码。`)) return;
+    const tip = state.room.is_current ? '已经进入本课堂的同学不受影响，还没进入的同学要用新码。'
+      : '这是历史课堂：换码后学生不能再用旧码进来查看（新码也只能查看，不能递交、不计修为）。';
+    if (!window.confirm(`更换“${state.room.name}”的课堂码？\n\n旧码 ${state.room.code} 立即失效；${tip}`)) return;
     roomAction('更换课堂码', () => backend.rpc('ck_rotate_code', { p_classroom: Number(state.room.id) }));
   });
   $('[data-copy-link]').addEventListener('click', async () => {
@@ -725,14 +731,21 @@
   // 发布本周课堂
   const dialog = $('[data-publish-dialog]');
   const publishForm = $('[data-publish-form]');
+  // 习经一章有两个案例的：每个案例单独一项（2026-10-23 用户：“把这两个案例分开，在发布本周课堂的时候可以单独选择”），
+  // 另留“两个案例一起”一项；选项值“章|案例号”
+  const pad2 = (n) => String(n).padStart(2, '0');
   function fillChapterOptions() {
-    publishForm.elements.chapter.innerHTML = course.chapters.map((chapter) => CONCEPT
-      ? `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（教材：${esc(chapter.chapter)}）</option>`
-      : `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（案例 ${chapter.cases.map((item) => item.number).join('、')}）</option>`).join('');
+    publishForm.elements.chapter.innerHTML = course.chapters.map((chapter) => {
+      if (CONCEPT) return `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（教材：${esc(chapter.chapter)}）</option>`;
+      if (chapter.cases.length < 2) return `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（案例 ${chapter.cases.map((item) => pad2(item.number)).join('、')}）</option>`;
+      return `<optgroup label="${esc(chapter.cn)} ${esc(chapter.title)}">`
+        + chapter.cases.map((item) => `<option value="${chapter.id}|${Number(item.number)}">${esc(chapter.cn)} · 案例 ${pad2(item.number)}　${esc(item.title || '')}</option>`).join('')
+        + `<option value="${chapter.id}">${esc(chapter.cn)} · 两个案例一起（案例 ${chapter.cases.map((item) => pad2(item.number)).join('、')}）</option></optgroup>`;
+    }).join('');
   }
   $('[data-publish-open]').addEventListener('click', () => {
     $('[data-publish-error]').textContent = '';
-    if (state.room) publishForm.elements.chapter.value = state.room.chapter;
+    if (state.room) publishForm.elements.chapter.value = state.room.case_no ? `${state.room.chapter}|${state.room.case_no}` : state.room.chapter;
     if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
     publishForm.elements.name.focus();
   });
@@ -745,8 +758,9 @@
     button.disabled = true;
     button.textContent = '正在发布……';
     try {
-      const row = await backend.rpc('ck_publish', { p_course: course.slug, p_name: name, p_chapter: publishForm.elements.chapter.value,
-        p_class: Number(state.klass.id) || state.klass.id });
+      const [chapterId, caseNo] = publishForm.elements.chapter.value.split('|');
+      const row = await backend.rpc('ck_publish', { p_course: course.slug, p_name: name, p_chapter: chapterId,
+        p_class: Number(state.klass.id) || state.klass.id, ...(caseNo ? { p_case: Number(caseNo) } : {}) });
       const room = Array.isArray(row) ? row[0] : row;
       dialog.close();
       publishForm.elements.name.value = '';
@@ -2291,7 +2305,10 @@
     return qs;
   }
   // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
+  // 2026-10-23 起出门测、课后思考并入“课后自修”：学生递交后由修炼场后台另计修为（出门测答对 +2、课后思考写满 100 字 +5，在“修炼”一列），
+  // 这里不再算进课堂的“作答完成／作答正确”，免得重复计分（递交记录照旧，工作台和投屏统计不受影响）
   const peKind = (key) => {
+    if (/^exit\.\d+$/.test(key) || key === 'essay') return { kind: 'self' };
     if (/\.discover$/.test(key) || key === 'poll') return { kind: 'part' };
     if (/\.challenge$/.test(key)) return { kind: 'bonus' };
     if (/\.explain$/.test(key) || key === 'discussion' || key === 'discussion.after') return { kind: 'text', min: 10 };
@@ -2309,6 +2326,7 @@
     const out = { total: 0, done: 0, obj: 0, right: 0, bonus: 0 };
     groups.forEach((items, key) => {
       const { kind, min } = peKind(key);
+      if (kind === 'self') return;
       if (kind === 'bonus') { if (items.every((item) => item.correct)) out.bonus += 1; return; }
       out.total += 1;
       if (kind === 'text') {

@@ -152,12 +152,16 @@
           leaving = true;
           enter(request, result);
           return;
+        case 'view':
+          leaving = true;
+          enterView(result);
+          return;
         case 'pending':
           showError('');
           startWaiting(request);
           return;
         case 'bad_code':
-          showError('课堂码不正确，或这个课堂已经停止开放。请核对老师公布的最新课堂码。', field('code'));
+          showError('课堂码不正确（老师换过课堂码的话，旧码就不能用了）。请核对老师公布的最新课堂码。', field('code'));
           return;
         case 'invalid':
           showError('请检查姓名和学号的填写。', field('name'));
@@ -225,13 +229,23 @@
     // 姓名、学号按点名册上的写法保存，之后递交作答、发弹幕都用它
     const identity = {
       code: request.code, name: room.name || request.name, sid: room.sid || request.sid, class_name: request.className, group_name: request.groupName,
-      agreed: true, course: room.course, chapter: room.chapter, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
+      agreed: true, course: room.course, chapter: room.chapter, case_no: room.case_no || null, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
     };
     save(identity);
     rememberId(identity);
     clearPins();
     button.disabled = true;
     button.textContent = '正在进入课堂……';
+    location.href = `/${room.course}/cases/${room.chapter}.html` + (room.pwd_hash ? `#staticrypt_pwd=${room.pwd_hash}&remember_me` : '');
+  }
+
+  // 历史课堂（停止的、提前发布还没开课的，2026-10-23）：后台核对过点名册和口令，只给查看本章的钥匙，不记登录。
+  // 不改本机保存的课堂身份（本周课堂照常递交），记下“用历史课堂码进来的”，章节页面板据此说明只能查看
+  function enterView(room) {
+    try { localStorage.setItem(`classlive-view:${room.course}:${room.chapter}`, JSON.stringify({ room: room.room_name || '', case_no: room.case_no || null, at: Date.now() })); } catch (error) { /* 忽略 */ }
+    clearPins();
+    button.disabled = true;
+    button.textContent = '正在打开（只能查看）……';
     location.href = `/${room.course}/cases/${room.chapter}.html` + (room.pwd_hash ? `#staticrypt_pwd=${room.pwd_hash}&remember_me` : '');
   }
 

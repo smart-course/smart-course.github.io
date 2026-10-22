@@ -90,18 +90,24 @@
   try { savedMin = Boolean(localStorage.getItem(MIN_KEY)); } catch (error) { /* 忽略 */ }
   setMin(savedMin);
 
-  // 避开页面右下角自带的固定元素（如页码、工具条）
+  // 避开页面右下角自带的固定元素（如页码、工具条）；收起的面板（透明的）不算
+  // 再把控件条占了屏幕底部多高写进 --rm-clear，页面上别的浮动面板（政经“课堂工具”）据此让开，不盖住控件条
   const dodge = () => {
     const box = bar.getBoundingClientRect();
     let bottom = 22;
     document.querySelectorAll('body *').forEach((el) => {
-      if (el === bar || bar.contains(el) || el.classList.contains('dm-bar') || getComputedStyle(el).position !== 'fixed') return;
+      if (el === bar || bar.contains(el) || el.classList.contains('dm-bar') || getComputedStyle(el).position !== 'fixed' || Number(getComputedStyle(el).opacity) < 0.05) return;
       const rect = el.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.top < innerHeight / 2 || rect.right <= box.left || rect.left >= box.right) return;
       bottom = Math.max(bottom, Math.ceil(innerHeight - rect.top) + 8);
     });
     bar.style.bottom = `${bottom}px`;
+    const rect = bar.getBoundingClientRect();   // 固定定位的元素 offsetParent 总是 null，用高度判断是否显示
+    document.documentElement.style.setProperty('--rm-clear', rect.height ? `${Math.ceil(innerHeight - rect.top) + 8}px` : '0px');
   };
+  // 投屏字号变了：右下角的按钮跟着变大，控件条重新让位（等页面字号改完再量）
+  if (window.ClassReadable && window.ClassReadable.onChange) window.ClassReadable.onChange(() => setTimeout(dodge, 60));
+  if ('ResizeObserver' in window) new ResizeObserver(() => dodge()).observe(bar);
 
   // 本页（讲解版）保存答题状态的键：政治经济学按案例编号和版本，习近平经济思想按页面路径；不碰登录、弹幕设置和导入的学生文件
   const pageKeys = () => {
@@ -142,13 +148,17 @@
     stopButton.hidden = !current;
     if (current) openButton.textContent = room.submissions_open ? '结束提交' : '重新开放提交';
   };
+  let shownCase = 0;   // 投屏页正在只显示的案例（0＝全部）
   async function load() {
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
       room = window.ClassLive.pickRoom(rooms, config.course, unit);
       if (!room) show('课堂：当前没有开放的课堂（在工作台发布）', false);
       else if (room.chapter !== unit) show(`课堂：当前课堂“${esc(room.name)}”不是${HERE}`, false);
-      else show(`课堂：${esc(room.name)} <b>${esc(room.code)}</b> · ${room.submissions_open ? '学生可递交' : '已结束提交'}`, true);
+      else show(`课堂：${esc(room.name)} <b>${esc(room.code)}</b>${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''} · ${room.submissions_open ? '学生可递交' : '已结束提交'}`, true);
+      // 一章两个案例分开上（2026-10-23，习经）：当前课堂只上其中一个时，投屏页也只显示这个案例；没有当前课堂或整章上时全部显示
+      const only = room && room.chapter === unit ? Number(room.case_no) || 0 : 0;
+      if (window.ChapterCases && only !== shownCase) { shownCase = only; window.ChapterCases.show(only); }
     } catch (error) {
       room = null;
       show('课堂：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>', false);
