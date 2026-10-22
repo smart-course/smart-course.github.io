@@ -554,7 +554,7 @@
     const open = $('[data-room-classroom]');
     open.href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}` : '#';
     // 学生版测试页：打开真实的学生页（与学生看到的完全相同），带上本课堂编号和本章解密值；
-    //   页面认出教师账号后以“韩天尊（化神）”身份运行，弹幕照常上投屏，作答只在本机、不计入后台（见 live-student.js）
+    //   页面认出教师账号后以“王不凡（化神）”身份运行，弹幕照常上投屏，作答只在本机、不计入后台（见 live-student.js）
     const preview = $('[data-room-preview]');
     const previewKey = ((window.CLASS_PREVIEW_KEYS || {})[course.slug] || {})[room.chapter];
     preview.href = `/${course.slug}/cases/${room.chapter}.html?preview=${encodeURIComponent(room.id)}${previewKey ? `&staticrypt_pwd=${previewKey}` : ''}`;

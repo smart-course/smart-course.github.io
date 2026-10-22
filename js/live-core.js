@@ -79,15 +79,17 @@
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
   // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
-  // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分、每题最多得一次，
+  // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分，
+  // 隔 gap 天以上再答对可再得一次（间隔重复，每题最多 most 次；课后自修只算一次），
   // 题目是另写的新题（与课堂正文不重复）；分值按题型：易错判断 judge、情境辨析 scene、讲给别人听 feynman（费曼学习法专用题）；
   // 每人每门课每天最多 cap 修为（额外奖励，不计入满分；后台 ck_practice_answer / essay 核对，
-  // 分值写在题库里〔practice_bank.py〕，上限写在 cloudbase-pg.sql 的 ck_practice_cap，三处要一致）。
-  // 分值按“剩 9 次课、倒数第二次课时最好的同学练满能到化神（90%）”测算：政经每单元共 30、习经每个案例共 12（与只有情境辨析、易错判断时相同）。
+  // 分值写在题库里〔practice_bank.py〕，上限写在 cloudbase-pg.sql 的 ck_practice_cap，gap、most 写在 ck_practice_answer／items／home，几处要一致）。
+  // 10-22 用户：“修炼场真正的作用其实是后期为了上化神用的，只有平时有累积，后期才能更早上”——上限政经 10→30、习经 3→10，并加“隔几天再答对再得一次”：
+  // 天天练的同学能更早到化神（课堂得分最好的同学练满：政经约第 9 次课、习经约第 8 次课），不练到不了或要到最后，临时突击补不回来。
   const PRACTICE = {
-    delay: 0, essayMin: 200,
-    courses: { 'political-economy': { cap: 10, judge: 2, scene: 4, feynman: 5 }, 'xjp-economy': { cap: 3, judge: 1, scene: 1, feynman: 3 } },
-    of(course) { return this.courses[course] || { cap: 3, judge: 1, scene: 1, feynman: 3 }; },
+    delay: 0, essayMin: 200, gap: 3, most: 2,
+    courses: { 'political-economy': { cap: 30, judge: 2, scene: 4, feynman: 5 }, 'xjp-economy': { cap: 10, judge: 1, scene: 1, feynman: 3 } },
+    of(course) { return this.courses[course] || { cap: 10, judge: 1, scene: 1, feynman: 3 }; },
     // “易错判断 +2、情境辨析 +4、讲给别人听 +5”（两种相同时合并）
     text(course) {
       const r = this.of(course);
@@ -737,6 +739,12 @@
         if (name === 'ck_my_explain') {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
+          // 学生版测试页里的教师账号：直接给解答（规则同 cloudbase-pg.sql）
+          if (!me && localStorage.getItem(prefix + 'teacher')) {
+            const at = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+            const hit = at && read('explainbank').find((e) => e.course === at.course && e.unit === at.chapter && e.key === params.p_key);
+            return hit ? { status: 'ok', body: hit.body } : { status: 'none' };
+          }
           if (!me) return { status: 'login' };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const sid = sidKey(me.sid);
@@ -754,7 +762,9 @@
         // 修炼场（规则同 cloudbase-pg.sql 的 ck_practice_home / items / answer / essay）
         if (/^ck_practice_(home|items|answer|essay)$/.test(name)) {
           const uid = await this.ensureAnonymous();
-          const me = myCheckin(uid, params.p_classroom);
+          // 学生版测试页里的教师账号＝王不凡（规则同 cloudbase-pg.sql 的 ck_practice_me）
+          const me = myCheckin(uid, params.p_classroom)
+            || (localStorage.getItem(prefix + 'teacher') && read('classrooms').some((row) => String(row.id) === String(params.p_classroom)) ? { sid: 'WBF0001', name: '王不凡' } : null);
           if (!me) return { status: 'login' };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const sid = sidKey(me.sid);
@@ -773,9 +783,17 @@
             return days.length ? addDays(days[0], delay) : null;
           };
           const isOpen = (unit, delay) => { const opens = opensOf(unit, delay); return Boolean(opens) && opens <= day; };
+          const { gap, most } = PRACTICE;
           const stat = (unit, item) => {
             const rows = log.filter((l) => l.unit === unit && l.item === item);
-            return { earned: rows.some((l) => l.points > 0), today: rows.some((l) => l.day === day), tried: rows.length > 0, last: rows.reduce((m, l) => (l.day > m ? l.day : m), '') };
+            const earns = rows.filter((l) => l.points > 0);
+            const lastEarn = earns.reduce((m, l) => (l.day > m ? l.day : m), '');
+            const today = rows.some((l) => l.day === day);
+            const times = earns.length;
+            // again：得过一次、已隔够 gap 天、今天还没做过——现在答对可再得一次（规则同 cloudbase-pg.sql）
+            const again = times > 0 && times < most && addDays(lastEarn, gap) <= day && !today;
+            const wait = times > 0 && times < most && !again ? Math.max(0, Math.round((Date.parse(addDays(lastEarn, gap)) - Date.parse(day)) / 864e5)) : 0;
+            return { earned: times > 0, times, again, wait, lastEarn, today, tried: rows.length > 0, last: rows.reduce((m, l) => (l.day > m ? l.day : m), '') };
           };
           const have = log.filter((l) => l.day === day).reduce((sum, l) => sum + l.points, 0);
           if (name === 'ck_practice_home') {
@@ -785,22 +803,25 @@
               const opens = opensOf(unit);
               const plain = rows.filter((b) => !isFeyn(b));
               return { unit, title: rows[0].title, order: rows[0].ord, n: plain.length, fn: rows.length - plain.length, essays: rows.filter((b) => b.kind === 'essay').length, opens, open: Boolean(opens) && opens <= day,
-                earned: tried.filter((x) => x.s.earned && !isFeyn(x.b)).length, fe: tried.filter((x) => x.s.earned && isFeyn(x.b)).length,
-                tried: tried.filter((x) => !isFeyn(x.b)).length, due: tried.filter((x) => !x.s.earned && x.s.last < day && x.b.kind !== 'essay').length };
+                earned: tried.filter((x) => x.s.earned && !isFeyn(x.b)).length, firm: tried.filter((x) => x.s.times >= most && !isFeyn(x.b)).length,
+                fe: tried.filter((x) => x.s.earned && isFeyn(x.b)).length, ffirm: tried.filter((x) => x.s.times >= most && isFeyn(x.b)).length,
+                tried: tried.filter((x) => !isFeyn(x.b)).length, due: tried.filter((x) => x.b.kind !== 'essay' && ((!x.s.earned && x.s.last < day) || x.s.again)).length };
             }).sort((a, b) => a.order - b.order);
-            return { status: 'ok', course: room.course, cap: PRACTICE.of(room.course).cap, delay: PRACTICE.delay, date: day, today: have, total: log.reduce((sum, l) => sum + l.points, 0), units };
+            return { status: 'ok', course: room.course, cap: PRACTICE.of(room.course).cap, delay: PRACTICE.delay, gap, most, date: day, today: have, total: log.reduce((sum, l) => sum + l.points, 0), units };
           }
           if (name === 'ck_practice_items') {
             const mode = params.p_mode;
             const open = new Set(bank.map((b) => b.unit).filter((unit) => isOpen(unit)));
             if (!mode || (!['review', 'mix', 'feynman', 'write'].includes(mode) && !open.has(mode))) return { status: 'closed' };
             let rows = bank.filter((b) => open.has(b.unit) && !SELF.includes(b.kind)).map((b) => ({ b, s: stat(b.unit, b.item) }));
-            if (mode === 'review') rows = rows.filter((x) => x.b.kind !== 'essay' && !x.s.earned && x.s.tried && x.s.last < day).slice(0, 40);
+            const rank = (s) => (!s.earned ? 0 : s.again ? 1 : 2);   // 没得过的在前，到期巩固的其次
+            if (mode === 'review') rows = rows.filter((x) => x.b.kind !== 'essay' && ((!x.s.earned && x.s.tried && x.s.last < day) || x.s.again)).slice(0, 40);
             else if (mode === 'mix' || mode === 'feynman') rows = rows.filter((x) => x.b.kind !== 'essay' && isFeyn(x.b) === (mode === 'feynman'))
-              .map((x) => ({ ...x, r: Math.random() })).sort((a, b) => (a.s.earned - b.s.earned) || (a.r - b.r)).slice(0, 12);
+              .map((x) => ({ ...x, r: Math.random() })).sort((a, b) => (rank(a.s) - rank(b.s)) || (a.r - b.r)).slice(0, 12);
             else if (mode === 'write') rows = rows.filter((x) => x.b.kind === 'essay' || x.b.kind === 'transfer');
             else rows = rows.filter((x) => x.b.unit === mode && !isFeyn(x.b));
-            return { status: 'ok', mode, items: rows.map(({ b, s }) => ({ unit: b.unit, item: b.item, title: b.title, kind: b.kind, body: b.body, points: b.points, earned: s.earned, today: s.today, tried: s.tried })) };
+            return { status: 'ok', mode, items: rows.map(({ b, s }) => ({ unit: b.unit, item: b.item, title: b.title, kind: b.kind, body: b.body, points: b.points,
+              earned: s.earned, times: s.times, most, again: s.again, wait: s.wait, today: s.today, tried: s.tried })) };
           }
           const essay = name === 'ck_practice_essay';
           const row = bank.find((b) => b.unit === params.p_unit && b.item === params.p_item);
@@ -816,7 +837,10 @@
           const correct = essay || row.answer.ok.some((value) => JSON.stringify(value) === JSON.stringify(params.p_answer));
           let points = 0;
           let reason = null;
-          if (correct && s.earned) reason = 'earned';
+          let wait = 0;
+          const limit = essay || row.kind === 'review' ? 1 : most;   // 课后自修只算一次
+          if (correct && s.times >= limit) reason = 'earned';
+          else if (correct && s.times > 0 && addDays(s.lastEarn, gap) > day) { reason = 'wait'; wait = s.wait; }
           else if (correct && !essay && s.today) reason = 'today';
           else if (correct) { points = Math.max(0, Math.min(row.points, PRACTICE.of(room.course).cap - have)); if (!points) reason = 'cap'; }
           const all = read('practice');
@@ -824,15 +848,15 @@
             answer: essay ? { text: String(params.p_text).slice(0, 6000) } : params.p_answer, correct, points, created_at: new Date().toISOString() });
           write('practice', all);
           return essay ? { status: 'ok', reveal: row.reveal, points, reason, today: have + points, cap: PRACTICE.of(room.course).cap }
-            : { status: 'ok', correct, answer: row.answer.ok, reveal: row.reveal, points, reason, today: have + points, cap: PRACTICE.of(room.course).cap };
+            : { status: 'ok', correct, answer: row.answer.ok, reveal: row.reveal, points, reason, wait, times: s.times + (points > 0 ? 1 : 0), most: limit, today: have + points, cap: PRACTICE.of(room.course).cap };
         }
         teacherOnly();
-        // 学生版测试页：教师以“韩天尊”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
+        // 学生版测试页：教师以“王不凡”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
         if (name === 'ck_test_danmaku') {
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom) && row.is_current && row.submissions_open && row.danmaku !== 'off');
           if (!room) throw Object.assign(new Error('老师未开放弹幕'), { code: '42501' });
           const rows = read('danmaku');
-          const base = { id: Math.random().toString(36).slice(2), owner: await this.ensureAnonymous(), course: room.course, classroom: room.id, name: '韩天尊', sid: 'HTZ0001', ts: Date.now() };
+          const base = { id: Math.random().toString(36).slice(2), owner: await this.ensureAnonymous(), course: room.course, classroom: room.id, name: '王不凡', sid: 'WBF0001', ts: Date.now() };
           if (params.p_gift) {
             const gift = GIFTS.find((item) => item.id === params.p_gift);
             if (!gift) throw new Error('没有这件法宝');
@@ -1072,7 +1096,7 @@
         }
         if (name === 'ck_practice_totals') {
           const by = new Map();
-          read('practice').filter((l) => l.course === params.p_course && String(l.class_id || 0) === String(params.p_class || 0)).forEach((l) => {
+          read('practice').filter((l) => l.course === params.p_course && String(l.class_id || 0) === String(params.p_class || 0) && l.sid !== 'WBF0001').forEach((l) => {
             const t = by.get(l.sid) || { sid: l.sid, name: l.name, points: 0, answered: 0, correct: 0, days: new Set(), last: '' };
             t.points += l.points; t.answered += 1; t.correct += l.correct ? 1 : 0; t.days.add(l.day); if (l.day > t.last) t.last = l.day;
             by.set(l.sid, t);

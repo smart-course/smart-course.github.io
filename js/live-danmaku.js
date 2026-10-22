@@ -219,6 +219,47 @@
   .dm-demo .dm-demo-btn:hover { background: rgba(255,255,255,.18); }
   .dm-demo .dm-demo-btn.is-main:hover { background: #b9573a; }
   .dm-demo label.dm-demo-check { display: inline-flex; align-items: center; gap: 5px; color: #d9cbb4; font-weight: 600; }
+  /* 内容框：与学生面板发弹幕的输入框同一个样子（live-student.js 的 .clp-dm-field），随所点的境界和字色变——
+     炼气、筑基白底；结丹一道金光绕框，元婴紫霄紫、冰蓝两道电光对绕并呼吸发光，化神七彩光环旋转、外晕变色；
+     选了字色就用深底预览投屏上的字色，流光色用渐变字 */
+  .dm-demo-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; --dm-fill: #fff; --dm-input-border: #d6cdbd; --dm-ring: rgba(107,98,85,.18); }
+  .dm-demo-field.is-r1 { --dm-input-border: #9fd2c1; --dm-ring: rgba(42,125,105,.18); }
+  .dm-demo-field.is-r2 { --dm-input-border: #e4c88a; --dm-ring: rgba(216,164,58,.2); }
+  .dm-demo-field.is-r3 { --dm-input-border: #8b5fe0; --dm-ring: rgba(170,120,255,.2); }
+  .dm-demo-field.is-r4 { --dm-input-border: #c9a24a; --dm-ring: rgba(255,214,110,.2); }
+  .dm-demo .dm-demo-field input[type=text] { flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 12px; border: 1.5px solid var(--dm-input-border); border-radius: 12px;
+    background: #fff; color: #201c18; font: 500 16px/1.2 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .dm-demo .dm-demo-field input[type=text]:focus { outline: none; box-shadow: 0 0 0 3px var(--dm-ring); }
+  .dm-demo-field.has-color { --dm-fill: #1d1630; }
+  .dm-demo-field.has-flow { --dm-fill: #140d24; }
+  .dm-demo .dm-demo-field.has-color input[type=text] { border-color: #8b5fe0; background: #1d1630; color: var(--dm-color, #e3cfff); font-weight: 700; caret-color: #fff; }
+  .dm-demo .dm-demo-field.is-r4.has-color input[type=text] { border-color: #c9a24a; }
+  .dm-demo-field.has-flow:not(.is-r2):not(.is-r3):not(.is-r4) { background: #140d24; }
+  .dm-demo .dm-demo-field.has-flow input[type=text] { background-color: transparent; background-image: var(--dm-flow); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent; caret-color: #ffe08a; animation: dm-demo-textflow 4s linear infinite; }
+  .dm-demo-field.is-r2, .dm-demo-field.is-r3, .dm-demo-field.is-r4 { position: relative; isolation: isolate; padding: 2px; overflow: hidden; border-radius: 13px; }
+  .dm-demo-field.is-r2::before, .dm-demo-field.is-r3::before, .dm-demo-field.is-r4::before { content: ''; position: absolute; z-index: -2; left: 50%; top: 50%;
+    width: 320%; aspect-ratio: 1; transform: translate(-50%, -50%); animation: dm-demo-orbit 3.6s linear infinite; pointer-events: none; }
+  .dm-demo-field.is-r2::after, .dm-demo-field.is-r3::after, .dm-demo-field.is-r4::after { content: ''; position: absolute; z-index: -1; inset: 2px; border-radius: 11px;
+    background: var(--dm-fill); pointer-events: none; }
+  .dm-demo .dm-demo-field.is-r2 input[type=text], .dm-demo .dm-demo-field.is-r3 input[type=text], .dm-demo .dm-demo-field.is-r4 input[type=text] {
+    height: 36px; border: 0; border-radius: 11px; background-color: transparent; }
+  .dm-demo .dm-demo-field.is-r2 input[type=text]:focus, .dm-demo .dm-demo-field.is-r3 input[type=text]:focus, .dm-demo .dm-demo-field.is-r4 input[type=text]:focus { box-shadow: none; }
+  .dm-demo-field.is-r2 { box-shadow: 0 0 8px rgba(242,198,79,.45); }
+  .dm-demo-field.is-r2::before { background: conic-gradient(from 0deg, transparent 0 58%, rgba(255,214,110,.35) 68%, #f2b52f 80%, #ffffff 88%, #ffd36b 92%, transparent 100%), #e6c98a; }
+  .dm-demo-field.is-r3 { animation: dm-demo-breathe 2.2s ease-in-out infinite; }
+  .dm-demo-field.is-r3::before { animation-duration: 2.4s;
+    background: conic-gradient(from 0deg, transparent 0 22%, #8b5fe0 32%, #f2e6ff 40%, transparent 48% 72%, #6fd0ff 82%, #ffffff 90%, transparent 98%), #3a1673; }
+  .dm-demo-field.is-r4 { animation: dm-demo-halo 6s linear infinite; }
+  .dm-demo-field.is-r4::before { animation-duration: 4s;
+    background: conic-gradient(from 0deg, rgba(255,255,255,.95) 0 2%, transparent 7% 100%), conic-gradient(from 0deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #8affc1, #ffd36b); }
+  .dm-demo-field.is-r2:focus-within::before, .dm-demo-field.is-r3:focus-within::before, .dm-demo-field.is-r4:focus-within::before { animation-duration: 1.6s; }
+  @keyframes dm-demo-orbit { to { transform: translate(-50%, -50%) rotate(1turn); } }
+  @keyframes dm-demo-breathe { 0%, 100% { box-shadow: 0 0 6px rgba(150,100,255,.35); } 50% { box-shadow: 0 0 14px rgba(170,120,255,.8), 0 0 4px rgba(111,208,255,.6); } }
+  @keyframes dm-demo-halo { 0% { box-shadow: 0 0 12px rgba(255,211,107,.6); } 25% { box-shadow: 0 0 14px rgba(255,143,196,.6); } 50% { box-shadow: 0 0 14px rgba(185,140,255,.65); }
+    75% { box-shadow: 0 0 14px rgba(127,216,255,.6); } 100% { box-shadow: 0 0 12px rgba(255,211,107,.6); } }
+  @keyframes dm-demo-textflow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
+  @media (prefers-reduced-motion: reduce) { .dm-demo-field, .dm-demo-field::before, .dm-demo-field input { animation: none !important; } }
   @media print { .dm-stage, .dm-bar, .dm-demo { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -358,8 +399,8 @@
   const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
   const isoDayOf = (value) => new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(Date.parse(String(value).replace(/(\.\d{3})\d+/, '$1')) || 0));
   let realmMap = new Map();
-  // 学生版测试页的“韩天尊”（学号 HTZ0001，不在点名册上）按化神显示
-  const realmFor = (doc) => (doc.demo ? { realm: doc.demoRealm, stage: 1 } : sidKey(doc.sid) === 'HTZ0001' ? { realm: 4, stage: 2 } : realmMap.get(sidKey(doc.sid)) || null);
+  // 学生版测试页的“王不凡”（学号 WBF0001，不在点名册上；10-22 以前叫“韩天尊”HTZ0001）按化神显示
+  const realmFor = (doc) => (doc.demo ? { realm: doc.demoRealm, stage: 1 } : ['WBF0001', 'HTZ0001'].includes(sidKey(doc.sid)) ? { realm: 4, stage: 2 } : realmMap.get(sidKey(doc.sid)) || null);
   const realmName = (level) => (REALMS[level] ? REALMS[level].name : '');
   // 境界每 20 秒读一次；课上老师结算后，有人境界提升就在页面最上方正中恭喜（见 congratulate）
   let realmClass = null;   // 上一次读到的境界属于哪个班（换了班级不算提升）
@@ -435,7 +476,7 @@
     <p>只在这台电脑的投屏上播放：不写入弹幕记录、不计修为，学生看不到。</p>
     <div class="dm-demo-row" data-demo-realms><b>境界</b>${REALMS.map((realm) => `<button type="button" class="dm-title is-r${realm.level}" data-demo-level="${realm.level}">${esc(realm.name)}</button>`).join('')}</div>
     <div class="dm-demo-row dm-demo-colors" data-demo-colors><b>字色</b></div>
-    <div class="dm-demo-row"><b>内容</b><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></div>
+    <div class="dm-demo-row"><b>内容</b><span class="dm-demo-field" data-demo-field><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></span></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
       <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
@@ -444,6 +485,12 @@
   const demoText = demo.querySelector('[data-demo-text]');
   function paintDemo() {
     demo.querySelectorAll('[data-demo-level]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.demoLevel) === demoState.level)));
+    // 内容框：与学生面板的输入框一样，随境界换边框流光，选了字色就预览字色
+    const field = demo.querySelector('[data-demo-field]');
+    const chosen = window.ClassLive.colorFor(demoState.level, demoState.color[demoState.level]);
+    field.className = `dm-demo-field is-r${demoState.level}${chosen ? ' has-color' : ''}${chosen && chosen.flow ? ' has-flow' : ''}`;
+    field.style.setProperty('--dm-color', chosen && chosen.value ? chosen.value : '#e3cfff');
+    field.style.setProperty('--dm-flow', chosen && chosen.flow ? chosen.flow : 'none');
     const box = demo.querySelector('[data-demo-colors]');
     box.querySelectorAll('button, em').forEach((el) => el.remove());
     const open = DEMO_COLORS.filter((color) => demoState.level >= color.level);

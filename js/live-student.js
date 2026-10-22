@@ -12,9 +12,11 @@
  *     页面里的姓名、学号、班级按课堂登录信息自动填写并锁定。
  * 两类都可发弹幕：显示在老师投屏的课堂页面上（老师开放后可用；老师开启匿名时投屏不显示姓名，后台照常记录发送人）。
  * 未从课堂码进入（或本周课堂不在这一页）时只能写备注、导出，不能递交。
- * 学生版测试页（教师工作台“打开学生版测试页”，地址带 ?preview=<课堂编号>&staticrypt_pwd=…）：与学生页相同，区别是名字固定“韩天尊”、
+ * 学生版测试页（教师工作台“打开学生版测试页”，地址带 ?preview=<课堂编号>&staticrypt_pwd=…）：与学生页相同，区别是名字固定“王不凡”、
  *   化神境界（字色、法宝全开，法宝不限次数）；弹幕和法宝经教师专用函数 ck_test_danmaku 发到投屏（只有教师账号能用，学生改地址也冒充不了）；
- *   作答只在本机锁定、不交后台，匿名建议不提交，韩天尊不在点名册上、不计修为。
+ *   作答只在本机锁定、不交后台（“本堂作业递交情况”按本机的测试递交统计），匿名建议不提交，王不凡不在点名册上、不计修为；
+ *   修炼场、政经“课后自修”、递交后的“展开解答”照常可用：后台对教师账号按“王不凡”（WBF0001）记修炼记录（ck_practice_me，结算不计），
+ *   解答直接给（ck_my_explain）；测试页顶部可清空修炼场测试记录。情境猜谜抢答不开放（免得占了真学生的第一名）。
  * 离线版（provider = offline，脚本内嵌在课程目录的离线 HTML 里，网络不可用时直接发给学生）：
  *   不连接后台；学生在面板里填写姓名、学号、班级；“递交”只在本机锁定答案（每题只算第一次）；
  *   做完后导出文件发给老师，老师在离线完整版里“导入学生文件”统计。导出文件内含作答数据（JSON）。
@@ -51,7 +53,7 @@
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const OFFLINE_STORE = 'classlive-offline-student';
   const identity = OFFLINE ? load(OFFLINE_STORE, {})
-    : PREVIEW ? { name: '韩天尊', sid: 'HTZ0001', class_name: '教师测试', group_name: '', classroom: previewRoom, course: config.course, chapter: config.unit || Live.unitOf(), code: '' }
+    : PREVIEW ? { name: '王不凡', sid: 'WBF0001', class_name: '教师测试', group_name: '', classroom: previewRoom, course: config.course, chapter: config.unit || Live.unitOf(), code: '' }
       : load(STORE, {});
   const unit = config.unit || Live.unitOf();
   const worksheet = config.kind === 'concept-html';
@@ -743,7 +745,7 @@
   // ---------- 境界解锁（2026-10-22）：筑基解锁递交后的题目解答（后台 ck_my_explain 再核对境界和递交），结丹解锁“学习方法小锦囊” ----------
   const EXPLAIN_LEVEL = 1;
   const STUDY_LEVEL = 2;
-  const canExplain = !OFFLINE && !PREVIEW && joined;
+  const canExplain = !OFFLINE && joined;   // 测试页也可展开（后台对教师账号直接给解答）
   const cachedRealm = load(`classlive-realm:${config.course}:${identity.sid}`, null);
   let gateLevel = OFFLINE || PREVIEW ? 4 : cachedRealm ? Number(cachedRealm.realm) || 0 : -1;   // -1：还不知道本人境界
   const EXPLAIN_TEXT = {
@@ -814,7 +816,7 @@
     else setQ(q, joined ? IDLE : '', '');
   });
   applyRealmGates(gateLevel);
-  if (worksheet && joined && !OFFLINE && !PREVIEW) setupSelfStudy();
+  if (worksheet && joined && !OFFLINE) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）
 
   // ---------- 政经“课后自修”计分（2026-10-22）：主动回忆、温故、讲给别人听交到修炼场后台（ck_practice_essay / answer），计入修炼场每日上限 ----------
   function setupSelfStudy() {
@@ -828,7 +830,7 @@
     const say = (host, res, fallback) => {
       let el = host.querySelector(':scope > .clp-xl-state');
       if (!el) { el = document.createElement('p'); el.className = 'clp-xl-state'; host.appendChild(el); }
-      const why = { earned: '这一项以前已经得过修为。', today: '今天先答错过：隔天在修炼场“错题回炉”再答对才计修为。', cap: `今天的修炼修为已满 ${P.of(config.course).cap} 点，明天再来。` };
+      const why = { earned: '这一项以前已经得过修为。', today: '今天先答错过：隔天在修炼场“回炉巩固”再答对才计修为。', cap: `今天的修炼修为已满 ${P.of(config.course).cap} 点，明天再来。` };
       const text = res && res.status === 'ok' ? (res.points ? `+${res.points} 修为（今日 ${res.today}/${res.cap}）` : why[res.reason] || '已记录。')
         : res && res.status === 'short' ? `还没写满 ${res.min} 个字，写满再递交才计修为。`
           : res && res.status === 'closed' ? '本单元还没有上课，暂不计修为。' : fallback || '暂时没能记上修为，请稍后再试。';
@@ -883,12 +885,27 @@
     const bar = document.createElement('div');
     bar.className = 'clp-preview';
     bar.setAttribute('data-ix', '');
-    bar.innerHTML = '<b>学生版测试页</b><span>韩天尊 · 化神 · 弹幕和法宝照常上投屏 · 作答只在本机、不计入后台</span><button type="button">清空测试作答</button>';
+    bar.innerHTML = `<b>学生版测试页</b><span>王不凡 · 化神 · 弹幕和法宝照常上投屏 · 课堂作答只在本机 · 修炼场${worksheet ? '和课后自修' : ''}以王不凡记在后台，不计入班级修为</span>
+      <button type="button" data-preview-clear>清空测试作答</button><button type="button" data-preview-practice>清空修炼记录</button>`;
     shield(bar);
-    bar.querySelector('button').addEventListener('click', () => {
+    bar.querySelector('[data-preview-clear]').addEventListener('click', () => {
       if (!window.confirm('清空这一页的测试作答和递交记录？（只影响这台电脑上的测试页）')) return;
       try { localStorage.removeItem(LOCK_KEY); if (config.stateKey) localStorage.removeItem(config.stateKey); } catch (error) { /* 忽略 */ }
       location.reload();
+    });
+    // 修炼场、课后自修的测试记录在后台（王不凡 WBF0001，本课程各班）：教师账号可以删除
+    bar.querySelector('[data-preview-practice]').addEventListener('click', async (event) => {
+      if (!window.confirm('清空王不凡在本课程修炼场和课后自修里的全部测试记录？（只删测试记录，不影响学生）')) return;
+      const button = event.currentTarget;
+      button.disabled = true;
+      try {
+        await backend.removeAll('practice', { course: config.course, sid: 'WBF0001' });
+        button.textContent = '已清空修炼记录';
+      } catch (error) {
+        console.warn('[测试页]', error);
+        button.textContent = '清空失败，请先登录教师工作台';
+        button.disabled = false;
+      }
     });
     document.body.appendChild(bar);
     backend.session().then((session) => {
@@ -1218,7 +1235,7 @@
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
-      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${window.ClassLivePractice && !PREVIEW ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}</div>
+      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${window.ClassLivePractice ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}</div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
@@ -1630,13 +1647,13 @@
 
   // 本堂作业递交情况（页面最下方，匿名建议箱之后）：读后台收到的本人递交记录（ck_my_submissions），
   // 与教师工作台“递交情况”同一来源；在别的设备递交过的题，这台设备上也标成已递交
-  if (!PREVIEW && !OFFLINE && questions.length) setupSubmissions();
+  if (!OFFLINE && questions.length) setupSubmissions();
   function setupSubmissions() {
     const card = document.createElement('section');
     card.className = 'clp-subm';
     card.setAttribute('data-ix', '');
     card.innerHTML = `<div class="clp-sub-head"><span class="clp-sub-tag">本堂作业递交情况</span><span class="clp-sub-who"></span><button type="button" data-sub-refresh>刷新</button></div>
-      <div class="clp-sub-big"><b data-sub-count>—</b><span>题已递交（以老师后台收到的为准）</span></div>
+      <div class="clp-sub-big"><b data-sub-count>—</b><span>题已递交（${PREVIEW ? '测试页：按这台电脑上的测试递交统计' : '以老师后台收到的为准'}）</span></div>
       <div class="clp-sub-bar"><i data-sub-bar></i></div>
       <p class="clp-sub-state" data-sub-state role="status">正在读取后台的递交记录……</p>
       <details data-sub-missing hidden><summary></summary><ol></ol></details>
@@ -1660,7 +1677,9 @@
       if (busy) return;
       busy = true;
       try {
-        const result = await backend.rpc('ck_my_submissions', { p_classroom: Number(identity.classroom) || identity.classroom });
+        // 测试页的递交只在本机：按本机记下的测试递交统计
+        const result = PREVIEW ? { status: 'ok', items: questions.filter((q) => locked[q.key]).map((q) => ({ key: q.key, ts: Date.parse(locked[q.key].iso || '') || 0 })) }
+          : await backend.rpc('ck_my_submissions', { p_classroom: Number(identity.classroom) || identity.classroom });
         const data = Array.isArray(result) ? result[0] : result;
         if (!data || data.status === 'login') {
           stateEl.textContent = '这台设备还没有通过本堂课的登录核对，读不到递交记录：请回首页用课堂码重新登录。';
@@ -1696,7 +1715,8 @@
           list.appendChild(li);
         });
         card.querySelector('[data-sub-note]').textContent = `核对时间 ${new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())}。`
-          + '和老师工作台“加入名单”里的“递交情况”一致；如果这里和左下角面板的数字不一样，以这里为准，有疑问可以截图给老师。';
+          + (PREVIEW ? '学生页读的是老师后台收到的记录，和老师工作台“加入名单”里的“递交情况”一致。'
+            : '和老师工作台“加入名单”里的“递交情况”一致；如果这里和左下角面板的数字不一样，以这里为准，有疑问可以截图给老师。');
         lastAt = Date.now();
       } catch (problem) {
         const text = String((problem && problem.message) || problem || '');
@@ -1765,9 +1785,9 @@
   }).join('')}</div>`;
   // 修炼场规则说明（分值按课程，见 live-core.js 的 ClassLive.PRACTICE）
   function practiceRule() {
-    const P = Live.PRACTICE || { of: () => ({ cap: 3 }), text: () => '' };
+    const P = Live.PRACTICE || { gap: 3, of: () => ({ cap: 10 }), text: () => '' };
     const r = P.of(config.course);
-    return `题目是另写的新题，和课堂上的题不重复；老师开过的每一次课，对应的题都开放（以前的课也能复习；提前发布、还没开课的只能查看，开课后才开放、才计修为）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3）' : ''}；每题只算一次，每天最多 ${r.cap} 修为。`;
+    return `题目是另写的新题，和课堂上的题不重复；老师开过的每一次课，对应的题都开放（以前的课也能复习；提前发布、还没开课的只能查看，开课后才开放、才计修为）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）；隔 ${P.gap || 3} 天以上再答对，还能再得一次（复习巩固，每题最多两次）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3，只算一次）' : ''}；每天最多 ${r.cap} 修为。境界按全学期满分算，平时天天练、修为攒得早的同学，能更早冲上「化神」；临时突击受每日上限所限，补不回来。`;
   }
   function openRealm() {
     const r = myRealm;
@@ -1891,7 +1911,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = '20261022-practice';
+  const NEWS_ID = '20261022-practice2';
   const NEWS_RANGE = '10 月 9 日—10 月 22 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
@@ -1900,7 +1920,8 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新（10 月 21—22 日）', items: [
-        ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、错题回炉（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
+        ['修炼场多攒修为', `修炼场每天最多 ${(Live.PRACTICE || {}).of ? Live.PRACTICE.of(config.course).cap : 10} 修为（原来${config.course === 'political-economy' ? ' 10' : ' 3'}）；答对过的题隔 ${(Live.PRACTICE || {}).gap || 3} 天以上再答对，还能再得一次（“回炉巩固”里会出现到期的题）。境界按全学期满分算，平时天天练的同学能更早冲上「化神」。`],
+        ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、回炉巩固（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
         ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深）。'],
         ...(config.course === 'political-economy' ? [

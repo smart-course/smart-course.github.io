@@ -2,8 +2,9 @@
  * 修炼场（2026-10-22）：学生平时在课堂面板点“修炼场”做题攒修为。两门课各自一个修炼场（按 course 分开，题库、记录、每日上限都不串）。
  * 题目、答案都在后台：ck_practice_home（各单元开放情况、今日修为）、ck_practice_items（取题，不含答案）、
  * ck_practice_answer（作答后才返回答案和讲解，并按规则加修为）。规则常量见 live-core.js 的 ClassLive.PRACTICE。
+ * 每题最多得两次修为：第一次答对；隔 PRACTICE.gap 天以上再答对（复习巩固，间隔重复）——平时天天练的同学修为累积得多，能更早到化神。
  * 题目是另写的新题（与课堂正文不重复）。四种修炼方法（与“学习方法小锦囊”同名）：西蒙学习法（专攻一块）、
- * 间隔重复（错题回炉）、交错练习（混合乱炼）——这三种做情境辨析、易错判断；费曼学习法（讲给别人听）有自己的专用题
+ * 间隔重复（回炉巩固：错题隔天再做、答对过的隔几天再巩固）、交错练习（混合乱炼）——这三种做情境辨析、易错判断；费曼学习法（讲给别人听）有自己的专用题
  * （body.method = 'feynman'：挑出又通俗又没讲错的讲法、揪出讲解里讲错的一句，后台 p_mode 'feynman' 出题），答完再用自己的话讲一遍；
  * 答题时可开“先想后看”（主动回忆：选项先遮住，心里想好再看）。
  * 用法：ClassLivePractice.open({ backend, identity, config })，由 live-student.js 的面板按钮调用。
@@ -11,7 +12,7 @@
 (function () {
   'use strict';
   const Live = window.ClassLive || {};
-  const PRACTICE = Live.PRACTICE || { delay: 0, of: () => ({ cap: 3 }), text: () => '' };
+  const PRACTICE = Live.PRACTICE || { delay: 0, gap: 3, most: 2, of: () => ({ cap: 10 }), text: () => '' };
   const COURSE = { 'xjp-economy': '习近平经济思想概论', 'political-economy': '政治经济学' };
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const load = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (error) { return fallback; } };
@@ -167,6 +168,7 @@
     }
     paintToday();
     const units = home.units || [];
+    const gap = Number(home.gap) || PRACTICE.gap;
     const open = units.filter((u) => u.open);
     const due = open.reduce((sum, u) => sum + (Number(u.due) || 0), 0);
     const feynAll = open.reduce((sum, u) => sum + (Number(u.fn) || 0), 0);
@@ -175,17 +177,19 @@
     const card = (mode, m, badge) => `<button type="button" class="lp-method" data-lp-mode="${mode}"${m.disabled ? ' disabled' : ''}>${badge ? `<i>${esc(badge)}</i>` : ''}
       <span>${esc(m.name)}</span><strong>${esc(m.title)}</strong><p>${esc(m.text)}</p></button>`;
     const rows = units.map((u) => {
-      const pct = u.n ? Math.round(100 * u.earned / u.n) : 0;
-      const status = u.open ? `攻克 ${u.earned} / ${u.n}${u.due ? `<span class="lp-due">回炉 ${u.due}</span>` : ''}`
+      // 进度：每题两次（攻克＋巩固），都得到才算满
+      const pct = u.n ? Math.round(100 * (u.earned + (Number(u.firm) || 0)) / (2 * u.n)) : 0;
+      const status = u.open ? `攻克 ${u.earned} / ${u.n} · 巩固 ${Number(u.firm) || 0}${u.due ? `<span class="lp-due">回炉 ${u.due}</span>` : ''}`
         : u.opens ? `${dayText(u.opens)}开放` : '这次课开课后开放';
       return `<li><button type="button" class="lp-unit" data-lp-unit="${esc(u.unit)}"${u.open ? '' : ' disabled'}>
         <b>${esc(u.title)}</b><em>${status}</em><span class="lp-bar"><i style="width:${pct}%"></i></span></button></li>`;
     }).join('');
     body.innerHTML = `<p class="lp-note">这是《${esc(COURSE[home.course] || '')}》自己的修炼场。老师开过的每一次课，对应的题都在这里，课上课后都能练，以前的课也能拿来复习；提前发布、还没开课的只能先看页面，题目开课后才开放。
-      这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析和易错判断，讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；${pe ? '案例页里的“课后自修”也计修为，和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>，每题只算一次，刷题不加分。</p>
+      这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析和易错判断，讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；<b>隔 ${gap} 天以上再答对，还能再得一次</b>（复习巩固，每题最多两次）；${pe ? '案例页里的“课后自修”也计修为（只算一次），和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>。
+      修为天天攒：平时练得早、练得勤的同学，能更早冲上「化神」；临时突击受每日上限所限，补不回来。</p>
       <div class="lp-methods">
         ${card('simon', { name: '西蒙学习法', title: '专攻一块', text: '选下面一个单元，一口气攻下来：答错的题排到这一轮最后再来一遍，直到全部答对。', disabled: !open.length })}
-        ${card('review', { name: '间隔重复', title: '错题回炉', text: '以前答错或当天没得到修为的题，隔天再做一遍；这次答对照样得修为。', disabled: !due }, due ? `${due} 道` : '')}
+        ${card('review', { name: '间隔重复', title: '回炉巩固', text: `以前答错的题隔天再做；答对过的题隔 ${gap} 天再做一遍巩固。答对都还能得修为。`, disabled: !due }, due ? `${due} 道` : '')}
         ${card('mix', { name: '交错练习', title: '混合乱炼', text: '从已开放的单元里随机抽 12 题混着做，练的是“这道题该用哪个概念”。', disabled: !open.length })}
         ${card('feynman', { name: '费曼学习法', title: '讲给别人听', text: '专门的题：从几种大白话里挑出又通俗又没讲错的讲法，或揪出一段讲解里讲错的那一句；答完再用自己的话讲一遍，讲不顺的地方就是还没想透的地方。', disabled: !feynAll }, feynLeft ? `${feynLeft} 道` : '')}
       </div>
@@ -199,7 +203,7 @@
     body.querySelectorAll('[data-lp-mode]').forEach((button) => button.addEventListener('click', () => {
       const mode = button.dataset.lpMode;
       if (mode === 'simon') { body.querySelector('#lp-units').scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
-      if (mode === 'review') startSession('review', { method: '间隔重复', title: '错题回炉' });
+      if (mode === 'review') startSession('review', { method: '间隔重复', title: '回炉巩固' });
       else if (mode === 'mix') startSession('mix', { method: '交错练习', title: '混合乱炼' });
       else startSession('feynman', { method: '费曼学习法', title: '讲给别人听', feynman: true });
     }));
@@ -213,9 +217,11 @@
     try { data = await call('ck_practice_items', { p_mode: mode }); } catch (problem) { body.innerHTML = `<p class="lp-state">${esc(failText(problem))}</p>`; return; }
     if (!data || data.status !== 'ok') { body.innerHTML = `<p class="lp-state">${esc(statusText[data && data.status] || '取题失败。')}</p><button type="button" class="lp-back" data-lp-home>← 回修炼场</button>`; bindHome(); return; }
     let items = (data.items || []).filter((it) => it.kind !== 'essay');
-    if (meta.simon) items = items.filter((it) => !it.earned).concat(items.filter((it) => it.earned));   // 没攻下的先做
+    // 没攻下的先做，其次是到期该巩固的、还没到期的，已巩固两次的放最后
+    const rank = (it) => (!it.earned ? 0 : it.again ? 1 : it.times != null && Number(it.times) < (Number(it.most) || PRACTICE.most) ? 2 : 3);
+    if (meta.simon) items = items.map((it, i) => ({ it, i })).sort((a, b) => rank(a.it) - rank(b.it) || a.i - b.i).map((x) => x.it);
     if (!items.length) {
-      body.innerHTML = `<p class="lp-state">${mode === 'review' ? '没有需要回炉的错题，干得好！' : '这里暂时没有题。'}</p><button type="button" class="lp-back" data-lp-home>← 回修炼场</button>`;
+      body.innerHTML = `<p class="lp-state">${mode === 'review' ? '没有需要回炉或到期巩固的题，干得好！' : '这里暂时没有题。'}</p><button type="button" class="lp-back" data-lp-home>← 回修炼场</button>`;
       bindHome();
       return;
     }
@@ -232,7 +238,7 @@
     const veil = load(recallKey, false);
     const tags = [`<span class="is-part">${esc(b.part || '')}</span>`, b.case || b.concept ? `<span>${esc(b.case || b.concept)}</span>` : '',
       session.mode !== it.unit && it.title !== (b.case || b.concept) ? `<span>${esc(it.title)}</span>` : '', session.again.has(key(it)) ? '<span>再来一遍</span>' : '',
-      it.earned ? '<span>已得过修为</span>' : it.points ? `<span>+${Number(it.points)} 修为</span>` : ''].join('');
+      stake(it)].join('');
     let opts = '';
     if (it.kind === 'judge') {
       opts = `<div class="lp-judge" data-lp-opts><button type="button" class="lp-opt" data-lp-answer="true">说得对</button><button type="button" class="lp-opt" data-lp-answer="false">说得不对</button></div>`;
@@ -257,6 +263,15 @@
     scrollTop();
   }
   const key = (it) => `${it.unit}:${it.item}`;
+  // 题目标签：这一题现在答对能不能得修为（times 是已得过几次；旧后台没有 times 时按 earned）
+  function stake(it) {
+    const times = it.times == null ? (it.earned ? Number(it.most) || PRACTICE.most : 0) : Number(it.times);
+    const most = Number(it.most) || PRACTICE.most;
+    if (times >= most) return '<span>已巩固</span>';
+    if (times && it.again) return `<span>巩固 +${Number(it.points)} 修为</span>`;
+    if (times) return `<span>${it.wait ? `${Number(it.wait)} 天后可巩固` : '已得过一次'}</span>`;
+    return it.points ? `<span>+${Number(it.points)} 修为</span>` : '';
+  }
 
   async function answer(session, it, button) {
     const box = body.querySelector('[data-lp-opts]');
@@ -289,10 +304,17 @@
     if (res.correct) session.right += 1;
     session.points += Number(res.points) || 0;
     if (home) { home.today = Number(res.today) || home.today; home.total += Number(res.points) || 0; paintToday(); }
-    const why = { earned: '这题以前已经得过修为，每题只算一次。', today: '今天先答错过这题：隔天再答对才计修为（间隔重复）。', cap: `今天的修为已满 ${res.cap} 点，明天再来；答题照样能练。` }[res.reason] || '';
+    const gap = (home && Number(home.gap)) || PRACTICE.gap;
+    const why = {
+      earned: Number(res.most) === 1 ? '这题已经得过修为，课后自修每题只算一次。' : '这题已经得过两次修为（第一次答对、隔几天再答对巩固），不再加分。',
+      wait: `这题 ${Number(res.wait) || gap} 天后再答对，还能再得一次修为（间隔重复：隔几天再想起来，记得更牢）。`,
+      today: '今天先答错过这题：隔天再答对才计修为（间隔重复）。',
+      cap: `今天的修为已满 ${res.cap} 点，明天再来；答题照样能练。`,
+    }[res.reason] || (res.points && Number(res.times) === 1 && Number(res.most) > 1 ? `隔 ${gap} 天以上再答对这题，还能再得一次修为。` : '');
+    const gainText = res.points ? `+${res.points} 修为${Number(res.times) > 1 ? ' · 巩固' : ''}` : '';
     const answerText = it.kind === 'transfer' ? ok.map((v) => String((it.body.options || [])[v] || '').split(' ')[0]).join(' 或 ') : ok.map((v) => LET(v)).join(' 或 ');
     const reveal = res.reveal || {};
-    let html = `<div class="lp-fb${res.correct ? '' : ' is-wrong'}"><strong>${res.correct ? '答对了' : it.kind === 'judge' ? `答错了：这句话${ok[0] === 'true' ? '说得对' : '说得不对'}` : `答错了，答案是 ${esc(answerText)}`}${res.points ? `<span class="lp-gain">+${res.points} 修为</span>` : ''}</strong>
+    let html = `<div class="lp-fb${res.correct ? '' : ' is-wrong'}"><strong>${res.correct ? '答对了' : it.kind === 'judge' ? `答错了：这句话${ok[0] === 'true' ? '说得对' : '说得不对'}` : `答错了，答案是 ${esc(answerText)}`}${gainText ? `<span class="lp-gain">${gainText}</span>` : ''}</strong>
       ${esc(reveal.explain || '')}${why ? `<small>${esc(why)}</small>` : ''}</div>`;
     if (it.kind === 'transfer') {
       const draftKey = `classlive-practice-say:${ctx.config.course}:${key(it)}`;
@@ -348,7 +370,8 @@
     const allRight = session.wrongOnce.size === 0;
     body.innerHTML = `<div class="lp-done"><h4>${session.meta.simon ? (allRight ? '这一块攻下了' : '这一轮练完了') : '本轮修炼完成'}</h4>
       <p>做了 ${session.done} 题，答对 ${session.right} 题，得 ${session.points} 修为。</p>
-      ${session.wrongOnce.size ? `<p class="lp-hint">有 ${session.wrongOnce.size} 道题答错过：明天在“错题回炉”里再做一遍，答对还能得修为。</p>` : ''}
+      ${session.wrongOnce.size ? `<p class="lp-hint">有 ${session.wrongOnce.size} 道题答错过：明天在“回炉巩固”里再做一遍，答对还能得修为。</p>` : ''}
+      ${session.points ? `<p class="lp-hint">今天答对得分的题，隔 ${(home && Number(home.gap)) || PRACTICE.gap} 天以上会出现在“回炉巩固”里，再答对还能再得一次。</p>` : ''}
       <div class="lp-actions" style="justify-content:center"><button type="button" class="lp-btn" data-lp-again>再练一轮</button><button type="button" class="lp-btn is-soft" data-lp-home>回修炼场</button></div></div>`;
     bindHome();
     body.querySelector('[data-lp-again]').addEventListener('click', () => startSession(session.mode, session.meta));
