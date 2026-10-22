@@ -18,6 +18,8 @@
  *   播放四件法宝画面；只在本机播放，不写入弹幕记录、不计修为，也不经过后台。
  * 机制图“弹幕接龙”：学生弹幕以“【案例号箭头】”开头（如【01①→②】），除照常滚动外，还会放进投屏机制图对应节点下的
  *   [data-mech-wall]（新来的弹入并让节点闪一下）。
+ * 只显示本页的课堂：当前课堂不是本案例／本章时（如打开还没上的案例讲解版），不上屏、弹幕墙留空，控件上说明当前课堂是哪一个——
+ *   弹幕墙按“【问N】”编号放弹幕，否则别的案例同号问题的弹幕会串进来（与课堂控件、投屏统计的处理一致）。试用特效不受影响。
  * 正文里的弹幕墙（弹幕小问题卡片、辩论/圆桌分栏、机制图节点）：显示本堂课这一题的全部弹幕，最新的在最上面，多了在墙内用滚轮上下翻看；
  *   墙上的弹幕整堂课一直保留（重新打开页面也在），“清屏”只撤下屏幕上流动的弹幕；弹幕设为“关闭”时墙上照样显示。
  *   审核模式下只显示已通过的；工作台隐藏、删除的和学生撤回的不显示。
@@ -815,16 +817,36 @@
     }
   });
 
+  const unit = config.unit || (location.pathname.match(/([a-z]{2,6}\d{2})\.html$/) || [])[1];
+  const HERE = config.kind === 'concept-html' ? '本案例' : '本章';
+  // 不再显示原来课堂的弹幕（当前课堂换到了别的案例／章节）：撤下流动的弹幕，清空循环和弹幕墙
+  function dropRoom() {
+    pool.length = 0;
+    inPool.clear();
+    cursor = 0;
+    primed = false;
+    stage.innerHTML = '';
+    flying.clear();
+    laneFree.fill(0);
+    wallRows = [];
+    renderWalls([]);
+  }
   async function pollRoom() {
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
-      const unit = config.unit || (location.pathname.match(/([a-z]{2,6}\d{2})\.html$/) || [])[1];
-      const next = window.ClassLive.pickRoom(rooms, config.course, unit);
+      const picked = window.ClassLive.pickRoom(rooms, config.course, unit);
+      const next = picked && picked.chapter === unit ? picked : null;
       const changed = !room || !next || `${room.id}|${room.danmaku}` !== `${next.id}|${next.danmaku}`;
       const anonChanged = Boolean(room && next && Boolean(room.danmaku_anon) !== Boolean(next.danmaku_anon));
+      const had = room;
       room = next;
       if (anonChanged) applyAnonymous();
-      if (!room) { modeSelect.disabled = true; setState('没有当前课堂'); return false; }
+      if (!room) {
+        if (had) dropRoom();
+        modeSelect.disabled = true;
+        setState(picked ? `当前课堂“${esc(picked.name)}”不是${HERE}，这里不显示弹幕` : '没有当前课堂');
+        return false;
+      }
       refreshState();
       return changed;
     } catch (error) {

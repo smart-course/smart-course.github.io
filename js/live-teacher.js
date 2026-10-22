@@ -830,7 +830,7 @@
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。` : '');
     $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
       <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action"><button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
-      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”对这堂课提意见和建议后，会出现在这里。'}</td></tr>`;
+      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</td></tr>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
   $('[data-fb-scope]').addEventListener('change', loadFeedback);

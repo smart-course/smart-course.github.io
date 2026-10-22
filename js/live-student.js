@@ -635,8 +635,26 @@
     });
   }
   // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在页面最后的“资料与延伸阅读”之后
-  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。后台不记录提交者，只记日期 ----------
+  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。后台不记录提交者，只记日期。
+  //   政经叫“匿名建议和提问箱”：2026-10-22 起概念小结的“提问墙”弹幕删去，没想通的问题写在这里，老师下一堂课统一解答 ----------
   const fbCards = [];
+  const FB = worksheet ? {
+    tag: '匿名建议和提问箱',
+    title: '还有哪里没想通？对这堂课有什么意见或建议？',
+    hint: '学完这一课还有哪里没想通、想问老师什么，都写下来，老师看到后在下一堂课统一解答；老师的讲授、案例的呈现、课堂互动和网页用起来怎么样，希望以后增加哪些内容或互动方式，也可以写。',
+    placeholder: '写下你的疑问，或对这堂课的意见和建议（500 字内）',
+    aria: '本堂课的匿名建议和提问',
+    thanks: '老师看到后会在下一堂课解答疑问。',
+    what: '建议或提问',
+  } : {
+    tag: '匿名建议箱',
+    title: '对这堂课，你有什么意见或建议？',
+    hint: '老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。',
+    placeholder: '写下你对这堂课的意见或建议（500 字内）',
+    aria: '本堂课的匿名建议',
+    thanks: '谢谢你的建议！',
+    what: '建议',
+  };
   if (!OFFLINE) {
     const spots = worksheet
       ? [{ caseNo: (/(\d{2})$/.exec(unit) || [])[1], page: document.getElementById('sources') }]
@@ -647,10 +665,10 @@
       if (!/^\d{2}$/.test(caseNo || '') || !page) return;
       const card = document.createElement('section');
       card.className = 'clp-fb';
-      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">匿名建议箱</span><span class="clp-fb-label">本堂课</span></div>
-        <h4>对这堂课，你有什么意见或建议？</h4>
-        <p class="clp-fb-hint">老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到建议内容和提交日期。</p>
-        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="写下你对这堂课的意见或建议（500 字内）" aria-label="本堂课的匿名建议" disabled></textarea>
+      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
+        <h4>${FB.title}</h4>
+        <p class="clp-fb-hint">${FB.hint}<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到内容和提交日期。</p>
+        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="${FB.placeholder}" aria-label="${FB.aria}" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
         <p class="clp-fb-state" role="status"></p>`;
       // 政治经济学：放在“资料与延伸阅读”里、“继续阅读下一案例”之前；习经：放在章节页“资料与延伸阅读”这一节的末尾
@@ -1152,7 +1170,7 @@
     bindFont();
     if (elsewhere) bindLeave();
     setupMechDanmaku(false, elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
-    setupFeedback(false, elsewhere ? '本周课堂不在这一页，这里不能提交建议。' : '进入课堂后才能提交建议：请先在首页输入老师发布的课堂码。');
+    setupFeedback(false, elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
     return;
   }
 
@@ -1886,6 +1904,7 @@
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
         ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深）。'],
         ...(config.course === 'political-economy' ? [
+          ['提问', '概念小结的“提问墙”弹幕取消：没想通的地方写进每个案例页最后的“匿名建议和提问箱”，老师看到后在下一堂课统一解答。'],
           ['豁然开朗', '前七章每个案例新增一个“本课悬念”：学习路线页先抛出一个反常识的问题，出门测之后揭晓——先凭直觉选，再看讲解和教材原文。不计分。'],
           ['课后自修', '前七章每个案例的出门测之后新增“课后自修”页，也积累修为：主动回忆（凭记忆写满 8 字再翻开对照 +1）、温故（前面案例的概念换个情境再考，答对 +2）、讲给没学过的人听（写满 30 字递交 +3），计入修炼场每日上限。'],
         ] : []),
@@ -1937,7 +1956,9 @@
         ['匿名弹幕', '老师打开“匿名”时，投屏只显示内容、不显示姓名，老师后台仍能看到是谁发的。'],
         ['猜词游戏', `老师抽两位同学上台，一人背对屏幕猜、一人用自己的话描述；每次课得分第一的一组两人各加 ${wordgame} 修为。`],
         ['停止递交', '老师可以让某道题停止递交，停止后这道题不能再递交、也不计修为，请跟上课堂节奏及时递交。'],
-        ['匿名建议箱', '每次课最后可以匿名对这堂课提建议，老师的讲授、案例的呈现、希望增加的互动方式都可以说。'],
+        config.course === 'political-economy'
+          ? ['匿名建议和提问箱', '每次课最后可以匿名提问或提建议：没想通的地方写下来，老师下一堂课统一解答；老师的讲授、案例的呈现、希望增加的互动方式也都可以说。']
+          : ['匿名建议箱', '每次课最后可以匿名对这堂课提建议，老师的讲授、案例的呈现、希望增加的互动方式都可以说。'],
         ['手机端', '面板收成一个境界小图标，点一下展开。'],
       ] },
     ].filter((section) => !section.course || section.course === config.course);
@@ -2154,11 +2175,11 @@
         sending = true;
         sync();
         try {
-          if (PREVIEW) { say('测试页：建议不会提交（学生页会匿名提交给老师）。', 'ok'); return; }
+          if (PREVIEW) { say('测试页：不会真的提交（学生页会匿名提交给老师）。', 'ok'); return; }
           await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
           area.value = '';
           save(key, (Number(load(key, 0)) || 0) + 1);
-          say(`已匿名提交（${time()}），谢谢你的建议！还可以继续写下一条。`, 'ok');
+          say(`已匿名提交（${time()}），${FB.thanks}还可以继续写下一条。`, 'ok');
         } catch (problem) {
           console.error(problem);
           const message = `${(problem && problem.message) || problem || ''}`;
