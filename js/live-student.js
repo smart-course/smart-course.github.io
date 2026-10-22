@@ -414,13 +414,13 @@
   .clp-v2 .clp-gifts button.is-used { border: 1px solid #d6cdbf; background: #efe9df; color: #8a7f74; box-shadow: none; }
   .clp-gifts button.is-used small { color: #a4492d; font-weight: 800; }
   .clp-v2 .clp-gifts small { flex: 0 0 auto; margin-left: auto; font-size: 11px; font-weight: 700; }
-  /* 电脑上收起时：只留编号、姓名、境界、“展开”和“距下一境界”进度，窄一些、矮一些（学号、班级、“字号”“请假”和“不是我”展开后再看；
+  /* 电脑上收起时：只留编号、姓名、境界、“展开”和“距下一境界”进度，窄一些、矮一些（学号、班级、“字号”“请假”展开后再看，“注销登录”在展开后的最下面；
      2026-10-22 用户反映收起时点“字号”，弹出的三档被收起的面板遮住，要求“只有在展开的时候才显示请假和字号”） */
   @media (min-width: 701px) {
     .clp-panel.clp-v2.is-folded { width: 290px; }
     .clp-v2.is-folded .clp-head { padding: 8px 14px 7px; }
     .clp-v2.is-folded .clp-sub { display: none; }
-    .clp-v2.is-folded [data-cl-switch], .clp-v2.is-folded [data-cl-font], .clp-v2.is-folded [data-cl-leave], .clp-v2.is-folded .clp-font-pop { display: none; }
+    .clp-v2.is-folded [data-cl-font], .clp-v2.is-folded [data-cl-leave], .clp-v2.is-folded .clp-font-pop { display: none; }
   }
   @media (min-width: 701px) {
     .clp-v2 .clp-gifts { display: flex; gap: 5px; }
@@ -446,6 +446,9 @@
   .clp-v2 .clp-mydm summary { padding-right: 132px; }
   .clp-v2 .clp-foot-links { position: absolute; top: 8px; right: 14px; display: flex; gap: 10px; }
   .clp-v2 .clp-foot-links .clp-link { font-size: 13px; }
+  /* 注销登录（原头部的“不是我”，2026-10-22 用户要求改名、放到面板最下面） */
+  .clp-v2 .clp-out { display: flex; justify-content: flex-end; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(70,51,34,.16); }
+  .clp-v2 .clp-out .clp-link { color: #8a7d70; font-size: 13px; }
   /* 手机端收起时只留一个境界小图标（像“使用说明”的问号），点一下展开 */
   .clp-v2 .clp-mini { display: none; position: relative; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #b9b1a3; border-radius: 50%;
     color: #4a443c; background: radial-gradient(circle at 35% 30%, #f1ece2, #d9d4ca 60%, #b9b1a3); box-shadow: 0 6px 16px rgba(0,0,0,.22);
@@ -1196,7 +1199,7 @@
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
-        <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button>${PREVIEW ? '' : '<button type="button" class="clp-link" data-cl-switch>不是我</button>'}</span></div>
+        <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${window.ClassLivePractice && !PREVIEW ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}</div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
@@ -1233,15 +1236,17 @@
           <p class="clp-hint" data-cl-mydm-state></p>
         </details>
         <span class="clp-foot-links"><button type="button" class="clp-link" data-cl-news-open>更新说明</button><button type="button" class="clp-link clp-realm-open" data-cl-realm-open>修为说明</button></span>
+        ${PREVIEW ? '' : '<div class="clp-out"><button type="button" class="clp-link" data-cl-switch title="退出本机的登录（换同学用这台设备时点这里）">注销登录</button></div>'}
       </div>
     </div>`;
   if (window.ClassReadable) panel.insertAdjacentHTML('beforeend', fontChoices('clp-font-pop', true));
   document.body.appendChild(panel);
   dodge();
   bindFont();
-  // 不是我：清掉本机的身份并退出这次登录（下一位同学在这台设备上登录算新设备，要输自己的口令）
-  const switchButton = panel.querySelector('[data-cl-switch]');   // 学生版测试页没有“不是我”（以免退出老师的工作台登录）
+  // 注销登录（原“不是我”）：清掉本机的身份并退出这次登录（下一位同学在这台设备上登录算新设备，要输自己的口令）；先确认，免得误点
+  const switchButton = panel.querySelector('[data-cl-switch]');   // 学生版测试页没有“注销登录”（以免退出老师的工作台登录）
   if (switchButton) switchButton.addEventListener('click', async () => {
+    if (!window.confirm('注销登录后，要重新输入课堂码、姓名、学号和口令才能再进来。确定注销吗？')) return;
     save(STORE, { code: identity.code });
     try { if (backend.signOutStudent) await backend.signOutStudent(); } catch (error) { /* 忽略 */ }
     location.href = joinUrl();
