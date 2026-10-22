@@ -3,6 +3,8 @@
  * 正文按比例放大，小字向下限靠拢，大标题只略放大（免得手机上挤出屏幕）；行高是 px 的按同样比例放大。
  * 档位：0 标准（已比原来大）／1 大／2 特大，存 localStorage classlive-font，各页面、两门课通用；学生面板上的“字号”按钮切换。
  * 样式表的 data-readable：panel＝学生面板（面板宽度固定，倍数温和一些）；skip＝不改（如法宝画面）。原值记在 WeakMap 里，换档时从原值重算。
+ * 同一条规则里宽、高都写成 px 的（×关闭按钮、序号圆点、头像、印章等定尺寸的小框），框随字号同比例放大，免得字放大了框没变、字挤出框外
+ * （2026-10-22 用户反映政经“课堂工具”的 × 跑出了按钮框）。
  * 放在 <head> 末尾同步执行，页面第一次显示时字号就是改好的；之后插入的样式（面板、弹窗）由 MutationObserver 补上。
  * 教师投屏页（课堂版／讲解版，2026-10-21 用户要求“教师投屏的字也调大”）：script 标签带 data-screen="1"，用投屏档位（放得更大、标题也多放大一些），
  * 选择另存 classlive-font-screen（与学生页分开，同一台电脑看学生版测试页不互相影响）；切换按钮在右下角课堂控件条（live-room.js）。
@@ -46,25 +48,38 @@
     if (o === undefined) {
       o = { size: st.getPropertyValue('font-size').trim(), sizePrio: st.getPropertyPriority('font-size'),
         lh: st.getPropertyValue('line-height').trim(), lhPrio: st.getPropertyPriority('line-height'),
-        font: st.getPropertyValue('font').trim(), fontPrio: st.getPropertyPriority('font') };
+        font: st.getPropertyValue('font').trim(), fontPrio: st.getPropertyPriority('font'),
+        w: st.getPropertyValue('width').trim(), wPrio: st.getPropertyPriority('width'),
+        h: st.getPropertyValue('height').trim(), hPrio: st.getPropertyPriority('height') };
+      o.box = /^\d*\.?\d+px$/.test(o.w) && /^\d*\.?\d+px$/.test(o.h);
       const usable = /^\d*\.?\d+px$/.test(o.size) || (!o.size && FONT_PX.test(o.font));
       originals.set(rule, usable ? o : null);
       if (!usable) return;
     }
     if (!o) return;
+    // 定尺寸的小框：宽高跟字号同比例
+    const fit = (ratio) => {
+      if (!o.box) return;
+      st.setProperty('width', `${Math.round(num(o.w) * ratio * 2) / 2}px`, o.wPrio);
+      st.setProperty('height', `${Math.round(num(o.h) * ratio * 2) / 2}px`, o.hPrio);
+    };
     if (/^\d*\.?\d+px$/.test(o.size)) {
       const from = num(o.size);
       const to = scale(from, p);
       st.setProperty('font-size', `${to}px`, o.sizePrio);
       if (/^\d*\.?\d+px$/.test(o.lh)) st.setProperty('line-height', `${Math.round(num(o.lh) * to / from * 2) / 2}px`, o.lhPrio);
+      fit(to / from);
       return;
     }
+    let ratio = 1;
     const value = o.font.replace(FONT_PX, (all, lead, size, slash, lh) => {
       const from = num(size);
       const to = scale(from, p);
+      ratio = to / from;
       return `${lead}${to}px${slash ? `/${Math.round(num(lh) * to / from * 2) / 2}px` : ''}`;
     });
     st.setProperty('font', value, o.fontPrio);
+    fit(ratio);
   }
   function walk(rules, p) {
     for (const rule of Array.from(rules)) {

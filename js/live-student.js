@@ -414,12 +414,13 @@
   .clp-v2 .clp-gifts button.is-used { border: 1px solid #d6cdbf; background: #efe9df; color: #8a7f74; box-shadow: none; }
   .clp-gifts button.is-used small { color: #a4492d; font-weight: 800; }
   .clp-v2 .clp-gifts small { flex: 0 0 auto; margin-left: auto; font-size: 11px; font-weight: 700; }
-  /* 电脑上收起时：只留编号、姓名、境界、“展开”和“距下一境界”进度，窄一些、矮一些（学号、班级和“不是我”展开后再看） */
+  /* 电脑上收起时：只留编号、姓名、境界、“展开”和“距下一境界”进度，窄一些、矮一些（学号、班级、“字号”“请假”和“不是我”展开后再看；
+     2026-10-22 用户反映收起时点“字号”，弹出的三档被收起的面板遮住，要求“只有在展开的时候才显示请假和字号”） */
   @media (min-width: 701px) {
     .clp-panel.clp-v2.is-folded { width: 290px; }
     .clp-v2.is-folded .clp-head { padding: 8px 14px 7px; }
     .clp-v2.is-folded .clp-sub { display: none; }
-    .clp-v2.is-folded [data-cl-switch] { display: none; }   /* “不是我”展开后再点 */
+    .clp-v2.is-folded [data-cl-switch], .clp-v2.is-folded [data-cl-font], .clp-v2.is-folded [data-cl-leave], .clp-v2.is-folded .clp-font-pop { display: none; }
   }
   @media (min-width: 701px) {
     .clp-v2 .clp-gifts { display: flex; gap: 5px; }
@@ -1741,9 +1742,9 @@
   }).join('')}</div>`;
   // 修炼场规则说明（分值按课程，见 live-core.js 的 ClassLive.PRACTICE）
   function practiceRule() {
-    const P = Live.PRACTICE || { delay: 3, essayMin: 200, of: () => ({ cap: 3, item: 1 }) };
+    const P = Live.PRACTICE || { of: () => ({ cap: 3 }), text: () => '' };
     const r = P.of(config.course);
-    return `题目是另写的新题，和课堂上的题不重复；老师发布过的每一次课堂，对应的题都开放（以前的课也能复习）；每题第一次答对 +${r.item}（当天先答错的，隔天再答对也算）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、讲给别人听 +3）' : ''}；每题只算一次，每天最多 ${r.cap} 修为。`;
+    return `题目是另写的新题，和课堂上的题不重复；老师发布过的每一次课堂，对应的题都开放（以前的课也能复习）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3）' : ''}；每题只算一次，每天最多 ${r.cap} 修为。`;
   }
   function openRealm() {
     const r = myRealm;
@@ -1876,7 +1877,7 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新（10 月 21—22 日）', items: [
-        ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、错题回炉（间隔重复）、混合乱炼（交错练习）、先答后讲（费曼学习法）。${practiceRule()}`],
+        ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、错题回炉（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
         ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深）。'],
         ...(config.course === 'political-economy' ? [
@@ -1891,7 +1892,7 @@
         ['弹幕', `回答弹幕小问题、弹幕接龙最多可以写 50 字；老师每堂课最多点 ${like.limit || 20} 个赞。`],
       ] },
       { title: '10 月 15—16 日', items: [
-        ['请假', `不能来上课时，点面板上姓名旁边的“请假”，选好日期、写明原因提交，老师在加入名单里能看到；没过完的请假可以撤销。请假的那次课计 ${leave} 修为（相当于签到），没有登录也没有请假的课不得任何修为。`],
+        ['请假', `不能来上课时，点面板上姓名旁边的“请假”（面板收起时先点“展开”），选好日期、写明原因提交，老师在加入名单里能看到；没过完的请假可以撤销。请假的那次课计 ${leave} 修为（相当于签到），没有登录也没有请假的课不得任何修为。`],
         ...(config.course === 'political-economy' ? [['使用说明', '页面右下角新增“使用说明”：每个案例怎么学、怎么递交、怎么翻页，都在里面。']] : []),
         ...(config.course === 'xjp-economy' ? [
           ['先读案例再投票', '第一课时改为先读案例，再投“课堂投票 · 前测”。'],

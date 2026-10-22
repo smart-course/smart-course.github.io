@@ -2,16 +2,16 @@
  * 修炼场（2026-10-22）：学生平时在课堂面板点“修炼场”做题攒修为。两门课各自一个修炼场（按 course 分开，题库、记录、每日上限都不串）。
  * 题目、答案都在后台：ck_practice_home（各单元开放情况、今日修为）、ck_practice_items（取题，不含答案）、
  * ck_practice_answer（作答后才返回答案和讲解，并按规则加修为）。规则常量见 live-core.js 的 ClassLive.PRACTICE。
- * 题目是另写的新题（情境辨析、易错判断，与课堂正文不重复）。四种修炼方法（与“学习方法小锦囊”同名）：西蒙学习法（专攻一块）、
- * 间隔重复（错题回炉）、交错练习（混合乱炼）、费曼学习法（先答后讲：答完用一句话讲理由）；
+ * 题目是另写的新题（与课堂正文不重复）。四种修炼方法（与“学习方法小锦囊”同名）：西蒙学习法（专攻一块）、
+ * 间隔重复（错题回炉）、交错练习（混合乱炼）——这三种做情境辨析、易错判断；费曼学习法（讲给别人听）有自己的专用题
+ * （body.method = 'feynman'：挑出又通俗又没讲错的讲法、揪出讲解里讲错的一句，后台 p_mode 'feynman' 出题），答完再用自己的话讲一遍；
  * 答题时可开“先想后看”（主动回忆：选项先遮住，心里想好再看）。
  * 用法：ClassLivePractice.open({ backend, identity, config })，由 live-student.js 的面板按钮调用。
  */
 (function () {
   'use strict';
   const Live = window.ClassLive || {};
-  const PRACTICE = Live.PRACTICE || { delay: 0, of: () => ({ cap: 3, item: 2 }) };
-  const rule = () => PRACTICE.of(ctx.config.course);   // 分值按课程：{ cap, item }
+  const PRACTICE = Live.PRACTICE || { delay: 0, of: () => ({ cap: 3 }), text: () => '' };
   const COURSE = { 'xjp-economy': '习近平经济思想概论', 'political-economy': '政治经济学' };
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const load = (key, fallback) => { try { return JSON.parse(localStorage.getItem(key) || 'null') ?? fallback; } catch (error) { return fallback; } };
@@ -169,6 +169,8 @@
     const units = home.units || [];
     const open = units.filter((u) => u.open);
     const due = open.reduce((sum, u) => sum + (Number(u.due) || 0), 0);
+    const feynAll = open.reduce((sum, u) => sum + (Number(u.fn) || 0), 0);
+    const feynLeft = feynAll - open.reduce((sum, u) => sum + (Number(u.fe) || 0), 0);
     const pe = isPE();
     const card = (mode, m, badge) => `<button type="button" class="lp-method" data-lp-mode="${mode}"${m.disabled ? ' disabled' : ''}>${badge ? `<i>${esc(badge)}</i>` : ''}
       <span>${esc(m.name)}</span><strong>${esc(m.title)}</strong><p>${esc(m.text)}</p></button>`;
@@ -180,12 +182,12 @@
         <b>${esc(u.title)}</b><em>${status}</em><span class="lp-bar"><i style="width:${pct}%"></i></span></button></li>`;
     }).join('');
     body.innerHTML = `<p class="lp-note">这是《${esc(COURSE[home.course] || '')}》自己的修炼场。老师发布过的每一次课堂，对应的题都在这里，课上课后都能练，以前的课也能拿来复习。
-      这里的题都是另写的新题（情境辨析、易错判断），和课堂上的题不重复。<b>每题第一次答对 +${rule().item} 修为</b>（当天先答错的，隔天再答对也算）；${pe ? '案例页里的“课后自修”也计修为，和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>，每题只算一次，刷题不加分。</p>
+      这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析和易错判断，讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；${pe ? '案例页里的“课后自修”也计修为，和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>，每题只算一次，刷题不加分。</p>
       <div class="lp-methods">
         ${card('simon', { name: '西蒙学习法', title: '专攻一块', text: '选下面一个单元，一口气攻下来：答错的题排到这一轮最后再来一遍，直到全部答对。', disabled: !open.length })}
         ${card('review', { name: '间隔重复', title: '错题回炉', text: '以前答错或当天没得到修为的题，隔天再做一遍；这次答对照样得修为。', disabled: !due }, due ? `${due} 道` : '')}
         ${card('mix', { name: '交错练习', title: '混合乱炼', text: '从已开放的单元里随机抽 12 题混着做，练的是“这道题该用哪个概念”。', disabled: !open.length })}
-        ${card('feynman', { name: '费曼学习法', title: '先答后讲', text: '随机抽题，答完先用一句话讲出“为什么是它”，再看下一题；讲不顺的地方，就是还没想透的地方。', disabled: !open.length })}
+        ${card('feynman', { name: '费曼学习法', title: '讲给别人听', text: '专门的题：从几种大白话里挑出又通俗又没讲错的讲法，或揪出一段讲解里讲错的那一句；答完再用自己的话讲一遍，讲不顺的地方就是还没想透的地方。', disabled: !feynAll }, feynLeft ? `${feynLeft} 道` : '')}
       </div>
       <p class="lp-h" id="lp-units">专攻一块 · 选一个单元</p>
       ${units.length ? `<ul class="lp-units">${rows}</ul>` : '<p class="lp-state">题库还没有同步：请老师登录一次教师工作台。</p>'}
@@ -199,7 +201,7 @@
       if (mode === 'simon') { body.querySelector('#lp-units').scrollIntoView({ block: 'start', behavior: 'smooth' }); return; }
       if (mode === 'review') startSession('review', { method: '间隔重复', title: '错题回炉' });
       else if (mode === 'mix') startSession('mix', { method: '交错练习', title: '混合乱炼' });
-      else startSession('mix', { method: '费曼学习法', title: '先答后讲', feynman: true });
+      else startSession('feynman', { method: '费曼学习法', title: '讲给别人听', feynman: true });
     }));
     scrollTop();
   }
@@ -230,7 +232,7 @@
     const veil = load(recallKey, false);
     const tags = [`<span class="is-part">${esc(b.part || '')}</span>`, b.case || b.concept ? `<span>${esc(b.case || b.concept)}</span>` : '',
       session.mode !== it.unit && it.title !== (b.case || b.concept) ? `<span>${esc(it.title)}</span>` : '', session.again.has(key(it)) ? '<span>再来一遍</span>' : '',
-      it.earned ? '<span>已得过修为</span>' : ''].join('');
+      it.earned ? '<span>已得过修为</span>' : it.points ? `<span>+${Number(it.points)} 修为</span>` : ''].join('');
     let opts = '';
     if (it.kind === 'judge') {
       opts = `<div class="lp-judge" data-lp-opts><button type="button" class="lp-opt" data-lp-answer="true">说得对</button><button type="button" class="lp-opt" data-lp-answer="false">说得不对</button></div>`;
@@ -272,7 +274,7 @@
     }
     if (!res || res.status !== 'ok') {
       body.querySelector('[data-lp-fb]').innerHTML = `<p class="lp-fb is-wrong">${esc(statusText[res && res.status] || '这道题暂时不能作答。')}</p>`;
-      session.queue.shift();
+      session.lastItem = session.queue.shift();
       appendNext(session);
       return;
     }
@@ -304,7 +306,7 @@
     } else {
       body.querySelector('[data-lp-fb]').innerHTML = html;
     }
-    session.queue.shift();
+    session.lastItem = session.queue.shift();
     // 西蒙学习法：这一轮答错的题排到最后再来一遍（只再来一次，免得卡住）
     if (!res.correct && session.meta.simon && !session.again.has(key(it))) { session.again.add(key(it)); session.queue.push(it); }
     if (!res.correct) session.wrongOnce.add(key(it));
@@ -315,11 +317,12 @@
     actions.className = 'lp-actions';
     actions.innerHTML = `<button type="button" class="lp-btn" data-lp-next>${session.queue.length ? '下一题' : '看本轮成绩'}</button>`;
     const q = body.querySelector('.lp-q');
-    // 费曼学习法“先答后讲”：先用一句话讲出理由（写满 8 个字）再进入下一题，可以跳过；只存在本页，不交给后台
+    // 费曼学习法“讲给别人听”：答完再用自己的话把这个概念讲一遍（写满 8 个字）才进入下一题，可以跳过；只存在本页，不交给后台
     if (session.meta.feynman) {
+      const topic = ((session.lastItem || {}).body || {}).topic;
       const say = document.createElement('div');
       say.className = 'lp-say';
-      say.innerHTML = '<p><b>讲给同学听</b>用一句话说说：为什么是这个答案？（写满 8 个字再看下一题）</p><textarea class="lp-text" rows="2" placeholder="因为……"></textarea>';
+      say.innerHTML = `<p><b>轮到你讲</b>用自己的话（能打个比方更好）把${topic ? `「${esc(topic)}」` : '这道题的道理'}讲给朋友听，写满 8 个字再看下一题。</p><textarea class="lp-text" rows="2" placeholder="说白了就是……"></textarea>`;
       q.appendChild(say);
       const area = say.querySelector('textarea');
       const next = () => actions.querySelector('[data-lp-next]');

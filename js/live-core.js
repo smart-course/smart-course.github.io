@@ -78,14 +78,20 @@
   const PUZZLE = { points: 5, tries: 3, cap: 20 };
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
-  // 修炼场（2026-10-22，两门课各一个）：本班发布过某单元的课堂就开放（delay 0，之前发布过的也开放）；客观题当天第一次作答就答对得 item 修为、每题最多得一次，
-  // 题目是另写的新题（与课堂正文不重复）；每人每门课每天最多 cap 修为（额外奖励，不计入满分；后台 ck_practice_answer / essay 核对，
+  // 修炼场（2026-10-22，两门课各一个）：本班发布过某单元的课堂就开放（delay 0，之前发布过的也开放）；客观题当天第一次作答就答对得分、每题最多得一次，
+  // 题目是另写的新题（与课堂正文不重复）；分值按题型：易错判断 judge、情境辨析 scene、讲给别人听 feynman（费曼学习法专用题）；
+  // 每人每门课每天最多 cap 修为（额外奖励，不计入满分；后台 ck_practice_answer / essay 核对，
   // 分值写在题库里〔practice_bank.py〕，上限写在 cloudbase-pg.sql 的 ck_practice_cap，三处要一致）。
-  // 分值按“剩 9 次课、倒数第二次课时最好的同学练满能到化神（90%）”测算：政经课堂得分偏低，修炼分值高一些。
+  // 分值按“剩 9 次课、倒数第二次课时最好的同学练满能到化神（90%）”测算：政经每单元共 30、习经每个案例共 12（与只有情境辨析、易错判断时相同）。
   const PRACTICE = {
     delay: 0, essayMin: 200,
-    courses: { 'political-economy': { cap: 10, item: 5 }, 'xjp-economy': { cap: 3, item: 2 } },
-    of(course) { return this.courses[course] || { cap: 3, item: 2 }; },
+    courses: { 'political-economy': { cap: 10, judge: 2, scene: 4, feynman: 5 }, 'xjp-economy': { cap: 3, judge: 1, scene: 1, feynman: 3 } },
+    of(course) { return this.courses[course] || { cap: 3, judge: 1, scene: 1, feynman: 3 }; },
+    // “易错判断 +2、情境辨析 +4、讲给别人听 +5”（两种相同时合并）
+    text(course) {
+      const r = this.of(course);
+      return r.judge === r.scene ? `易错判断、情境辨析每题 +${r.judge}，讲给别人听每题 +${r.feynman}` : `易错判断 +${r.judge}、情境辨析 +${r.scene}、讲给别人听 +${r.feynman}`;
+    },
   };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
   const LEAVE = { points: 20 };
@@ -755,6 +761,7 @@
           const bank = read('practicebank').filter((row) => row.course === room.course);
           const TEXT = ['essay', 'recall', 'feynman'];   // 写作类（申论、课后自修的主动回忆和讲给别人听）
           const SELF = ['recall', 'feynman', 'review'];   // 课后自修：在案例页作答，不进修炼场的列表
+          const isFeyn = (b) => (b.body || {}).method === 'feynman';   // 费曼学习法专用题：只在 p_mode 'feynman' 里出
           const log = read('practice').filter((row) => row.course === room.course && row.sid === sid);
           const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
           const opensOf = (unit, delay = PRACTICE.delay) => {
@@ -773,20 +780,23 @@
               const rows = bank.filter((b) => b.unit === unit && !SELF.includes(b.kind));
               const tried = rows.map((b) => ({ b, s: stat(unit, b.item) })).filter((x) => x.s.tried);
               const opens = opensOf(unit);
-              return { unit, title: rows[0].title, order: rows[0].ord, n: rows.length, essays: rows.filter((b) => b.kind === 'essay').length, opens, open: Boolean(opens) && opens <= day,
-                earned: tried.filter((x) => x.s.earned).length, tried: tried.length, due: tried.filter((x) => !x.s.earned && x.s.last < day && x.b.kind !== 'essay').length };
+              const plain = rows.filter((b) => !isFeyn(b));
+              return { unit, title: rows[0].title, order: rows[0].ord, n: plain.length, fn: rows.length - plain.length, essays: rows.filter((b) => b.kind === 'essay').length, opens, open: Boolean(opens) && opens <= day,
+                earned: tried.filter((x) => x.s.earned && !isFeyn(x.b)).length, fe: tried.filter((x) => x.s.earned && isFeyn(x.b)).length,
+                tried: tried.filter((x) => !isFeyn(x.b)).length, due: tried.filter((x) => !x.s.earned && x.s.last < day && x.b.kind !== 'essay').length };
             }).sort((a, b) => a.order - b.order);
             return { status: 'ok', course: room.course, cap: PRACTICE.of(room.course).cap, delay: PRACTICE.delay, date: day, today: have, total: log.reduce((sum, l) => sum + l.points, 0), units };
           }
           if (name === 'ck_practice_items') {
             const mode = params.p_mode;
             const open = new Set(bank.map((b) => b.unit).filter((unit) => isOpen(unit)));
-            if (!mode || (!['review', 'mix', 'write'].includes(mode) && !open.has(mode))) return { status: 'closed' };
+            if (!mode || (!['review', 'mix', 'feynman', 'write'].includes(mode) && !open.has(mode))) return { status: 'closed' };
             let rows = bank.filter((b) => open.has(b.unit) && !SELF.includes(b.kind)).map((b) => ({ b, s: stat(b.unit, b.item) }));
             if (mode === 'review') rows = rows.filter((x) => x.b.kind !== 'essay' && !x.s.earned && x.s.tried && x.s.last < day).slice(0, 40);
-            else if (mode === 'mix') rows = rows.filter((x) => x.b.kind !== 'essay').map((x) => ({ ...x, r: Math.random() })).sort((a, b) => (a.s.earned - b.s.earned) || (a.r - b.r)).slice(0, 12);
+            else if (mode === 'mix' || mode === 'feynman') rows = rows.filter((x) => x.b.kind !== 'essay' && isFeyn(x.b) === (mode === 'feynman'))
+              .map((x) => ({ ...x, r: Math.random() })).sort((a, b) => (a.s.earned - b.s.earned) || (a.r - b.r)).slice(0, 12);
             else if (mode === 'write') rows = rows.filter((x) => x.b.kind === 'essay' || x.b.kind === 'transfer');
-            else rows = rows.filter((x) => x.b.unit === mode);
+            else rows = rows.filter((x) => x.b.unit === mode && !isFeyn(x.b));
             return { status: 'ok', mode, items: rows.map(({ b, s }) => ({ unit: b.unit, item: b.item, title: b.title, kind: b.kind, body: b.body, points: b.points, earned: s.earned, today: s.today, tried: s.tried })) };
           }
           const essay = name === 'ck_practice_essay';
