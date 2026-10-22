@@ -1749,7 +1749,7 @@
   function practiceRule() {
     const P = Live.PRACTICE || { of: () => ({ cap: 3 }), text: () => '' };
     const r = P.of(config.course);
-    return `题目是另写的新题，和课堂上的题不重复；老师发布过的每一次课堂，对应的题都开放（以前的课也能复习）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3）' : ''}；每题只算一次，每天最多 ${r.cap} 修为。`;
+    return `题目是另写的新题，和课堂上的题不重复；老师开过的每一次课，对应的题都开放（以前的课也能复习；提前发布、还没开课的只能查看，开课后才开放、才计修为）；每题第一次答对得修为：${P.text(config.course)}（当天先答错的，隔天再答对也算）${config.course === 'political-economy' ? '；案例页的“课后自修”也计修为（主动回忆每个概念 +1、温故答对 +2、写一段话讲给别人听 +3）' : ''}；每题只算一次，每天最多 ${r.cap} 修为。`;
   }
   function openRealm() {
     const r = myRealm;

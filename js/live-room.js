@@ -1,7 +1,9 @@
 /* 投屏页右下角的“课堂”悬浮控件：与教师工作台的“结束提交 / 重新开放提交”“停止课堂”功能相同，上课时不必切回工作台。
  * 平时半透明，鼠标移上去才完全显示；可收起成一个小按钮。只有当前课堂就是本页章节（案例）时才显示操作按钮。
  * 需要教师已在同一浏览器登录教师工作台（操作需教师账号）。页面需先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
- * “复原”只清本页在这台电脑上保存的选择、填写和核对记录，然后回到页首重新打开；学生递交的数据在云端，不受影响（不需要登录）。
+ * “复原”（2026-10-22 用户：“只是把所有题目复原为未核对的状态，不改变已发弹幕等内容”）：章节页的题目脚本各自登记了复原函数
+ *   （window.ClassPageResets），点一下就地把题目恢复到未作答、未核对，不刷新页面——弹幕、弹幕墙、计时、积分、猜词／猜谜／PK、
+ *   页面位置都保持原样；学生递交的数据在云端，不受影响（不需要登录）。页面没有登记复原函数时，才按原来的办法清本机记录后重新打开。
  */
 (function () {
   'use strict';
@@ -45,7 +47,7 @@
   bar.innerHTML = '<span data-rm-state>课堂：连接中……</span>'
     + '<button type="button" data-rm-open hidden>结束提交</button>'
     + '<button type="button" class="is-warn" data-rm-stop hidden>停止课堂</button>'
-    + '<button type="button" data-rm-reset title="清空本页的选择和填写，恢复到初始状态">复原</button>'
+    + '<button type="button" data-rm-reset title="把本页题目恢复到未作答、未核对的状态（弹幕、计时、积分等不变）">复原</button>'
     + (window.ClassReadable ? '<button type="button" data-rm-font aria-haspopup="true" aria-expanded="false" title="调整投屏字号（标准、大、特大），本机记住">字号</button>'
       + `<div class="rm-font" data-rm-font-pop role="group" aria-label="投屏字号" hidden><span>投屏字号</span>${window.ClassReadable.LEVELS.map((name, i) => `<button type="button" data-font="${i}">${esc(name)}</button>`).join('')}</div>` : '')
     + '<button type="button" data-rm-min title="收起 / 展开课堂控件">课堂</button>';
@@ -119,6 +121,14 @@
     return keys;
   };
   resetButton.addEventListener('click', () => {
+    const resets = window.ClassPageResets || [];
+    if (resets.length) {
+      if (!window.confirm('把本页所有题目恢复到未作答、未核对的状态？\n弹幕、计时、积分和学生递交的数据都不受影响。')) return;
+      resets.forEach((fn) => { try { fn(); } catch (error) { console.warn('[复原]', error); } });
+      resetButton.textContent = '已复原';
+      setTimeout(() => { resetButton.textContent = '复原'; }, 2000);
+      return;
+    }
     if (!window.confirm('把本页恢复到初始状态？本页的选择、填写和核对结果都会清空（只清这台电脑上的记录，学生递交的数据不受影响）。')) return;
     pageKeys().forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* 忽略 */ } });
     try { history.scrollRestoration = 'manual'; } catch (error) { /* 忽略 */ }

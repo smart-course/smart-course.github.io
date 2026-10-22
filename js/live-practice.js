@@ -177,11 +177,11 @@
     const rows = units.map((u) => {
       const pct = u.n ? Math.round(100 * u.earned / u.n) : 0;
       const status = u.open ? `攻克 ${u.earned} / ${u.n}${u.due ? `<span class="lp-due">回炉 ${u.due}</span>` : ''}`
-        : u.opens ? `${dayText(u.opens)}开放` : '老师发布这次课后开放';
+        : u.opens ? `${dayText(u.opens)}开放` : '这次课开课后开放';
       return `<li><button type="button" class="lp-unit" data-lp-unit="${esc(u.unit)}"${u.open ? '' : ' disabled'}>
         <b>${esc(u.title)}</b><em>${status}</em><span class="lp-bar"><i style="width:${pct}%"></i></span></button></li>`;
     }).join('');
-    body.innerHTML = `<p class="lp-note">这是《${esc(COURSE[home.course] || '')}》自己的修炼场。老师发布过的每一次课堂，对应的题都在这里，课上课后都能练，以前的课也能拿来复习。
+    body.innerHTML = `<p class="lp-note">这是《${esc(COURSE[home.course] || '')}》自己的修炼场。老师开过的每一次课，对应的题都在这里，课上课后都能练，以前的课也能拿来复习；提前发布、还没开课的只能先看页面，题目开课后才开放。
       这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析和易错判断，讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；${pe ? '案例页里的“课后自修”也计修为，和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>，每题只算一次，刷题不加分。</p>
       <div class="lp-methods">
         ${card('simon', { name: '西蒙学习法', title: '专攻一块', text: '选下面一个单元，一口气攻下来：答错的题排到这一轮最后再来一遍，直到全部答对。', disabled: !open.length })}

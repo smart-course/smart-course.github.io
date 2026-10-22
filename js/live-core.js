@@ -78,7 +78,8 @@
   const PUZZLE = { points: 5, tries: 3, cap: 20 };
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
-  // 修炼场（2026-10-22，两门课各一个）：本班发布过某单元的课堂就开放（delay 0，之前发布过的也开放）；客观题当天第一次作答就答对得分、每题最多得一次，
+  // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
+  // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分、每题最多得一次，
   // 题目是另写的新题（与课堂正文不重复）；分值按题型：易错判断 judge、情境辨析 scene、讲给别人听 feynman（费曼学习法专用题）；
   // 每人每门课每天最多 cap 修为（额外奖励，不计入满分；后台 ck_practice_answer / essay 核对，
   // 分值写在题库里〔practice_bank.py〕，上限写在 cloudbase-pg.sql 的 ck_practice_cap，三处要一致）。
@@ -764,8 +765,10 @@
           const isFeyn = (b) => (b.body || {}).method === 'feynman';   // 费曼学习法专用题：只在 p_mode 'feynman' 里出
           const log = read('practice').filter((row) => row.course === room.course && row.sid === sid);
           const addDays = (iso, n) => { const d = new Date(`${iso}T00:00:00Z`); d.setUTCDate(d.getUTCDate() + n); return d.toISOString().slice(0, 10); };
+          const checked = new Set(read('checkins').map((row) => String(row.classroom)));
           const opensOf = (unit, delay = PRACTICE.delay) => {
-            const days = read('classrooms').filter((row) => row.course === room.course && String(row.class_id || 0) === String(room.class_id || 0) && row.chapter === unit)
+            const days = read('classrooms').filter((row) => row.course === room.course && String(row.class_id || 0) === String(room.class_id || 0) && row.chapter === unit
+              && (row.is_current || checked.has(String(row.id))))
               .map((row) => isoDay(Date.parse(row.created_at))).sort();
             return days.length ? addDays(days[0], delay) : null;
           };
