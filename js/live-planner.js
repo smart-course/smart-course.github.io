@@ -31,9 +31,9 @@
     { id: 'holiday', label: '放假停课', c: '#6d6259', s: '#ece6de' },
   ];
   const kindOf = (id) => KINDS.find((kind) => kind.id === id) || KINDS[0];
-  // 默认作息（可在“设置”里按学校课表修改）
-  const DEFAULT_TIMES = [['08:00', '08:45'], ['08:55', '09:40'], ['10:00', '10:45'], ['10:55', '11:40'], ['14:00', '14:45'], ['14:55', '15:40'],
-    ['16:00', '16:45'], ['16:55', '17:40'], ['19:00', '19:45'], ['19:55', '20:40'], ['20:50', '21:35']];
+  // 默认作息：按用户的课表《我的课表.docx》（2026-10-28）——每节 40 分钟，上午 8:30、下午 13:30、晚上 18:00 开始，各 4 节；可在“作息与学期”里修改
+  const DEFAULT_TIMES = [['08:30', '09:10'], ['09:15', '09:55'], ['10:10', '10:50'], ['10:55', '11:35'], ['13:30', '14:10'], ['14:15', '14:55'],
+    ['15:10', '15:50'], ['15:55', '16:35'], ['18:00', '18:40'], ['18:45', '19:25'], ['19:40', '20:20'], ['20:25', '21:05']];
   const ICONS = {
     prev: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
     next: '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M9 5l7 7-7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>',
@@ -62,7 +62,9 @@
     }
     return { term: `${y - 1}—${y} 学年第二学期`, start: ymd(firstMonday(y, 2)) };
   }
-  const defaults = () => ({ ...guessTerm(), weeks: 18, sections: [4, 4, 3], times: DEFAULT_TIMES.map(([from, to]) => ({ from, to })) });
+  const defaults = () => ({ ...guessTerm(), weeks: 18, sections: [4, 4, 4], times: DEFAULT_TIMES.map(([from, to]) => ({ from, to })),
+    dept: '', teacher: '', staff: '', extras: [] });
+  const clip = (value, n) => String(value == null ? '' : value).trim().slice(0, n);
   // 读回的设置补齐缺项：节数与各节时间对齐
   function normalize(value) {
     const base = defaults();
@@ -73,12 +75,20 @@
       const t = Array.isArray(v.times) && v.times[i] ? v.times[i] : (base.times[i] || { from: '', to: '' });
       return { from: String(t.from || ''), to: String(t.to || '') };
     });
+    // 其他课程：不在本网站上课的（如研究生课），只为排进课表，和班级的上课安排同样写法，另加课程名称、班级
+    const extras = (Array.isArray(v.extras) ? v.extras : []).filter((e) => e && Array.isArray(e.slots) && e.slots.length).slice(0, 12).map((e, i) => ({
+      id: clip(e.id, 20) || `x${i + 1}`, title: clip(e.title, 40) || '其他课程', klass: clip(e.klass, 40), code: clip(e.code, 40),
+      term: clip(e.term, 40) || base.term, room: clip(e.room, 40), weeks: Array.isArray(e.weeks) ? e.weeks.slice(0, 2) : null, slots: e.slots.slice(0, 14) }));
     return {
       term: String(v.term || base.term).slice(0, 40),
       start: parseDay(v.start) ? String(v.start).slice(0, 10) : base.start,
       weeks: Math.max(1, Math.min(30, Number(v.weeks) || base.weeks)),
       sections,
       times,
+      dept: clip(v.dept, 40),         // 课表抬头（导出 Word）：教师所属部门、教师、教师工号
+      teacher: clip(v.teacher, 20),
+      staff: clip(v.staff, 20),
+      extras,
     };
   }
 
@@ -111,6 +121,11 @@
   const courseOf = (slug) => state.courses.find((item) => item.slug === slug) || { slug, title: slug };
   const shortOf = (slug) => SHORT[slug] || String(courseOf(slug).title || slug).slice(0, 4);
   const rosterCount = (klass) => (Array.isArray(klass.roster) ? klass.roster.length : 0);
+  // 其他课程当作一个“班级”排进课表（id 以 x: 开头，课程名称取它自己的）
+  const extraClasses = () => state.settings.extras.map((e) => ({ id: `x:${e.id}`, extra: e, course: '', name: e.klass || e.title, schedule: e, roster: [] }));
+  const titleOf = (klass) => (klass.extra ? klass.extra.title : courseOf(klass.course).title);
+  const tagOf = (klass) => (klass.extra ? klass.extra.title.slice(0, 2) : shortOf(klass.course));
+  const findClass = (id) => state.classes.concat(extraClasses()).find((item) => String(item.id) === String(id));
   const missingError = (error) => /42P01|42703|PGRST20[2-5]|does not exist|Could not find|schema cache|未知的后台函数/i.test(String((error && [error.code, error.message].filter(Boolean).join(' ')) || error || ''));
   const NOT_READY = '后台还没有“课表与日程”功能：请先在云开发控制台执行 tools/cloudbase-pg-20261028-课表与日程.sql。在此之前课表按默认作息显示，上课时间、安排和设置都不能保存。';
 
@@ -126,8 +141,8 @@
   };
   // 按学期排好的上课时段：每段带班级、颜色
   function sessionsOf(term) {
-    const list = state.classes.filter((klass) => klass.schedule && Array.isArray(klass.schedule.slots) && (klass.schedule.term || state.settings.term) === term)
-      .sort((a, b) => String(a.course).localeCompare(String(b.course)) || Number(a.id) - Number(b.id));
+    const list = state.classes.concat(extraClasses()).filter((klass) => klass.schedule && Array.isArray(klass.schedule.slots) && (klass.schedule.term || state.settings.term) === term)
+      .sort((a, b) => (a.extra ? 1 : 0) - (b.extra ? 1 : 0) || String(a.course).localeCompare(String(b.course)) || String(a.id).localeCompare(String(b.id), undefined, { numeric: true }));
     const out = [];
     list.forEach((klass, index) => {
       const [c, s] = PALETTE[index % PALETTE.length];
@@ -176,12 +191,13 @@
     if (!plan || !Array.isArray(plan.slots) || !plan.slots.length) return '';
     const slots = plan.slots.map((slot) => `周${WEEKDAYS[(Number(slot.day) || 1) - 1]}${periodText(Number(slot.from), Number(slot.to)).replace(/ /g, '')}`
       + `${PARITY[slot.parity] ? `（${PARITY[slot.parity]}）` : ''}${slot.room && slot.room !== plan.room ? `（${slot.room}）` : ''}`).join('、');
-    return [slots, plan.room, weekRange(plan.weeks)].filter(Boolean).join(' · ');
+    return [slots, plan.room, weekRange(plan.weeks), plan.code ? `教学班 ${plan.code}` : ''].filter(Boolean).join(' · ');
   }
 
-  // ---------------- 上课时间编辑器（新建班级表单、课表里的“修改上课时间”共用） ----------------
+  // ---------------- 上课时间编辑器（新建班级表单、课表里的“修改上课时间”共用；extra＝其他课程，多填课程名称和班级） ----------------
   function editor(host, initial) {
     let value = initial ? JSON.parse(JSON.stringify(initial)) : null;
+    let extra = false;
     const blankSlot = () => ({ day: 1, from: 1, to: Math.min(2, periodCount()), parity: 'all', room: '', weeks: null });
     const periodOptions = (selected) => Array.from({ length: periodCount() }, (_, i) => {
       const t = state.settings.times[i];
@@ -192,9 +208,12 @@
       const terms = Array.from(new Set([state.settings.term, ...state.classes.map((k) => k.schedule && k.schedule.term).filter(Boolean)]));
       host.innerHTML = `<div class="pl-ed">
         <div class="pl-ed-head">
+          ${extra ? `<label>课程名称<input type="text" data-ed="title" maxlength="40" placeholder="例如：金融伦理与项目实操" value="${esc(plan.title || '')}"></label>
+          <label>班级<input type="text" data-ed="klass" maxlength="40" placeholder="例如：研究生 01 班" value="${esc(plan.klass || '')}"></label>` : ''}
           <label>学期<input type="text" data-ed="term" maxlength="40" list="pl-terms-${host.dataset.plEd || ''}" value="${esc(plan.term || state.settings.term)}"></label>
           <label>教室<input type="text" data-ed="room" maxlength="40" placeholder="例如：博学楼 A201" value="${esc(plan.room || '')}"></label>
           <label>周次<span class="pl-ed-weeks">第<input type="number" data-ed="w1" min="1" max="30" value="${esc((plan.weeks || [])[0] || 1)}">—<input type="number" data-ed="w2" min="1" max="30" value="${esc((plan.weeks || [])[1] || state.settings.weeks)}">周</span></label>
+          <label>教学班号（选填）<input type="text" data-ed="code" maxlength="40" placeholder="如 1364" value="${esc(plan.code || '')}"></label>
           <datalist id="pl-terms-${host.dataset.plEd || ''}">${terms.map((t) => `<option value="${esc(t)}"></option>`).join('')}</datalist>
         </div>
         <div class="pl-ed-slots">${(plan.slots.length ? plan.slots : [blankSlot()]).map((slot, i) => `
@@ -235,6 +254,12 @@
         }),
       };
       plan.weeks.sort((a, b) => a - b);
+      const code = ($('[data-ed="code"]', host).value || '').trim();
+      if (code) plan.code = code;
+      if (extra) {
+        plan.title = ($('[data-ed="title"]', host).value || '').trim();
+        plan.klass = ($('[data-ed="klass"]', host).value || '').trim();
+      }
       return plan;
     }
     function showTimes() {
@@ -269,7 +294,7 @@
         if (requireTouched && !plan.room && !host.dataset.plTouched) return null;
         return plan;
       },
-      set(plan) { value = plan ? JSON.parse(JSON.stringify(plan)) : null; delete host.dataset.plTouched; render(); },
+      set(plan, opts = {}) { value = plan ? JSON.parse(JSON.stringify(plan)) : null; extra = Boolean(opts.extra); delete host.dataset.plTouched; render(); },
       reset() { api.set(null); },
       refresh() { value = host.isConnected && $('[data-slot]', host) ? read() : value; render(); },
     };
@@ -319,6 +344,7 @@
   document.body.appendChild(dialog);
   const dialogEditor = editor($('[data-pl-dialog-editor]', dialog), null);
   let dialogClass = null;
+  let dialogExtra = null;     // 正在编辑的其他课程（新建时 id 为空）
   let dialogDone = null;
 
   function open(tab) {
@@ -439,9 +465,9 @@
           const tags = [weekRange(slotWeeks(item.plan, item.slot)), PARITY[item.slot.parity]].filter(Boolean).join(' · ');
           blocks += `<button type="button" class="pl-tt-block${active && !off ? '' : ' is-idle'}${group.lanes > 1 ? ' is-clash' : ''}" data-pl-edit="${esc(item.klass.id)}"
             style="grid-column:${dayCol(d)};grid-row:${rowOf[item.from]} / ${(rowOf[to] || rowOf[item.from]) + 1};--c:${item.c};--s:${item.s};--lane:${item.lane};--lanes:${group.lanes}"
-            title="${esc(`${courseOf(item.klass.course).title} · ${item.klass.name}\n${periodText(item.from, item.to)} ${timeOf(item.from, item.to)}\n点击修改上课时间`)}">
-            <em>${esc(shortOf(item.klass.course))}</em>
-            <b>${esc(courseOf(item.klass.course).title)}</b>
+            title="${esc(`${titleOf(item.klass)} · ${item.klass.name}\n${periodText(item.from, item.to)} ${timeOf(item.from, item.to)}\n点击修改上课时间`)}">
+            <em>${esc(tagOf(item.klass))}</em>
+            <b>${esc(titleOf(item.klass))}</b>
             <span class="pl-tt-class">${esc(item.klass.name)}${rosterCount(item.klass) ? `<i>${rosterCount(item.klass)} 人</i>` : ''}</span>
             ${item.room ? `<span class="pl-tt-room">${ICONS.pin}${esc(item.room)}</span>` : ''}
             <small>${esc(tags)}${note ? `<strong>${note}</strong>` : ''}</small>
@@ -481,34 +507,37 @@
       <h2 class="pl-h2">上课班级</h2>
       <div class="pl-classes">${classes.map((item) => `
         <article class="pl-class" style="--c:${item.c};--s:${item.s}">
-          <div><em>${esc(shortOf(item.klass.course))}</em><b>${esc(item.klass.name)}</b><small>${esc(courseOf(item.klass.course).title)}${rosterCount(item.klass) ? ` · ${rosterCount(item.klass)} 人` : ''}</small></div>
+          <div><em>${esc(tagOf(item.klass))}</em><b>${esc(item.klass.name)}</b><small>${esc(titleOf(item.klass))}${rosterCount(item.klass) ? ` · ${rosterCount(item.klass)} 人` : ''}${item.klass.extra ? ' · 不在本网站上课' : ''}</small></div>
           <p>${esc(summary(item.klass.schedule))}</p>
           <p class="pl-class-times">${item.klass.schedule.slots.map((slot) => `周${WEEKDAYS[slot.day - 1]} ${timeOf(Number(slot.from), Number(slot.to))}`).filter((t) => /\d/.test(t)).join('　')}</p>
-          <button type="button" class="pl-link" data-pl-edit="${esc(item.klass.id)}">修改上课时间</button>
-        </article>`).join('') || '<p class="pl-empty">本学期还没有填写上课时间的班级。</p>'}</div>
+          <button type="button" class="pl-link" data-pl-edit="${esc(item.klass.id)}">${item.klass.extra ? '修改这门课' : '修改上课时间'}</button>
+        </article>`).join('')}
+        <button type="button" class="pl-class-add" data-pl-extra-add><b>＋ 添加其他课程</b><span>不在本网站上课的课（如研究生课），也可以排进课表和日程</span></button></div>
       ${pending.length ? `<h2 class="pl-h2">还没有填写上课时间的班级</h2>
       <div class="pl-pending">${pending.map((klass) => `<button type="button" class="pl-pend" data-pl-edit="${esc(klass.id)}"><em>${esc(shortOf(klass.course))}</em>${esc(klass.name)}<span>填写 →</span></button>`).join('')}</div>` : ''}`;
   }
 
-  // 课表导出 Word：A4 横向，节次×星期，连上的几节合并成一格；下面附上课班级清单
+  // 课表导出 Word：版式参照用户的《我的课表.docx》——A4 横向；抬头为学期和“教师所属部门、教师、教师工号”；表格为
+  // 时段｜节次｜时间｜星期一至星期日，连上的几节合并成一格（课程名（教学班号）／（周次）（节次）／教室／班级）；下面附上课班级清单
   function exportWord() {
     const O = window.ClassLive && window.ClassLive.office;
     if (!O) return;
     const isCurrent = state.term === state.settings.term;
     const week = isCurrent ? state.week : 0;
     const sessions = sessionsOf(state.term).filter((item) => !week || inWeek(item.plan, item.slot, week));
-    const days = store.get('weekend') === '1' || sessions.some((item) => item.day >= 6) ? 7 : 5;
-    const total = 13958;
-    const widths = [620, 1180];
-    const each = Math.floor((total - 1800) / days);
+    const days = 7;
+    const widths = [600, 520, 1260];
+    const each = Math.floor((13958 - 2380) / days);
     for (let d = 0; d < days; d += 1) widths.push(each);
+    const fixed = widths.length - days;
     const border = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((edge) => `<w:${edge} w:val="single" w:sz="4" w:space="0" w:color="8C7B6B"/>`).join('') + '</w:tblBorders>';
-    const p = (text, { bold = false, size = 20, east = '宋体', color = '', jc = 'center' } = {}) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="260" w:lineRule="auto"/><w:jc w:val="${jc}"/></w:pPr>${O.runs(text, { bold, size, east, color })}</w:p>`;
+    const p = (text, { bold = false, size = 18, east = '宋体', color = '', jc = 'center' } = {}) => `<w:p><w:pPr><w:spacing w:before="0" w:after="0" w:line="252" w:lineRule="auto"/><w:jc w:val="${jc}"/></w:pPr>${O.runs(text, { bold, size, east, color })}</w:p>`;
     const cell = (w, content, { fill = '', merge = '', span = 1 } = {}) => `<w:tc><w:tcPr><w:tcW w:w="${w}" w:type="dxa"/>${span > 1 ? `<w:gridSpan w:val="${span}"/>` : ''}${merge ? `<w:vMerge${merge === 'restart' ? ' w:val="restart"' : ''}/>` : ''}${fill ? `<w:shd w:val="clear" w:color="auto" w:fill="${fill}"/>` : ''}<w:vAlign w:val="center"/></w:tcPr>${content || p('')}</w:tc>`;
-    const head = `<w:tr><w:trPr><w:tblHeader/><w:trHeight w:val="520"/></w:trPr>${cell(widths[0] + widths[1], p('节次', { bold: true, east: '黑体', size: 21 }), { fill: 'E4EFEB', span: 2 })}`
+    const HEAD = { bold: true, east: '黑体', size: 20 };
+    const head = `<w:tr><w:trPr><w:tblHeader/><w:trHeight w:val="480"/></w:trPr>${cell(widths[0] + widths[1], p('节次', HEAD), { fill: 'E4EFEB', span: 2 })}${cell(widths[2], p('时间', HEAD), { fill: 'E4EFEB' })}`
       + Array.from({ length: days }, (_, i) => {
         const date = week ? addDays(parseDay(state.settings.start), (week - 1) * 7 + i) : null;
-        return cell(widths[2 + i], p(`星期${WEEKDAYS[i]}${date ? `（${date.getMonth() + 1}月${date.getDate()}日）` : ''}`, { bold: true, east: '黑体', size: 21 }), { fill: 'E4EFEB' });
+        return cell(widths[fixed + i], p(`星期${WEEKDAYS[i]}`, HEAD) + (date ? p(`${date.getMonth() + 1}月${date.getDate()}日`, { size: 16 }) : ''), { fill: 'E4EFEB' });
       }).join('') + '</w:tr>';
     const groupsByDay = Array.from({ length: days }, (_, d) => clusters(sessions.filter((item) => item.day === d + 1)));
     let body = '';
@@ -516,33 +545,41 @@
       const k = sectionOf(q);
       const first = state.settings.sections.slice(0, k).reduce((a, b) => a + b, 0) + 1;
       const t = state.settings.times[q - 1];
-      let row = `<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="620"/></w:trPr>`
-        + cell(widths[0], q === first ? p(SECTIONS[k], { bold: true, east: '黑体', size: 21 }) : '', { fill: 'F4EDE3', merge: q === first ? 'restart' : 'continue' })
-        + cell(widths[1], p(`第${q}节`, { bold: true, size: 20 }) + (t.from ? p(`${t.from}—${t.to}`, { size: 16, color: '6D6259' }) : ''));
+      let row = `<w:tr><w:trPr><w:cantSplit/><w:trHeight w:val="540"/></w:trPr>`
+        + cell(widths[0], q === first ? p(SECTIONS[k], HEAD) : '', { fill: 'F4EDE3', merge: q === first ? 'restart' : 'continue' })
+        + cell(widths[1], p(String(q), { bold: true, size: 20 }))
+        + cell(widths[2], t.from ? p(`${t.from}—${t.to}`, { size: 18 }) : '');
       groupsByDay.forEach((groups, d) => {
         const group = groups.find((g) => q >= g.from && q <= g.to);
-        if (!group) { row += cell(widths[2 + d], ''); return; }
-        if (q !== group.from) { row += cell(widths[2 + d], '', { merge: 'continue', fill: group.items[0].s.slice(1).toUpperCase() }); return; }
-        const content = group.items.map((item) => p(courseOf(item.klass.course).title, { bold: true, size: 20, color: item.c.slice(1).toUpperCase() })
-          + p(`${item.klass.name}${rosterCount(item.klass) ? `（${rosterCount(item.klass)}人）` : ''}`, { size: 18 })
-          + (item.room ? p(item.room, { size: 18 }) : '')
-          + p([weekRange(slotWeeks(item.plan, item.slot)), PARITY[item.slot.parity]].filter(Boolean).join(' '), { size: 16, color: '6D6259' })).join(p(''));
-        row += cell(widths[2 + d], content, { merge: group.to > group.from ? 'restart' : '', fill: group.items[0].s.slice(1).toUpperCase() });
+        const w = widths[fixed + d];
+        if (!group) { row += cell(w, ''); return; }
+        const fill = group.items[0].s.slice(1).toUpperCase();
+        if (q !== group.from) { row += cell(w, '', { merge: 'continue', fill }); return; }
+        const content = group.items.map((item) => {
+          const code = item.plan.code ? `（${item.plan.code}）` : '';
+          return p(`${titleOf(item.klass)}${code}`, { bold: true, size: 18, color: item.c.slice(1).toUpperCase() })
+            + p(`（${weekRange(slotWeeks(item.plan, item.slot)).replace(/ /g, '')}${PARITY[item.slot.parity] ? `·${PARITY[item.slot.parity]}` : ''}）（${item.from}-${item.to}节）`, { size: 16 })
+            + (item.room ? p(item.room, { size: 16 }) : '')
+            + p(`${item.klass.name}${rosterCount(item.klass) ? `（${rosterCount(item.klass)}人）` : ''}`, { size: 16, color: '6D6259' });
+        }).join(p(''));
+        row += cell(w, content, { merge: group.to > group.from ? 'restart' : '', fill });
       });
       body += row + '</w:tr>';
     }
-    const grid = `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:jc w:val="center"/>${border}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="60" w:type="dxa"/><w:right w:w="60" w:type="dxa"/></w:tblCellMar></w:tblPr>`
+    const grid = `<w:tbl><w:tblPr><w:tblW w:w="${widths.reduce((a, b) => a + b, 0)}" w:type="dxa"/><w:jc w:val="center"/>${border}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="50" w:type="dxa"/><w:right w:w="50" w:type="dxa"/></w:tblCellMar></w:tblPr>`
       + `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>${head}${body}</w:tbl>`;
     const classes = Array.from(new Map(sessionsOf(state.term).map((item) => [String(item.klass.id), item.klass])).values());
-    const list = O.table([['课程', '班级', '人数', '上课时间', '教室', '周次']].concat(classes.map((klass) => [
-      courseOf(klass.course).title, klass.name, rosterCount(klass) ? String(rosterCount(klass)) : '',
+    const list = O.table([['课程', '教学班号', '班级', '人数', '上课时间', '教室', '周次']].concat(classes.map((klass) => [
+      titleOf(klass), klass.schedule.code || '', klass.name, rosterCount(klass) ? String(rosterCount(klass)) : '',
       klass.schedule.slots.map((slot) => `周${WEEKDAYS[slot.day - 1]}${periodText(Number(slot.from), Number(slot.to)).replace(/ /g, '')}${PARITY[slot.parity] ? `（${PARITY[slot.parity]}）` : ''} ${timeOf(Number(slot.from), Number(slot.to))}`).join('\n'),
       Array.from(new Set([klass.schedule.room, ...klass.schedule.slots.map((slot) => slot.room)].filter(Boolean))).join('、'),
-      weekRange(klass.schedule.weeks)])), [2600, 2700, 900, 3700, 2300, 1500]);
-    const title = O.para('教师课表', 'title');
-    const sub = O.para(`${state.term}${week ? ` · 第 ${week} 周` : ''}`, 'subtitle');
-    const blob = O.docx(title + sub + grid + O.para('', 'plain') + O.para('上课班级', 'h') + list
-      + O.para(`导出时间：${ymd(new Date())}。课表按教师工作台各班填写的上课时间生成。`, 'note'), { landscape: true });
+      weekRange(klass.schedule.weeks)])), [2500, 1300, 2300, 800, 3400, 2300, 1300]);
+    const s = state.settings;
+    const now = new Date();
+    const title = O.para(`教师课表（${state.term}${week ? ` · 第 ${week} 周` : ''}）`, 'title');
+    const info = s.dept || s.teacher || s.staff ? O.para(`教师所属部门：${s.dept}　　教师：${s.teacher}　　教师工号：${s.staff}`, 'subtitle') : '';
+    const note = O.para(`本课表按教师工作台填写的上课时间生成，仅供参考，准确信息以学校教务系统为准。打印日期：${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`, 'note');
+    const blob = O.docx(title + info + note + grid + O.para('上课班级', 'h', { pageBreak: true }) + list, { landscape: true });
     O.save(blob, `教师课表_${state.term.replace(/\s+/g, '')}${week ? `_第${week}周` : ''}.docx`);
   }
 
@@ -563,7 +600,7 @@
       const off = holidayOn(key);
       const week = weekOf(date);
       const items = events.map((item) => { const kind = kindOf(item.color); return `<li class="pl-cal-ev${item.done ? ' is-done' : ''}" style="--c:${kind.c};--s:${kind.s}" title="${esc([item.start_time, item.title].filter(Boolean).join(' '))}">${item.start_time ? `<time>${esc(item.start_time)}</time>` : ''}${esc(item.title)}</li>`; })
-        .concat(classes.map((item) => `<li class="pl-cal-class${off ? ' is-off' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${courseOf(item.klass.course).title} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`)}"><time>${item.from}-${item.to}</time>${esc(item.klass.name)}</li>`));
+        .concat(classes.map((item) => `<li class="pl-cal-class${off ? ' is-off' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`)}"><time>${item.from}-${item.to}</time>${esc(item.klass.name)}</li>`));
       return `<button type="button" class="pl-cal-cell${date.getMonth() !== month.getMonth() ? ' is-out' : ''}${key === todayKey ? ' is-today' : ''}${key === state.day ? ' is-picked' : ''}${weekday(date) >= 6 ? ' is-weekend' : ''}${off ? ' is-holiday' : ''}" data-pl-day="${key}">
         <span class="pl-cal-date"><b>${date.getDate()}</b>${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
         <ul>${items.slice(0, 4).join('')}${items.length > 4 ? `<li class="pl-cal-more">还有 ${items.length - 4} 项</li>` : ''}</ul>
@@ -604,7 +641,7 @@
       const d = addDays(today(), i);
       const k = ymd(d);
       const list = eventsOn(k).filter((item) => !item.done).map((item) => ({ time: item.start_time || '', text: item.title, kind: kindOf(item.color) }))
-        .concat(holidayOn(k) ? [] : classesOn(d).map((item) => ({ time: (state.settings.times[item.from - 1] || {}).from || '', text: `${shortOf(item.klass.course)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`, kind: { c: item.c, s: item.s }, cls: true })));
+        .concat(holidayOn(k) ? [] : classesOn(d).map((item) => ({ time: (state.settings.times[item.from - 1] || {}).from || '', text: `${tagOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`, kind: { c: item.c, s: item.s }, cls: true })));
       if (list.length) upcoming.push({ d, k, list: list.sort((a, b) => String(a.time || '99').localeCompare(String(b.time || '99'))) });
     }
     side.innerHTML = `
@@ -612,7 +649,7 @@
         <header><b>${cnDate(date)}</b><small>${week >= 1 && week <= state.settings.weeks ? `第 ${week} 周` : ''}${off ? ' · 放假停课' : ''}</small></header>
         ${classes.length ? `<ul class="pl-day-classes">${classes.map((item) => `<li class="${off ? 'is-off' : ''}" style="--c:${item.c};--s:${item.s}">
           <time>${periodText(item.from, item.to)}<small>${timeOf(item.from, item.to)}</small></time>
-          <div><b>${esc(courseOf(item.klass.course).title)}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}</span></div></li>`).join('')}</ul>` : ''}
+          <div><b>${esc(titleOf(item.klass))}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}</span></div></li>`).join('')}</ul>` : ''}
         ${events.length ? `<ul class="pl-day-events">${events.map((item) => { const kind = kindOf(item.color); return `<li class="${item.done ? 'is-done' : ''}${String(item.id) === String(state.editing) ? ' is-editing' : ''}" style="--c:${kind.c};--s:${kind.s}">
           <label class="pl-done" title="${item.done ? '标为未完成' : '标为完成'}"><input type="checkbox" data-pl-done="${esc(item.id)}"${item.done ? ' checked' : ''}><span></span></label>
           <div><b>${esc(item.title)}</b><small>${[item.start_time && `${item.start_time}${item.end_time ? `—${item.end_time}` : ''}`, kind.label].filter(Boolean).map(esc).join(' · ')}</small>${item.note ? `<p>${esc(item.note)}</p>` : ''}</div>
@@ -705,6 +742,14 @@
         <p class="tw-hint">新学期开始时改学期名称和第 1 周的日期；以前学期的班级仍保留原来的学期，课表上方可以切换查看。</p>
       </div>
       <div class="tw-card wide">
+        <h2>课表抬头 <small>导出 Word 时写在标题下面，选填</small></h2>
+        <div class="pl-set-row">
+          <label>教师所属部门<input type="text" name="dept" maxlength="40" placeholder="如：商学院" value="${esc(s.dept)}"></label>
+          <label>教师<input type="text" name="teacher" maxlength="20" value="${esc(s.teacher)}"></label>
+          <label>教师工号<input type="text" name="staff" maxlength="20" value="${esc(s.staff)}"></label>
+        </div>
+      </div>
+      <div class="tw-card wide">
         <h2>作息时间</h2>
         <div class="pl-set-row">${SECTIONS.map((name, k) => `<label>${name}几节<input type="number" name="sec${k}" min="0" max="8" value="${s.sections[k]}" data-pl-sec></label>`).join('')}</div>
         <div class="pl-times">${SECTIONS.map((name, k) => (s.sections[k] ? `<div class="pl-times-group"><h3>${name}</h3>${Array.from({ length: s.sections[k] }, () => {
@@ -712,7 +757,7 @@
           const t = s.times[q - 1] || { from: '', to: '' };
           return `<label><b>第 ${q} 节</b><input type="time" name="from${q}" value="${esc(t.from)}">—<input type="time" name="to${q}" value="${esc(t.to)}"></label>`;
         }).join('')}</div>` : '')).join('')}</div>
-        <div class="tw-actions"><button type="button" class="tw-secondary" data-pl-auto>按每节 45 分钟、课间 10 分钟顺排</button><button type="button" class="tw-secondary" data-pl-default>恢复默认作息</button></div>
+        <div class="tw-actions"><button type="button" class="tw-secondary" data-pl-auto>按每节 40 分钟、两节之间 5 分钟、两大节之间 15 分钟顺排</button><button type="button" class="tw-secondary" data-pl-default>恢复默认作息</button></div>
       </div>
       <p class="tw-error" data-pl-set-error role="alert"></p>
       <div class="tw-actions"><button type="submit" class="tw-primary">保存</button></div>
@@ -723,16 +768,17 @@
     const sections = [0, 1, 2].map((k) => Math.max(0, Math.min(8, Number(data.get(`sec${k}`)) || 0)));
     const count = sections.reduce((a, b) => a + b, 0);
     const times = Array.from({ length: count }, (_, i) => ({ from: String(data.get(`from${i + 1}`) || (state.settings.times[i] || {}).from || ''), to: String(data.get(`to${i + 1}`) || (state.settings.times[i] || {}).to || '') }));
-    return normalize({ term: String(data.get('term') || '').trim(), start: data.get('start'), weeks: data.get('weeks'), sections, times });
+    return normalize({ term: String(data.get('term') || '').trim(), start: data.get('start'), weeks: data.get('weeks'), sections, times,
+      dept: data.get('dept'), teacher: data.get('teacher'), staff: data.get('staff'), extras: state.settings.extras });
   }
-  // 每个时段第一节的开始时间不变，其后每节 45 分钟、课间 10 分钟
+  // 每个时段第一节的开始时间不变，其后按用户学校的作息：每节 40 分钟，两节连上中间 5 分钟，两大节之间 15 分钟
   function autoTimes(plan) {
     const toMin = (t) => { const m = /^(\d{1,2}):(\d{2})$/.exec(t || ''); return m ? +m[1] * 60 + +m[2] : null; };
     const toText = (n) => `${pad(Math.floor(n / 60) % 24)}:${pad(n % 60)}`;
     let q = 0;
     plan.sections.forEach((n, k) => {
-      let at = toMin((plan.times[q] || {}).from) ?? [480, 840, 1140][k];
-      for (let i = 0; i < n; i += 1) { plan.times[q] = { from: toText(at), to: toText(at + 45) }; at += 55; q += 1; }
+      let at = toMin((plan.times[q] || {}).from) ?? [510, 810, 1080][k];
+      for (let i = 0; i < n; i += 1) { plan.times[q] = { from: toText(at), to: toText(at + 40) }; at += i % 2 ? 55 : 45; q += 1; }
     });
     return plan;
   }
@@ -744,7 +790,13 @@
     const tab = t.closest('[data-pl-tab]');
     if (tab) { state.tab = tab.dataset.plTab; state.editing = null; render(); return; }
     const edit = t.closest('[data-pl-edit]');
-    if (edit) { const klass = state.classes.find((item) => String(item.id) === edit.dataset.plEdit); if (klass) editClass(klass, () => render()); return; }
+    if (edit) {
+      const klass = findClass(edit.dataset.plEdit);
+      if (klass && klass.extra) editExtra(klass.extra);
+      else if (klass) editClass(klass, () => render());
+      return;
+    }
+    if (t.closest('[data-pl-extra-add]')) { editExtra(null); return; }
     const step = t.closest('[data-pl-week]');
     if (step) { state.week = Math.max(1, Math.min(state.settings.weeks, (state.week || currentWeek() || 1) + Number(step.dataset.plWeek))); render(); return; }
     if (t.closest('[data-pl-week-now]')) { state.week = currentWeek() || 0; render(); return; }
@@ -811,15 +863,47 @@
   // 修改某个班级的上课时间（课表里的格子、班级清单、工作台“导出与清理 → 班级”）
   function editClass(klass, done) {
     dialogClass = klass;
+    dialogExtra = null;
     dialogDone = done || null;
     $('[data-pl-dialog-title]', dialog).textContent = `上课时间与教室 · ${klass.name}`;
     $('[data-pl-dialog-hint]', dialog).textContent = `${courseOf(klass.course).title}。按学校课表填写星期、节次、单双周和教室，保存后自动排进“课表”和“日程”；同一个班每周上几次就加几段。`;
     $('[data-pl-dialog-error]', dialog).textContent = '';
+    $('[data-pl-dialog-clear]', dialog).textContent = '清除上课时间';
     $('[data-pl-dialog-clear]', dialog).hidden = !(klass.schedule && klass.schedule.slots && klass.schedule.slots.length);
     dialogEditor.set(klass.schedule || null);
     dialog.showModal();
   }
+  // 其他课程（不在本网站上课的，如研究生课）：存在课表设置里（ck_teacher_settings 的 planner.extras），extra 为空＝新建
+  function editExtra(extra) {
+    dialogClass = null;
+    dialogExtra = extra || { id: '' };
+    dialogDone = null;
+    $('[data-pl-dialog-title]', dialog).textContent = extra ? `其他课程 · ${extra.title}` : '添加其他课程';
+    $('[data-pl-dialog-hint]', dialog).textContent = '不在本网站上课的课（如研究生课、讲座）：填写课程名称、班级和上课时间，保存后排进“课表”和“日程”，导出 Word 时一并列出。';
+    $('[data-pl-dialog-error]', dialog).textContent = '';
+    $('[data-pl-dialog-clear]', dialog).textContent = '删除这门课';
+    $('[data-pl-dialog-clear]', dialog).hidden = !extra;
+    dialogEditor.set(extra || { term: state.settings.term, room: '', weeks: [1, Math.min(16, state.settings.weeks)], slots: [] }, { extra: true });
+    dialog.showModal();
+  }
+  async function saveExtra(plan) {
+    const error = $('[data-pl-dialog-error]', dialog);
+    const id = dialogExtra.id || `x${Date.now().toString(36)}`;
+    const extras = state.settings.extras.filter((item) => item.id !== id);
+    if (plan) extras.push({ ...plan, id });
+    const next = normalize({ ...state.settings, extras });
+    try {
+      await state.backend.rpc('ck_save_teacher_setting', { p_key: 'planner', p_value: next });
+      state.settings = next;
+      dialog.close();
+      if (!view.hidden) render();
+    } catch (problem) {
+      console.error(problem);
+      error.textContent = missingError(problem) ? NOT_READY : `保存失败：${problem.message || problem}`;
+    }
+  }
   async function saveSchedule(plan) {
+    if (dialogExtra) { await saveExtra(plan); return; }
     const klass = dialogClass;
     const error = $('[data-pl-dialog-error]', dialog);
     try {
@@ -838,9 +922,11 @@
     event.preventDefault();
     const plan = dialogEditor.get(false);
     if (!plan) { $('[data-pl-dialog-error]', dialog).textContent = '至少填写一段上课时间；不上课了请点“清除上课时间”。'; return; }
+    if (dialogExtra && !plan.title) { $('[data-pl-dialog-error]', dialog).textContent = '请填写课程名称。'; return; }
     saveSchedule(plan);
   });
   $('[data-pl-dialog-clear]', dialog).addEventListener('click', () => {
+    if (dialogExtra) { if (window.confirm(`删除其他课程“${dialogExtra.title}”？它会从课表和日程里去掉。`)) saveExtra(null); return; }
     if (window.confirm(`清除“${dialogClass.name}”的上课时间？这个班会从课表和日程里去掉（班级本身和学生记录不受影响）。`)) saveSchedule(null);
   });
   $('[data-pl-dialog-cancel]', dialog).addEventListener('click', () => dialog.close());
