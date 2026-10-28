@@ -157,6 +157,8 @@
       else if (room.chapter !== unit) show(`课堂：当前课堂“${esc(room.name)}”不是${HERE}`, false);
       else show(`课堂：${esc(room.name)} <b>${esc(room.code)}</b>${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''} · ${room.submissions_open ? '学生可递交' : '已结束提交'}`, true);
       // 一章两个案例分开上（2026-10-23，习经）：当前课堂只上其中一个时，投屏页也只显示这个案例；没有当前课堂或整章上时全部显示
+      // 课堂工具（猜词游戏得分榜）按“班级＋课堂”分开记（2026-10-28 用户：“猜词游戏的排行榜只限于本班级本堂课”）
+      window.ClassLiveScope = room && room.chapter === unit ? { room: String(room.id), klass: String(room.class_id || 0) } : null;
       const only = room && room.chapter === unit ? Number(room.case_no) || 0 : 0;
       if (window.ChapterCases && only !== shownCase) { shownCase = only; window.ChapterCases.show(only); }
     } catch (error) {

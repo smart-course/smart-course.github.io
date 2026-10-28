@@ -5,15 +5,16 @@
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <meta name="robots" content="noindex, nofollow">
   <meta name="description" content="任课教师为课程制作的案例学习材料，仅供选课学生使用。">
-  <title>进入本周课堂 · 课程学习网站</title>
-  <link rel="stylesheet" href="/css/site.css?v=0356bfa8c8">
+  <title>进入本周课堂 · 智慧课堂</title>
+  <link rel="icon" type="image/svg+xml" href="/favicon.svg">
+  <link rel="stylesheet" href="/css/site.css?v=09d0473c27">
   <script>/* 学生从加入链接或二维码（?join=课堂码）进来时不显示“教师入口” */ if (/[?&]join=/.test(location.search)) document.documentElement.classList.add('from-join');</script>
-  <script src="/js/live-readable.js?v=0356bfa8c8"></script>
+  <script src="/js/live-readable.js?v=09d0473c27"></script>
 <meta name="generator" content="Hexo 8.1.2"></head>
 <body>
   <header class="site-header">
     <div class="wrap">
-      <a class="brand" href="/"><span class="brand-mark">课</span><span><strong>课程学习网站</strong><small>案例教学资料</small></span></a>
+      <a class="brand" href="/"><img class="brand-mark" src="/favicon.svg" alt="" width="40" height="40"><span><strong>智慧课堂</strong></span></a>
       <nav class="site-nav" aria-label="入口">
         <a href="/" class="active">学生登录</a>
         <a href="/teacher/" data-teacher-link>教师入口</a>
@@ -22,7 +23,7 @@
   </header>
   <main class="wrap"><section class="join">
   <div class="join-intro">
-    <p class="eyebrow">案例教学资料 · 互动课堂</p>
+    <p class="eyebrow">互动课堂</p>
     <h1>进入本周课堂</h1>
     <div class="join-lead"><p>输入老师发布的课堂码，进入本周的课堂内容。</p>
 <p>每个课堂码对应老师指定的一门课程和本周内容（章节或案例）；新一周课堂发布后，请使用新的课堂码。</p>
@@ -55,14 +56,19 @@
       </div>
       <label class="join-field" data-pin-need>个人口令<input name="pin" type="password" inputmode="numeric" maxlength="4" autocomplete="current-password" placeholder="4 位数字"></label>
       <p class="join-pin-hint" data-pin-hint></p>
+      <p class="join-forgot" data-pin-forgot-box><button type="button" data-pin-forgot>忘记口令？向老师申请重设</button><span data-pin-forgot-state role="status"></span></p>
+    </div>
+    <div class="join-apply" data-join-apply hidden>
+      <p><b>本班点名册上没有这个学号。</b>请核对<b>姓名和学号</b>（要和教务点名册上的一致），改正后再点“登录”。</p>
+      <p class="join-apply-more"><span data-join-apply-note>如果你确实不在本班名单上（如重修、跨班旁听），可以</span><button type="button" data-join-apply-send>申请加入本班</button>，老师在工作台允许后才能进入。</p>
     </div>
     <div class="join-wait" data-join-wait role="status" hidden>
       <span class="join-wait-dot" aria-hidden="true"></span>
-      <div><b>已向老师申请加入</b><p>你的学号不在本班点名册上。老师在工作台允许后，本页会自动继续（请不要关闭本页）。如果是学号填错了，请改正后重新点“登录”。</p></div>
+      <div><b>已向老师申请加入</b><p>你的学号不在本班点名册上。老师在工作台允许后，本页会自动继续（请不要关闭本页）。如果其实是学号填错了，请改正后重新点“登录”。</p></div>
       <button type="button" class="join-wait-cancel" data-wait-cancel>取消</button>
     </div>
     <label class="join-consent"><input type="checkbox" name="agree"><span>我已了解：为课堂签到与作业统计，本站将记录我的姓名、学号、班级、小组，以及我提交的投票、作答和弹幕。弹幕会显示在课堂投屏上（老师未开启匿名时连同姓名显示；开启匿名时投屏不显示姓名，但任课教师仍能看到发送人）；其余数据仅任课教师可以查看。个人口令只保存加密后的摘要，老师也看不到。</span></label>
-    <p class="join-note">仅能进入老师当前发布的课堂，姓名、学号须与本班点名册一致（不在点名册上的同学需老师允许）。请使用自己的手机或电脑登录；口令不要告诉别人。</p>
+    <p class="join-note">仅能进入老师当前发布的课堂，姓名、学号须与本班点名册一致（不在点名册上的同学需申请、老师允许）。请使用自己的手机或电脑登录；口令不要告诉别人。</p>
     <p class="join-error" role="alert" data-join-error></p>
     <button type="submit" class="join-submit">登录并进入课堂 →</button>
     <p class="join-leave" data-join-leave hidden>今天不能来上课？<button type="button" data-join-leave-open>请假</button><small data-join-leave-tip>（要用上课时登录过的手机或电脑请假）</small></p>
@@ -70,14 +76,14 @@
 </section>
 </main>
   <footer class="site-footer">
-    <div class="wrap"><span>任课教师 · 课程学习网站</span><span>本站内容仅供选课学生学习使用，请勿转发课堂码或页面内容。</span></div>
+    <div class="wrap"><span>任课教师 · 智慧课堂</span><span>本站内容仅供选课学生学习使用，请勿转发课堂码或页面内容。</span></div>
   </footer>
   
-  <script>window.CLASS_LIVE_CONFIG = {"provider":"cloudbase","env":"courselearning-d4gmetucqc52de2d4","region":"ap-shanghai","version":"0356bfa8c8"};</script>
+  <script>window.CLASS_LIVE_CONFIG = {"provider":"cloudbase","env":"courselearning-d4gmetucqc52de2d4","region":"ap-shanghai","version":"09d0473c27"};</script>
   <script src="/js/cloudbase-js-sdk-3.10.1.js"></script>
-  <script src="/js/live-core.js?v=0356bfa8c8"></script>
-  <script src="/js/live-leave.js?v=0356bfa8c8"></script>
-  <script src="/js/live-join.js?v=0356bfa8c8"></script>
+  <script src="/js/live-core.js?v=09d0473c27"></script>
+  <script src="/js/live-leave.js?v=09d0473c27"></script>
+  <script src="/js/live-join.js?v=09d0473c27"></script>
   
 </body>
 </html>

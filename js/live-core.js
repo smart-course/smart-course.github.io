@@ -17,6 +17,9 @@
  *       ck_puzzle_open / ck_puzzle_close（教师在投屏页“情境猜谜”开始、结束一轮抢答；教师读、删 ck_puzzle_rounds、ck_puzzle_guesses）
  *       ck_puzzle_live / ck_puzzle_guess（学生面板看正在进行的一轮、抢答；后台核对谜底，第一个猜中的自动加修为）
  *       ck_set_pk_winners（教师在 PK 大屏给今天各局的胜者加修为）
+ *       ck_join_apply（不在点名册上的同学自己点“申请加入”）、ck_pin_forgot / ck_decide_pin_request（忘记口令申请、教师同意或拒绝；教师读 ck_pin_requests）
+ *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸）、ck_mood_stats（教师只看人数）
+ *       ck_set_class_schedule（班级的上课时间、教室，工作台“课表”）、ck_save_teacher_setting（课表设置：学期、第 1 周、各节时间）、ck_save_event（“日程”里的安排；教师读、删 ck_teacher_events）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
@@ -24,7 +27,12 @@
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
-    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log' };
+    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
+    debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes',
+    teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events' };
+  // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
+  // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
+  const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -33,8 +41,8 @@
     { level: 0, name: '炼气', look: '素石', min: 0 },
     { level: 1, name: '筑基', look: '青玉', min: 0.15 },
     { level: 2, name: '结丹', look: '金丹', min: 0.35 },
-    { level: 3, name: '元婴', look: '紫霄', min: 0.80 },
-    { level: 4, name: '化神', look: '神光', min: 0.90 },   // 2026-10-22 用户要求：元婴 80%、化神 90%
+    { level: 3, name: '元婴', look: '紫霄', min: 0.65 },
+    { level: 4, name: '化神', look: '神光', min: 0.90 },   // 2026-10-22 用户要求化神 90%；2026-10-28 用户：“修为分到65%可以进阶元婴吧”
   ];
   const STAGES = ['初期', '中期', '后期'];
   // 弹幕法宝（取自《凡人修仙传》）：每升到一个境界获得该境界法宝的一次使用机会（每件只能祭出一次，记在 ck_gift_uses），
@@ -78,6 +86,9 @@
   const PUZZLE = { points: 5, tries: 3, cap: 20 };
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
+  // 辩论聊天室（2026-10-28，习经辩论赛）：选好立场后取昵称进本方聊天室（昵称 2—nickMax 字），每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；
+  // 每方点赞最多的 top 位上台辩论，辩后投票获胜方的这几位各加 points 修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）
+  const DEBATE = { points: 10, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
   // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
   // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分，
   // 隔 gap 天以上再答对可再得一次（间隔重复，每题最多 most 次；课后自修只算一次），
@@ -156,6 +167,7 @@
     const db = app.rdb();
     const PAGE = 500;
     const POLL_MS = 5000;
+    const SAFETY_MS = 30000;
     // SQL 里 case 是保留字，列名用 case_no
     const column = (key) => (key === 'case' ? 'case_no' : key);
     const toRow = (doc) => {
@@ -241,13 +253,14 @@
           const query = filtered(db.from(COLLECTIONS[kind]).select('*'), where);
           return options.since ? query.gt(options.since[0], options.since[1]) : query;
         };
+        const order = ORDER_BY[kind] || 'id';
         if (options.limit) {
-          const result = await call(() => base().order('id', { ascending: false }).range(0, options.limit - 1));
+          const result = await call(() => base().order(order, { ascending: false }).range(0, options.limit - 1));
           return (result.data || []).map(fromRow);
         }
         const rows = [];
         for (let from = 0; ; from += PAGE) {
-          const result = await call(() => base().order('id', { ascending: true }).range(from, from + PAGE - 1));
+          const result = await call(() => base().order(order, { ascending: true }).range(from, from + PAGE - 1));
           const batch = result.data || [];
           rows.push(...batch.map(fromRow));
           if (batch.length < PAGE) return rows;
@@ -263,7 +276,9 @@
         const known = new Map();
         let cursor = null;
         const millis = (value) => Date.parse(String(value || '').replace(/(\.\d{3})\d+/, '$1'));
+        let lastRefresh = 0;
         const refresh = async () => {
+          lastRefresh = Date.now();
           try {
             if (!options.incremental) {
               const rows = await this.fetchAll(kind, where);
@@ -307,8 +322,8 @@
           console.warn('[课堂后台] 实时推送不可用，改为定时刷新：', error);
           if (onStatus) onStatus('polling');
         }
-        // 实时推送不可用时，每 5 秒自动刷新一次
-        const timer = setInterval(() => { if (!live) refresh(); }, POLL_MS);
+        // 实时推送不可用时，每 5 秒自动刷新一次；连着实时推送时也每 30 秒补读一次（推送连接悄悄断掉、漏推时不至于一直停在旧数据上）
+        const timer = setInterval(() => { if (!live || Date.now() - lastRefresh > SAFETY_MS) refresh(); }, POLL_MS);
         return () => {
           closed = true;
           clearInterval(timer);
@@ -365,6 +380,9 @@
       const me = myCheckin(uid, classroom);
       return Boolean(me) && sidKey(me.sid) === sidKey(sid) && plain(me.name) === plain(name);
     };
+    // 10 分钟内这台设备登录失败、申请过多（规则同 cloudbase-pg.sql 的 ck_join）
+    const tooMany = (uid) => read('seclog').filter((row) => row.owner === uid && Date.now() - Date.parse(row.at) < 600000
+      && ['bad_code', 'bad_sid', 'bad_name', 'bad_pin', 'request', 'pin_forgot'].includes(row.kind)).length >= 20;
     const secLog = (kind, fields) => {
       const rows = read('seclog');
       rows.push({ id: nextId(rows), at: new Date().toISOString(), kind, ...fields });
@@ -423,18 +441,22 @@
       async signOut() { localStorage.removeItem(prefix + 'teacher'); },
       async signOutStudent() { localStorage.removeItem(prefix + 'uid'); },
       async add(kind, doc) { return this.addMany(kind, [doc]); },
-      async addMany(kind, docs) {
+      async addMany(kind, list) {
         const uid = await this.ensureAnonymous();
+        let docs = list;
         docs.forEach((doc) => guard(kind, doc, uid));
         const rows = read(kind);
         if (kind === 'choices' || kind === 'answers') {
+          // 规则同 cloudbase-pg.sql 的触发器 ck_stamp：学号统一成本人加入记录上的写法（时间也以后台为准，见下面的 ts）
+          docs = docs.map((doc) => { const me = myCheckin(uid, doc.classroom); return me && sidKey(me.sid) === sidKey(doc.sid) ? { ...doc, sid: me.sid } : doc; });
           const taken = new Set(rows.map((row) => `${row.classroom}|${row.sid}|${row.case}|${row.item}`));
           if (docs.some((doc) => taken.has(`${doc.classroom}|${doc.sid}|${doc.case}|${doc.item}`))) {
             throw Object.assign(new Error('duplicate key value violates unique constraint (mock)'), { code: '23505' });
           }
         }
         const ts = Date.now();
-        docs.forEach((doc) => rows.push({ id: Math.random().toString(36).slice(2), owner: uid, ...(kind === 'danmaku' ? { status: 'new' } : {}), ...doc, ts }));
+        const created = new Date(ts).toISOString();
+        docs.forEach((doc) => rows.push({ id: Math.random().toString(36).slice(2), owner: uid, ...(kind === 'danmaku' ? { status: 'new' } : {}), ...doc, ts, created_at: created }));
         write(kind, rows);
       },
       async rpc(name, params = {}) {
@@ -443,9 +465,7 @@
           const uid = await this.ensureAnonymous();
           const now = Date.now();
           const at = new Date().toISOString();
-          const fails = read('seclog').filter((row) => row.owner === uid && now - Date.parse(row.at) < 600000
-            && ['bad_code', 'bad_name', 'bad_pin', 'request'].includes(row.kind)).length;
-          if (fails >= 20) return { status: 'too_many' };
+          if (tooMany(uid)) return { status: 'too_many' };
           const code = normalizeCode(params.p_code).replace(/[^A-Z0-9]/g, '');
           const room = read('classrooms').find((row) => row.code === code);   // 历史课堂的码也认，最后只给查看（规则同 cloudbase-pg.sql）
           if (!room) { secLog('bad_code', { owner: uid, detail: code.slice(0, 12) }); return { status: 'bad_code' }; }
@@ -457,18 +477,12 @@
           if (!roster.length) return { status: 'no_roster' };
           const person = roster.find((item) => sidKey(item.sid) === sid);
           const ctx = { owner: uid, course: room.course, class_id: room.class_id, classroom: room.id, sid, name: nm };
+          // 不在点名册上（2026-10-28）：只提示核对姓名和学号，不再自动申请；确实不在名单上的同学自己点“申请加入”（ck_join_apply）
           if (!person) {
-            const reqs = read('requests');
-            const req = reqs.find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid);
-            if (req && req.status === 'rejected') return { status: 'rejected' };
+            const req = read('requests').find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid);
             if (req && req.status === 'pending') return { status: 'pending' };
-            if (reqs.filter((row) => String(row.class_id) === String(room.class_id) && row.status === 'pending').length >= 100) return { status: 'too_many' };
-            const fields = { name: nm, class_name: String(params.p_class || '').trim().slice(0, 40) || null, owner: uid, status: 'pending', created_at: at, decided_at: null };
-            if (req) Object.assign(req, fields);
-            else reqs.push({ id: nextId(reqs), class_id: room.class_id, course: room.course, sid, ...fields });
-            write('requests', reqs);
-            secLog('request', ctx);
-            return { status: 'pending' };
+            secLog('bad_sid', ctx);
+            return { status: 'not_listed', rejected: Boolean(req && req.status === 'rejected') };
           }
           if (plain(person.name) !== nm) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
           const devices = read('devices');
@@ -481,17 +495,21 @@
             let pin = pins.find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid);
             if (pin && pin.locked_until && Date.parse(pin.locked_until) > now) return { status: 'locked', until: pin.locked_until, teacher: (pin.locks || 0) >= 3 };
             if (!pin || !pin.pin_hash) {
+              // 老师同意了“忘记口令”申请：只有提出申请的那台设备能设新口令
+              if (pin && pin.reset_owner && pin.reset_owner !== uid) return { status: 'reset_other' };
               const fresh = String(params.p_new_pin || '');
               if (!/^\d{4}$/.test(fresh)) return { status: 'set_pin' };
               if (weakPin(fresh, sid)) return { status: 'weak_pin' };
               const salt = Math.random().toString(36).slice(2);
               if (!pin) { pin = { class_id: room.class_id, sid }; pins.push(pin); }
-              Object.assign(pin, { pin_hash: await sha256(`${salt}:${fresh}`), salt, fails: 0, locks: 0, locked_until: null, set_at: at, updated_at: at });
+              Object.assign(pin, { pin_hash: await sha256(`${salt}:${fresh}`), salt, fails: 0, locks: 0, locked_until: null, set_at: at, updated_at: at, reset_owner: null });
               write('pins', pins);
               secLog('pin_set', ctx);
             } else {
               const typed = String(params.p_pin || '');
-              if (!/^\d{4}$/.test(typed)) return { status: 'need_pin' };
+              const ask = read('pinreqs').find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid && row.owner === uid);
+              const forgot = ask ? ask.status : null;
+              if (!/^\d{4}$/.test(typed)) return { status: 'need_pin', forgot };
               if (await sha256(`${pin.salt}:${typed}`) !== pin.pin_hash) {
                 // 连续输错 10 次锁定：第一次 15 分钟、第二次 1 小时、第三次起须教师解锁
                 const count = (pin.fails || 0) + 1;
@@ -501,7 +519,7 @@
                 Object.assign(pin, { fails: until ? 0 : count, locks: locks + (until ? 1 : 0), locked_until: until, updated_at: at });
                 write('pins', pins);
                 secLog(until ? 'locked' : 'bad_pin', { ...ctx, detail: !until ? null : locks === 0 ? '15 分钟' : locks === 1 ? '1 小时' : '须教师解锁' });
-                return until ? { status: 'locked', until, teacher: locks >= 2 } : { status: 'bad_pin', left: 10 - count };
+                return until ? { status: 'locked', until, teacher: locks >= 2 } : { status: 'bad_pin', left: 10 - count, forgot };
               }
               Object.assign(pin, { fails: 0, locks: 0, updated_at: at });
               write('pins', pins);
@@ -522,6 +540,243 @@
           write('checkins', rows);
           return { status: 'ok', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name,
             submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid };
+        }
+        // 申请加入、忘记口令（规则同 cloudbase-pg.sql 的 ck_join_apply / ck_pin_forgot / ck_decide_pin_request）
+        if (name === 'ck_join_apply' || name === 'ck_pin_forgot') {
+          const uid = await this.ensureAnonymous();
+          const at = new Date().toISOString();
+          if (tooMany(uid)) return { status: 'too_many' };
+          const code = normalizeCode(params.p_code).replace(/[^A-Z0-9]/g, '');
+          const room = read('classrooms').find((row) => row.code === code);
+          if (!room) { secLog('bad_code', { owner: uid, detail: code.slice(0, 12) }); return { status: 'bad_code' }; }
+          const sid = sidKey(params.p_sid);
+          const nm = plain(params.p_name);
+          if (!/^[A-Z0-9]{4,20}$/.test(sid) || nm.length < 2 || nm.length > 20) return { status: 'invalid' };
+          const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+          const roster = klass && Array.isArray(klass.roster) ? klass.roster : [];
+          if (!roster.length) return { status: 'no_roster' };
+          const person = roster.find((item) => sidKey(item.sid) === sid);
+          const ctx = { owner: uid, course: room.course, class_id: room.class_id, classroom: room.id, sid, name: nm };
+          const sameClass = (row) => String(row.class_id) === String(room.class_id);
+          if (name === 'ck_join_apply') {
+            if (person) return { status: 'listed' };
+            const reqs = read('requests');
+            const req = reqs.find((row) => sameClass(row) && row.sid === sid);
+            if (req && req.status === 'pending') return { status: 'pending' };
+            if (reqs.filter((row) => sameClass(row) && row.status === 'pending').length >= 100) return { status: 'too_many' };
+            const fields = { name: nm, class_name: String(params.p_class || '').trim().slice(0, 40) || null, owner: uid, status: 'pending', created_at: at, decided_at: null };
+            if (req) Object.assign(req, fields);
+            else reqs.push({ id: nextId(reqs), class_id: room.class_id, course: room.course, sid, ...fields });
+            write('requests', reqs);
+            secLog('request', ctx);
+            return { status: 'pending' };
+          }
+          if (!person) return { status: 'not_listed' };
+          if (plain(person.name) !== nm) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
+          if (read('devices').some((d) => sameClass(d) && d.sid === sid && d.owner === uid)) return { status: 'no_need' };
+          const pin = read('pins').find((row) => sameClass(row) && row.sid === sid);
+          if (!pin || (!pin.pin_hash && (!pin.reset_owner || pin.reset_owner === uid))) return { status: 'no_pin' };
+          const asks = read('pinreqs');
+          const ask = asks.find((row) => sameClass(row) && row.sid === sid);
+          if (ask && ask.status === 'pending' && ask.owner === uid) return { status: 'pending' };
+          if (asks.filter((row) => sameClass(row) && row.status === 'pending').length >= 100) return { status: 'too_many' };
+          const fields = { name: person.name, owner: uid, status: 'pending', created_at: at, decided_at: null };
+          if (ask) Object.assign(ask, fields);
+          else asks.push({ id: nextId(asks), class_id: room.class_id, course: room.course, sid, ...fields });
+          write('pinreqs', asks);
+          secLog('pin_forgot', { ...ctx, name: person.name });
+          return { status: 'pending' };
+        }
+        // 辩论聊天室（规则同 cloudbase-pg.sql 的 ck_debate_state / join / post / feed / like / board / hide 与 ck_set_debate_winners）
+        if (/^ck_debate_|^ck_set_debate_winners$/.test(name)) {
+          const uid = await this.ensureAnonymous();
+          const teacher = Boolean(localStorage.getItem(prefix + 'teacher'));
+          const rooms = read('classrooms');
+          const members = read('debatemembers');
+          const posts = read('debateposts');
+          const likes = read('debatelikes');
+          const likeCount = (id) => likes.filter((l) => String(l.post_id) === String(id)).length;
+          const ranked = (classroom, no, side, roster) => {
+            const list = members.filter((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.side === side && (!roster || roster.has(m.sid)))
+              .map((m) => {
+                const mine = posts.filter((p) => String(p.classroom) === String(classroom) && p.case_no === no && p.sid === m.sid && !p.hidden);
+                return { ...m, likes: mine.reduce((s, p) => s + likeCount(p.id), 0), posts: mine.length, first: mine.length ? Math.min(...mine.map((p) => Date.parse(p.created_at))) : Infinity };
+              }).filter((m) => m.posts);
+            return list.sort((a, b) => b.likes - a.likes || a.first - b.first);
+          };
+          if (name === 'ck_debate_board' || name === 'ck_debate_hide' || name === 'ck_set_debate_winners') {
+            teacherOnly();
+            if (name === 'ck_debate_hide') {
+              const post = posts.find((p) => String(p.id) === String(params.p_post));
+              if (post) { post.hidden = params.p_hidden !== false; write('debateposts', posts); }
+              return Boolean(post);
+            }
+            const room = rooms.find((row) => String(row.id) === String(params.p_classroom));
+            if (!room) throw new Error('课堂不存在');
+            const no = String(params.p_case);
+            const day = today();
+            if (name === 'ck_set_debate_winners') {
+              const bonus = read('bonus').filter((b) => !(String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate'));
+              if (params.p_side) {
+                if (!['pro', 'con'].includes(params.p_side)) throw new Error('请选择获胜方');
+                const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+                const roster = new Set(((klass && klass.roster) || []).map((p) => sidKey(p.sid)));
+                ranked(room.id, no, params.p_side, roster).slice(0, DEBATE.top).forEach((m) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'debate', sid: m.sid, name: m.name, points: Number(params.p_points), created_at: new Date().toISOString() }));
+              }
+              write('bonus', bonus);
+              return bonus.filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
+            }
+            const votes = (side) => {
+              const first = new Map();
+              read('choices').filter((c) => String(c.classroom) === String(room.id) && c.case === no && c.item === 'debate-post').sort((a, b) => (a.ts || 0) - (b.ts || 0))
+                .forEach((c) => { if (!first.has(sidKey(c.sid))) first.set(sidKey(c.sid), c.choice); });
+              return Array.from(first.values()).filter((v) => v === side).length;
+            };
+            const board = {};
+            ['pro', 'con'].forEach((side) => {
+              const mine = posts.filter((p) => String(p.classroom) === String(room.id) && p.case_no === no && p.side === side && !p.hidden);
+              board[side] = {
+                members: members.filter((m) => String(m.classroom) === String(room.id) && m.case_no === no && m.side === side).length,
+                posts: mine.length,
+                top: ranked(room.id, no, side).slice(0, 10).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
+                hot: mine.map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => m.sid === p.sid && String(m.classroom) === String(room.id) && m.case_no === no) || {}).name, text: p.text, likes: likeCount(p.id) }))
+                  .sort((a, b) => b.likes - a.likes || Number(b.id) - Number(a.id)).slice(0, 6),
+                votes: votes(side),
+              };
+            });
+            board.awarded = read('bonus').filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
+            return board;
+          }
+          const post = name === 'ck_debate_like' ? posts.find((p) => String(p.id) === String(params.p_post) && !p.hidden) : null;
+          if (name === 'ck_debate_like' && !post) return { status: 'gone' };
+          const classroom = post ? post.classroom : params.p_classroom;
+          const no = post ? post.case_no : String(params.p_case);
+          const room = rooms.find((row) => String(row.id) === String(classroom));
+          const me = myCheckin(uid, classroom) || (teacher && room ? { sid: 'WBF0001', name: '王不凡', test: true } : null);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const mem = members.find((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.sid === sid);
+          const voted = () => {
+            const c = read('choices').filter((row) => String(row.classroom) === String(classroom) && row.case === no && row.item === 'debate-pre' && sidKey(row.sid) === sid && ['pro', 'con'].includes(row.choice))
+              .sort((a, b) => (a.ts || 0) - (b.ts || 0))[0];
+            return c ? c.choice : null;
+          };
+          if (name === 'ck_debate_state') {
+            if (mem) return { status: 'joined', side: mem.side, nick: mem.nick, test: Boolean(me.test) };
+            const side = me.test ? null : voted();
+            return { status: !side && !me.test ? 'pick' : 'nick', side, test: Boolean(me.test) };
+          }
+          if (name === 'ck_debate_join') {
+            if (!room || !room.is_current) return { status: 'closed' };
+            if (mem) return { status: 'ok', side: mem.side, nick: mem.nick };
+            const side = me.test ? (['pro', 'con'].includes(params.p_side) ? params.p_side : null) : voted();
+            if (!side) return { status: 'pick' };
+            const nick = String(params.p_nick || '').replace(/\s+/g, '');
+            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
+            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
+            if (members.some((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            members.push({ id: nextId(members), classroom: Number(classroom), case_no: no, side, sid, name: me.name, nick, joined_at: new Date().toISOString() });
+            write('debatemembers', members);
+            return { status: 'ok', side, nick };
+          }
+          if (!mem) return { status: 'join' };
+          if (name === 'ck_debate_post') {
+            if (!room || !room.is_current || !room.submissions_open) return { status: 'closed' };
+            const text = String(params.p_text || '').replace(/\s+/g, ' ').trim();
+            if (text.length < 2 || text.length > DEBATE.textMax) return { status: 'short' };
+            const mine = posts.filter((p) => String(p.classroom) === String(classroom) && p.case_no === no && p.sid === sid);
+            if (mine.some((p) => Date.now() - Date.parse(p.created_at) < DEBATE.gap)) return { status: 'wait' };
+            if (mine.length >= DEBATE.perPerson) return { status: 'too_many' };
+            const row = { id: nextId(posts), classroom: Number(classroom), case_no: no, side: mem.side, sid, nick: mem.nick, text, hidden: false, created_at: new Date().toISOString() };
+            posts.push(row);
+            write('debateposts', posts);
+            return { status: 'ok', id: row.id };
+          }
+          if (name === 'ck_debate_like') {
+            if (post.side !== mem.side) return { status: 'join' };
+            if (post.sid === sid) return { status: 'mine' };
+            const rest = likes.filter((l) => !(String(l.post_id) === String(post.id) && l.sid === sid));
+            if (params.p_like) rest.push({ post_id: post.id, sid, created_at: new Date().toISOString() });
+            write('debatelikes', rest);
+            const count = rest.filter((l) => String(l.post_id) === String(post.id)).length;
+            return { status: 'ok', likes: count, liked: Boolean(params.p_like) };
+          }
+          if (name === 'ck_debate_feed') {
+            const same = (m) => String(m.classroom) === String(classroom) && m.case_no === no;
+            return {
+              status: 'ok', side: mem.side, nick: mem.nick,
+              members: members.filter((m) => same(m) && m.side === mem.side).length,
+              others: members.filter((m) => same(m) && m.side !== mem.side).length,
+              posts: posts.filter((p) => same(p) && p.side === mem.side && !p.hidden).slice(-150)
+                .map((p) => ({ id: p.id, nick: p.nick, text: p.text, at: p.created_at, mine: p.sid === sid, likes: likeCount(p.id), liked: likes.some((l) => String(l.post_id) === String(p.id) && l.sid === sid) })),
+              top: ranked(classroom, no, mem.side).slice(0, DEBATE.top).map((m) => ({ nick: m.nick, likes: m.likes, me: m.sid === sid })),
+            };
+          }
+        }
+        // 期中考查作业打分（规则同 cloudbase-pg.sql 的 ck_save_exam_score）
+        if (name === 'ck_save_exam_score') {
+          teacherOnly();
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room || !/^exam\d{2}$/.test(room.chapter)) throw new Error('这不是期中考查作业的课堂');
+          const sid = sidKey(params.p_sid);
+          const score = params.p_score == null || params.p_score === '' ? null : Number(params.p_score);
+          if (score != null && !(score >= 0 && score <= 100 && Number.isInteger(score * 2))) throw new Error('得分应为 0—100（可到 0.5 分）');
+          const comment = String(params.p_comment || '').trim().slice(0, 1000) || null;
+          const rows = read('examscores');
+          const at = rows.findIndex((row) => String(row.classroom) === String(room.id) && row.sid === sid);
+          if (score == null && !comment) { if (at >= 0) rows.splice(at, 1); write('examscores', rows); return {}; }
+          const row = at >= 0 ? rows[at] : { id: nextId(rows), classroom: room.id, sid };
+          Object.assign(row, { name: String(params.p_name || '').trim().slice(0, 40) || row.name || null, score, comment, graded_at: new Date().toISOString() });
+          if (at < 0) rows.push(row);
+          write('examscores', rows);
+          return { ...row };
+        }
+        if (name === 'ck_decide_pin_request') {
+          teacherOnly();
+          const asks = read('pinreqs');
+          const ask = asks.find((row) => String(row.id) === String(params.p_id));
+          if (!ask) throw new Error('申请不存在');
+          const at = new Date().toISOString();
+          if (params.p_allow) {
+            const pins = read('pins');
+            let pin = pins.find((row) => String(row.class_id) === String(ask.class_id) && row.sid === ask.sid);
+            if (!pin) { pin = { class_id: ask.class_id, sid: ask.sid }; pins.push(pin); }
+            Object.assign(pin, { pin_hash: null, salt: null, fails: 0, locks: 0, locked_until: null, set_at: null, updated_at: at, reset_owner: ask.owner });
+            write('pins', pins);
+          }
+          Object.assign(ask, { status: params.p_allow ? 'approved' : 'rejected', decided_at: at });
+          write('pinreqs', asks);
+          secLog(params.p_allow ? 'pin_allow' : 'pin_deny', { course: ask.course, class_id: ask.class_id, sid: ask.sid, name: ask.name, owner: 'teacher' });
+          return params.p_allow ? 'approved' : 'rejected';
+        }
+        // 这堂课感觉怎么样（规则同 cloudbase-pg.sql 的 ck_set_mood / ck_my_mood / ck_mood_stats）：每人每个课堂每天一票，老师只看人数
+        if (name === 'ck_set_mood' || name === 'ck_my_mood') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          const day = today();
+          const rows = read('moods');
+          const mineAt = (row) => String(row.classroom) === String(params.p_classroom) && me && row.sid === sidKey(me.sid) && row.day === day;
+          if (name === 'ck_my_mood') { const row = rows.find(mineAt); return row ? row.mood : 0; }
+          if (!me) return { status: 'login' };
+          if (!read('classrooms').some((row) => String(row.id) === String(params.p_classroom) && row.is_current)) return { status: 'closed' };
+          const mood = Number(params.p_mood);
+          if (![-1, 0, 1].includes(mood)) throw new Error('请选择笑脸或不高兴的脸');
+          const rest = rows.filter((row) => !mineAt(row));
+          if (mood) rest.push({ classroom: Number(params.p_classroom), sid: sidKey(me.sid), day, mood, at: new Date().toISOString() });
+          write('moods', rest);
+          return { status: 'ok', mood };
+        }
+        if (name === 'ck_mood_stats') {
+          if (!localStorage.getItem(prefix + 'teacher')) return [];
+          const ids = new Set((params.p_classrooms || []).map(String));
+          const groups = new Map();
+          read('moods').filter((row) => ids.has(String(row.classroom))).forEach((row) => {
+            const key = `${row.classroom}|${row.day}`;
+            const item = groups.get(key) || { classroom: row.classroom, day: row.day, up: 0, down: 0 };
+            if (row.mood > 0) item.up += 1; else item.down += 1;
+            groups.set(key, item);
+          });
+          return Array.from(groups.values()).sort((a, b) => String(b.day).localeCompare(String(a.day)));
         }
         // 章节页核对本人是否已登录本课堂；每天第一次打开补记一次加入
         if (name === 'ck_checkin_today') {
@@ -851,6 +1106,7 @@
           all.push({ id: nextId(all), course: room.course, class_id: room.class_id, sid, name: me.name, unit: row.unit, item: row.item, day,
             answer: essay ? { text: String(params.p_text).slice(0, 6000) } : params.p_answer, correct, points, created_at: new Date().toISOString() });
           write('practice', all);
+          if (!essay && row.kind === 'review') return { status: 'ok' };   // 课后自修（出门测、温故）不给答案和对错（2026-10-28，同 ck_practice_answer）
           return essay ? { status: 'ok', reveal: row.reveal, points, reason, today: have + points, cap: PRACTICE.of(room.course).cap }
             : { status: 'ok', correct, answer: row.answer.ok, reveal: row.reveal, points, reason, wait, times: s.times + (points > 0 ? 1 : 0), most: limit, today: have + points, cap: PRACTICE.of(room.course).cap };
         }
@@ -885,7 +1141,7 @@
         const sameGroup = (row, course, classId) => row.course === course && String(row.class_id || '') === String(classId || '');
         if (name === 'ck_publish') {
           const rows = read('classrooms');
-          rows.forEach((row) => { if (sameGroup(row, params.p_course, params.p_class)) row.is_current = false; });
+          if (!params.p_keep) rows.forEach((row) => { if (sameGroup(row, params.p_course, params.p_class)) row.is_current = false; });
           const now = new Date().toISOString();
           const room = { id: Math.max(Date.now(), ...rows.map((row) => Number(row.id) + 1 || 0)), course: params.p_course, code: newCode(), name: String(params.p_name).trim(),
             chapter: params.p_chapter, case_no: Number(params.p_case) || null, is_current: true, submissions_open: true, danmaku: 'off', class_id: params.p_class || null, created_at: now, updated_at: now };
@@ -895,10 +1151,7 @@
         }
         if (name === 'ck_set_current') {
           return updateRoom(params.p_classroom, (room, rows) => {
-            if (params.p_current) {
-              rows.forEach((row) => { if (sameGroup(row, room.course, room.class_id)) row.is_current = false; });
-              room.submissions_open = true;
-            }
+            if (params.p_current) room.submissions_open = true;   // 2026-10-28 起一个班可以同时开放几个课堂，不再停止其他课堂
             room.is_current = Boolean(params.p_current);
           });
         }
@@ -929,6 +1182,39 @@
           if (list.length > 60 || list.some((u) => !/^(ch|case)\d{2}$/.test(u))) throw new Error('上课范围不正确');
           return updateClass(params.p_class, (row) => { row.units = list.length ? list : null; });
         }
+        // 课表、日程（规则同 cloudbase-pg.sql 的 ck_set_class_schedule / ck_save_teacher_setting / ck_save_event）
+        if (name === 'ck_set_class_schedule') {
+          teacherOnly();
+          const plan = params.p_schedule;
+          const slots = (plan && plan.slots) || [];
+          if (plan && (!Array.isArray(slots) || slots.length > 14 || JSON.stringify(plan).length > 4000
+            || slots.some((s) => !(s.day >= 1 && s.day <= 7) || !(s.from >= 1 && s.from <= 16) || !(s.to >= s.from && s.to <= 16)))) throw new Error('上课安排不正确');
+          return updateClass(params.p_class, (row) => { row.schedule = slots.length ? plan : null; });
+        }
+        if (name === 'ck_save_teacher_setting') {
+          teacherOnly();
+          if (params.p_key !== 'planner' || !params.p_value) throw new Error('设置不正确');
+          const rows = read('teachersettings').filter((row) => row.key !== params.p_key);
+          rows.push({ key: params.p_key, value: params.p_value, updated_at: new Date().toISOString() });
+          write('teachersettings', rows);
+          return true;
+        }
+        if (name === 'ck_save_event') {
+          teacherOnly();
+          const title = String(params.p_title || '').trim();
+          const time = (value) => { const text = String(value || '').trim(); if (text && !/^[0-2]\d:[0-5]\d$/.test(text)) throw new Error('时间格式应为 08:00'); return text || null; };
+          if (!params.p_day || !title || title.length > 60) throw new Error('请填写日期和标题（60 字以内）');
+          const rows = read('events');
+          const now = new Date().toISOString();
+          const fields = { day: params.p_day, start_time: time(params.p_start), end_time: time(params.p_end), title, note: String(params.p_note || '').trim().slice(0, 500) || null,
+            color: params.p_color || null, done: Boolean(params.p_done), updated_at: now };
+          let row = params.p_id == null ? null : rows.find((item) => String(item.id) === String(params.p_id));
+          if (params.p_id != null && !row) throw new Error('这条安排已经不在了');
+          if (row) Object.assign(row, fields);
+          else { row = { id: nextId(rows), ...fields, created_at: now }; rows.push(row); }
+          write('events', rows);
+          return { ...row };
+        }
         if (name === 'ck_save_roster') {
           return updateClass(params.p_class, (row) => {
             const fresh = new Set((params.p_roster || []).map((person) => sidKey(person.sid)));
@@ -938,19 +1224,14 @@
           });
         }
         if (name === 'ck_move_classroom') {
-          return updateRoom(params.p_classroom, (room, rows) => {
-            if (room.is_current && rows.some((row) => row.id !== room.id && row.is_current && sameGroup(row, room.course, params.p_class))) {
-              throw new Error('目标班级已有当前课堂，请先停止其中一个');
-            }
-            room.class_id = params.p_class;
-          });
+          return updateRoom(params.p_classroom, (room) => { room.class_id = params.p_class; });
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
-          ['pins', 'devices', 'requests', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
+          ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
           return ids.length;
         }
         if (name === 'ck_set_open') return updateRoom(params.p_classroom, (room) => { room.submissions_open = Boolean(params.p_open); });
@@ -1186,6 +1467,136 @@
     };
   }
 
+  // ---------- 导出 Word（.docx）与 Excel（.xlsx）：期中考查作业（2026-10-28）用，浏览器里直接生成，不经第三方 ----------
+  // Word 按课程的中文文档规范：A4、1 英寸页边距、1.5 倍行距、正文两端对齐首行缩进 2 字；汉字宋体（标题黑体）、英文数字 Times New Roman；
+  // 直引号按段落奇偶换成弯引号，弯引号拆成独立的 run、四个字体槽都设宋体
+  const office = (() => {
+    const CRC = (() => { const t = new Uint32Array(256); for (let n = 0; n < 256; n += 1) { let c = n; for (let k = 0; k < 8; k += 1) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; t[n] = c >>> 0; } return t; })();
+    const crc32 = (bytes) => { let c = 0xFFFFFFFF; for (let i = 0; i < bytes.length; i += 1) c = CRC[(c ^ bytes[i]) & 0xFF] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+    // 只存不压缩的 zip（docx、xlsx 都是 zip 包）
+    function zip(files, type) {
+      const enc = new TextEncoder();
+      const parts = [];
+      const central = [];
+      let offset = 0;
+      files.forEach(([name, text]) => {
+        const nameBytes = enc.encode(name);
+        const bytes = enc.encode(text);
+        const crc = crc32(bytes);
+        const head = new DataView(new ArrayBuffer(30));
+        [[0, 0x04034b50, 4], [4, 20, 2], [6, 0x0800, 2], [8, 0, 2], [10, 0, 2], [12, 0x21, 2], [14, crc, 4], [18, bytes.length, 4], [22, bytes.length, 4], [26, nameBytes.length, 2], [28, 0, 2]]
+          .forEach(([at, value, size]) => (size === 4 ? head.setUint32(at, value, true) : head.setUint16(at, value, true)));
+        parts.push(new Uint8Array(head.buffer), nameBytes, bytes);
+        const cen = new DataView(new ArrayBuffer(46));
+        [[0, 0x02014b50, 4], [4, 20, 2], [6, 20, 2], [8, 0x0800, 2], [10, 0, 2], [12, 0, 2], [14, 0x21, 2], [16, crc, 4], [20, bytes.length, 4], [24, bytes.length, 4],
+          [28, nameBytes.length, 2], [30, 0, 2], [32, 0, 2], [34, 0, 2], [36, 0, 2], [38, 0, 4], [42, offset, 4]]
+          .forEach(([at, value, size]) => (size === 4 ? cen.setUint32(at, value, true) : cen.setUint16(at, value, true)));
+        central.push(new Uint8Array(cen.buffer), nameBytes);
+        offset += 30 + nameBytes.length + bytes.length;
+      });
+      const size = central.reduce((sum, chunk) => sum + chunk.length, 0);
+      const end = new DataView(new ArrayBuffer(22));
+      end.setUint32(0, 0x06054b50, true);
+      end.setUint16(8, files.length, true);
+      end.setUint16(10, files.length, true);
+      end.setUint32(12, size, true);
+      end.setUint32(16, offset, true);
+      return new Blob([...parts, ...central, new Uint8Array(end.buffer)], { type });
+    }
+    const xml = (value) => String(value == null ? '' : value).replace(/[\u0000-\u0008\u000B\u000C\u000E-\u001F]/g, '')
+      .replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    // 直引号 → 弯引号（按段落奇偶交替）；英文单词中间的撇号用右单引号
+    const curly = (text) => {
+      let dq = 0;
+      let sq = 0;
+      return String(text == null ? '' : text).replace(/"/g, () => (dq++ % 2 ? '”' : '“'))
+        .replace(/(^|.)'(?=(.|$))/gs, (all, before, after) => (/[A-Za-z]/.test(before) && /[A-Za-z]/.test(after) ? `${before}’` : `${before}${sq++ % 2 ? '’' : '‘'}`));
+    };
+    const fonts = (east) => `<w:rFonts w:ascii="Times New Roman" w:hAnsi="${east}" w:eastAsia="${east}" w:cs="Times New Roman"/>`;
+    const SONG_ALL = '<w:rFonts w:ascii="宋体" w:hAnsi="宋体" w:eastAsia="宋体" w:cs="宋体"/>';
+    function runs(text, { bold = false, size = 24, east = '宋体', color = '' } = {}) {
+      const props = (font) => `<w:rPr>${font}${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`;
+      return curly(text).split(/([“”‘’])/).filter(Boolean).map((part) => (/^[“”‘’]$/.test(part)
+        ? `<w:r>${props(SONG_ALL)}<w:t xml:space="preserve">${xml(part)}</w:t></w:r>`
+        : `<w:r>${props(fonts(east))}<w:t xml:space="preserve">${xml(part)}</w:t></w:r>`)).join('');
+    }
+    // 段落：kind = title 标题（黑体居中）/ subtitle 副标题（楷体居中）/ h 小标题（黑体）/ body 正文（首行缩进）/ plain 不缩进 / note 小字
+    function para(content, kind = 'body', opts = {}) {
+      const spec = {
+        title: { jc: 'center', east: '黑体', size: 36, bold: true, after: 120 },
+        subtitle: { jc: 'center', east: '楷体', size: 24, after: 240 },
+        h: { jc: 'left', east: '黑体', size: 28, bold: true, before: 240, after: 120, keep: true },
+        body: { jc: 'both', east: '宋体', size: 24, indent: true },
+        plain: { jc: 'both', east: '宋体', size: 24 },
+        note: { jc: 'both', east: '宋体', size: 21, color: '595959' },
+      }[kind];
+      const parts = Array.isArray(content) ? content : [content];
+      const body = parts.map((part) => (typeof part === 'string' ? runs(part, spec) : runs(part.text, { ...spec, ...part }))).join('');
+      return `<w:p><w:pPr>${spec.keep ? '<w:keepNext/>' : ''}${opts.pageBreak ? '<w:pageBreakBefore/>' : ''}<w:spacing w:before="${spec.before || 0}" w:after="${spec.after || 0}" w:line="360" w:lineRule="auto"/>`
+        + `${spec.indent ? '<w:ind w:firstLine="480"/>' : ''}<w:jc w:val="${spec.jc}"/></w:pPr>${body}</w:p>`;
+    }
+    // 表格：rows 第一行可设 head；widths 以 DXA 计（A4 版心约 9026）
+    function table(rows, widths, { head = true } = {}) {
+      const total = widths.reduce((sum, w) => sum + w, 0);
+      const border = '<w:tblBorders>' + ['top', 'left', 'bottom', 'right', 'insideH', 'insideV'].map((edge) => `<w:${edge} w:val="single" w:sz="4" w:space="0" w:color="808080"/>`).join('') + '</w:tblBorders>';
+      return `<w:tbl><w:tblPr><w:tblW w:w="${total}" w:type="dxa"/><w:jc w:val="center"/>${border}<w:tblLayout w:type="fixed"/><w:tblCellMar><w:left w:w="80" w:type="dxa"/><w:right w:w="80" w:type="dxa"/></w:tblCellMar></w:tblPr>`
+        + `<w:tblGrid>${widths.map((w) => `<w:gridCol w:w="${w}"/>`).join('')}</w:tblGrid>`
+        + rows.map((row, r) => `<w:tr>${row.map((cell, c) => {
+          const bold = head && r === 0;
+          const lines = String(cell == null ? '' : cell).split('\n');
+          return `<w:tc><w:tcPr><w:tcW w:w="${widths[c]}" w:type="dxa"/>${bold ? '<w:shd w:val="clear" w:color="auto" w:fill="EEF3F1"/>' : ''}<w:vAlign w:val="center"/></w:tcPr>`
+            + lines.map((line) => `<w:p><w:pPr><w:spacing w:before="40" w:after="40" w:line="300" w:lineRule="auto"/><w:jc w:val="${bold ? 'center' : 'left'}"/></w:pPr>${runs(line, { bold, size: 21, east: bold ? '黑体' : '宋体' })}</w:p>`).join('')
+            + '</w:tc>';
+        }).join('')}</w:tr>`).join('') + '</w:tbl>' + para('', 'plain');
+    }
+    // opts.landscape：A4 横向（课表）
+    function docx(bodyXml, opts = {}) {
+      const W = 'xmlns:w="http://schemas.openxmlformats.org/wordprocessingml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"';
+      return zip([
+        ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/word/document.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.document.main+xml"/><Override PartName="/word/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.wordprocessingml.styles+xml"/></Types>'],
+        ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="word/document.xml"/></Relationships>'],
+        ['word/_rels/document.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+        ['word/styles.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:styles ${W}><w:docDefaults><w:rPrDefault><w:rPr>${fonts('宋体')}<w:sz w:val="24"/><w:szCs w:val="24"/><w:lang w:val="en-US" w:eastAsia="zh-CN"/></w:rPr></w:rPrDefault><w:pPrDefault><w:pPr><w:spacing w:after="0" w:line="360" w:lineRule="auto"/></w:pPr></w:pPrDefault></w:docDefaults><w:style w:type="paragraph" w:default="1" w:styleId="Normal"><w:name w:val="Normal"/><w:qFormat/></w:style></w:styles>`],
+        ['word/document.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><w:document ${W}><w:body>${bodyXml}<w:sectPr>${opts.landscape ? '<w:pgSz w:w="16838" w:h="11906" w:orient="landscape"/>' : '<w:pgSz w:w="11906" w:h="16838"/>'}<w:pgMar w:top="1440" w:right="1440" w:bottom="1440" w:left="1440" w:header="851" w:footer="992" w:gutter="0"/></w:sectPr></w:body></w:document>`],
+      ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
+    }
+    // Excel：rows 第一行为表头（加粗）；数字写成数值，其余写成文本；widths 为列宽（字符数）
+    function xlsx(sheetName, rows, widths = []) {
+      const col = (index) => { let s = ''; let n = index + 1; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
+      const cell = (value, r, c) => {
+        const ref = `${col(c)}${r + 1}`;
+        const style = r === 0 ? ' s="1"' : '';
+        if (typeof value === 'number' && Number.isFinite(value)) return `<c r="${ref}"${style}><v>${value}</v></c>`;
+        if (value == null || value === '') return `<c r="${ref}"${style}/>`;
+        return `<c r="${ref}"${style} t="inlineStr"><is><t xml:space="preserve">${xml(value)}</t></is></c>`;
+      };
+      const sheet = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><worksheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main">'
+        + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
+        + (widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '')
+        + `<sheetData>${rows.map((row, r) => `<row r="${r + 1}">${row.map((value, c) => cell(value, r, c)).join('')}</row>`).join('')}</sheetData></worksheet>`;
+      return zip([
+        ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
+        ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+        ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(String(sheetName).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
+        ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
+        ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font><font><b/><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+        ['xl/worksheets/sheet1.xml', sheet],
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+    // 保存到本机（下载）
+    function save(blob, name) {
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = name;
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      setTimeout(() => URL.revokeObjectURL(url), 4000);
+    }
+    return { docx, xlsx, para, table, save, curly, runs, xml };
+  })();
+
   window.ClassLive = window.ClassLive || {};
   Object.assign(window.ClassLive, {
     attached: false,
@@ -1200,8 +1611,10 @@
     WORDGAME,
     PUZZLE,
     PK,
+    DEBATE,
     PRACTICE,
     LEAVE,
+    office,
     realmOf,
     isClosedError,
     isDuplicateError,
@@ -1215,12 +1628,16 @@
       if (config.provider === 'mock') return mockProvider(config);
       throw new Error('未知的课堂后台：' + config.provider);
     },
-    // 投屏页选当前课堂：一门课的几个班级可能同时有当前课堂。优先老师在工作台选的班级（地址 ?class= 或本机记住的），
-    // 再优先与本页章节（案例）相同的；都对不上时取第一个（页面会提示“不是本章”）
+    // 投屏页选当前课堂：一门课的几个班级可能同时有当前课堂，2026-10-28 起一个班也可以同时开放几个课堂。
+    // 工作台“打开本章课堂完整版”的地址带 ?room=（开放中就用它）；否则优先老师在工作台选的班级（地址 ?class= 或本机记住的），
+    // 再优先与本页章节（案例）相同的、最近发布的；都对不上时取最近发布的（页面会提示“不是本章”）
     pickRoom(rooms, course, unit) {
-      const current = rooms.filter((row) => row.is_current);
+      const current = rooms.filter((row) => row.is_current).sort((a, b) => Number(b.id) - Number(a.id));
       if (!current.length) return null;
-      let wanted = new URLSearchParams(location.search).get('class');
+      const params = new URLSearchParams(location.search);
+      const exact = params.get('room') && current.find((row) => String(row.id) === params.get('room'));
+      if (exact) return exact;
+      let wanted = params.get('class');
       if (!wanted) { try { wanted = localStorage.getItem(`teacher:class:${course}`); } catch (error) { wanted = null; } }
       const mine = wanted ? current.filter((row) => String(row.class_id || '') === String(wanted)) : [];
       const pool = mine.length ? mine : current;

@@ -52,10 +52,14 @@
   const $ = (selector, root = document) => root.querySelector(selector);
   const $$ = (selector, root = document) => Array.from(root.querySelectorAll(selector));
   const OFFLINE_STORE = 'classlive-offline-student';
+  const unit = config.unit || Live.unitOf();
+  // 课堂身份：本机最近一次登录的（STORE）；2026-10-28 起一个班可以同时开放几个课堂，首页登录时还按章节（案例）各记一份（STORE:课程:章节），
+  // 最近一次登录的不是这一页时，用这一页自己的那份，学生在两个开放的课堂之间切换不必每次重新登录
+  const lastIdentity = OFFLINE || PREVIEW ? {} : load(STORE, {});
+  const unitIdentity = OFFLINE || PREVIEW ? null : load(`${STORE}:${config.course}:${unit}`, null);
   const identity = OFFLINE ? load(OFFLINE_STORE, {})
     : PREVIEW ? { name: '王不凡', sid: 'WBF0001', class_name: '教师测试', group_name: '', classroom: previewRoom, course: config.course, chapter: config.unit || Live.unitOf(), code: '' }
-      : load(STORE, {});
-  const unit = config.unit || Live.unitOf();
+      : (lastIdentity.course === config.course && lastIdentity.chapter === unit) || !(unitIdentity && unitIdentity.classroom) ? lastIdentity : unitIdentity;
   const worksheet = config.kind === 'concept-html';
   // 用历史课堂码进来“只查看”的（live-join.js 记下）：比本机保存的课堂身份新，就按只查看处理（2026-10-23；习经同一章两个案例分开上时，
   // 本周课堂是案例 03、又用上周案例 02 的码回看，就会遇到）
@@ -278,6 +282,52 @@
   .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
   .clp-fb-state[data-state="ok"] { color: #23655f; font-weight: 700; }
   .clp-fb-state[data-state="error"] { color: #a4492d; font-weight: 700; }
+  .clp-mood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px dashed rgba(35,101,95,.35); }
+  .clp-mood-q { font-weight: 800; color: #23655f; }
+  .clp-mood button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 999px; background: #fff; color: #201c18; font: 700 14px/1.2 inherit; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; }
+  .clp-mood button i { font-style: normal; font-size: 22px; line-height: 1; }
+  .clp-mood button:hover:not([disabled]) { transform: translateY(-1px); border-color: #23655f; }
+  .clp-mood button[aria-pressed="true"][data-mood="1"] { border-color: #2f9e62; background: #e8f7ee; color: #1d6a40; }
+  .clp-mood button[aria-pressed="true"][data-mood="-1"] { border-color: #c0703f; background: #fbeee4; color: #8a3f17; }
+  .clp-mood button[disabled] { opacity: .55; cursor: default; }
+  .clp-mood-state { flex: 1 1 100%; color: #6d6259; font-size: 12.5px; }
+  .clp-mood[hidden] { display: none; }
+  /* 辩论聊天室（2026-10-28） */
+  .dbr-note, .dbr-empty { margin: 0; padding: 12px 16px; border-radius: 10px; background: #f6f1e7; color: #6d6259; font-size: 15px; }
+  .dbr-join { padding: 16px 18px; border-radius: 12px; border: 1.5px solid rgba(35,101,95,.35); background: #f2f8f6; }
+  .dbr-join.is-con { border-color: rgba(164,73,45,.4); background: #fbf2ed; }
+  .dbr-lead { margin: 0 0 10px; font-size: 16px; } .dbr-lead b { color: #23655f; } .dbr-join.is-con .dbr-lead b { color: #a4492d; }
+  .dbr-sides { display: flex; gap: 8px; margin: 0 0 10px; }
+  .dbr-sides button { padding: 6px 16px; border: 1.5px solid rgba(70,51,34,.25); border-radius: 999px; background: #fff; font: 700 14px/1.2 inherit; cursor: pointer; }
+  .dbr-sides button[aria-pressed="true"] { border-color: #23655f; background: #23655f; color: #fff; }
+  .dbr-sides button[data-dbr-side="con"][aria-pressed="true"] { border-color: #a4492d; background: #a4492d; }
+  .dbr-nick, .dbr-form { display: flex; gap: 8px; }
+  .dbr-nick input, .dbr-form input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font: 16px/1.4 inherit; }
+  .dbr-nick button, .dbr-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font: 800 15px/1 inherit; cursor: pointer; }
+  .is-con .dbr-nick button, .dbr-room.is-con .dbr-form button { background: #a4492d; }
+  .dbr-nick button[disabled], .dbr-form button[disabled] { opacity: .55; cursor: default; }
+  .dbr-hint { margin: 8px 0 0; color: #6d6259; font-size: 13px; }
+  .dbr-state { margin: 6px 0 0; min-height: 1em; color: #6d6259; font-size: 13.5px; } .dbr-state[data-state="error"] { color: #a4492d; font-weight: 700; }
+  .dbr-room { border-radius: 14px; border: 1.5px solid rgba(35,101,95,.4); background: #fbfdfc; overflow: hidden; }
+  .dbr-room.is-con { border-color: rgba(164,73,45,.45); background: #fffbf8; }
+  .dbr-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: #23655f; color: #fff; }
+  .dbr-room.is-con .dbr-head { background: #a4492d; }
+  .dbr-head b { font-size: 17px; letter-spacing: .06em; } .dbr-head span { font-size: 13px; opacity: .9; }
+  .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px; background: rgba(232,196,106,.18); font-size: 13.5px; }
+  .dbr-top > span { font-weight: 800; color: #8a5a1a; }
+  .dbr-top ol { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: dbr; }
+  .dbr-top li { counter-increment: dbr; padding: 2px 10px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,90,26,.25); }
+  .dbr-top li::before { content: counter(dbr) " "; font-weight: 800; color: #b8862b; }
+  .dbr-top li.is-me { border-color: #b8862b; font-weight: 800; } .dbr-top em { margin-left: 4px; font-style: normal; color: #c0392b; }
+  .dbr-list { max-height: 360px; overflow-y: auto; padding: 12px 16px; display: grid; gap: 10px; }
+  .dbr-msg { position: relative; padding: 9px 56px 9px 12px; border-radius: 10px; background: #fff; border: 1px solid rgba(70,51,34,.12); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .dbr-msg.is-mine { background: #eef6f3; } .dbr-room.is-con .dbr-msg.is-mine { background: #fbeee6; }
+  .dbr-who { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: #6d6259; } .dbr-who b { color: #201c18; font-size: 14px; }
+  .dbr-msg p { margin: 3px 0 0; font-size: 15.5px; line-height: 1.6; word-break: break-word; }
+  .dbr-like { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 4px 9px; border: 1px solid rgba(192,57,43,.3); border-radius: 999px; background: #fff; color: #c0392b; font: 700 13px/1 inherit; cursor: pointer; }
+  .dbr-like em { font-style: normal; } .dbr-like[aria-pressed="true"] { background: #c0392b; color: #fff; border-color: #c0392b; }
+  .dbr-like[disabled] { opacity: .45; cursor: default; }
+  .dbr-room .dbr-form { padding: 10px 16px 0; } .dbr-room .dbr-state { padding: 0 16px 10px; }
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
@@ -683,6 +733,10 @@
       card.className = 'clp-fb';
       card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
         <h4>${FB.title}</h4>
+        <div class="clp-mood" role="group" aria-label="上完这堂课的感觉"><span class="clp-mood-q">上完这堂课，你感觉怎么样？</span>
+          <button type="button" data-mood="1" aria-pressed="false" disabled><i aria-hidden="true">😊</i>开心</button>
+          <button type="button" data-mood="-1" aria-pressed="false" disabled><i aria-hidden="true">☹️</i>不开心</button>
+          <small class="clp-mood-state" role="status">点一下就行，每天可以改；老师只看到各有多少人，看不到是谁选的。</small></div>
         <p class="clp-fb-hint">${FB.hint}<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到内容和提交日期。</p>
         <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="${FB.placeholder}" aria-label="${FB.aria}" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
@@ -839,12 +893,14 @@
     const value = await backend.rpc(name, { p_classroom: Number(identity.classroom) || identity.classroom, p_unit: unit, ...params });
     return (Array.isArray(value) ? value[0] : value) || {};
   }
-  function xlSay(host, res, fallback) {
+  // blind：出门测、温故（2026-10-28 起课后自修不给答案，后台只回答“记下了”，不说对错和得分）
+  function xlSay(host, res, fallback, blind) {
     const P = Live.PRACTICE || { of: () => ({ cap: 10 }) };
     let el = host.querySelector(':scope > .clp-xl-state');
     if (!el) { el = document.createElement('p'); el.className = 'clp-xl-state'; host.appendChild(el); }
     const why = { earned: '这一项以前已经得过修为。', today: '今天先答错过：隔天在修炼场“回炉巩固”再答对才计修为。', cap: `今天的修炼修为已满 ${P.of(config.course).cap} 点，明天再来。` };
-    const text = res && res.status === 'ok' ? (res.points ? `+${res.points} 修为（今日 ${res.today}/${res.cap}）` : res.correct === false ? '没答对，这题不计修为。' : why[res.reason] || '已记录。')
+    const text = res && res.status === 'ok' && blind ? '已记下。答案在下一次课讲评，答对的计入修为。'
+      : res && res.status === 'ok' ? (res.points ? `+${res.points} 修为（今日 ${res.today}/${res.cap}）` : res.correct === false ? '没答对，这题不计修为。' : why[res.reason] || '已记录。')
       : res && res.status === 'short' ? `还没写满 ${res.min} 个字，写满再递交才计修为。`
         : res && res.status === 'closed' ? '本单元还没有上课，暂不计修为。' : fallback || '暂时没能记上修为，请稍后再试。';
     el.textContent = text;
@@ -854,17 +910,16 @@
     return (problem) => xlSay(host, null, /PGRST202|42883|Could not find the function/.test(String((problem && problem.message) || problem))
       ? '课后自修计分还没有开通（老师后台尚未更新）。' : '网络不通，没能记上修为，请稍后再试。');
   }
-  // 课后自修里的出门测、课后思考（2026-10-23 起）：照常逐题递交给老师（作业记录、工作台和投屏统计照旧；结算课堂修为时不再算这两类），
-  // 递交锁定后再交修炼场后台计修为——出门测每题第一次作答答对 +2，课后思考写满 100 字 +5（测试页也计，记在王不凡名下、不计入班级）；
-  // 本机记下已计过的，10-23 以前递交、还没计过的进入课堂后补计一次
+  // 课后自修里的出门测（2026-10-23 起）：照常逐题递交给老师（作业记录、工作台和投屏统计照旧；结算课堂修为时不再算），
+  // 递交锁定后再交修炼场后台计修为——每题第一次作答答对 +2（测试页也计，记在王不凡名下、不计入班级）；
+  // 本机记下已计过的，10-23 以前递交、还没计过的进入课堂后补计一次。课后思考（原 +5）2026-10-28 起改为期中考查作业，不计修为
   function xlFlag(key) { return `classlive-xl-award:${config.course}:${unit}:${key}`; }
   function xlAward(key, value, host, quiet) {
     const exit = /^exit\.(\d+)$/.exec(key);
-    const [name, params] = exit ? ['ck_practice_answer', { p_item: `exit${Number(exit[1]) + 1}`, p_answer: value }]
-      : ['ck_practice_essay', { p_item: 'essay', p_text: String(value || '') }];
-    xlCall(name, params).then((res) => {
+    if (!exit) return;
+    xlCall('ck_practice_answer', { p_item: `exit${Number(exit[1]) + 1}`, p_answer: value }).then((res) => {
       if (res.status === 'ok') save(xlFlag(key), 1);
-      if (!quiet || (res.status === 'ok' && res.points)) xlSay(host, res);
+      if (!quiet) xlSay(host, res, null, true);
     }).catch(quiet ? () => {} : xlFailed(host));
   }
   function setupSelfStudy() {
@@ -872,25 +927,25 @@
     if (!box) return;
     const call = xlCall, say = xlSay, failed = xlFailed;
     const sent = new Set();
-    // 主动回忆：写满 8 个字后点“翻开对照”即递交
+    // 主动回忆：写满 8 个字后点“写好了”即递交（2026-10-28 起不再翻开对照）
     box.querySelectorAll('[data-xl-recall]').forEach((li) => {
       const kid = li.dataset.xlRecall;
       const area = li.querySelector('textarea');
       li.querySelector('[data-xl-open]').addEventListener('click', () => {
         const text = (area.value || '').trim();
         if (sent.has(kid)) return;
-        if (text.replace(/\s/g, '').length < 8) { say(li, null, '先凭记忆写满 8 个字再翻开对照，才计修为。'); return; }
+        if (text.replace(/\s/g, '').length < 8) { say(li, null, '先凭记忆写满 8 个字再点“写好了”，才计修为。'); return; }
         sent.add(kid);
         call('ck_practice_essay', { p_item: `recall.${kid}`, p_text: text }).then((res) => say(li, res)).catch(failed(li));
       }, true);
     });
-    // 温故：第一次选择就递交（答对 +2；答错的隔天在修炼场回炉）
+    // 温故：第一次选择就递交（答对 +2）；2026-10-28 起不显示对错和答案，讲评在下一次课
     box.querySelectorAll('[data-xl-review]').forEach((li) => {
       const index = Number(li.dataset.xlReview);
       li.querySelectorAll('input[type=radio]').forEach((input) => input.addEventListener('change', () => {
         if (sent.has(`review${index}`)) return;
         sent.add(`review${index}`);
-        call('ck_practice_answer', { p_item: `review${index + 1}`, p_answer: Number(input.value) }).then((res) => say(li, res)).catch(failed(li));
+        call('ck_practice_answer', { p_item: `review${index + 1}`, p_answer: Number(input.value) }).then((res) => say(li, res, null, true)).catch(failed(li));
       }));
     });
     // 讲给别人听：加一个“递交”按钮（写满 30 字）
@@ -1230,6 +1285,7 @@
     if (elsewhere) bindLeave();
     setupMechDanmaku(false, viewed ? `${pastNote}这里不能发弹幕。` : elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
     setupFeedback(false, viewed ? `${pastNote}这里不能提交${FB.what}。` : elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
+    setupDebateRooms(false, viewed ? `${pastNote}聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，聊天室不能进入。' : '进入本周课堂后，递交辩前票就能进入本方聊天室。');
     return;
   }
 
@@ -1325,6 +1381,7 @@
   if (switchButton) switchButton.addEventListener('click', async () => {
     if (!window.confirm('注销登录后，要重新输入课堂码、姓名、学号和口令才能再进来。确定注销吗？')) return;
     save(STORE, { code: identity.code });
+    try { Object.keys(localStorage).filter((key) => key.startsWith(`${STORE}:`)).forEach((key) => localStorage.removeItem(key)); } catch (error) { /* 忽略 */ }
     try { if (backend.signOutStudent) await backend.signOutStudent(); } catch (error) { /* 忽略 */ }
     location.href = joinUrl();
   });
@@ -1545,6 +1602,186 @@
   });
   setupMechDanmaku(true);
   setupFeedback(true);
+  setupExamExport();
+  setupDebateRooms(true);
+
+  // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
+  // 大家不知道你是谁），然后大家可以在聊天室中发表自己的观点，其它同学可以点赞，每一方被点赞次数最多的三位同学上台辩论……”）：
+  // 习经“辩论赛”卡片里的 [data-debate-room]。立场取递交的辩前票（后台核对）；取昵称后进本方聊天室，只看得到本方发言；每 poll 毫秒刷新一次。
+  // 学生版测试页（王不凡）没有辩前票：取昵称时自己选一方。后台还没有这组函数（未执行 SQL）时显示说明
+  function setupDebateRooms(enabled, note) {
+    const boxes = $$('[data-debate-room]');
+    if (!boxes.length || OFFLINE) return;
+    if (!enabled) { boxes.forEach((box) => { box.innerHTML = `<p class="debate-room-off">${esc(note || '进入本周课堂后，递交辩前票就能进入本方聊天室。')}</p>`; }); return; }
+    const DB = Live.DEBATE || { points: 10, top: 3, nickMax: 10, textMax: 100, poll: 4000 };
+    const SIDE = { pro: '正方', con: '反方' };
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
+    boxes.forEach((box) => {
+      const no = box.dataset.case;
+      shield(box);
+      let mode = '';
+      let feedKey = '';
+      let timer = 0;
+      const say = (text, kind) => { const el = box.querySelector('[data-dbr-state]'); if (el) { el.textContent = text || ''; el.dataset.state = kind || ''; } };
+      const stop = () => { clearInterval(timer); timer = 0; };
+      async function refresh() {
+        let state;
+        try { state = await call('ck_debate_state', { p_classroom: roomId, p_case: no }); } catch (problem) {
+          console.warn('[辩论聊天室]', problem);
+          box.innerHTML = `<p class="debate-room-off">${missing(problem) ? '辩论聊天室还没有开通（老师后台尚未更新）。' : '聊天室暂时连不上，请稍后刷新页面。'}</p>`;
+          return;
+        }
+        if (state.status === 'login') { box.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再进聊天室。</p>'; return; }
+        if (state.status === 'pick') { showPick(); return; }
+        if (state.status === 'nick') { showNick(state); return; }
+        showRoom();
+      }
+      function showPick() {
+        if (mode === 'pick') return;
+        mode = 'pick';
+        stop();
+        box.innerHTML = '<p class="dbr-note">先在上面“① 选立场”选好并点“递交”：递交后自动带你进入本方聊天室。</p>';
+      }
+      function showNick(state) {
+        if (mode === 'nick') return;
+        mode = 'nick';
+        stop();
+        const pickSide = state.test ? '<div class="dbr-sides" role="group" aria-label="测试：选一方"><button type="button" data-dbr-side="pro" aria-pressed="true">正方</button><button type="button" data-dbr-side="con" aria-pressed="false">反方</button></div>' : '';
+        box.innerHTML = `<div class="dbr-join is-${esc(state.side || 'pro')}">
+          <p class="dbr-lead">${state.test ? '学生版测试页：先选一方，再取昵称进入聊天室（学生的立场取他们递交的辩前票）。' : `你站在<b>${SIDE[state.side]}</b>：取一个昵称，进入${SIDE[state.side]}聊天室。`}</p>${pickSide}
+          <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-dbr-state role="status"></p></div>`;
+        let side = state.side || 'pro';
+        box.querySelectorAll('[data-dbr-side]').forEach((button) => button.addEventListener('click', () => {
+          side = button.dataset.dbrSide;
+          box.querySelectorAll('[data-dbr-side]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
+          box.querySelector('.dbr-join').className = `dbr-join is-${side}`;
+        }));
+        box.querySelector('form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const input = box.querySelector('input');
+          const nick = input.value.replace(/\s+/g, '');
+          if (nick.length < 2) { say(`昵称至少 2 个字。`, 'error'); return; }
+          const button = box.querySelector('form button');
+          button.disabled = true;
+          try {
+            const res = await call('ck_debate_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_side: side });
+            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+              closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交辩前票，才能进入本方聊天室。', login: '请回首页用课堂码重新登录。' };
+            if (res.status === 'ok') { mode = ''; await refresh(); return; }
+            say(why[res.status] || '没有进去，请再试一次。', 'error');
+          } catch (problem) {
+            console.warn('[辩论聊天室]', problem);
+            say(missing(problem) ? '辩论聊天室还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      }
+      function showRoom() {
+        if (mode !== 'room') {
+          mode = 'room';
+          feedKey = '';
+          box.innerHTML = `<div class="dbr-room">
+            <header class="dbr-head"><b data-dbr-title></b><span data-dbr-meta></span></header>
+            <div class="dbr-top" data-dbr-top></div>
+            <div class="dbr-list" data-dbr-list aria-live="polite"></div>
+            <form class="dbr-form"><input type="text" maxlength="${DB.textMax}" placeholder="写下你的观点（最多 ${DB.textMax} 字），用上论据卡和本章理论" aria-label="聊天室发言" autocomplete="off"><button type="submit">发送</button></form>
+            <p class="dbr-state" data-dbr-state role="status"></p></div>`;
+          box.querySelector('form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = box.querySelector('.dbr-form input');
+            const text = input.value.trim();
+            if (text.length < 2) { say('写两个字以上再发送。', 'error'); return; }
+            const button = box.querySelector('.dbr-form button');
+            button.disabled = true;
+            try {
+              const res = await call('ck_debate_post', { p_classroom: roomId, p_case: no, p_text: text });
+              const why = { wait: '发得太快了，等几秒再发。', too_many: '每人最多发 30 条，把机会留给别人吧。', closed: '老师已结束提交，聊天室不能再发言。', short: `发言要 2—${DB.textMax} 个字。`, join: '请先取昵称进入聊天室。' };
+              if (res.status === 'ok') { input.value = ''; say(''); await loadFeed(true); } else say(why[res.status] || '没有发出去，请再试一次。', 'error');
+            } catch (problem) {
+              console.warn('[辩论聊天室]', problem);
+              say('网络不通，没有发出去，请稍后再试。', 'error');
+            } finally {
+              button.disabled = false;
+            }
+          });
+          box.querySelector('[data-dbr-list]').addEventListener('click', async (event) => {
+            const like = event.target.closest('[data-dbr-like]');
+            if (!like || like.disabled) return;
+            const on = like.getAttribute('aria-pressed') !== 'true';
+            like.disabled = true;
+            try {
+              const res = await call('ck_debate_like', { p_post: Number(like.dataset.dbrLike) || like.dataset.dbrLike, p_like: on });
+              if (res.status === 'ok') { like.setAttribute('aria-pressed', String(Boolean(res.liked))); like.querySelector('em').textContent = res.likes; }
+              else if (res.status === 'mine') say('不能给自己的发言点赞。');
+              await loadFeed(true);
+            } catch (problem) { console.warn('[辩论聊天室]', problem); } finally { like.disabled = false; }
+          });
+        }
+        loadFeed(true);
+        stop();
+        timer = setInterval(() => { if (!document.hidden && box.isConnected && !box.closest('[hidden]')) loadFeed(false); }, DB.poll);
+      }
+      async function loadFeed(force) {
+        let feed;
+        try { feed = await call('ck_debate_feed', { p_classroom: roomId, p_case: no }); } catch (problem) { console.warn('[辩论聊天室]', problem); return; }
+        if (feed.status !== 'ok') { mode = ''; refresh(); return; }
+        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), feed.top, feed.members, feed.others]);
+        if (!force && key === feedKey) return;
+        feedKey = key;
+        const room = box.querySelector('.dbr-room');
+        room.className = `dbr-room is-${feed.side}`;
+        box.querySelector('[data-dbr-title]').textContent = `${SIDE[feed.side]}聊天室`;
+        box.querySelector('[data-dbr-meta]').textContent = `我的昵称：${feed.nick} · 本方 ${feed.members} 人 · 对方 ${feed.others} 人`;
+        box.querySelector('[data-dbr-top]').innerHTML = `<span>本方点赞前 ${DB.top}（将上台辩论）</span>${feed.top.length
+          ? `<ol>${feed.top.map((t) => `<li class="${t.me ? 'is-me' : ''}">${esc(t.nick)}<em>♥ ${t.likes}</em></li>`).join('')}</ol>` : '<small>还没有人发言，第一个说说你的观点吧。</small>'}`;
+        const list = box.querySelector('[data-dbr-list]');
+        const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+        const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}"><div class="dbr-who"><b>${esc(p.nick)}</b><time>${esc(clock(p.at))}</time></div>
+          <p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div>`).join('')
+          || '<p class="dbr-empty">还没有发言。说说你为什么支持本方：用上一条案例事实或本章的一个理论要点。</p>';
+        if (atBottom || force) list.scrollTop = list.scrollHeight;
+      }
+      refresh();
+      // 递交辩前票后自动进聊天室
+      document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; refresh(); } });
+    });
+  }
+
+  // 期中考查作业（2026-10-28）：学生一键导出自己的作业（Word，含姓名、学号、班级、递交时间），草稿也能导出备份
+  function setupExamExport() {
+    const area = $('textarea[data-cl-text="exam"]');
+    const O = Live.office;
+    if (!area || !O) return;
+    const box = area.closest('.cl-essay') || area.parentElement;
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'clp-xl-send';
+    button.textContent = '导出 Word（含姓名、学号）';
+    shield(button);
+    box.appendChild(button);
+    button.addEventListener('click', () => {
+      const entry = locked.exam;
+      const text = (entry && entry.v) || area.value || '';
+      const words = String(text).replace(/\s/g, '').length;
+      const title = textOf($('#start h2')) || '期中考查作业';
+      const reqs = $$('.cl-essay-req li', box).map(textOf);
+      const status = entry ? (entry.other ? '已在其他设备递交（以第一次为准）' : `已递交 ${entry.iso ? new Date(entry.iso).toLocaleString('zh-CN', { hour12: false }) : entry.at || ''}`) : '未递交（草稿）';
+      const body = O.para('政治经济学 · 期中考查作业', 'title') + O.para(title, 'subtitle')
+        + O.table([['姓名', identity.name || '', '学号', String(identity.sid || '')], ['班级', identity.class_name || '', '课堂', identity.classroom_name || ''],
+          ['状态', status, '字数', `${words} 字`]], [1500, 3013, 1500, 3013], { head: false })
+        + O.para('题目', 'h') + O.para(textOf(box.querySelector('.cl-essay-q')), 'body')
+        + (reqs.length ? O.para('作答要求', 'h') + reqs.map((line, i) => O.para(`${i + 1}. ${line}`, 'plain')).join('') : '')
+        + O.para('作答', 'h') + (String(text).split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('') || O.para('（还没有写）', 'note'));
+      const safe = (value) => String(value || '').replace(/[\\/:*?"<>|\s]+/g, '_');
+      O.save(O.docx(body), `期中考查作业_${safe(identity.sid)}_${safe(identity.name)}.docx`);
+    });
+  }
 
   // 每次打开本章页面都向后台核对：这台设备是否已经过首页核对（课堂码＋点名册＋口令）登录本课堂；没有就提示回首页重新登录。
   // 同一课堂分几次课上时，后台在每天第一次打开时补记一次登录，老师可按日期看每次到课
@@ -1866,6 +2103,7 @@
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
+        ${config.course === 'xjp-economy' ? `<li>辩论赛：本方聊天室里点赞最多的三位同学上台辩论，全班投票获胜的一方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。</li>` : ''}
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>情境猜谜抢答：老师出题后，在面板最上方“情境猜谜抢答”里输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
@@ -1965,15 +2203,27 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261023-selfstudy' : '20261023-xjp-cases';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = '10 月 9 日—10 月 23 日';
+  const NEWS_ID = config.course === 'political-economy' ? '20261028-exam' : '20261028-debate';   // 两门课各自有新内容时才改自己的
+  const NEWS_RANGE = '10 月 9 日—10 月 28 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 21—23 日）', items: [
+      { title: '最新（10 月 28 日）', items: [
+        ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
+        ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
+        ...(config.course === 'xjp-economy' ? [
+          ['辩论聊天室', `辩论赛改版：投辩前票选好立场后，取一个昵称就进入本方聊天室（同学看不到你是谁，老师能看到，请文明发言），发表观点、给本方好观点点赞；每方点赞最多的三位同学上台辩论，全班投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
+        ] : []),
+        ...(config.course === 'political-economy' ? [
+          ['期中考查作业', '案例页“课后自修”里的课后思考（申论式大题）取消，改为老师另行发布的“期中考查作业”：老师公布课堂码后，在首页用它登录进入，读给定资料（题目出自的案例全部材料），写好后递交，总分 100 分，由老师批阅。'],
+          ['课后自修不给答案', '课后自修（出门测、主动回忆、温故、讲给别人听）不再显示答案、解析和对错，讲评在下一次课；答对的照常计入修为。主动回忆改为写好后点“写好了”。'],
+        ] : []),
+        ['登录', '学号不在本班点名册上时，登录页会提示核对姓名和学号（多半是填错了），不再自动向老师申请；确实不在本班名单上的同学（如重修、跨班旁听）点“申请加入本班”。换了手机或电脑又忘记口令，可以在输口令的地方点“忘记口令”向老师申请重设，老师同意后在这台设备上设新口令。'],
+      ] },
+      { title: '10 月 21—23 日', items: [
         ['修炼场多攒修为', `修炼场每天最多 ${(Live.PRACTICE || {}).of ? Live.PRACTICE.of(config.course).cap : 10} 修为（原来${config.course === 'political-economy' ? ' 10' : ' 3'}）；答对过的题隔 ${(Live.PRACTICE || {}).gap || 3} 天以上再答对，还能再得一次（“回炉巩固”里会出现到期的题）。境界按全学期满分算，平时天天练的同学能更早冲上「化神」。`],
         ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、回炉巩固（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
@@ -2227,11 +2477,61 @@
     }
   });
 
+  // 这堂课感觉怎么样（2026-10-28 用户：“意见提问箱旁边可以再设置一个笑脸或者不高兴脸的功能，让大家评判上完这节课的感觉怎么样”）：
+  //   建议箱里的一行笑脸 / 不高兴的脸，每人每个课堂每天一票（ck_set_mood，按学号记，换设备也是同一票），再点一次已选的＝撤回；
+  //   老师在工作台“匿名建议”里只看到人数（ck_mood_stats）。后台还没有这组函数（未执行 SQL）时整行隐藏
+  function setupMood(enabled) {
+    const rows = fbCards.map(({ card }) => card.querySelector('.clp-mood')).filter(Boolean);
+    if (!rows.length) return;
+    const buttons = rows.flatMap((row) => Array.from(row.querySelectorAll('[data-mood]')));
+    const say = (text) => rows.forEach((row) => { row.querySelector('.clp-mood-state').textContent = text; });
+    let mine = 0;
+    const show = () => buttons.forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.mood) === mine)));
+    if (!enabled) { say('进入本周课堂后可以选（历史课堂、别的课堂不能选）。'); return; }
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    if (!PREVIEW) {
+      backend.rpc('ck_my_mood', { p_classroom: Number(identity.classroom) || identity.classroom })
+        .then((value) => { mine = Number(Array.isArray(value) ? value[0] : value) || 0; show(); if (mine) say(mine > 0 ? '你今天选了“开心”，谢谢！还可以改。' : '你今天选了“不开心”。可以在下面写写哪里不满意，老师会改进。'); })
+        .catch((problem) => { if (missing(problem)) rows.forEach((row) => { row.hidden = true; }); });
+    }
+    let sending = false;
+    buttons.forEach((button) => {
+      button.disabled = false;
+      button.addEventListener('click', async () => {
+        if (sending) return;
+        const want = Number(button.dataset.mood) === mine ? 0 : Number(button.dataset.mood);
+        sending = true;
+        buttons.forEach((item) => { item.disabled = true; });
+        try {
+          if (!PREVIEW) {
+            let result = await backend.rpc('ck_set_mood', { p_classroom: Number(identity.classroom) || identity.classroom, p_mood: want });
+            if (Array.isArray(result)) result = result[0];
+            if (result && result.status === 'login') { say('没有记上：请回到首页用课堂码重新登录后再选。'); return; }
+            if (result && result.status === 'closed') { say('这个课堂已经停止，不能再选了。'); return; }
+          }
+          mine = want;
+          show();
+          say(PREVIEW ? '测试页：只在本机显示，不会真的提交。'
+            : mine > 0 ? '已记下“开心”，谢谢！今天之内还可以改。'
+              : mine < 0 ? '已记下“不开心”。可以在下面写写哪里不满意、希望怎么改，老师会看到。'
+                : '已撤回，今天之内还可以重新选。');
+        } catch (problem) {
+          console.error(problem);
+          say(missing(problem) ? '这个功能还没有开通，请稍后再试。' : '没有记上：请检查网络后再试。');
+        } finally {
+          sending = false;
+          buttons.forEach((item) => { item.disabled = false; });
+        }
+      });
+    });
+  }
+
   // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数只核对进过本课堂，存下的行里没有提交者）
   function setupFeedback(enabled, note) {
+    setupMood(enabled);
     fbCards.forEach(({ card, caseNo }) => {
       const area = card.querySelector('textarea');
-      const button = card.querySelector('button');
+      const button = card.querySelector('.clp-fb-form button[type="submit"]');   // 卡片里第一个按钮是笑脸，不能用 querySelector('button')
       const count = card.querySelector('.clp-fb-count');
       const state = card.querySelector('.clp-fb-state');
       const say = (text, kind) => { state.textContent = text; state.dataset.state = kind || ''; };
@@ -2672,23 +2972,24 @@
         });
       }
     }
-    // 课后思考（申论式大题）：一篇短文，写好后递交
-    const essay = $('textarea[data-cl-text="essay"]');
-    if (essay) {
-      const box = essay.closest('[data-essay]');
+    // 期中考查作业（2026-10-28，原课后思考·申论式大题）：examNN 页，一篇短文写好后递交（key exam，只收第一次）；不计修为，老师在工作台批阅（满分 100）
+    const exam = $('textarea[data-cl-text="exam"]');
+    if (exam) {
+      const box = exam.closest('[data-exam]');
       const count = box && box.querySelector('[data-essay-count]');
       const target = Number(count && count.dataset.target) || 0;
+      const least = Number(count && count.dataset.least) || 100;
       list.push({
-        key: 'essay', section: '课后自修 · 课后思考', title: textOf(box && box.closest('[data-xl-block]') && box.closest('[data-xl-block]').querySelector('h3')) || '申论式大题',
+        key: 'exam', section: '期中考查作业', title: (D.exam && D.exam.title) || '期中考查作业',
         prompt: textOf(box && box.querySelector('.cl-essay-q')),
-        anchor: (bar) => (count || essay).insertAdjacentElement('afterend', bar),
-        read: () => text(essay),
-        check: (value) => (!value ? '请先写好，再点“递交”' : value.replace(/\s/g, '').length < 100 ? '至少写 100 字再递交' + (target ? '（建议按作答要求写 ' + target + ' 字左右）' : '') : ''),
+        anchor: (bar) => (count || exam).insertAdjacentElement('afterend', bar),
+        read: () => text(exam),
+        check: (value) => (!value ? '请先写好，再点“递交”' : value.replace(/\s/g, '').length < least ? `至少写 ${least} 字再递交（作答要求 ${target} 字左右）` : ''),
+        remind: () => '递交后不能修改，确定写好了吗？',
         show: (value) => (value ? [value] : []),
-        lock: () => { essay.readOnly = true; },
-        restore: (value) => { if (!essay.value.trim()) essay.value = value; },
-        send: send('essay'),
-        after: (value, quiet) => xlAward('essay', value, box, quiet),
+        lock: () => { exam.readOnly = true; },
+        restore: (value) => { if (!exam.value.trim()) exam.value = value; },
+        send: send('exam'),
       });
     }
     // 出门测：每题单独递交

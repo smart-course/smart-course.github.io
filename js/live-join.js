@@ -1,6 +1,8 @@
 /* 学生登录（首页）：填写课堂码和个人信息 → 后台 ck_join 一并核对：课堂码、点名册（学号、姓名一致）、4 位个人口令 → 记录加入 → 打开本周章节。
- *   · 第一次登录设口令；同一设备登录过不用再输，换设备要输；连续输错 10 次锁定（15 分钟→1 小时→须老师解锁），忘记由老师重置；
- *   · 学号不在点名册上：自动向老师申请，老师在工作台允许后本页自动继续；班级没有点名册时不能登录。
+ *   · 第一次登录设口令；同一设备登录过不用再输，换设备要输；连续输错 10 次锁定（15 分钟→1 小时→须老师解锁）；
+ *     忘记口令：点“忘记口令”向老师申请（ck_pin_forgot），老师同意后由这台设备设新口令（本页每 10 秒查一次，同意了就提示设口令）；
+ *   · 学号不在点名册上（2026-10-28 起）：只提示核对姓名和学号，不再自动申请；确实不在名单上的同学点“申请加入本班”（ck_join_apply），
+ *     老师在工作台允许后本页自动继续；班级没有点名册时不能登录。
  * 章节页各自加密，ck_join 只在全部核对通过后返回该章节的解密值，页面凭它自动打开（并记住 30 天）。
  * 需要页面先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
  */
@@ -14,6 +16,9 @@
   const button = form.querySelector('[type=submit]');
   const pinBox = form.querySelector('[data-pin-box]');
   const waitBox = form.querySelector('[data-join-wait]');
+  const applyBox = form.querySelector('[data-join-apply]');
+  const forgotBox = form.querySelector('[data-pin-forgot-box]');
+  const forgotState = form.querySelector('[data-pin-forgot-state]');
   const STORE = 'classlive-student';
   const SUBMIT_TEXT = '登录并进入课堂 →';
   const load = () => { try { return JSON.parse(localStorage.getItem(STORE) || 'null') || {}; } catch (error) { return {}; } };
@@ -87,17 +92,21 @@
   // mode：'' 不需要 / 'set' 第一次设口令 / 'need' 换设备输口令
   let pinMode = '';
   const PIN_TEXT = {
-    set: ['第一次登录：请设置 4 位数字个人口令', '以后在这台设备上不用再输；换手机或电脑登录时要输入。不要用 0000、1234 这类或学号后四位，也不要告诉别人。忘记了请找老师重置。'],
-    need: ['这个学号在别的设备上登录过：请输入你的 4 位个人口令', '输对后这台设备以后不用再输。忘记口令请找老师在工作台重置。'],
+    set: ['第一次登录：请设置 4 位数字个人口令', '以后在这台设备上不用再输；换手机或电脑登录时要输入。不要用 0000、1234 这类或学号后四位，也不要告诉别人。忘记了可以在登录时点“忘记口令”向老师申请重设。'],
+    reset: ['老师已同意重设口令：请设置新的 4 位数字口令', '以后在这台设备上不用再输；换手机或电脑登录时输这个新口令。不要用 0000、1234 这类或学号后四位，也不要告诉别人。'],
+    need: ['这个学号在别的设备上登录过：请输入你的 4 位个人口令', '输对后这台设备以后不用再输。忘记口令可以点下面的“忘记口令”向老师申请重设。'],
   };
-  function setPinMode(mode) {
+  // text：'reset' 时用“老师已同意重设口令”的说明（仍是设口令）
+  function setPinMode(mode, text) {
     pinMode = mode;
     pinBox.hidden = !mode;
     if (!mode) return;
-    pinBox.querySelector('[data-pin-title]').textContent = PIN_TEXT[mode][0];
-    pinBox.querySelector('[data-pin-hint]').textContent = PIN_TEXT[mode][1];
+    const words = PIN_TEXT[text || mode];
+    pinBox.querySelector('[data-pin-title]').textContent = words[0];
+    pinBox.querySelector('[data-pin-hint]').textContent = words[1];
     pinBox.querySelector('[data-pin-set]').hidden = mode !== 'set';
     pinBox.querySelector('[data-pin-need]').hidden = mode !== 'need';
+    forgotBox.hidden = mode !== 'need';
   }
   const clearPins = () => ['pin', 'new_pin', 'new_pin2'].forEach((name) => { field(name).value = ''; });
   ['pin', 'new_pin', 'new_pin2'].forEach((name) => field(name).addEventListener('input', (event) => {
@@ -106,6 +115,9 @@
   // 改了课堂码、姓名或学号：口令要求重新判断
   ['code', 'name', 'sid'].forEach((name) => field(name).addEventListener('input', () => {
     stopWaiting();
+    stopForgotWatch();
+    applyBox.hidden = true;
+    forgotState.textContent = '';
     if (pinMode) { setPinMode(''); clearPins(); }
   }));
 
@@ -131,7 +143,122 @@
   }
   waitBox.querySelector('[data-wait-cancel]').addEventListener('click', () => { stopWaiting(); showError(''); });
 
+  // ---------- 读表单（登录、申请加入、忘记口令共用） ----------
+  function readForm(withPin) {
+    const code = normalize(field('code').value);
+    const name = field('name').value.trim();
+    const sid = field('sid').value.trim();
+    const className = field('class_name').value.trim();
+    const groupName = field('group_name').value.trim();
+    if (!/^[A-Z0-9]{8}$/.test(code)) return showError('课堂码是 8 位字母和数字，请核对老师公布的课堂码', field('code'));
+    if (name.length < 2) return showError('请填写真实姓名（与点名册一致）', field('name'));
+    if (!/^[A-Za-z0-9]{4,20}$/.test(sid)) return showError('学号应为 4—20 位数字或字母', field('sid'));
+    if (!className) return showError('请填写班级', field('class_name'));
+    if (!field('agree').checked) return showError('请先阅读并勾选数据使用说明');
+    const request = { code, name, sid, className, groupName, pin: null, newPin: null };
+    if (!withPin) return request;
+    if (pinMode === 'set') {
+      const first = field('new_pin').value;
+      if (!/^\d{4}$/.test(first)) return showError('口令是 4 位数字', field('new_pin'));
+      if (first !== field('new_pin2').value) return showError('两次输入的口令不一样，请重新输入', field('new_pin2'));
+      request.newPin = first;
+    } else if (pinMode === 'need') {
+      const typed = field('pin').value;
+      if (!/^\d{4}$/.test(typed)) return showError('请输入 4 位数字口令', field('pin'));
+      request.pin = typed;
+    }
+    return request;
+  }
+  const COMMON_ERRORS = {
+    bad_code: ['课堂码不正确（老师换过课堂码的话，旧码就不能用了）。请核对老师公布的最新课堂码。', 'code'],
+    invalid: ['请检查姓名和学号的填写。', 'name'],
+    no_roster: ['老师还没有上传本班点名册，暂时不能登录。请告诉老师。'],
+    bad_name: ['姓名与本班点名册上的不一致：请填写点名册上的姓名，并再核对一遍学号。', 'name'],
+    too_many: ['尝试次数过多，请 10 分钟后再试。'],
+  };
+  const commonError = (status) => {
+    const [text, focus] = COMMON_ERRORS[status] || ['没有成功，请再试一次。'];
+    showError(text, focus ? field(focus) : null);
+  };
+
+  // ---------- 申请加入本班（学号确实不在点名册上） ----------
+  const applyButton = applyBox.querySelector('[data-join-apply-send]');
+  applyButton.addEventListener('click', async () => {
+    const request = readForm(false);
+    if (!request) return;
+    applyButton.disabled = true;
+    try {
+      await backend.ensureAnonymous();
+      let result = await backend.rpc('ck_join_apply', { p_code: request.code, p_name: request.name, p_sid: request.sid, p_class: request.className });
+      if (Array.isArray(result)) result = result[0];
+      const status = (result && result.status) || '';
+      if (status === 'pending') {
+        applyBox.hidden = true;
+        showError('');
+        startWaiting(request);
+      } else if (status === 'listed') {
+        applyBox.hidden = true;
+        showError('这个学号在本班点名册上，不用申请：核对姓名后直接点“登录”。', field('name'));
+      } else {
+        commonError(status);
+      }
+    } catch (problem) {
+      console.error(problem);
+      showError('申请没有发出去，请检查网络后再试一次。');
+    } finally {
+      applyButton.disabled = false;
+    }
+  });
+
+  // ---------- 忘记口令：向老师申请重设，同意后由这台设备设新口令 ----------
+  let forgotTimer = 0;
+  let forgotUntil = 0;
+  function stopForgotWatch() {
+    clearTimeout(forgotTimer);
+    forgotTimer = 0;
+    forgotUntil = 0;
+  }
+  // 每 10 秒查一次老师同意了没有（不带口令登录：同意前后台回答 need_pin，同意后回答 set_pin），最多等 20 分钟
+  function watchForgot(request) {
+    if (!forgotUntil) forgotUntil = Date.now() + 20 * 60000;
+    clearTimeout(forgotTimer);
+    if (Date.now() > forgotUntil) { stopForgotWatch(); return; }
+    forgotTimer = setTimeout(() => attempt({ ...request, pin: null, newPin: null }, 'forgot'), 10000);
+  }
+  const forgotButton = forgotBox.querySelector('[data-pin-forgot]');
+  forgotButton.addEventListener('click', async () => {
+    const request = readForm(false);
+    if (!request) return;
+    forgotButton.disabled = true;
+    try {
+      await backend.ensureAnonymous();
+      let result = await backend.rpc('ck_pin_forgot', { p_code: request.code, p_name: request.name, p_sid: request.sid });
+      if (Array.isArray(result)) result = result[0];
+      const status = (result && result.status) || '';
+      if (status === 'pending') {
+        showError('');
+        forgotState.textContent = '已向老师申请重设口令。老师在工作台同意后，本页会提示你在这台设备上设新口令（请不要关闭本页；也可以告诉老师一声）。';
+        watchForgot(request);
+      } else if (status === 'no_pin' || status === 'no_need') {
+        forgotState.textContent = '';
+        showError(status === 'no_pin' ? '这个学号现在不用输旧口令：直接点“登录”，设置新口令。' : '这台设备登录过这个学号，不用口令：直接点“登录”。');
+        setPinMode('');
+        clearPins();
+      } else if (status === 'not_listed') {
+        showError('本班点名册上没有这个学号：请核对姓名和学号。', field('sid'));
+      } else {
+        commonError(status);
+      }
+    } catch (problem) {
+      console.error(problem);
+      showError('申请没有发出去，请检查网络后再试一次。');
+    } finally {
+      forgotButton.disabled = false;
+    }
+  });
+
   // ---------- 登录 ----------
+  // quiet：true＝等老师允许加入时的自动重试；'forgot'＝等老师同意重设口令时的自动查询
   async function attempt(request, quiet) {
     if (!quiet) {
       button.disabled = true;
@@ -146,7 +273,21 @@
       });
       if (Array.isArray(result)) result = result[0];
       const status = (result && result.status) || 'bad_code';
+      if (quiet === 'forgot') {
+        if (status === 'need_pin' && result.forgot === 'pending') { watchForgot(request); return; }
+        stopForgotWatch();
+        if (status === 'set_pin') {
+          forgotState.textContent = '';
+          setPinMode('set', 'reset');
+          showError('');
+          field('new_pin').focus();
+        } else if (status === 'need_pin' && result.forgot === 'rejected') {
+          forgotState.textContent = '老师没有同意这次重设口令的申请。如果确实是你本人，请当面找老师。';
+        }
+        return;
+      }
       if (status !== 'pending') stopWaiting();
+      if (status !== 'not_listed') applyBox.hidden = true;
       switch (status) {
         case 'ok':
           leaving = true;
@@ -161,24 +302,28 @@
           startWaiting(request);
           return;
         case 'bad_code':
-          showError('课堂码不正确（老师换过课堂码的话，旧码就不能用了）。请核对老师公布的最新课堂码。', field('code'));
-          return;
         case 'invalid':
-          showError('请检查姓名和学号的填写。', field('name'));
-          return;
         case 'no_roster':
-          showError('老师还没有上传本班点名册，暂时不能登录。请告诉老师。');
-          return;
         case 'bad_name':
-          showError('姓名与本班点名册上的不一致：请填写点名册上的姓名，并再核对一遍学号。', field('name'));
+          commonError(status);
           return;
-        case 'rejected':
-          showError('老师没有允许这个学号进入本班课堂。如果学号填错了，请改正后重新登录。', field('sid'));
+        // 学号不在点名册上：多半是填错了，提示核对；确实不在名单上的同学可以点“申请加入本班”
+        case 'not_listed':
+          showError('本班点名册上没有这个学号：请核对姓名和学号后重新登录。', field('sid'));
+          applyBox.querySelector('[data-join-apply-note]').textContent = result.rejected
+            ? '老师上次没有允许这个学号加入。如果你确实不在本班名单上（如重修、跨班旁听），可以再次'
+            : '如果你确实不在本班名单上（如重修、跨班旁听），可以';
+          applyBox.hidden = false;
           return;
         case 'set_pin':
           setPinMode('set');
           showError('');
           field('new_pin').focus();
+          return;
+        case 'reset_other':
+          setPinMode('need');
+          clearPins();
+          showError('老师已同意重设这个学号的口令，但只有提出申请的那台手机或电脑能设新口令。请用那台设备登录；那台设备不在身边的话，可以在这台设备上点“忘记口令”重新申请。');
           return;
         case 'weak_pin':
           setPinMode('set');
@@ -188,12 +333,13 @@
         case 'need_pin':
           setPinMode('need');
           showError(request.newPin ? '刚刚有人先为这个学号设置了口令：如果不是你本人，请马上告诉老师。' : '');
+          if (result.forgot === 'pending') { forgotState.textContent = '你已申请重设口令，正在等老师同意（同意后本页会提示设新口令）。'; watchForgot(request); }
           field('pin').focus();
           return;
         case 'bad_pin':
           setPinMode('need');
           clearPins();
-          showError(`口令不对，还可以再试 ${result.left} 次（连续输错 10 次会被锁定，而且一次比一次久）。忘记口令请找老师重置。`, field('pin'));
+          showError(`口令不对，还可以再试 ${result.left} 次（连续输错 10 次会被锁定，而且一次比一次久）。忘记口令可以点下面的“忘记口令”向老师申请重设。`, field('pin'));
           return;
         case 'locked':
           setPinMode('need');
@@ -203,13 +349,14 @@
             : `这个学号的口令输错次数过多，已暂时锁定，${result.until ? `${hhmm(result.until)} 以后` : '稍后'}再试（再锁定会更久）；也可以请老师在工作台解锁。`);
           return;
         case 'too_many':
-          showError('尝试次数过多，请 10 分钟后再试。');
+          commonError(status);
           return;
         default:
           showError('登录没有成功，请再试一次。');
       }
     } catch (problem) {
       console.error(problem);
+      if (quiet === 'forgot') { watchForgot(request); return; }   // 等老师同意时偶尔断网：继续等
       if (quiet) { startWaiting(request); return; }   // 等待中偶尔断网：继续等
       stopWaiting();
       showError(window.ClassLive.isClosedError(problem)
@@ -232,6 +379,8 @@
       agreed: true, course: room.course, chapter: room.chapter, case_no: room.case_no || null, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
     };
     save(identity);
+    // 每个章节（案例）也各记一份：一个班同时开放几个课堂时，章节页用自己的那份（见 live-student.js）
+    try { localStorage.setItem(`${STORE}:${room.course}:${room.chapter}`, JSON.stringify(identity)); } catch (error) { /* 忽略 */ }
     rememberId(identity);
     clearPins();
     button.disabled = true;
@@ -251,29 +400,11 @@
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();
-    const code = normalize(field('code').value);
-    const name = field('name').value.trim();
-    const sid = field('sid').value.trim();
-    const className = field('class_name').value.trim();
-    const groupName = field('group_name').value.trim();
-    if (!/^[A-Z0-9]{8}$/.test(code)) return showError('课堂码是 8 位字母和数字，请核对老师公布的课堂码', field('code'));
-    if (name.length < 2) return showError('请填写真实姓名（与点名册一致）', field('name'));
-    if (!/^[A-Za-z0-9]{4,20}$/.test(sid)) return showError('学号应为 4—20 位数字或字母', field('sid'));
-    if (!className) return showError('请填写班级', field('class_name'));
-    if (!field('agree').checked) return showError('请先阅读并勾选数据使用说明');
-    const request = { code, name, sid, className, groupName, pin: null, newPin: null };
-    if (pinMode === 'set') {
-      const first = field('new_pin').value;
-      if (!/^\d{4}$/.test(first)) return showError('口令是 4 位数字', field('new_pin'));
-      if (first !== field('new_pin2').value) return showError('两次输入的口令不一样，请重新输入', field('new_pin2'));
-      request.newPin = first;
-    } else if (pinMode === 'need') {
-      const typed = field('pin').value;
-      if (!/^\d{4}$/.test(typed)) return showError('请输入 4 位数字口令', field('pin'));
-      request.pin = typed;
-    }
+    const request = readForm(true);
+    if (!request) return;
     showError('');
     stopWaiting();
+    stopForgotWatch();
     await attempt(request, false);
   });
 })();
