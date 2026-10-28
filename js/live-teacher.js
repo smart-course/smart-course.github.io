@@ -323,6 +323,8 @@
       $('[data-class-list]').innerHTML = `<p class="tw-empty">读取班级失败：${esc(failReason(error))}</p>`;
       return;
     }
+    // 上课时间较长时只在“ · ”处换行，不把“教学班 1209”“明理楼北306”拆开
+    const timeParts = (text) => text.split(' · ').map((part) => esc(part).replace(/ /g, '&nbsp;')).join(' · ');
     $('[data-class-list]').innerHTML = state.classes.map((klass) => {
       const mine = rooms.filter((room) => sameClass(room, klass));
       const current = mine.filter((room) => room.is_current);
@@ -331,7 +333,7 @@
         <small>课堂 ${mine.length} 个 · 点名册 ${roster ? `${roster} 人` : '未上传'}</small>
         <strong>${esc(klass.name)}</strong>
         <span>${current.length ? `开放中：${current.map((room) => `${esc(room.name)}（${esc(room.code)}）${room.submissions_open ? '' : ' · 已结束提交'}`).join('、')}` : '暂无开放中的课堂'}</span>
-        ${klass.schedule && window.ClassLivePlanner ? `<em class="tw-class-time">${esc(window.ClassLivePlanner.summary(klass.schedule))}</em>` : ''}
+        ${klass.schedule && window.ClassLivePlanner ? `<em class="tw-class-time">${timeParts(window.ClassLivePlanner.summary(klass.schedule))}</em>` : ''}
       </button><button type="button" class="tw-trash" data-class-delete="${esc(klass.id)}" title="删除班级" aria-label="删除班级 ${esc(klass.name)}">${TRASH_ICON}</button></div>`;
     }).join('') || '<p class="tw-empty">本课程还没有班级。先在下面新建一个班级，例如“2026秋 经济学一班”。</p>';
     // 班级功能上线前发布的课堂：归入某个班级后才在该班级里显示（记录不会丢失）

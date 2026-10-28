@@ -52,11 +52,14 @@ body { margin: 0; color: var(--ink); background: var(--paper); font: 16px/1.6 va
 .tw-switch { font-weight: 700; color: var(--muted); }
 .tw-table { width: 100%; border-collapse: collapse; background: var(--white); border-radius: 12px; overflow: hidden; box-shadow: var(--shadow); }
 .tw-table th, .tw-table td { padding: 10px 14px; border-bottom: 1px solid var(--line); text-align: left; }
-.tw-table thead th { color: #fff; background: var(--teal); }
+.tw-table thead th { color: #fff; background: var(--teal); word-break: keep-all; }
 .tw-table td.warn { color: var(--rust); font-weight: 700; }
 .tw-table .empty, .empty { color: var(--muted); text-align: center; padding: 24px; }
 .tw-table.compact td, .tw-table.compact th { text-align: center; }
 .tw-table.compact tbody th { text-align: left; }
+/* 列多的表格放在可左右滑动的框里：窗口窄时不撑出面板，表头也不会挤成一字一行 */
+.tw-scroll { max-width: 100%; overflow-x: auto; border-radius: 12px; box-shadow: var(--shadow); }
+.tw-scroll > .tw-table { box-shadow: none; }
 .tw-cell small { display: block; color: var(--muted); font-size: 12px; }
 .tw-cell.is-answer { background: var(--teal); color: #fff; font-weight: 800; }
 .tw-cell.is-answer small { color: rgba(255,255,255,.85); }
@@ -298,6 +301,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-realm.is-r3::before, .tw-realm.is-r4::before { content: '✦'; margin-right: 3px; font-size: .8em; }
 .tw-realm-legend { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 6px 0 12px; font-size: 13px; color: #6d6259; }
 .tw-realm-legend span:not(.tw-realm) { margin-right: 8px; }
+.tw-realm-table td:not(:last-child) { white-space: nowrap; }
 .tw-realm-table td small { color: #8a7f74; }
 .tw-realm-table tr.is-muted td { color: #9a8f84; }
 .tw-realm-flags { color: #a4492d; font-size: 12.5px; }
@@ -323,7 +327,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-table tr.tw-leave td { background: #fff8e6; }
 .tw-leaves { margin-top: 16px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
 .tw-leaves > summary { cursor: pointer; font-weight: 800; }
-.tw-leaves .tw-table { margin-top: 10px; }
+.tw-leaves .tw-scroll { margin-top: 10px; }
 
 
 /* 扫码登录：加入链接二维码（可全屏投屏、保存图片） */
@@ -392,7 +396,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-plan-btn svg { width: 17px; height: 17px; }
 .tw-plan-btn[aria-pressed="true"] { color: var(--teal); background: #fff; border-color: #fff; font-weight: 700; }
 body.is-planner .tw-main > section:not(.pl), body.is-planner .tw-nav { display: none !important; }
-.tw-class-time { display: block; margin-top: 6px; color: var(--teal); font-size: 13px; font-style: normal; font-weight: 700; }
+.tw-class-time { display: block; margin-top: 6px; color: var(--teal); font-size: 13px; font-style: normal; font-weight: 700; white-space: normal; word-break: keep-all; overflow-wrap: anywhere; }
 .pl-head { display: flex; flex-wrap: wrap; justify-content: space-between; align-items: flex-end; gap: 16px; margin-bottom: 16px; }
 .pl-head h1 { margin: 2px 0 4px; font-size: 30px; letter-spacing: .04em; }
 .pl-head .tw-hint { margin: 0; max-width: 820px; }
