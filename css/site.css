@@ -142,3 +142,17 @@ main.wrap { padding: 40px 0 56px; }
 
 /* 学生从加入链接或二维码进来（?join=课堂码）：顶部不显示“教师入口” */
 .from-join [data-teacher-link] { display: none; }
+
+/* 质感（2026-10-28，与教师工作台统一）：登录按钮渐变＋内高光＋柔和投影，悬停微浮；小按钮悬停描边；键盘聚焦用墨绿光晕 */
+body { accent-color: var(--teal); }
+.join-submit { border: 1px solid #1a4743; border-radius: 10px; background: linear-gradient(180deg, #2f7a72 0%, #23655f 55%, #1d5650 100%); letter-spacing: .04em; text-shadow: 0 1px 0 rgba(0, 0, 0, .14);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .22), 0 1px 2px rgba(20, 50, 46, .25), 0 8px 18px rgba(29, 79, 74, .18); transition: transform .15s ease, box-shadow .15s ease, filter .15s ease; }
+.join-submit:hover:not([disabled]) { background: linear-gradient(180deg, #2f7a72 0%, #23655f 55%, #1d5650 100%); transform: translateY(-1px); filter: brightness(1.06);
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .25), 0 2px 4px rgba(20, 50, 46, .25), 0 12px 24px rgba(29, 79, 74, .22); }
+.join-submit:active:not([disabled]) { transform: translateY(0); filter: brightness(.96); box-shadow: inset 0 2px 4px rgba(0, 0, 0, .2); }
+.join-submit:focus-visible, .join-forgot button:focus-visible, .join-apply button:focus-visible, .join-leave button:focus-visible, .site-nav a:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(35, 101, 95, .25); }
+.join-forgot button, .join-apply button, .join-leave button { box-shadow: inset 0 1px 0 #fff, 0 1px 2px rgba(53, 38, 24, .08); transition: background .15s ease, transform .15s ease; }
+.join-forgot button:hover:not([disabled]), .join-apply button:hover:not([disabled]) { background: #fffaf0; transform: translateY(-1px); }
+.join-leave button:hover { transform: translateY(-1px); }
+.site-nav a { transition: background .15s ease, color .15s ease; }
+@media (prefers-reduced-motion: reduce) { .join-submit, .join-forgot button, .join-apply button, .join-leave button { transition: none; transform: none !important; } }

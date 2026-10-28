@@ -522,6 +522,7 @@
     try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('examscores', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('debateposts', where); await backend.removeAll('debatemembers', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('pollvotes', where); await backend.removeAll('polls', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('presence', where); } catch (error) { if (!missingTable(error)) throw error; }
@@ -584,6 +585,15 @@
     const open = $('[data-room-classroom]');
     // 带上课堂编号：同一个班同时开放几个课堂时，投屏页打开的就是这一个（ClassLive.pickRoom）
     open.href = chapter ? `/${chapter.file}?class=${encodeURIComponent(state.klass.id)}&room=${encodeURIComponent(room.id)}` : '#';
+    // 期中考查作业（2026-10-28 用户：“期中考查作业不需要课堂完整版，可以导出word版本的题目”）：不显示课堂完整版，换成截止时间和导出题目
+    const examRoom = isExam(room.chapter);
+    open.hidden = examRoom;
+    $('[data-exam-tools]').hidden = !examRoom;
+    if (examRoom) {
+      const over = room.deadline && Date.now() > millis(room.deadline);
+      $('[data-exam-deadline]').textContent = room.deadline ? `递交截止：${deadlineText(room.deadline)}${over ? '（已截止）' : ''}` : '递交截止：不限';
+      $('[data-exam-deadline]').classList.toggle('is-over', Boolean(over));
+    }
     // 学生版测试页：打开真实的学生页（与学生看到的完全相同），带上本课堂编号和本章解密值；
     //   页面认出教师账号后以“王不凡（化神）”身份运行，弹幕照常上投屏，作答只在本机、不计入后台（见 live-student.js）
     const preview = $('[data-room-preview]');
@@ -789,6 +799,13 @@
     $('[data-publish-exam-hint]').hidden = !exam;
     $('[data-publish-hint]').hidden = exam;
     $('[data-publish-case-hint]').hidden = exam || CONCEPT;
+    $('[data-publish-deadline]').hidden = !exam;
+    if (exam && !publishForm.elements.deadline.value) {
+      const due = new Date();
+      due.setDate(due.getDate() + 7);
+      due.setHours(23, 59, 0, 0);
+      publishForm.elements.deadline.value = localInput(due);
+    }
     if (exam) {
       publishForm.elements.chapter.innerHTML = EXAMS.map((item) => `<option value="${item.id}">${esc(item.case)} · ${esc(item.type)}题：${esc(item.title)}</option>`).join('');
       if (state.room && isExam(state.room.chapter)) publishForm.elements.chapter.value = state.room.chapter;
@@ -820,14 +837,26 @@
     try {
       const [chapterId, caseNo] = publishForm.elements.chapter.value.split('|');
       const keep = publishForm.elements.keep.checked;
+      const due = publishExam ? fromInput(publishForm.elements.deadline.value) : null;
       const row = await backend.rpc('ck_publish', { p_course: course.slug, p_name: name, p_chapter: chapterId,
         p_class: Number(state.klass.id) || state.klass.id, ...(caseNo ? { p_case: Number(caseNo) } : {}), ...(keep ? { p_keep: true } : {}) });
       const room = Array.isArray(row) ? row[0] : row;
+      let dueNote = '';
+      if (due && room && room.id != null) {
+        try {
+          await backend.rpc('ck_set_deadline', { p_classroom: Number(room.id) || room.id, p_deadline: due });
+          dueNote = `，递交截止 ${deadlineText(due)}`;
+        } catch (problem) {
+          console.error(problem);
+          dueNote = `；递交截止时间没有设置上（${missingFunction(problem) ? '后台还没有这个功能，数据库语句尚未执行' : problem.message || problem}）`;
+        }
+      }
       dialog.close();
       publishForm.elements.name.value = '';
       publishForm.elements.keep.checked = false;
+      publishForm.elements.deadline.value = '';
       await loadRooms(room && room.id);
-      actionStatus(publishExam ? `已发布期中考查作业：课堂码 ${room.code}（学生在首页用它登录进入）` : `已发布：课堂码 ${room.code}`);
+      actionStatus(publishExam ? `已发布期中考查作业：课堂码 ${room.code}（学生在首页用它登录进入）${dueNote}` : `已发布：课堂码 ${room.code}`);
     } catch (error) {
       console.error(error);
       $('[data-publish-error]').textContent = `发布失败：${error.message || error}`;
@@ -836,6 +865,105 @@
       button.textContent = '发布并生成课堂码';
     }
   });
+
+  // ---------------- 期中考查作业：递交截止时间、导出题目 Word（2026-10-28 用户：“发布期中考查作业的时候可以设置递交截止日期，
+  // 然后期中考查作业不需要课堂完整版，可以导出word版本的题目，导出的题目中要包含案例资料和题目，学生信息等内容参照截图”）----------------
+  function localInput(value) {
+    const d = value instanceof Date ? value : new Date(millis(value));
+    return Number.isNaN(d.getTime()) ? '' : `${d.getFullYear()}-${pad2(d.getMonth() + 1)}-${pad2(d.getDate())}T${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  function fromInput(value) {
+    const d = value ? new Date(value) : null;
+    return d && !Number.isNaN(d.getTime()) ? d.toISOString() : null;
+  }
+  function deadlineText(value) {
+    const d = new Date(millis(value));
+    return `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日（周${'日一二三四五六'[d.getDay()]}）${pad2(d.getHours())}:${pad2(d.getMinutes())}`;
+  }
+  const deadlineDialog = $('[data-deadline-dialog]');
+  const deadlineForm = $('[data-deadline-form]');
+  $('[data-exam-deadline-edit]').addEventListener('click', () => {
+    const room = state.room;
+    if (!room) return;
+    $('[data-deadline-room]').textContent = `${room.name}（${room.code}）：过了截止时间，学生就不能再递交；改晚一些可以让没交的同学补交。`;
+    deadlineForm.elements.deadline.value = room.deadline ? localInput(room.deadline) : '';
+    $('[data-deadline-error]').textContent = '';
+    deadlineDialog.showModal();
+  });
+  async function saveDeadline(value) {
+    const room = state.room;
+    try {
+      await backend.rpc('ck_set_deadline', { p_classroom: Number(room.id) || room.id, p_deadline: value });
+      deadlineDialog.close();
+      await loadRooms(room.id);
+      actionStatus(value ? `递交截止时间已改为 ${deadlineText(value)}` : '已取消递交截止时间（不限）');
+    } catch (problem) {
+      console.error(problem);
+      $('[data-deadline-error]').textContent = missingFunction(problem) ? '保存失败：后台还没有“递交截止时间”功能（数据库语句尚未执行）。' : `保存失败：${problem.message || problem}`;
+    }
+  }
+  deadlineForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const value = fromInput(deadlineForm.elements.deadline.value);
+    if (!value) { $('[data-deadline-error]').textContent = '请选好日期和时间；不想限制就点“不限截止时间”。'; return; }
+    saveDeadline(value);
+  });
+  $('[data-deadline-clear]').addEventListener('click', () => saveDeadline(null));
+  $('[data-deadline-cancel]').addEventListener('click', () => deadlineDialog.close());
+
+  // 导出题目（Word）：标题、学生信息栏（班级、学号、姓名，下面一道金色横线）、“作答说明”框（左侧金色竖条、米色底），
+  // 再是给定资料（导语和各则资料原文）、作答题目和要求，最后可附空白作答区；按课程的中文文档规范排版
+  const paperDialog = $('[data-paper-dialog]');
+  const paperForm = $('[data-paper-form]');
+  let paperExam = null;
+  $('[data-exam-paper]').addEventListener('click', () => {
+    const room = state.room;
+    const unit = room ? unitMap.get(room.chapter) : null;
+    paperExam = unit && unit.exam;
+    if (!paperExam || !Array.isArray(paperExam.materials)) { actionStatus('找不到这道题的资料，请刷新工作台后再试。'); return; }
+    $('[data-paper-what]').textContent = `${paperExam.case} · ${paperExam.type}题：${paperExam.title}。导出的 Word 含学生信息栏、作答说明、给定资料（${paperExam.materials.length} 则）和作答题目。`;
+    const chapter = String(paperExam.chapter || '').replace(/^(第[一二三四五六七八九十]+章)\s*(.+)$/, '$1“$2”');
+    paperForm.elements.notes.value = [
+      `请运用本课程${chapter || '相关章节'}的相关概念与理论作答。`,
+      `${paperExam.type}题，总分 100 分，${paperExam.words} 字左右；独立完成，联系给定资料论证。`,
+      room.deadline ? `递交截止日期：${deadlineText(room.deadline)}，请登录课程网站在本作业页面递交（递交后不能修改）。`
+        : '请登录课程网站在本作业页面递交（递交后不能修改）。',
+    ].join('\n');
+    paperDialog.showModal();
+  });
+  $('[data-paper-cancel]').addEventListener('click', () => paperDialog.close());
+  paperForm.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const O = window.ClassLive.office;
+    const notes = paperForm.elements.notes.value.split(/\n+/).map((line) => line.trim().replace(/^\d+[.、．]\s*/, '')).filter(Boolean);
+    O.save(O.docx(examQuestionDoc(paperExam, notes, paperForm.elements.space.checked)), `期中考查作业_${paperExam.case.replace(/\s+/g, '_')}_题目.docx`);
+    paperDialog.close();
+  });
+  function examQuestionDoc(info, notes, space) {
+    const O = window.ClassLive.office;
+    const GOLD = 'B8913A';
+    const p = (inner, { jc = 'left', before = 0, after = 0, border = '', ind = '' } = {}) => `<w:p><w:pPr>${border}<w:spacing w:before="${before}" w:after="${after}" w:line="360" w:lineRule="auto"/>${ind}<w:jc w:val="${jc}"/></w:pPr>${inner}</w:p>`;
+    const blank = '_____________';
+    const student = p(O.runs(`班级：${blank}　　学号：${blank}　　姓名：${blank}`, { size: 24 }), {
+      jc: 'center', before: 240, after: 360, border: `<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="12" w:color="${GOLD}"/></w:pBdr>` });
+    const items = notes.map((line, i) => p(O.runs(`${i + 1}. ${line}`, { size: 24 }), { jc: 'both', after: 60, ind: '<w:ind w:left="400" w:hanging="400"/>' })).join('');
+    const box = `<w:tbl><w:tblPr><w:tblW w:w="9026" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="single" w:sz="36" w:space="0" w:color="${GOLD}"/>`
+      + '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/>'
+      + '<w:tblCellMar><w:top w:w="200" w:type="dxa"/><w:left w:w="320" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="240" w:type="dxa"/></w:tblCellMar></w:tblPr>'
+      + '<w:tblGrid><w:gridCol w:w="9026"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="9026" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8F4E8"/></w:tcPr>'
+      + p(O.runs('作答说明', { bold: true, size: 28, east: '黑体', color: '2E4A70' }), { after: 120 }) + items + '</w:tc></w:tr></w:tbl>';
+    const paras = (text) => String(text || '').split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('');
+    return O.para(`${course.title} · 期中考查作业`, 'title')
+      + O.para(`${info.title}（${info.type}题 · 总分 100 分）`, 'subtitle')
+      + student + box + O.para('', 'plain')
+      + O.para(`一、给定资料（题目出自${info.case}）`, 'h') + (info.lead ? O.para([{ text: info.lead, east: '楷体' }], 'body') : '')
+      + info.materials.map((m, i) => p(O.runs(`资料 ${i + 1}${m.title ? `　${m.title}` : ''}`, { bold: true, size: 24, east: '黑体' }), { before: 160, after: 40 }) + paras(m.text)).join('')
+      + O.para('二、作答题目', 'h') + O.para([{ text: info.question, bold: true }], 'body')
+      + O.para([{ text: '作答要求：', bold: true, east: '黑体' }], 'plain')
+      + (info.requirements || []).map((r, i) => O.para(`${i + 1}. ${r}`, 'plain')).join('')
+      + (space ? O.para('三、作答', 'h', { pageBreak: true }) + O.para('（在下方作答，篇幅不够可另附页。）', 'note')
+        + Array.from({ length: 16 }, () => O.para('', 'plain')).join('') : '');
+  }
 
   // ---------------- 数据同步 ----------------
   const setLive = (text, bad) => {

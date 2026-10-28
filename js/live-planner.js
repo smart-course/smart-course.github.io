@@ -106,6 +106,9 @@
     month: null,         // 日程正在看的月份（当月 1 日）
     day: null,           // 日程选中的日期
     editing: null,       // 正在修改的安排 id
+    flash: '',           // 上传课表的结果
+    calendar: { years: {}, current: '' },   // 校历（各学年）
+    schoolTerm: null,    // 校历正在看的学期
     editors: new Set(),
   };
   const periodCount = () => state.settings.times.length;
@@ -157,15 +160,20 @@
   const weekOf = (date) => Math.floor(dayDiff(date, parseDay(state.settings.start)) / 7) + 1;
   const currentWeek = () => { const w = weekOf(today()); return w >= 1 && w <= state.settings.weeks ? w : null; };
   // 某一天的课（只算当前学期）
+  // 调休上班（校历）：这天上“周几”的课，周次按被占用的那一天算（如 9/20 周日补国庆假期里 10/6 周二的课）
   function classesOn(date) {
-    const week = weekOf(date);
+    const work = schoolDay(ymd(date)).work;
+    const source = work ? makeupSource(work) : null;
+    const week = weekOf(source ? source.date : date);
     if (week < 1 || week > state.settings.weeks) return [];
-    const day = weekday(date);
-    return sessionsOf(state.settings.term).filter((item) => item.day === day && inWeek(item.plan, item.slot, week)).sort((a, b) => a.from - b.from);
+    const day = work ? Number(work.as) : weekday(date);
+    return sessionsOf(state.settings.term).filter((item) => item.day === day && inWeek(item.plan, item.slot, week))
+      .map((item) => (work ? { ...item, makeup: work, makeupFrom: source ? ymd(source.date) : '' } : item)).sort((a, b) => a.from - b.from);
   }
   const eventsOn = (key) => state.events.filter((item) => String(item.day).slice(0, 10) === key)
     .sort((a, b) => String(a.start_time || '99').localeCompare(String(b.start_time || '99')) || Number(a.id) - Number(b.id));
-  const holidayOn = (key) => state.events.some((item) => String(item.day).slice(0, 10) === key && item.color === 'holiday');
+  // 放假停课：日程里类别为“放假停课”的安排，或校历上的放假、寒暑假
+  const holidayOn = (key) => state.events.some((item) => String(item.day).slice(0, 10) === key && item.color === 'holiday') || Boolean(schoolOff(key));
   // 同一天时间重叠的课排成一组（课表并排显示，Word 合并成一格）
   function clusters(items) {
     const sorted = items.slice().sort((a, b) => a.from - b.from || a.to - b.to);
@@ -321,9 +329,12 @@
     <div class="tw-tabs pl-tabs" role="tablist">
       <button type="button" role="tab" data-pl-tab="timetable">课表</button>
       <button type="button" role="tab" data-pl-tab="calendar">日程</button>
+      <button type="button" role="tab" data-pl-tab="school">校历</button>
       <button type="button" role="tab" data-pl-tab="settings">作息与学期</button>
     </div>
     <p class="pl-notice" data-pl-notice hidden></p>
+    <input type="file" accept=".docx,.doc,application/vnd.openxmlformats-officedocument.wordprocessingml.document" data-pl-upload-input hidden>
+    <input type="file" accept="image/*" multiple data-sc-input hidden>
     <div data-pl-body></div>`;
   const main = $('.tw-main');
   if (main) main.appendChild(view);
@@ -371,6 +382,8 @@
     if (settings.status === 'fulfilled') {
       const row = settings.value.find((item) => item.key === 'planner');
       if (row) state.settings = normalize(row.value);
+      const cal = settings.value.find((item) => item.key === 'calendar');
+      if (cal) state.calendar = normalizeCalendar(cal.value);
     }
     if (classes.status === 'fulfilled') state.classes = classes.value;
     if (events.status === 'fulfilled') state.events = events.value;
@@ -383,13 +396,14 @@
     $$('[data-pl-tab]', view).forEach((button) => button.setAttribute('aria-selected', String(button.dataset.plTab === state.tab)));
     $$('[data-planner-open]').forEach((button) => button.setAttribute('aria-pressed', String(!view.hidden && button.dataset.plannerOpen === state.tab)));
     const notice = $('[data-pl-notice]', view);
-    notice.hidden = !state.notice;
-    notice.textContent = state.notice;
-    $('[data-pl-title]', view).textContent = { timetable: '教师课表', calendar: '日程安排', settings: '作息与学期' }[state.tab];
+    notice.textContent = [state.notice, ['timetable', 'school'].includes(state.tab) ? state.flash : ''].filter(Boolean).join(' ');
+    notice.hidden = !notice.textContent;
+    $('[data-pl-title]', view).textContent = { timetable: '教师课表', calendar: '日程安排', school: '校历', settings: '作息与学期' }[state.tab];
     delete $('[data-pl-title]', view).dataset.term;
     const body = $('[data-pl-body]', view);
     if (state.tab === 'timetable') renderTimetable(body);
     else if (state.tab === 'calendar') renderCalendar(body);
+    else if (state.tab === 'school') renderSchool(body);
     else renderSettings(body);
   }
 
@@ -494,6 +508,7 @@
           <label class="pl-term">学期<select data-pl-term>${terms.map((t) => `<option${t === state.term ? ' selected' : ''}>${esc(t)}</option>`).join('')}</select></label>
           ${weekNav}
           <label class="pl-check"><input type="checkbox" data-pl-weekend${showWeekend ? ' checked' : ''}${sessions.some((item) => item.day >= 6) ? ' disabled' : ''}>周六日</label>
+          <button type="button" class="tw-secondary pl-btn" data-pl-upload title="读取教务系统导出的 Word 课表，自动识别上课时间、教室等">上传课表</button>
           <button type="button" class="tw-secondary pl-btn" data-pl-word>导出 Word</button>
           <button type="button" class="tw-secondary pl-btn" data-pl-print>打印</button>
         </div>
@@ -503,7 +518,7 @@
         <div class="pl-tt-corner" style="grid-column:1 / span 2;grid-row:1">${week ? `第 ${week} 周` : '节次'}</div>
         ${head}${cells}${breaks}${blocks}
       </div></div>
-      ${sessions.length ? '' : `<p class="pl-empty">${esc(state.term)}还没有排课。新建班级时填写“上课时间与教室”，或在下面给已有班级填写。</p>`}
+      ${sessions.length ? '' : `<p class="pl-empty">${esc(state.term)}还没有排课。可以点上方“上传课表”导入教务系统导出的 Word 课表；也可以新建班级时填写“上课时间与教室”，或在下面给已有班级填写。</p>`}
       <h2 class="pl-h2">上课班级</h2>
       <div class="pl-classes">${classes.map((item) => `
         <article class="pl-class" style="--c:${item.c};--s:${item.s}">
@@ -583,6 +598,788 @@
     O.save(blob, `教师课表_${state.term.replace(/\s+/g, '')}${week ? `_第${week}周` : ''}.docx`);
   }
 
+  // ---------------- 上传课表（2026-10-28 用户：“课表里面再增加一个上传课表的功能，上传后自动识别上课时间地点等”）----------------
+  // 读教务系统导出的 Word 课表（.docx，如用户的《我的课表.docx》，本页导出的 Word 也能读回）：在浏览器里解压、读表格，
+  // 认出学期、各节时间、课表抬头和每门课（课程名、教学班号、星期、节次、周次、单双周、教室、班级），预览后再导入。
+  const WNS = 'http://schemas.openxmlformats.org/wordprocessingml/2006/main';
+  // docx 是 zip：从中央目录找到 word/document.xml，存储或 deflate 两种都能读
+  async function unzipText(buffer, name) {
+    const bytes = new Uint8Array(buffer);
+    const view = new DataView(buffer);
+    let end = -1;
+    for (let i = bytes.length - 22; i >= Math.max(0, bytes.length - 65557); i -= 1) { if (view.getUint32(i, true) === 0x06054b50) { end = i; break; } }
+    if (end < 0) throw new Error('not-zip');
+    const decoder = new TextDecoder();
+    let at = view.getUint32(end + 16, true);
+    for (let k = view.getUint16(end + 10, true); k > 0; k -= 1) {
+      if (view.getUint32(at, true) !== 0x02014b50) break;
+      const method = view.getUint16(at + 10, true);
+      const size = view.getUint32(at + 20, true);
+      const nameLen = view.getUint16(at + 28, true);
+      const local = view.getUint32(at + 42, true);
+      if (decoder.decode(bytes.subarray(at + 46, at + 46 + nameLen)) === name) {
+        const start = local + 30 + view.getUint16(local + 26, true) + view.getUint16(local + 28, true);
+        const data = bytes.subarray(start, start + size);
+        if (method === 0) return decoder.decode(data);
+        if (method === 8) return new Response(new Blob([data]).stream().pipeThrough(new DecompressionStream('deflate-raw'))).text();
+        throw new Error('zip-method');
+      }
+      at += 46 + nameLen + view.getUint16(at + 30, true) + view.getUint16(at + 32, true);
+    }
+    return null;
+  }
+  const wKids = (el, name) => (el ? Array.from(el.childNodes).filter((n) => n.nodeType === 1 && n.localName === name) : []);
+  const wKid = (el, name) => wKids(el, name)[0] || null;
+  const wVal = (el) => (el ? el.getAttributeNS(WNS, 'val') || el.getAttribute('w:val') : null);
+  function wText(node) {
+    let out = '';
+    node.childNodes.forEach((n) => {
+      if (n.nodeType !== 1 || n.localName === 'tbl') return;
+      if (n.localName === 't') out += n.textContent;
+      else if (n.localName === 'tab') out += '  ';
+      else if (n.localName === 'br' || n.localName === 'cr') out += '\n';
+      else out += wText(n);
+    });
+    return out;
+  }
+  const wLines = (tc) => wKids(tc, 'p').flatMap((p) => wText(p).split('\n')).map((line) => line.replace(/ /g, ' ').trim()).filter(Boolean);
+  // 表格还原成网格：横向合并按列数占位，纵向合并从“restart”往下数“continue”的行数
+  function wGrid(tbl) {
+    const rows = wKids(tbl, 'tr').map((tr) => {
+      let col = Number(wVal(wKid(wKid(tr, 'trPr'), 'gridBefore'))) || 0;
+      return wKids(tr, 'tc').map((tc) => {
+        const pr = wKid(tc, 'tcPr');
+        const span = Number(wVal(wKid(pr, 'gridSpan'))) || 1;
+        const vm = wKid(pr, 'vMerge');
+        const cell = { col, span, merge: vm ? (wVal(vm) === 'restart' ? 'restart' : 'continue') : '', lines: wLines(tc), rows: 1 };
+        col += span;
+        return cell;
+      });
+    });
+    rows.forEach((row, r) => row.forEach((cell) => {
+      if (cell.merge === 'continue') return;
+      for (let k = r + 1; k < rows.length; k += 1) {
+        const below = rows[k].find((c) => c.col === cell.col);
+        if (below && below.merge === 'continue') cell.rows += 1; else break;
+      }
+    }));
+    return rows;
+  }
+  const DAY_RE = /(?:星期|周|礼拜)\s*([一二三四五六日天1-7])/;
+  const TIME_RE = /(\d{1,2})[:：](\d{2})\s*[-~～—–至]+\s*(\d{1,2})[:：](\d{2})/;
+  const PERIOD_RE = /^第?\s*(\d{1,2})\s*(?:[-~～—–、,，至]\s*(\d{1,2}))?\s*节?$/;
+  const LEVEL_RE = /^(本|本科|专|专科|高职|研|研究生|硕士|博士|成教|继教)$/;
+  const INFO_RE = /[（(][^（）()]*\d[^（）()]*周[^（）()]*[)）]/;
+  const ROOM_RE = /校区|楼|室|馆|厅|中心|实验|机房|[A-Za-z]\d{2,}/;
+  const hm = (h, m) => `${pad(Number(h))}:${m}`;
+  const dayNo = (ch) => ('一二三四五六日'.indexOf(ch) + 1) || ('1234567'.indexOf(ch) + 1) || 7;
+  // 一个格子里的一门课：层次行（本／研究生）、课程名（教学班号）、信息行（周次）（节次）教室 班级，信息行后面可能还有教室、班级
+  function parseBlock(lines, day, from, to) {
+    const i = lines.findIndex((line) => INFO_RE.test(line));
+    if (i < 0) return null;
+    const info = lines[i];
+    const weeksText = INFO_RE.exec(info)[0];
+    const infoAt = info.indexOf(weeksText);
+    const level = lines.slice(0, i).find((line) => LEVEL_RE.test(line)) || '';
+    let head = lines.slice(0, i).filter((line) => !LEVEL_RE.test(line)).join(' ').trim();
+    const sameLine = info.slice(0, infoAt).trim();
+    if (!head) head = sameLine;
+    const cm = /^(.*?)\s*[（(]\s*([^（）()]{1,60}?)\s*[)）]\s*$/.exec(head);
+    const title = (cm && cm[1].trim() ? cm[1] : head).replace(/^[\s·•/]+|[\s·•/]+$/g, '').trim();
+    if (!title) return null;
+    const code = cm && cm[1].trim() ? cm[2].trim() : '';
+    const ranges = Array.from(weeksText.matchAll(/(\d{1,2})\s*(?:[-~～—–至]\s*(\d{1,2}))?/g)).map((m) => [Number(m[1]), Number(m[2] || m[1])]).filter(([a, b]) => a >= 1 && b >= a && b <= 30);
+    const parity = /单/.test(weeksText) ? 'odd' : /双/.test(weeksText) ? 'even' : '';
+    const pm = /[（(]?\s*第?\s*(\d{1,2})\s*(?:[-~～—–至,、，]\s*(\d{1,2}))?\s*节\s*[)）]?/.exec(info.replace(weeksText, ''));
+    if (pm) { from = Number(pm[1]); to = Number(pm[2] || pm[1]); }
+    let rest = info.replace(sameLine, '').replace(weeksText, '');
+    if (pm) rest = rest.replace(pm[0], '');
+    const parts = rest.split(/\s{2,}|　+/).map((part) => part.trim()).filter(Boolean);
+    const after = lines.slice(i + 1);
+    const strip = (text) => String(text || '').replace(/[（(]\s*\d+\s*人\s*[)）]\s*$/, '').trim();
+    let room = parts[0] || '';
+    let klass = '';
+    if (!room && after.length && ROOM_RE.test(after[0]) && !/^\d+$/.test(strip(after[0]))) room = after.shift();
+    if (after.length) klass = after[after.length - 1];
+    else if (parts.length > 1) klass = parts[parts.length - 1];
+    else if (parts.length === 1) {
+      const tokens = parts[0].split(/\s+/);
+      if (tokens.length > 1 && /^\d{3,}[A-Za-z]?班?$/.test(tokens[tokens.length - 1])) { klass = tokens.pop(); room = tokens.join(' '); }
+    }
+    return { level, title: title.slice(0, 40), code: code.slice(0, 40), klass: strip(klass).slice(0, 40), room: room.slice(0, 40),
+      ranges: ranges.length ? ranges : [[1, state.settings.weeks]], parity, day, from, to };
+  }
+  // 一个格子可能有几门课（不同周次轮换）：第二个起的信息行，从它前面的课程名（及层次行）开始新的一块
+  function parseCell(lines, day, from, to) {
+    const infos = lines.map((line, i) => (INFO_RE.test(line) ? i : -1)).filter((i) => i >= 0);
+    const starts = [0];
+    infos.slice(1).forEach((i) => {
+      let s = i - 1;
+      if (s > 0 && LEVEL_RE.test(lines[s - 1])) s -= 1;
+      if (s > starts[starts.length - 1]) starts.push(s);
+    });
+    return starts.map((s, k) => parseBlock(lines.slice(s, starts[k + 1] === undefined ? lines.length : starts[k + 1]), day, from, to)).filter(Boolean);
+  }
+  async function readTimetable(file) {
+    const xml = await unzipText(await file.arrayBuffer(), 'word/document.xml');
+    if (!xml) throw new Error('not-docx');
+    const doc = new DOMParser().parseFromString(xml, 'application/xml');
+    const body = doc.getElementsByTagNameNS(WNS, 'body')[0];
+    const paras = wKids(body, 'p').map((p) => wText(p).trim()).filter(Boolean).join('\n');
+    let grid = null;
+    let header = -1;
+    let dayCols = {};
+    for (const tbl of Array.from(doc.getElementsByTagNameNS(WNS, 'tbl'))) {
+      const rows = wGrid(tbl);
+      for (let r = 0; r < Math.min(rows.length, 4) && !grid; r += 1) {
+        const days = {};
+        rows[r].forEach((cell) => { const m = DAY_RE.exec(cell.lines.join('')); if (m) days[cell.col] = dayNo(m[1]); });
+        if (Object.keys(days).length >= 5) { grid = rows; header = r; dayCols = days; }
+      }
+      if (grid) break;
+    }
+    if (!grid) return null;
+    const firstDay = Math.min(...Object.keys(dayCols).map(Number));
+    // 每一行是第几节、几点到几点、属于上午／下午／晚上（左边几列，纵向合并的时段名只写在第一行）
+    const rowInfo = [];
+    const sectionRows = {};
+    let last = 0;
+    for (let r = header + 1; r < grid.length; r += 1) {
+      const info = { from: 0, to: 0, time: null, section: sectionRows[r] || '' };
+      grid[r].filter((cell) => cell.col < firstDay && cell.merge !== 'continue').forEach((cell) => {
+        cell.lines.forEach((line) => {
+          const sec = /上午|中午|下午|晚上|夜间|晚间/.exec(line);
+          if (sec) { for (let k = 0; k < cell.rows; k += 1) sectionRows[r + k] = sec[0]; info.section = sec[0]; }
+          const t = TIME_RE.exec(line);
+          if (t) info.time = { from: hm(t[1], t[2]), to: hm(t[3], t[4]) };
+          const p = PERIOD_RE.exec(line.replace(TIME_RE, '').trim());
+          if (p && !info.from) { info.from = Number(p[1]); info.to = Number(p[2] || p[1]); }
+        });
+      });
+      if (!info.from && (info.time || grid[r].some((cell) => cell.col >= firstDay))) { info.from = last + 1; info.to = last + 1; }
+      if (info.from) last = info.to;
+      rowInfo[r] = info;
+    }
+    const records = [];
+    for (let r = header + 1; r < grid.length; r += 1) {
+      grid[r].forEach((cell) => {
+        if (!(cell.col in dayCols) || cell.merge === 'continue' || !cell.lines.length) return;
+        const top = rowInfo[r] || {};
+        const bottom = rowInfo[Math.min(grid.length - 1, r + cell.rows - 1)] || top;
+        records.push(...parseCell(cell.lines, dayCols[cell.col], top.from || 1, bottom.to || top.to || 1));
+      });
+    }
+    // 作息：每行一节且有时间时，按时段数节数
+    const periods = rowInfo.filter((info) => info && info.from && info.from === info.to);
+    const times = [];
+    periods.forEach((info) => { if (info.time) times[info.from - 1] = info.time; });
+    const complete = times.length > 0 && times.length === periods.length && Array.from({ length: times.length }, (_, i) => times[i]).every(Boolean);
+    const bucket = (info) => (/下午|中午/.test(info.section) ? 1 : /晚/.test(info.section) ? 2 : /上午/.test(info.section) ? 0
+      : (info.time && info.time.from < '12:00' ? 0 : info.time && info.time.from < '17:30' ? 1 : 2));
+    const sections = [0, 0, 0];
+    periods.forEach((info) => { sections[bucket(info)] += 1; });
+    const termMatch = /(\d{4})\s*[-—–]\s*(\d{4})\s*学年\s*第?\s*([一二12])\s*学期/.exec(paras) || /(\d{4})\s*[-—–]\s*(\d{4})\s*[-—–]\s*([12])/.exec(paras);
+    // 抬头各项可能空着（如“教师：    教师工号”），取到的是下一项的名称时当作没填
+    const field = (re) => { const m = re.exec(paras); return m && !/教师|工号|部门|职称|姓名/.test(m[1]) ? m[1].trim() : ''; };
+    return {
+      term: termMatch ? `${termMatch[1]}—${termMatch[2]} 学年第${/[1一]/.test(termMatch[3]) ? '一' : '二'}学期` : '',
+      dept: field(/所属部门[：:][ \t　]*([^\s：:]+)/), teacher: field(/(?:^|\s)教师[：:][ \t　]*([^\s：:]+)/), staff: field(/工号[：:][ \t　]*([^\s：:]+)/),
+      times: complete ? times.map((t) => ({ ...t })) : null,
+      sections: complete ? sections : null,
+      courses: groupCourses(records),
+    };
+  }
+  // 同一门课同一个班的几段合成一份上课安排（连着的几节并成一段，教室、周次取最常见的，不同的写在这一段上）
+  function groupCourses(records) {
+    const map = new Map();
+    records.forEach((rec) => {
+      const key = [rec.title, rec.code, rec.klass].join('|');
+      if (!map.has(key)) map.set(key, { title: rec.title, code: rec.code, klass: rec.klass, level: rec.level, items: [] });
+      rec.ranges.forEach((weeks) => map.get(key).items.push({ day: rec.day, from: rec.from, to: rec.to, parity: rec.parity, room: rec.room, weeks }));
+    });
+    const most = (list) => { const count = new Map(); list.filter(Boolean).forEach((x) => count.set(x, (count.get(x) || 0) + 1)); return Array.from(count).sort((a, b) => b[1] - a[1])[0]?.[0] || ''; };
+    return Array.from(map.values()).map((g) => {
+      const items = g.items.sort((a, b) => a.day - b.day || a.from - b.from);
+      const merged = [];
+      items.forEach((item) => {
+        const prev = merged[merged.length - 1];
+        const same = prev && prev.day === item.day && prev.parity === item.parity && prev.room === item.room && prev.weeks.join() === item.weeks.join();
+        if (same && item.from <= prev.to + 1) prev.to = Math.max(prev.to, item.to); else merged.push({ ...item });
+      });
+      const room = most(merged.map((item) => item.room));
+      const weeks = [Math.min(...merged.map((item) => item.weeks[0])), Math.max(...merged.map((item) => item.weeks[1]))];
+      const slots = merged.slice(0, 14).map((item) => {
+        const slot = { day: item.day, from: Math.max(1, Math.min(16, item.from)), to: Math.max(1, Math.min(16, item.to)) };
+        if (slot.to < slot.from) slot.to = slot.from;
+        if (item.parity) slot.parity = item.parity;
+        if (item.room && item.room !== room) slot.room = item.room;
+        if (item.weeks[0] !== weeks[0] || item.weeks[1] !== weeks[1]) slot.weeks = item.weeks;
+        return slot;
+      });
+      return { ...g, plan: { room, weeks, slots, ...(g.code ? { code: g.code } : {}) } };
+    });
+  }
+  // 课程对应到本网站的课程和班级：课程名相同（或互相包含）；班级先按教学班号，再按班级名
+  const normName = (text) => String(text || '').replace(/[\s《》“”"'（）()·・\-—]/g, '').toLowerCase();
+  function matchCourse(g) {
+    const t = normName(g.title);
+    const course = state.courses.find((c) => normName(c.title) === t)
+      || state.courses.find((c) => t.length >= 4 && (normName(c.title).includes(t) || t.includes(normName(c.title))));
+    if (!course) return { course: null, target: 'extra' };
+    const classes = state.classes.filter((c) => c.course === course.slug);
+    const k = normName(g.klass);
+    const hit = (g.code && classes.find((c) => c.schedule && c.schedule.code === g.code))
+      || (k && classes.find((c) => normName(c.name) === k))
+      || (k.length >= 3 && classes.find((c) => { const n = normName(c.name); return n.length >= 3 && (n.includes(k) || k.includes(n)); }));
+    return { course, target: hit ? `class:${hit.id}` : 'new' };
+  }
+
+  const importer = document.createElement('dialog');
+  importer.className = 'tw-dialog pl-dialog pl-import';
+  document.body.appendChild(importer);
+  let imported = null;
+  function showImport(result, fileName) {
+    imported = result;
+    result.courses.forEach((g) => Object.assign(g, matchCourse(g)));
+    const s = state.settings;
+    const sameTimes = result.times && result.times.length === s.times.length && result.times.every((t, i) => t.from === s.times[i].from && t.to === s.times[i].to);
+    const header = [result.dept && `部门 ${result.dept}`, result.teacher && `教师 ${result.teacher}`, result.staff && `工号 ${result.staff}`].filter(Boolean).join('，');
+    const slotText = (plan) => plan.slots.map((slot) => `周${WEEKDAYS[slot.day - 1]} ${slot.from}-${slot.to} 节${slot.parity ? `（${PARITY[slot.parity]}）` : ''}${slot.weeks ? `（${weekRange(slot.weeks)}）` : ''}`).join('、');
+    const options = (g) => {
+      const list = [];
+      if (g.course) {
+        state.classes.filter((c) => c.course === g.course.slug).forEach((c) => list.push([`class:${c.id}`, `导入到班级“${c.name}”${c.schedule ? '（替换原有）' : ''}`]));
+        list.push(['new', `新建班级“${g.klass || g.title}”并导入`]);
+      }
+      list.push(['extra', '作为其他课程（不在本网站上课）'], ['skip', '不导入']);
+      return list.map(([value, label]) => `<option value="${esc(value)}"${value === g.target ? ' selected' : ''}>${esc(label)}</option>`).join('');
+    };
+    importer.innerHTML = `<form method="dialog" data-pl-import-form>
+      <h2>上传课表 · 识别结果</h2>
+      <p class="tw-hint">${esc(fileName)}：识别到 ${result.courses.length} 门课。请核对后点“导入”；每门课可以选导入到哪个班级。</p>
+      <div class="pl-import-opts">
+        ${result.term ? `<label class="tw-check"><input type="checkbox" name="term"${result.term !== s.term ? ' checked' : ' disabled'}><span>学期：${esc(result.term)}${result.term === s.term ? '（与现在相同）' : `（现在是“${esc(s.term)}”，勾选则改为它）`}</span></label>` : ''}
+        ${result.times ? `<label class="tw-check"><input type="checkbox" name="times"${sameTimes ? ' disabled' : ' checked'}><span>作息时间：${result.times.length} 节（上午 ${result.sections[0]}、下午 ${result.sections[1]}、晚上 ${result.sections[2]}；第 1 节 ${esc(result.times[0].from)}—${esc(result.times[0].to)}）${sameTimes ? '，与现在相同' : '，勾选则按课表更新'}</span></label>` : '<p class="tw-hint">没有认出各节时间，作息保持不变。</p>'}
+        ${header ? `<label class="tw-check"><input type="checkbox" name="header" checked><span>课表抬头：${esc(header)}</span></label>` : ''}
+      </div>
+      <div class="pl-import-list">${result.courses.map((g, i) => `
+        <div class="pl-import-row">
+          <div><b>${esc(g.title)}</b>${g.code ? `<small class="is-code">教学班号 ${esc(g.code)}</small>` : ''}${g.level ? `<small>${esc(g.level)}</small>` : ''}
+            <p>${esc([g.klass && `班级 ${g.klass}`, slotText(g.plan), g.plan.room, weekRange(g.plan.weeks)].filter(Boolean).join(' · '))}</p></div>
+          <select data-import-target="${i}" aria-label="导入到">${options(g)}</select>
+        </div>`).join('') || '<p class="pl-empty">没有认出任何课程。请确认上传的是教务系统导出的课表（表格里有“星期一……星期日”，格子里写着周次和节次）。</p>'}</div>
+      <p class="tw-error" data-import-error role="alert"></p>
+      <div class="tw-actions">
+        <button type="submit" class="tw-primary"${result.courses.length || result.times ? '' : ' disabled'}>导入</button>
+        <button type="button" class="tw-secondary" data-import-cancel>取消</button>
+      </div>
+    </form>`;
+    importer.showModal();
+  }
+  async function runImport(form) {
+    const result = imported;
+    const error = $('[data-import-error]', importer);
+    const flag = (name) => Boolean(form.elements[name] && form.elements[name].checked && !form.elements[name].disabled);
+    const next = { ...state.settings, extras: state.settings.extras.slice() };
+    if (flag('term')) next.term = result.term;
+    if (flag('times')) { next.sections = result.sections; next.times = result.times; }
+    if (flag('header')) ['dept', 'teacher', 'staff'].forEach((key) => { if (result[key]) next[key] = result[key]; });
+    const term = result.term || next.term;
+    const done = [];
+    const failed = [];
+    $('button[type="submit"]', importer).disabled = true;
+    for (const [i, g] of result.courses.entries()) {
+      const target = $(`[data-import-target="${i}"]`, importer).value;
+      const plan = { term, ...g.plan };
+      try {
+        if (target.startsWith('class:')) {
+          await state.backend.rpc('ck_set_class_schedule', { p_class: Number(target.slice(6)) || target.slice(6), p_schedule: plan });
+          done.push(`${g.title}（${findClass(target.slice(6)).name}）`);
+        } else if (target === 'new') {
+          const name = (g.klass || g.title).slice(0, 40);
+          let row = null;
+          try {
+            const created = await state.backend.rpc('ck_create_class', { p_course: g.course.slug, p_name: name });
+            row = Array.isArray(created) ? created[0] : created;
+          } catch (problem) {
+            if (!window.ClassLive.isDuplicateError(problem)) throw problem;
+            row = (await state.backend.fetchAll('classes', { course: g.course.slug })).find((c) => c.name === name);
+          }
+          await state.backend.rpc('ck_set_class_schedule', { p_class: Number(row.id) || row.id, p_schedule: plan });
+          done.push(`${g.title}（新建班级“${name}”）`);
+        } else if (target === 'extra') {
+          const klass = [g.level && !/^本/.test(g.level) ? g.level : '', g.klass].filter(Boolean).join(' · ');
+          const old = next.extras.find((e) => e.title === g.title && (e.klass === klass || e.klass === g.klass));
+          next.extras = next.extras.filter((e) => e !== old).concat({ ...plan, id: old ? old.id : `x${Date.now().toString(36)}${i}`, title: g.title, klass });
+          done.push(`${g.title}（其他课程）`);
+        }
+      } catch (problem) {
+        console.error(problem);
+        failed.push(`${g.title}：${missingError(problem) ? '后台还没有课表功能' : problem.message || problem}`);
+      }
+    }
+    try {
+      const settings = normalize(next);
+      if (JSON.stringify(settings) !== JSON.stringify(state.settings)) {
+        await state.backend.rpc('ck_save_teacher_setting', { p_key: 'planner', p_value: settings });
+        state.settings = settings;
+        state.term = settings.term;
+        state.week = null;
+      }
+    } catch (problem) {
+      console.error(problem);
+      failed.push(`课表设置：${missingError(problem) ? '后台还没有课表功能' : problem.message || problem}`);
+    }
+    if (!done.length && failed.length) {
+      error.textContent = `没有导入：${failed.join('；')}`;
+      $('button[type="submit"]', importer).disabled = false;
+      return;
+    }
+    importer.close();
+    state.flash = `已导入 ${done.length} 门课：${done.join('、')}。${failed.length ? `没有导入：${failed.join('；')}。` : ''}请在下面核对，有出入的点“修改上课时间”。`;
+    await load();
+    render();
+  }
+  async function handleUpload(file) {
+    state.flash = '';
+    if (!file) return;
+    if (!/\.docx$/i.test(file.name)) {
+      state.flash = /\.doc$/i.test(file.name) ? '这是旧版 Word（.doc）：请用 Word 打开后“另存为”.docx 再上传。' : '目前只认 Word（.docx）格式的课表：可以在教务系统里导出 Word，或把课表复制到 Word 里另存为 .docx。';
+      render();
+      return;
+    }
+    try {
+      const result = await readTimetable(file);
+      if (!result) { state.flash = `“${file.name}”里没有找到课表表格（表头要有“星期一……星期日”）。`; render(); return; }
+      showImport(result, file.name);
+    } catch (problem) {
+      console.error(problem);
+      state.flash = `读取“${file.name}”失败：文件可能已损坏，或不是 Word 文档。`;
+      render();
+    }
+  }
+  importer.addEventListener('submit', (event) => { event.preventDefault(); runImport(event.target); });
+  importer.addEventListener('click', (event) => { if (event.target.closest('[data-import-cancel]')) importer.close(); });
+
+  // ---------------- 校历（2026-10-28 用户：“在教师控制台再增加一个查看校历的功能，可以上传每年的校历，在网站中生成，并且自动识别周次和节假日，
+  // 用不同颜色标注不同课程上课的周次，并识别哪周因为节假日是不需要上课的”）----------------
+  // 每学年一份：学期（名称、表上第一行的周一、第一行是第零周还是第一周、行数）、节假日（off 放假停课、break 寒暑假、event 活动不停课）、
+  // 调休上班（这天上“周几”的课）、说明。存在工作台设置 calendar 里；还没保存过时用下面按用户提供的校历图片录入的 2026—2027 学年。
+  const PRESET_CALENDARS = {
+    '2026-2027': {
+      year: '2026-2027', school: '华东政法大学', preset: true,
+      terms: [
+        { name: '秋季学期', start: '2026-08-31', first: 0, weeks: 21 },
+        { name: '春季学期', start: '2027-02-22', first: 1, weeks: 18 },
+        { name: '夏季学期', start: '2027-06-28', first: 1, weeks: 4 },
+      ],
+      holidays: [
+        { name: '中秋节', from: '2026-09-25', to: '2026-09-27', type: 'off' },
+        { name: '国庆节', from: '2026-10-01', to: '2026-10-07', type: 'off' },
+        { name: '校运动会', from: '2026-11-06', to: '2026-11-07', type: 'event' },
+        { name: '元旦', from: '2027-01-01', to: '2027-01-01', type: 'off' },
+        { name: '寒假', from: '2027-01-11', to: '2027-02-19', type: 'break' },
+        { name: '清明节', from: '2027-04-05', to: '2027-04-05', type: 'off' },
+        { name: '劳动节', from: '2027-05-01', to: '2027-05-01', type: 'off' },
+        { name: '端午节', from: '2027-06-09', to: '2027-06-09', type: 'off' },
+      ],
+      workdays: [{ date: '2026-09-20', as: 2 }, { date: '2026-10-10', as: 3 }],
+      notes: [
+        '本科生（2023 级、2025 级及 2024 级法学〔含知识产权〕以外专业）：2026 年 9 月 6 日（周日）注册，9 月 7 日（周一）上课；2024 级法学（含知识产权）专业 8 月 31 日（周一）上课；2026 级新生 9 月 5 日（周六）报到，9 月 21 日（周一）上课。',
+        '研究生：2024、2025 级 9 月 6 日（周日）注册，9 月 7 日（周一）上课；2026 级新生 9 月 16 日（周三）报到。',
+        '中秋节：9 月 25 日（周五）至 27 日（周日）放假，不调休。国庆节：10 月 1 日（周四）至 7 日（周三）放假调休；9 月 20 日（周日）上班，补周二课程；10 月 10 日（周六）上班，补周三课程。',
+        '第零至十八周（2026 年 8 月 31 日至 2027 年 1 月 10 日）上课和考试；第十九、二十周开展各项教学实践活动。',
+        '中华传统体育大会暨松江校区田径运动会：11 月 6 日（周五）、7 日（周六）。',
+        '寒假：2027 年 1 月 11 日至 2 月 19 日（2 月 6 日农历春节）。',
+        '春季学期：2027 年 2 月 21 日（周日）注册，2 月 22 日（周一）上课，至 6 月 27 日止（含考试）。夏季学期：原则上 6 月 28 日至 7 月 25 日。',
+      ],
+    },
+  };
+  const HOLIDAY_TYPES = { off: '放假（停课）', break: '寒暑假', event: '活动（不停课）' };
+  const CN_NUM = '零一二三四五六七八九十';
+  const cnNum = (n) => (n <= 10 ? CN_NUM[n] : n < 20 ? `十${n % 10 ? CN_NUM[n % 10] : ''}` : `${CN_NUM[Math.floor(n / 10)]}十${n % 10 ? CN_NUM[n % 10] : ''}`);
+  const calYears = () => Object.values(state.calendar.years || {});
+  const rankType = { off: 3, break: 2, event: 1 };
+  // 某一天在校历上是什么日子：节假日（同一天有几项时取停课的那项）、调休上班（这天上“周几”的课）
+  function schoolDay(key) {
+    let holiday = null;
+    let work = null;
+    calYears().forEach((y) => {
+      (y.holidays || []).forEach((h) => { if (key >= h.from && key <= h.to && (!holiday || rankType[h.type] > rankType[holiday.type])) holiday = h; });
+      (y.workdays || []).forEach((w) => { if (w.date === key) work = w; });
+    });
+    return { holiday, work };
+  }
+  const schoolOff = (key) => { const h = schoolDay(key).holiday; return h && h.type !== 'event' ? h : null; };
+  // 调休上班那天补的是哪一天的课：同一次放假里星期相同的那一天（如 9/20 补周二＝国庆假期里的 10/6）
+  function makeupSource(work) {
+    const at = parseDay(work.date);
+    let best = null;
+    calYears().forEach((y) => (y.holidays || []).filter((h) => h.type === 'off').forEach((h) => {
+      for (let d = parseDay(h.from); d && d <= parseDay(h.to); d = addDays(d, 1)) {
+        const gap = Math.abs(dayDiff(d, at));
+        if (weekday(d) === Number(work.as) && gap <= 31 && (!best || gap < best.gap)) best = { date: d, gap, holiday: h };
+      }
+    }));
+    return best;
+  }
+  // 放假那天的课调到了哪一天（没有调就是停课）
+  function movedTo(key) {
+    let hit = null;
+    calYears().forEach((y) => (y.workdays || []).forEach((w) => { const src = makeupSource(w); if (src && ymd(src.date) === key) hit = w; }));
+    return hit;
+  }
+  function normalizeCalendar(value) {
+    const v = value && typeof value === 'object' ? value : {};
+    const years = {};
+    Object.values(v.years || {}).forEach((y) => { if (y && /^\d{4}-\d{4}$/.test(String(y.year))) years[y.year] = y; });
+    Object.entries(PRESET_CALENDARS).forEach(([key, y]) => { if (!years[key]) years[key] = JSON.parse(JSON.stringify(y)); });
+    const current = years[v.current] ? v.current : Object.keys(years).sort().reverse().find((key) => {
+      const y = years[key];
+      return (y.terms || []).some((t) => parseDay(t.start) <= today() && addDays(parseDay(t.start), t.weeks * 7) > today());
+    }) || Object.keys(years).sort().pop();
+    return { years, current };
+  }
+  // 学期的日期范围、表上每一行
+  const termRange = (t) => [parseDay(t.start), addDays(parseDay(t.start), t.weeks * 7 - 1)];
+  // 课表的学期（作息与学期里设的第 1 周）落在校历的哪个学期
+  const plannerTermOf = (y) => (y.terms || []).findIndex((t) => { const [a, b] = termRange(t); const s = parseDay(state.settings.start); return s >= a && s <= b; });
+  // 校历学期 → 课表学期名称、第 1 周周一、周数
+  function plannerFromTerm(y, t) {
+    const [y1, y2] = String(y.year).split('-');
+    const term = /秋/.test(t.name) ? `${y1}—${y2} 学年第一学期` : /春/.test(t.name) ? `${y1}—${y2} 学年第二学期` : `${y1}—${y2} 学年${t.name}`;
+    return { term, start: ymd(addDays(parseDay(t.start), (1 - Number(t.first || 0)) * 7)), weeks: Math.max(1, t.weeks - (Number(t.first) === 0 ? 1 : 0)) };
+  }
+
+  function renderSchool(body) {
+    const cal = state.calendar;
+    const years = Object.keys(cal.years).sort();
+    const y = cal.years[cal.current] || cal.years[years[years.length - 1]];
+    if (!y) { body.innerHTML = '<p class="pl-empty">还没有校历。点“上传校历”读入学校的校历图片。</p>'; return; }
+    const terms = y.terms || [];
+    if (state.schoolTerm === null || !terms[state.schoolTerm]) {
+      const now = today();
+      const hit = terms.findIndex((t) => { const [a, b] = termRange(t); return now >= a && now <= b; });
+      state.schoolTerm = hit >= 0 ? hit : Math.max(0, plannerTermOf(y));
+    }
+    const t = terms[state.schoolTerm];
+    const linked = state.schoolTerm === plannerTermOf(y);   // 这一学期就是课表里的学期：标出各班上课
+    const todayKey = ymd(today());
+    const nowWeek = (() => { if (!t) return null; const d = dayDiff(today(), parseDay(t.start)); return d >= 0 && d < t.weeks * 7 ? Math.floor(d / 7) + Number(t.first || 0) : null; })();
+    $('[data-pl-sub]', view).textContent = `${y.school ? `${y.school} · ` : ''}${y.year} 学年${t ? ` · ${t.name}` : ''}${nowWeek !== null ? ` · 本周是第${cnNum(nowWeek)}周` : ''}。`
+      + `${y.preset ? '按 10 月 28 日提供的校历图片录入，核对后可在“修改校历”里改。' : ''}校历上的放假和调休会自动用到“课表”和“日程”。`;
+    // 各班这一学期每次课：上课、停课（放假）、调课（放假那天的课调到调休上班日）
+    const classes = linked ? Array.from(new Map(sessionsOf(state.settings.term).map((item) => [String(item.klass.id), item])).values()) : [];
+    const record = new Map(classes.map((item) => [String(item.klass.id), { item, on: [], off: [], moved: [], extra: [] }]));
+    const cells = [];
+    if (t) {
+      for (let w = 0; w < t.weeks; w += 1) {
+        const monday = addDays(parseDay(t.start), w * 7);
+        const label = w + Number(t.first || 0);
+        let row = `<div class="sc-week${label === nowWeek ? ' is-now' : ''}"><b>第${cnNum(label)}周</b><small>${md(monday)}—${md(addDays(monday, 6))}</small></div>`;
+        for (let d = 0; d < 7; d += 1) {
+          const date = addDays(monday, d);
+          const key = ymd(date);
+          const { holiday, work } = schoolDay(key);
+          const off = holiday && holiday.type !== 'event';
+          const moved = off ? movedTo(key) : null;
+          const list = linked ? classesOn(date) : [];
+          const chips = list.map((item) => {
+            const rec = record.get(String(item.klass.id));
+            const entry = { date: key, week: weekOf(item.makeupFrom ? parseDay(item.makeupFrom) : date), item };
+            let cls = '';
+            let note = '';
+            if (off && !item.makeup) { if (moved) { cls = 'is-moved'; note = `调到 ${md(parseDay(moved.date))}`; } else { cls = 'is-off'; note = `${holiday.name}停课`; rec && rec.off.push({ ...entry, why: holiday.name }); } }
+            else if (item.makeup) { cls = 'is-makeup'; note = `补 ${md(parseDay(item.makeupFrom || key))} 的课`; rec && rec.on.push(entry); rec && rec.extra.push(entry); }
+            else rec && rec.on.push(entry);
+            return `<span class="sc-cls ${cls}" style="--c:${item.c};--s:${item.s}" title="${esc(`${titleOf(item.klass)} ${item.klass.name} ${periodText(item.from, item.to)}${note ? `（${note}）` : ''}`)}">${esc(tagOf(item.klass))}${item.from}-${item.to}${cls === 'is-makeup' ? '<i>补</i>' : ''}</span>`;
+          }).join('');
+          const first = d === 0 && w === 0;
+          const dateText = date.getDate() === 1 || first ? `${date.getMonth() + 1}/${date.getDate()}` : String(date.getDate());
+          const showName = holiday && (holiday.type !== 'break' || key === holiday.from || d === 0);
+          row += `<div class="sc-day${d >= 5 ? ' is-weekend' : ''}${off ? (holiday.type === 'break' ? ' is-break' : ' is-off') : ''}${holiday && holiday.type === 'event' ? ' is-event' : ''}${work ? ' is-work' : ''}${key === todayKey ? ' is-today' : ''}${key < todayKey ? ' is-past' : ''}" title="${esc(cnDate(date))}">
+            <span class="sc-date">${dateText}</span>
+            ${showName ? `<em class="sc-tag is-${holiday.type}">${esc(holiday.name)}</em>` : ''}
+            ${work ? `<em class="sc-tag is-work">上班 · 补周${WEEKDAYS[Number(work.as) - 1]}</em>` : ''}
+            ${chips ? `<span class="sc-chips">${chips}</span>` : ''}
+          </div>`;
+        }
+        cells.push(row);
+      }
+    }
+    // 右侧：各班上课的周次（色条：上课＝本班颜色，停课＝划斜线，补课＝金边）、停课原因
+    const weeksMax = state.settings.weeks;
+    const summary = classes.map((item) => {
+      const rec = record.get(String(item.klass.id));
+      const status = Array.from({ length: weeksMax }, (_, i) => {
+        const wk = i + 1;
+        const on = rec.on.some((e) => e.week === wk);
+        const off = rec.off.some((e) => e.week === wk);
+        const mk = rec.extra.some((e) => e.week === wk);
+        return on ? (mk ? 'makeup' : 'on') : off ? 'off' : '';
+      });
+      const offText = rec.off.map((e) => `第 ${e.week} 周 ${md(parseDay(e.date))} ${e.why}`).join('；');
+      const moveText = rec.extra.map((e) => `第 ${e.week} 周的课调到 ${md(parseDay(e.date))}`).join('；');
+      return `<article class="sc-course" style="--c:${item.c};--s:${item.s}">
+        <header><em>${esc(tagOf(item.klass))}</em><b>${esc(item.klass.name)}</b><small>${esc(titleOf(item.klass))}</small></header>
+        <div class="sc-strip" aria-label="各周上课情况">${status.map((s, i) => `<i class="${s ? `is-${s}` : ''}" title="第 ${i + 1} 周：${{ on: '上课', makeup: '上课（调休补课）', off: '放假停课', '': '不上课' }[s]}"><span>${i + 1}</span></i>`).join('')}</div>
+        <p>上课 <b>${rec.on.length}</b> 次${rec.off.length ? `，停课 <b class="is-off">${rec.off.length}</b> 次` : ''}${rec.extra.length ? `，调课 ${rec.extra.length} 次` : ''}。</p>
+        ${offText ? `<p class="sc-why">停课：${esc(offText)}</p>` : ''}
+        ${moveText ? `<p class="sc-why is-move">调课：${esc(moveText)}</p>` : ''}
+      </article>`;
+    }).join('');
+    const termHolidays = t ? (y.holidays || []).filter((h) => { const [a, b] = termRange(t); return parseDay(h.to) >= a && parseDay(h.from) <= b; }) : [];
+    body.innerHTML = `
+      <div class="sc-bar">
+        <label class="pl-term">学年<select data-sc-year>${years.map((key) => `<option${key === cal.current ? ' selected' : ''}>${esc(key)}</option>`).join('')}</select></label>
+        <div class="sc-terms" role="tablist">${terms.map((term, i) => `<button type="button" class="pl-chip" data-sc-term="${i}" aria-pressed="${i === state.schoolTerm}">${esc(term.name)}</button>`).join('')}</div>
+        <div class="sc-tools">
+          <button type="button" class="tw-secondary pl-btn" data-sc-upload title="读入学校的校历图片（可以一次选几张），自动识别周次、节假日和调休">上传校历</button>
+          <button type="button" class="tw-secondary pl-btn" data-sc-edit>修改校历</button>
+          ${t && !linked ? `<button type="button" class="tw-secondary pl-btn" data-sc-link title="课表的“第几周”按这个学期算">设为课表的学期</button>` : ''}
+        </div>
+      </div>
+      <div class="sc-progress" data-sc-progress hidden><span><i data-sc-bar></i></span><small data-sc-status></small></div>
+      <div class="sc-legend">
+        <span><i class="is-off"></i>放假停课</span><span><i class="is-break"></i>寒暑假</span><span><i class="is-work"></i>调休上班</span><span><i class="is-event"></i>活动（不停课）</span>
+        ${classes.map((item) => `<span><i style="background:${item.c}"></i>${esc(tagOf(item.klass))} ${esc(item.klass.name)}</span>`).join('')}
+      </div>
+      ${t && !linked ? `<p class="pl-warn">课表里排的是“${esc(state.settings.term)}”（第 1 周 ${esc(state.settings.start)}），不是这个学期，所以这里不标各班的课。需要的话点“设为课表的学期”。</p>` : ''}
+      <div class="sc-layout">
+        <div class="sc-wrap"><div class="sc-grid">
+          <div class="sc-head">周次</div>${WEEKDAYS.map((d, i) => `<div class="sc-head${i >= 5 ? ' is-weekend' : ''}">星期${d}</div>`).join('')}
+          ${cells.join('')}
+        </div></div>
+        <aside class="sc-side">
+          ${linked ? `<section class="sc-card"><h3>各班上课的周次</h3>${summary || '<p class="pl-quiet">课表里还没有排课。</p>'}
+            <p class="sc-key"><i class="is-on"></i>上课 <i class="is-off"></i>放假停课 <i class="is-makeup"></i>调休补课</p></section>` : ''}
+          <section class="sc-card"><h3>本学期的节假日</h3>${termHolidays.length ? `<ul class="sc-hols">${termHolidays.map((h) => `<li class="is-${h.type}"><b>${esc(h.name)}</b><span>${md(parseDay(h.from))}${h.to !== h.from ? `—${md(parseDay(h.to))}` : ''} · ${HOLIDAY_TYPES[h.type] || ''}</span></li>`).join('')}</ul>` : '<p class="pl-quiet">没有。</p>'}
+            ${(y.workdays || []).filter((w) => t && parseDay(w.date) >= termRange(t)[0] && parseDay(w.date) <= termRange(t)[1]).map((w) => `<p class="sc-workline">${md(parseDay(w.date))}（周${WEEKDAYS[weekday(parseDay(w.date)) - 1]}）上班，补周${WEEKDAYS[Number(w.as) - 1]}课程</p>`).join('')}</section>
+          ${(y.notes || []).length ? `<section class="sc-card"><h3>校历说明</h3><ul class="sc-notes">${y.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>` : ''}
+        </aside>
+      </div>`;
+  }
+
+  // ---------- 上传校历：在浏览器里识别（识别程序放在本站 /js/vendor/tesseract/，只在这时加载） ----------
+  const SELF_VERSION = ((document.currentScript && document.currentScript.src) || '').split('?v=')[1] || '';
+  const VENDOR = '/js/vendor/tesseract';
+  const loadScript = (src) => new Promise((resolve, reject) => {
+    const tag = document.createElement('script');
+    tag.src = src;
+    tag.onload = resolve;
+    tag.onerror = () => reject(new Error(`加载失败：${src}`));
+    document.head.appendChild(tag);
+  });
+  function scProgress(ratio, text) {
+    const box = $('[data-sc-progress]', view);
+    if (!box) return;
+    box.hidden = ratio === null;
+    if (ratio !== null) { $('[data-sc-bar]', box).style.width = `${Math.round(Math.max(0.02, ratio) * 100)}%`; $('[data-sc-status]', box).textContent = text; }
+  }
+  async function readImage(file) {
+    const bitmap = await createImageBitmap(file);
+    const k = bitmap.width > 1800 ? 1800 / bitmap.width : 1;
+    const width = Math.round(bitmap.width * k);
+    const height = Math.round(bitmap.height * k);
+    const canvas = document.createElement('canvas');
+    canvas.width = width;
+    canvas.height = height;
+    const ctx = canvas.getContext('2d', { willReadFrequently: true });
+    ctx.drawImage(bitmap, 0, 0, width, height);
+    const px = ctx.getImageData(0, 0, width, height).data;
+    const gray = new Uint8Array(width * height);
+    for (let i = 0; i < gray.length; i += 1) gray[i] = Math.round(0.299 * px[i * 4] + 0.587 * px[i * 4 + 1] + 0.114 * px[i * 4 + 2]);
+    // 截取一块放大（clean：黑白二值化、四周留白），给识别程序用；用灰度，最近邻放大
+    const crop = (x, y, w, h, scale, clean) => {
+      x = Math.max(0, Math.round(x)); y = Math.max(0, Math.round(y));
+      w = Math.max(1, Math.min(width - x, Math.round(w))); h = Math.max(1, Math.min(height - y, Math.round(h)));
+      const P = clean ? 12 : 0;
+      const out = document.createElement('canvas');
+      out.width = w * scale + 2 * P;
+      out.height = h * scale + 2 * P;
+      const c = out.getContext('2d', { willReadFrequently: true });
+      const img = c.createImageData(out.width, out.height);
+      img.data.fill(255);
+      for (let yy = 0; yy < h * scale; yy += 1) {
+        for (let xx = 0; xx < w * scale; xx += 1) {
+          let v = gray[(y + Math.floor(yy / scale)) * width + (x + Math.floor(xx / scale))];
+          if (clean) v = v < 150 ? 0 : 255;
+          const o = ((yy + P) * out.width + xx + P) * 4;
+          img.data[o] = v; img.data[o + 1] = v; img.data[o + 2] = v;
+        }
+      }
+      c.putImageData(img, 0, 0);
+      return out;
+    };
+    return { gray, width, height, crop };
+  }
+  async function uploadCalendar(files) {
+    const images = Array.from(files || []).filter((file) => /^image\//.test(file.type) || /\.(jpe?g|png|webp|bmp|gif)$/i.test(file.name));
+    if (!images.length) { state.flash = '请上传校历的图片（jpg、png 等）。PDF 可以先截图再上传。'; render(); return; }
+    let worker = null;
+    try {
+      scProgress(0.02, '加载识别程序（第一次约 6 MB，之后会快一些）……');
+      if (!window.ClassLiveCalendarOCR) await loadScript(`/js/live-calendar-ocr.js${SELF_VERSION ? `?v=${SELF_VERSION}` : ''}`);
+      if (!window.Tesseract) await loadScript(`${VENDOR}/tesseract.min.js`);
+      const simd = WebAssembly.validate(new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0, 1, 5, 1, 96, 0, 1, 123, 3, 2, 1, 0, 10, 10, 1, 8, 0, 65, 0, 253, 15, 253, 98, 11]));
+      const abs = (path) => new URL(path, location.href).href;
+      worker = await window.Tesseract.createWorker('chi_sim', 1, {
+        workerPath: abs(`${VENDOR}/worker.min.js`), corePath: abs(`${VENDOR}/${simd ? 'tesseract-core-simd-lstm.wasm.js' : 'tesseract-core-lstm.wasm.js'}`),
+        langPath: abs(`${VENDOR}/lang`), gzip: true, workerBlobURL: false,
+        logger: (m) => { if (/load|initializ/i.test(m.status || '')) scProgress(0.02 + 0.08 * (m.progress || 0), '加载识别程序和中文字库……'); },
+      });
+      const OCR = window.ClassLiveCalendarOCR;
+      let mode = '';
+      const ocr = async (image, m) => {
+        if (m !== mode) { await worker.setParameters(OCR.OCR_MODES[m]); mode = m; }
+        return (await worker.recognize(image)).data.text || '';
+      };
+      const results = [];
+      for (const [i, file] of images.entries()) {
+        const img = await readImage(file);
+        results.push(await OCR.recognize({ ...img, ocr,
+          progress: (r, text) => scProgress(0.1 + 0.9 * ((i + r) / images.length), `第 ${i + 1}/${images.length} 张：${text}`) }));
+      }
+      scProgress(null);
+      editCalendar(mergeRecognized(results), images);
+    } catch (problem) {
+      console.error(problem);
+      scProgress(null);
+      state.flash = `识别没有完成（${problem.message || problem}）。可以点“修改校历”手动填写。`;
+      render();
+    } finally {
+      if (worker) worker.terminate().catch(() => {});
+    }
+  }
+  // 几张图（如秋季一张、春夏季一张）的识别结果合成一学年
+  function mergeRecognized(list) {
+    const out = { year: '', school: '', terms: [], holidays: [], workdays: [], notes: [], warnings: [] };
+    list.forEach((r) => {
+      out.year = out.year || r.year;
+      out.school = out.school || r.school;
+      r.terms.forEach((t) => { if (!out.terms.some((x) => x.start === t.start)) out.terms.push(t); });
+      r.holidays.forEach((h) => { if (!out.holidays.some((x) => x.name === h.name && x.from === h.from)) out.holidays.push(h); });
+      r.workdays.forEach((w) => { if (!out.workdays.some((x) => x.date === w.date)) out.workdays.push(w); });
+      out.notes.push(...(r.notes || []));
+      if (r.warning) out.warnings.push(r.warning);
+    });
+    out.terms.sort((a, b) => a.start.localeCompare(b.start));
+    out.holidays.sort((a, b) => a.from.localeCompare(b.from));
+    return out;
+  }
+
+  // ---------- 修改校历（上传识别后的预览也用它） ----------
+  const calDialog = document.createElement('dialog');
+  calDialog.className = 'tw-dialog pl-dialog sc-dialog';
+  document.body.appendChild(calDialog);
+  let calUrls = [];
+  function editCalendar(data, images) {
+    const y = data || state.calendar.years[state.calendar.current] || { year: '', school: '', terms: [], holidays: [], workdays: [], notes: [] };
+    calUrls.forEach((url) => URL.revokeObjectURL(url));
+    calUrls = (images || []).map((file) => URL.createObjectURL(file));
+    const termRow = (t = {}) => `<div class="sc-row" data-sc-row="term">
+        <label>名称<input type="text" data-k="name" maxlength="12" value="${esc(t.name || '')}" placeholder="秋季学期"></label>
+        <label>表上第一行<select data-k="first"><option value="0"${Number(t.first) === 0 ? ' selected' : ''}>第零周</option><option value="1"${Number(t.first) !== 0 ? ' selected' : ''}>第一周</option></select></label>
+        <label>第一行的周一<input type="date" data-k="start" value="${esc(t.start || '')}"></label>
+        <label>行数（周）<input type="number" data-k="weeks" min="1" max="30" value="${esc(t.weeks || 18)}"></label>
+        <button type="button" class="pl-ed-x" data-sc-del aria-label="删除">×</button></div>`;
+    const holRow = (h = {}) => `<div class="sc-row" data-sc-row="holiday">
+        <label>名称<input type="text" data-k="name" maxlength="12" value="${esc(h.name || '')}" placeholder="国庆节"></label>
+        <label>从<input type="date" data-k="from" value="${esc(h.from || '')}"></label>
+        <label>到<input type="date" data-k="to" value="${esc(h.to || '')}"></label>
+        <label>类型<select data-k="type">${Object.entries(HOLIDAY_TYPES).map(([k, label]) => `<option value="${k}"${(h.type || 'off') === k ? ' selected' : ''}>${label}</option>`).join('')}</select></label>
+        <button type="button" class="pl-ed-x" data-sc-del aria-label="删除">×</button></div>`;
+    const workRow = (w = {}) => `<div class="sc-row" data-sc-row="work">
+        <label>上班日期<input type="date" data-k="date" value="${esc(w.date || '')}"></label>
+        <label>这天上<select data-k="as">${WEEKDAYS.map((d, i) => `<option value="${i + 1}"${Number(w.as) === i + 1 ? ' selected' : ''}>周${d}的课</option>`).join('')}</select></label>
+        <button type="button" class="pl-ed-x" data-sc-del aria-label="删除">×</button></div>`;
+    const recognized = Boolean(images && images.length);
+    calDialog.innerHTML = `<form data-sc-form>
+      <h2>${recognized ? '上传校历 · 识别结果' : '修改校历'}</h2>
+      <p class="tw-hint">${recognized ? '下面是从图片里认出的内容，请对照原图核对（日期、节假日、调休最要紧），改好后点“保存”。' : '学期、节假日和调休都可以改；保存后课表和日程按它标出放假、停课和补课。'}</p>
+      ${(data && data.warnings || []).map((w) => `<p class="pl-warn">${esc(w)}</p>`).join('')}
+      <div class="sc-edit${calUrls.length ? ' has-images' : ''}">
+        <div class="sc-edit-form">
+          <div class="pl-set-row"><label>学年<input type="text" name="year" placeholder="2026-2027" value="${esc(y.year || '')}" required pattern="\\d{4}-\\d{4}"></label>
+            <label>学校<input type="text" name="school" maxlength="30" value="${esc(y.school || '')}"></label></div>
+          <h3>学期</h3><div data-sc-list="term">${(y.terms || []).map(termRow).join('')}</div><button type="button" class="pl-ed-add" data-sc-add="term">＋ 加一个学期</button>
+          <h3>节假日</h3><div data-sc-list="holiday">${(y.holidays || []).map(holRow).join('')}</div><button type="button" class="pl-ed-add" data-sc-add="holiday">＋ 加一项</button>
+          <h3>调休上班</h3><div data-sc-list="work">${(y.workdays || []).map(workRow).join('')}</div><button type="button" class="pl-ed-add" data-sc-add="work">＋ 加一天</button>
+          <h3>说明</h3><textarea name="notes" rows="5" placeholder="每行一条">${esc((y.notes || []).join('\n'))}</textarea>
+        </div>
+        ${calUrls.length ? `<div class="sc-edit-images">${calUrls.map((url) => `<a href="${url}" target="_blank" rel="noopener"><img src="${url}" alt="上传的校历"></a>`).join('')}<small>点图片看大图</small></div>` : ''}
+      </div>
+      <label class="tw-check"><input type="checkbox" name="link" checked><span>保存后把课表的学期设为校历里含今天（或课表原来那周）的学期，第几周按校历算</span></label>
+      <p class="tw-error" data-sc-error role="alert"></p>
+      <div class="tw-actions"><button type="submit" class="tw-primary">保存</button>${!recognized && state.calendar.years[y.year] ? '<button type="button" class="tw-secondary" data-sc-remove>删除这一学年</button>' : ''}<button type="button" class="tw-secondary" data-sc-cancel>取消</button></div>
+    </form>`;
+    calDialog._rows = { term: termRow, holiday: holRow, work: workRow };
+    calDialog.showModal();
+  }
+  calDialog.addEventListener('click', (event) => {
+    const add = event.target.closest('[data-sc-add]');
+    if (add) $(`[data-sc-list="${add.dataset.scAdd}"]`, calDialog).insertAdjacentHTML('beforeend', calDialog._rows[add.dataset.scAdd]());
+    const del = event.target.closest('[data-sc-del]');
+    if (del) del.closest('.sc-row').remove();
+    if (event.target.closest('[data-sc-cancel]')) calDialog.close();
+    if (event.target.closest('[data-sc-remove]')) {
+      const key = calDialog.querySelector('[name=year]').value.trim();
+      if (!window.confirm(`删除 ${key} 学年的校历？`)) return;
+      const next = { ...state.calendar, years: { ...state.calendar.years } };
+      delete next.years[key];
+      saveCalendar(next, false);
+    }
+  });
+  calDialog.addEventListener('submit', (event) => {
+    event.preventDefault();
+    const form = event.target;
+    const error = $('[data-sc-error]', calDialog);
+    const rows = (kind) => $$(`[data-sc-row="${kind}"]`, calDialog).map((row) => Object.fromEntries($$('[data-k]', row).map((el) => [el.dataset.k, el.value.trim()])));
+    const year = form.elements.year.value.trim();
+    if (!/^\d{4}-\d{4}$/.test(year)) { error.textContent = '学年写成 2026-2027 这样。'; return; }
+    const terms = rows('term').map((t) => ({ name: t.name || '学期', start: t.start, first: Number(t.first), weeks: Math.max(1, Math.min(30, Number(t.weeks) || 1)) }));
+    if (terms.some((t) => !parseDay(t.start))) { error.textContent = '每个学期都要填“第一行的周一”。'; return; }
+    terms.forEach((t) => { t.start = ymd(addDays(parseDay(t.start), 1 - weekday(parseDay(t.start)))); });
+    const holidays = rows('holiday').filter((h) => h.name && h.from).map((h) => ({ name: h.name, from: h.from, to: h.to && h.to >= h.from ? h.to : h.from, type: h.type }));
+    const workdays = rows('work').filter((w) => w.date).map((w) => ({ date: w.date, as: Number(w.as) }));
+    const notes = form.elements.notes.value.split('\n').map((line) => line.trim()).filter(Boolean).slice(0, 30);
+    const entry = { year, school: form.elements.school.value.trim(), terms: terms.sort((a, b) => a.start.localeCompare(b.start)),
+      holidays: holidays.sort((a, b) => a.from.localeCompare(b.from)), workdays: workdays.sort((a, b) => a.date.localeCompare(b.date)), notes };
+    saveCalendar({ ...state.calendar, years: { ...state.calendar.years, [year]: entry }, current: year }, form.elements.link.checked);
+  });
+  async function saveCalendar(next, link) {
+    const error = $('[data-sc-error]', calDialog);
+    const value = { current: next.current, years: Object.fromEntries(Object.entries(next.years).map(([key, y]) => { const { preset, ...rest } = y; return [key, rest]; })) };
+    try {
+      await state.backend.rpc('ck_save_teacher_setting', { p_key: 'calendar', p_value: value });
+      state.calendar = normalizeCalendar(value);
+      state.schoolTerm = null;
+      if (link) {
+        const y = state.calendar.years[state.calendar.current];
+        const now = today();
+        const idx = (y.terms || []).findIndex((t) => { const [a, b] = termRange(t); return now >= a && now <= b; });
+        const t = y.terms[idx >= 0 ? idx : Math.max(0, plannerTermOf(y))];
+        if (t) await linkPlanner(y, t);
+      }
+      calDialog.close();
+      render();
+    } catch (problem) {
+      console.error(problem);
+      error.textContent = missingError(problem) || /设置不正确/.test(String(problem.message)) ? '保存失败：后台还没有“校历”功能（数据库语句 tools/cloudbase-pg-20261028-校历.sql 尚未执行）。' : `保存失败：${problem.message || problem}`;
+    }
+  }
+  // 课表的学期名称、第 1 周、周数按校历的这一学期设
+  async function linkPlanner(y, t) {
+    const p = plannerFromTerm(y, t);
+    const next = normalize({ ...state.settings, term: p.term, start: p.start, weeks: p.weeks });
+    await state.backend.rpc('ck_save_teacher_setting', { p_key: 'planner', p_value: next });
+    state.settings = next;
+    state.term = next.term;
+    state.week = null;
+  }
+
+  state.calendar = normalizeCalendar(null);
+
   // ---------------- 日程 ----------------
   function renderCalendar(body) {
     const now = today();
@@ -599,8 +1396,11 @@
       const events = eventsOn(key);
       const off = holidayOn(key);
       const week = weekOf(date);
-      const items = events.map((item) => { const kind = kindOf(item.color); return `<li class="pl-cal-ev${item.done ? ' is-done' : ''}" style="--c:${kind.c};--s:${kind.s}" title="${esc([item.start_time, item.title].filter(Boolean).join(' '))}">${item.start_time ? `<time>${esc(item.start_time)}</time>` : ''}${esc(item.title)}</li>`; })
-        .concat(classes.map((item) => `<li class="pl-cal-class${off ? ' is-off' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`)}"><time>${item.from}-${item.to}</time>${esc(item.klass.name)}</li>`));
+      const { holiday: sh, work: sw } = schoolDay(key);
+      const school = [sh && (sh.type !== 'break' || key === sh.from || weekday(date) === 1) ? `<li class="pl-cal-ev is-school is-${sh.type}" title="${esc(`校历：${sh.name}`)}">${esc(sh.name)}</li>` : '',
+        sw ? `<li class="pl-cal-ev is-school is-work" title="校历：调休上班">上班·补周${WEEKDAYS[Number(sw.as) - 1]}</li>` : ''].filter(Boolean);
+      const items = school.concat(events.map((item) => { const kind = kindOf(item.color); return `<li class="pl-cal-ev${item.done ? ' is-done' : ''}" style="--c:${kind.c};--s:${kind.s}" title="${esc([item.start_time, item.title].filter(Boolean).join(' '))}">${item.start_time ? `<time>${esc(item.start_time)}</time>` : ''}${esc(item.title)}</li>`; })
+        .concat(classes.map((item) => `<li class="pl-cal-class${off && !item.makeup ? ' is-off' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}${item.makeup ? '（调休补课）' : ''}`)}"><time>${item.from}-${item.to}</time>${esc(item.klass.name)}${item.makeup ? '·补' : ''}</li>`)));
       return `<button type="button" class="pl-cal-cell${date.getMonth() !== month.getMonth() ? ' is-out' : ''}${key === todayKey ? ' is-today' : ''}${key === state.day ? ' is-picked' : ''}${weekday(date) >= 6 ? ' is-weekend' : ''}${off ? ' is-holiday' : ''}" data-pl-day="${key}">
         <span class="pl-cal-date"><b>${date.getDate()}</b>${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
         <ul>${items.slice(0, 4).join('')}${items.length > 4 ? `<li class="pl-cal-more">还有 ${items.length - 4} 项</li>` : ''}</ul>
@@ -788,7 +1588,7 @@
     const t = event.target;
     if (t.closest('[data-pl-close]')) { close(); return; }
     const tab = t.closest('[data-pl-tab]');
-    if (tab) { state.tab = tab.dataset.plTab; state.editing = null; render(); return; }
+    if (tab) { state.tab = tab.dataset.plTab; state.editing = null; state.flash = ''; render(); return; }
     const edit = t.closest('[data-pl-edit]');
     if (edit) {
       const klass = findClass(edit.dataset.plEdit);
@@ -801,6 +1601,19 @@
     if (step) { state.week = Math.max(1, Math.min(state.settings.weeks, (state.week || currentWeek() || 1) + Number(step.dataset.plWeek))); render(); return; }
     if (t.closest('[data-pl-week-now]')) { state.week = currentWeek() || 0; render(); return; }
     if (t.closest('[data-pl-word]')) { exportWord(); return; }
+    const scTerm = t.closest('[data-sc-term]');
+    if (scTerm) { state.schoolTerm = Number(scTerm.dataset.scTerm); render(); return; }
+    if (t.closest('[data-sc-upload]')) { const input = $('[data-sc-input]', view); input.value = ''; input.click(); return; }
+    if (t.closest('[data-sc-edit]')) { editCalendar(null, null); return; }
+    if (t.closest('[data-sc-link]')) {
+      const y = state.calendar.years[state.calendar.current];
+      const term = y && y.terms[state.schoolTerm];
+      if (term && window.confirm(`把课表的学期设为“${plannerFromTerm(y, term).term}”，第 1 周从 ${plannerFromTerm(y, term).start} 开始？`)) {
+        linkPlanner(y, term).then(render).catch((problem) => { state.flash = `没有设好：${problem.message || problem}`; render(); });
+      }
+      return;
+    }
+    if (t.closest('[data-pl-upload]')) { const input = $('[data-pl-upload-input]', view); input.value = ''; input.click(); return; }
     if (t.closest('[data-pl-print]')) { window.print(); return; }
     const month = t.closest('[data-pl-month]');
     if (month) { state.month = new Date(state.month.getFullYear(), state.month.getMonth() + Number(month.dataset.plMonth), 1); render(); return; }
@@ -833,6 +1646,9 @@
     else if (t.matches('[data-pl-weekend]')) { store.set('weekend', t.checked ? '1' : '0'); render(); }
     else if (t.matches('[data-pl-done]')) toggleDone(t.dataset.plDone, t.checked);
     else if (t.matches('[data-pl-sec]')) { state.settings = readSettings($('[data-pl-settings]', view)); render(); }
+    else if (t.matches('[data-pl-upload-input]')) handleUpload(t.files && t.files[0]);
+    else if (t.matches('[data-sc-input]')) uploadCalendar(t.files);
+    else if (t.matches('[data-sc-year]')) { state.calendar.current = t.value; state.schoolTerm = null; render(); }
   });
   view.addEventListener('submit', async (event) => {
     event.preventDefault();
@@ -955,6 +1771,8 @@
       editClass(known ? { ...known, ...klass } : klass, done);
     },
     summary,
+    importFile: handleUpload,   // 测试用：直接传入文件
+    importCalendar: uploadCalendar,
     save: async (klassId, plan) => state.backend.rpc('ck_set_class_schedule', { p_class: Number(klassId) || klassId, p_schedule: plan }),
     missingError,
     NOT_READY,

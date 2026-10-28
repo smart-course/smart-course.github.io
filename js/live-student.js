@@ -656,9 +656,31 @@
     body.clp-printing > *:not(#clp-print-view) { display: none !important; }
     body.clp-printing #clp-print-view { display: block !important; }
   }
+  .clp-poll { position: fixed; left: 50%; bottom: 24px; z-index: 2147482000; width: min(520px, calc(100vw - 28px)); box-sizing: border-box; transform: translateX(-50%);
+    padding: 18px 20px 16px; border: 1px solid rgba(70,51,34,.14); border-radius: 18px; background: #fffdf8; color: #201c18;
+    box-shadow: 0 24px 60px rgba(32,28,24,.28), 0 0 0 4px rgba(232,196,106,.35); font-family: -apple-system, "PingFang SC", sans-serif; animation: clpPollIn .35s ease; }
+  .clp-poll[hidden] { display: none; }
+  @keyframes clpPollIn { from { opacity: 0; transform: translate(-50%, 24px); } to { opacity: 1; transform: translate(-50%, 0); } }
+  .clp-poll-x { position: absolute; top: 10px; right: 10px; width: 32px; height: 32px; border: 1px solid rgba(70,51,34,.18); border-radius: 50%; background: #fff; color: #6d6259; font-size: 20px; line-height: 1; cursor: pointer; }
+  .clp-poll-kicker { margin: 0 40px 4px 0; color: #a4492d; font-weight: 800; font-size: 14px; letter-spacing: .06em; }
+  .clp-poll h3 { margin: 0 40px 12px 0; font-size: 1.15em; line-height: 1.45; }
+  .clp-poll-options { display: grid; grid-template-columns: repeat(auto-fit, minmax(110px, 1fr)); gap: 10px; }
+  .clp-poll-options button { position: relative; overflow: hidden; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 2px; min-height: 64px; padding: 10px 8px;
+    border: 2px solid var(--c); border-radius: 14px; background: #fff; color: var(--c); font-family: inherit; font-weight: 800; font-size: 1.15em; line-height: 1.2; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease; }
+  .clp-poll-options button:hover:not(:disabled) { transform: translateY(-2px); box-shadow: 0 6px 14px rgba(0,0,0,.1); }
+  .clp-poll-options button[aria-pressed="true"] { background: var(--c); color: #fff; box-shadow: inset 0 1px 0 rgba(255,255,255,.25), 0 6px 14px rgba(0,0,0,.14); }
+  .clp-poll-options button:disabled { cursor: default; }
+  .clp-poll-options button span, .clp-poll-options button b { position: relative; z-index: 1; }
+  .clp-poll-options button b { font-size: .62em; font-weight: 700; }
+  .clp-poll-options.has-result button { color: #201c18; background: #f4ede3; }
+  .clp-poll-options.has-result button[aria-pressed="true"] { color: #201c18; box-shadow: inset 0 0 0 2px var(--c); }
+  .clp-poll-options.has-result button i { position: absolute; inset: 0 auto 0 0; background: var(--c); opacity: .22; }
+  .clp-poll-note { margin: 10px 0 0; color: #6d6259; font-size: .9em; text-align: center; }
   ${worksheet ? `
   form.cl-mcq > .cl-actions { display: none !important; }
-  .cl-exit [data-action="submit"], .cl-exit [data-action="reset"], .cl-export, .cl-overview-exit { display: none !important; }` : ''}
+  .cl-exit [data-action="submit"], .cl-exit [data-action="reset"], .cl-export, .cl-overview-exit { display: none !important; }
+  .clp-exam-due { margin: 10px 0; padding: 9px 14px; border-left: 4px solid #a87a2a; border-radius: 8px; background: #fbf3e2; color: #6b4d14; font-weight: 700; }
+  .clp-exam-due.is-over { border-left-color: #a4492d; background: #f5e7df; color: #a4492d; }` : ''}
   `;
   document.head.appendChild(style);
 
@@ -1928,6 +1950,85 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   }
 
+  // 投票器（2026-10-29 用户：“课堂工具可以再增加一个投票器的功能……点击投票器后学生端会弹出投票选项可以让学生选择”）：
+  // 页面在前台时每 4 秒问一次本课堂有没有正在进行的投票（ck_poll_live），有就在屏幕中间弹出选项；投票结束前可以改。
+  // 老师结束并公布结果后显示各项人数（3 分钟内）。点“×”收起，有新的投票或投票结束时再弹出。学生版测试页只在本机点选，不计入。
+  if (!OFFLINE) setupPoll();
+  function setupPoll() {
+    const P = Live.POLL || { check: 4000 };
+    const room = Number(identity.classroom) || identity.classroom;
+    const COLORS = ['#23655f', '#a4492d', '#3b5683', '#8a6418', '#7a4572', '#55672b'];
+    const card = document.createElement('div');
+    card.className = 'clp-poll';
+    card.hidden = true;
+    card.setAttribute('role', 'dialog');
+    card.setAttribute('aria-label', '课堂投票');
+    document.body.appendChild(card);
+    let poll = null;
+    let off = false;
+    let busy = false;
+    let dismissed = '';
+    let note = '';
+    const stamp = (data) => `${data.poll}:${data.status}`;
+    function render() {
+      if (!poll || dismissed === stamp(poll)) { card.hidden = true; return; }
+      const open = poll.status === 'open';
+      const counts = poll.counts;
+      const total = counts ? counts.reduce((a, b) => a + Number(b || 0), 0) : 0;
+      card.hidden = false;
+      card.innerHTML = `<button type="button" class="clp-poll-x" data-poll-x aria-label="收起">×</button>
+        <p class="clp-poll-kicker">${open ? '老师发起了投票' : '投票已结束'}</p>
+        ${poll.question ? `<h3>${esc(poll.question)}</h3>` : ''}
+        <div class="clp-poll-options${counts ? ' has-result' : ''}">${poll.options.map((option, i) => {
+          const pct = total ? Math.round((Number(counts[i] || 0) / total) * 100) : 0;
+          return `<button type="button" data-poll-choice="${i}" style="--c:${COLORS[i % COLORS.length]}"${open ? '' : ' disabled'} aria-pressed="${poll.mine === i}">
+            ${counts ? `<i style="width:${pct}%"></i>` : ''}<span>${esc(option)}</span>${counts ? `<b>${counts[i]} 人 · ${pct}%</b>` : poll.mine === i ? '<b>✓ 已选</b>' : ''}</button>`;
+        }).join('')}</div>
+        <p class="clp-poll-note">${esc(note || (open ? (poll.mine == null ? '点一个选项投票；投票结束前可以改。' : `已投“${poll.options[poll.mine]}”，投票结束前可以改。`)
+          : counts ? `共 ${total} 人投票${poll.mine != null ? `，你投的是“${poll.options[poll.mine]}”` : ''}。` : '老师没有公布结果。'))}</p>`;
+    }
+    function apply(data) {
+      if (!data || !data.poll) { poll = null; card.hidden = true; return; }
+      const changed = !poll || stamp(poll) !== stamp(data);
+      // 学生版测试页：本机点的选项留着（后台没有记）
+      if (PREVIEW && poll && String(poll.poll) === String(data.poll) && data.mine == null) data.mine = poll.mine;
+      poll = data;
+      if (changed) note = '';
+      render();
+    }
+    async function check() {
+      if (off || document.hidden || loginNeeded) return;
+      try {
+        const result = await backend.rpc('ck_poll_live', { p_classroom: room });
+        apply(Array.isArray(result) ? result[0] : result);
+      } catch (problem) {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) { off = true; card.hidden = true; }
+      }
+    }
+    card.addEventListener('click', async (event) => {
+      if (event.target.closest('[data-poll-x]')) { dismissed = poll ? stamp(poll) : ''; card.hidden = true; return; }
+      const button = event.target.closest('[data-poll-choice]');
+      if (!button || !poll || poll.status !== 'open' || busy) return;
+      const choice = Number(button.dataset.pollChoice);
+      if (PREVIEW) { poll.mine = choice; note = `测试页：选了“${poll.options[choice]}”，只在本机，不计入投票。`; render(); return; }
+      busy = true;
+      try {
+        const result = await backend.rpc('ck_poll_vote', { p_poll: Number(poll.poll) || poll.poll, p_choice: choice });
+        const data = Array.isArray(result) ? result[0] : result;
+        if (data && data.status === 'ok') { poll.mine = choice; note = ''; }
+        else if (data && data.status === 'login') note = '没有记上：请回首页重新登录本堂课。';
+        else { note = '投票已经结束了。'; poll.status = 'closed'; }
+      } catch (problem) {
+        note = `没有记上：${(problem && problem.message) || problem}`;
+      }
+      busy = false;
+      render();
+    });
+    checkedIn.then(check);
+    setInterval(check, P.check || 4000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+  }
+
   // 本堂作业递交情况（页面最下方，匿名建议箱之后）：读后台收到的本人递交记录（ck_my_submissions），
   // 与教师工作台“递交情况”同一来源；在别的设备递交过的题，这台设备上也标成已递交
   if (!OFFLINE && questions.length) setupSubmissions();
@@ -2204,14 +2305,15 @@
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
   const NEWS_ID = config.course === 'political-economy' ? '20261028-exam' : '20261028-debate';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = '10 月 9 日—10 月 28 日';
+  const NEWS_RANGE = '10 月 9 日—10 月 29 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 28 日）', items: [
+      { title: '最新（10 月 28—29 日）', items: [
+        ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
         ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
         ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
         ...(config.course === 'xjp-economy' ? [
@@ -2979,12 +3081,40 @@
       const count = box && box.querySelector('[data-essay-count]');
       const target = Number(count && count.dataset.target) || 0;
       const least = Number(count && count.dataset.least) || 100;
+      // 递交截止时间（2026-10-28 用户：发布期中考查作业时可以设置递交截止日期）：写在作答框上方；过了截止时间锁上作答框（后台 ck_submit_answer 同样不再收）
+      let dueAt = 0;
+      const due = document.createElement('p');
+      due.className = 'clp-exam-due';
+      due.hidden = true;
+      exam.insertAdjacentElement('beforebegin', due);
+      if (!OFFLINE && backend && identity.classroom && (joined || PREVIEW)) {
+        backend.rpc('ck_room_deadline', { p_classroom: identity.classroom }).then((value) => {
+          const raw = Array.isArray(value) ? value[0] : value;
+          const at = Date.parse(String((raw && typeof raw === 'object' ? Object.values(raw)[0] : raw) || '').replace(/(\.\d{3})\d+/, '$1'));
+          if (!at) return;
+          dueAt = at;
+          const d = new Date(at);
+          const when = `${d.getMonth() + 1} 月 ${d.getDate()} 日（周${'日一二三四五六'[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+          const left = at - Date.now();
+          due.hidden = false;
+          due.classList.toggle('is-over', left <= 0);
+          if (left <= 0) {
+            due.textContent = `递交截止时间 ${when} 已过，不能再递交。`;
+            exam.readOnly = true;
+          } else {
+            const days = Math.floor(left / 86400000);
+            const hours = Math.floor((left % 86400000) / 3600000);
+            due.textContent = `递交截止：${when}，还剩 ${days ? `${days} 天 ` : ''}${hours} 小时。递交后不能修改。`;
+          }
+        }).catch((error) => console.warn('[期中考查] 截止时间读取失败：', error));
+      }
       list.push({
         key: 'exam', section: '期中考查作业', title: (D.exam && D.exam.title) || '期中考查作业',
         prompt: textOf(box && box.querySelector('.cl-essay-q')),
         anchor: (bar) => (count || exam).insertAdjacentElement('afterend', bar),
         read: () => text(exam),
-        check: (value) => (!value ? '请先写好，再点“递交”' : value.replace(/\s/g, '').length < least ? `至少写 ${least} 字再递交（作答要求 ${target} 字左右）` : ''),
+        check: (value) => (dueAt && Date.now() > dueAt ? '已过递交截止时间，不能再递交' : !value ? '请先写好，再点“递交”'
+          : value.replace(/\s/g, '').length < least ? `至少写 ${least} 字再递交（作答要求 ${target} 字左右）` : ''),
         remind: () => '递交后不能修改，确定写好了吗？',
         show: (value) => (value ? [value] : []),
         lock: () => { exam.readOnly = true; },

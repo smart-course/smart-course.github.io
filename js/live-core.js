@@ -19,7 +19,9 @@
  *       ck_set_pk_winners（教师在 PK 大屏给今天各局的胜者加修为）
  *       ck_join_apply（不在点名册上的同学自己点“申请加入”）、ck_pin_forgot / ck_decide_pin_request（忘记口令申请、教师同意或拒绝；教师读 ck_pin_requests）
  *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸）、ck_mood_stats（教师只看人数）
- *       ck_set_class_schedule（班级的上课时间、教室，工作台“课表”）、ck_save_teacher_setting（课表设置：学期、第 1 周、各节时间）、ck_save_event（“日程”里的安排；教师读、删 ck_teacher_events）
+ *       ck_set_deadline / ck_room_deadline（期中考查作业的递交截止时间：教师设置，学生页读取；过了截止时间 ck_submit_answer 不再收）
+ *       ck_poll_open / ck_poll_close（投屏页课堂工具“投票器”发起、结束投票；教师读 ck_polls、ck_poll_votes）、ck_poll_live / ck_poll_vote（学生页弹出投票、投票）
+ *       ck_set_class_schedule（班级的上课时间、教室，工作台“课表”）、ck_save_teacher_setting（课表设置：学期、第 1 周、各节时间；校历 calendar）、ck_save_event（“日程”里的安排；教师读、删 ck_teacher_events）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
  */
 (function () {
@@ -29,10 +31,10 @@
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes',
-    teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events' };
+    teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
-  const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key' };
+  const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -89,6 +91,8 @@
   // 辩论聊天室（2026-10-28，习经辩论赛）：选好立场后取昵称进本方聊天室（昵称 2—nickMax 字），每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；
   // 每方点赞最多的 top 位上台辩论，辩后投票获胜方的这几位各加 points 修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）
   const DEBATE = { points: 10, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
+  // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
+  const POLL = { presets: [['是', '否'], ['对', '错'], ['赞同', '反对'], ['一', '二'], ['A', 'B', 'C', 'D']], check: 4000, refresh: 2000, keep: 180000 };
   // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
   // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分，
   // 隔 gap 天以上再答对可再得一次（间隔重复，每题最多 most 次；课后自修只算一次），
@@ -917,6 +921,7 @@
           const uid = await this.ensureAnonymous();
           const room = read('classrooms').find((row) => row.id === params.p_classroom && row.is_current && row.submissions_open);
           if (!room || room.chapter !== params.p_unit) throw new Error('new row violates row-level security policy (mock)');
+          if (room.deadline && Date.now() > Date.parse(room.deadline)) throw Object.assign(new Error('已过递交截止时间'), { code: '42501' });
           if (!memberOk(uid, params.p_classroom, params.p_sid, params.p_name)) throw Object.assign(new Error('请回首页重新登录（本课堂需核对身份）'), { code: '42501' });
           if (isStopped(stopsOf(params.p_classroom), params.p_key)) throw Object.assign(new Error('老师已停止递交这道题'), { code: '42501' });
           const rows = read('homework');
@@ -1182,6 +1187,68 @@
           if (list.length > 60 || list.some((u) => !/^(ch|case)\d{2}$/.test(u))) throw new Error('上课范围不正确');
           return updateClass(params.p_class, (row) => { row.units = list.length ? list : null; });
         }
+        // 投票器（规则同 cloudbase-pg.sql 的 ck_poll_open / ck_poll_close / ck_poll_live / ck_poll_vote）
+        if (name === 'ck_poll_open') {
+          teacherOnly();
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) throw new Error('课堂不存在');
+          const options = params.p_options;
+          if (!Array.isArray(options) || options.length < 2 || options.length > 6 || options.some((o) => typeof o !== 'string' || !o.trim() || o.trim().length > 12)) {
+            throw new Error('选项要有 2—6 个，每个 1—12 个字');
+          }
+          const rows = read('polls');
+          const now = new Date().toISOString();
+          rows.forEach((row) => { if (String(row.classroom) === String(room.id) && row.status === 'open') { row.status = 'closed'; row.closed_at = now; } });
+          const row = { id: nextId(rows), course: room.course, classroom: room.id, question: String(params.p_question || '').trim().slice(0, 80) || null,
+            options, status: 'open', reveal: false, created_at: now, closed_at: null };
+          rows.push(row);
+          write('polls', rows);
+          return { ...row };
+        }
+        if (name === 'ck_poll_close') {
+          teacherOnly();
+          const rows = read('polls');
+          const row = rows.find((item) => String(item.id) === String(params.p_poll));
+          if (!row) throw new Error('这次投票已经不在了');
+          row.status = 'closed';
+          row.closed_at = row.closed_at || new Date().toISOString();
+          row.reveal = params.p_reveal !== false;
+          write('polls', rows);
+          return { ...row };
+        }
+        if (name === 'ck_poll_live') {
+          const uid = await this.ensureAnonymous();   // 本机测试时教师和学生共用一个浏览器：“本人投的”按学生身份认（与 ck_poll_vote 相同）
+          const poll = read('polls').filter((row) => String(row.classroom) === String(params.p_classroom)
+            && (row.status === 'open' || Date.now() - Date.parse(row.closed_at) < 180000)).sort((a, b) => Number(b.id) - Number(a.id))[0];
+          if (!poll) return null;
+          const votes = read('pollvotes').filter((v) => String(v.poll) === String(poll.id));
+          const mine = votes.find((v) => v.owner === uid);
+          return { poll: poll.id, question: poll.question, options: poll.options, status: poll.status, mine: mine ? mine.choice : null,
+            counts: poll.status === 'closed' && poll.reveal ? poll.options.map((_, i) => votes.filter((v) => v.choice === i).length) : null };
+        }
+        if (name === 'ck_poll_vote') {
+          const uid = await this.ensureAnonymous();
+          const poll = read('polls').find((row) => String(row.id) === String(params.p_poll));
+          const room = poll && read('classrooms').find((row) => String(row.id) === String(poll.classroom) && row.is_current);
+          if (!poll || poll.status !== 'open' || !room) return { status: 'closed' };
+          const me = myCheckin(uid, poll.classroom);
+          if (!me) return { status: 'login' };
+          const choice = Number(params.p_choice);
+          if (!(choice >= 0 && choice < poll.options.length)) throw new Error('选项不对');
+          const rows = read('pollvotes').filter((v) => !(String(v.poll) === String(poll.id) && sidKey(v.sid) === sidKey(me.sid)));
+          rows.push({ poll: poll.id, classroom: poll.classroom, sid: sidKey(me.sid), name: me.name, owner: uid, choice, updated_at: new Date().toISOString() });
+          write('pollvotes', rows);
+          return { status: 'ok', choice };
+        }
+        // 期中考查递交截止时间（规则同 cloudbase-pg.sql 的 ck_set_deadline / ck_room_deadline）
+        if (name === 'ck_set_deadline') {
+          teacherOnly();
+          return updateRoom(params.p_classroom, (room) => { room.deadline = params.p_deadline || null; });
+        }
+        if (name === 'ck_room_deadline') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          return room ? room.deadline || null : null;
+        }
         // 课表、日程（规则同 cloudbase-pg.sql 的 ck_set_class_schedule / ck_save_teacher_setting / ck_save_event）
         if (name === 'ck_set_class_schedule') {
           teacherOnly();
@@ -1193,7 +1260,7 @@
         }
         if (name === 'ck_save_teacher_setting') {
           teacherOnly();
-          if (params.p_key !== 'planner' || !params.p_value) throw new Error('设置不正确');
+          if (!['planner', 'calendar'].includes(params.p_key) || !params.p_value) throw new Error('设置不正确');
           const rows = read('teachersettings').filter((row) => row.key !== params.p_key);
           rows.push({ key: params.p_key, value: params.p_value, updated_at: new Date().toISOString() });
           write('teachersettings', rows);
@@ -1612,6 +1679,7 @@
     PUZZLE,
     PK,
     DEBATE,
+    POLL,
     PRACTICE,
     LEAVE,
     office,
