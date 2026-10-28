@@ -215,7 +215,7 @@
       const plan = value || { term: state.settings.term, room: '', weeks: [1, Math.min(16, state.settings.weeks)], slots: [] };
       const terms = Array.from(new Set([state.settings.term, ...state.classes.map((k) => k.schedule && k.schedule.term).filter(Boolean)]));
       host.innerHTML = `<div class="pl-ed">
-        <div class="pl-ed-head">
+        <div class="pl-ed-head${extra ? ' is-extra' : ''}">
           ${extra ? `<label>课程名称<input type="text" data-ed="title" maxlength="40" placeholder="例如：金融伦理与项目实操" value="${esc(plan.title || '')}"></label>
           <label>班级<input type="text" data-ed="klass" maxlength="40" placeholder="例如：研究生 01 班" value="${esc(plan.klass || '')}"></label>` : ''}
           <label>学期<input type="text" data-ed="term" maxlength="40" list="pl-terms-${host.dataset.plEd || ''}" value="${esc(plan.term || state.settings.term)}"></label>

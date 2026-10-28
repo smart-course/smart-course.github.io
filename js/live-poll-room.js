@@ -1,6 +1,6 @@
 /* 课堂工具“投票器”（课堂完整版投屏页，2026-10-29 用户：“课堂工具可以再增加一个投票器的功能，可以发起临时投票，比如是/否、对/错、
  * 赞同/反对、一/二。点击投票器后学生端会弹出投票选项可以让学生选择。”）
- *   右下角“课堂工具”里加一节“投票器”：选一组选项（是/否、对/错、赞同/反对、一/二、A/B/C/D，或自己写），题目可填可不填，点“发起投票”；
+ *   右下角“课堂工具”里加一节“投票器”（在“讨论计时”下面）：选一组选项（是/否、对/错、赞同/反对、一/二、A/B/C/D，或自己写），题目可填可不填，点“发起投票”；
  *   大屏显示题目、已投人数／今天在场人数，各项人数先不显示（免得跟风），点“显示结果”或“结束投票”才展开；
  *   学生页每几秒问一次（live-student.js setupPoll），有投票就弹出选项，投票结束前可以改；结束时可以把结果公布到学生页。
  * 需要在本机登录教师工作台（ck_poll_open／ck_poll_close 只给教师，票数从 ck_poll_votes 读）。只在课程网站的投屏页有，离线版没有。
@@ -67,8 +67,10 @@
     <input type="text" data-pv-question maxlength="80" placeholder="题目（选填，会显示在学生页）">
     <div class="pv-row"><button type="button" class="is-main" data-pv-go>发起投票</button><button type="button" data-pv-last>看上次结果</button></div>
     <p class="pv-hint" data-pv-hint>发起后，学生页会弹出选项；投票结束前可以改。</p>`;
-  if (near && near.nextSibling) near.parentNode.insertBefore(tool, near.nextSibling);
-  else if (near) near.parentNode.appendChild(tool);
+  // 2026-10-29 用户：“把投票器放到讨论计时的下方”
+  const timerShow = box.querySelector('[data-timer-display]');
+  const after = (timerShow && timerShow.closest('section')) || near;
+  if (after) after.parentNode.insertBefore(tool, after.nextSibling);
   else (box.querySelector('.ctb-body, .toolbox-body') || box).appendChild(tool);
   const $ = (selector, root = tool) => root.querySelector(selector);
   const hint = (text) => { $('[data-pv-hint]').textContent = text; };

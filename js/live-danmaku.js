@@ -115,7 +115,8 @@
   .dm-bar button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
   .dm-bar a { color: #ffd98a; }
   .dm-bar label { display: inline-flex; align-items: center; gap: 5px; }
-  .dm-bar select { padding: 2px 6px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: rgba(255,255,255,.12); font: inherit; cursor: pointer; }
+  .dm-bar select { -webkit-appearance: none; appearance: none; padding: 2px 24px 2px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; font: inherit; cursor: pointer;
+    background: rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center / 10px 7px; }
   .dm-bar select option { color: #201c18; background: #fff; }
   .dm-bar select[disabled] { opacity: .5; cursor: default; }
   .dm-bar select.is-off { border-color: #f0b49e; }
