@@ -30,11 +30,11 @@
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
-    debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes',
+    debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
-  const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid' };
+  const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
 
   // ---------- 修为境界（两门课共用） ----------
   // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
@@ -90,7 +90,24 @@
   const PK = { points: 5 };
   // 辩论聊天室（2026-10-28，习经辩论赛）：选好立场后取昵称进本方聊天室（昵称 2—nickMax 字），每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；
   // 每方点赞最多的 top 位上台辩论，辩后投票获胜方的这几位各加 points 修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）
-  const DEBATE = { points: 10, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
+  // 辩论台（2026-10-29，3v3）：老师“选定论点”后，每方点赞最多的三个论点（每人一条）入选，作者任一、二、三辩；之后按 stages 走，计时由老师控制。
+  // 只有这 6 位辩手能在辩论台发言，且只在轮到本方的阶段（turn；both＝双方）；topic＝这一阶段讨论哪一方的论点（发言可注明针对①②③）。
+  // 每条 2—sayMax 字、每人 sayGap 毫秒一条、每个阶段最多 sayPerStage 条（与 cloudbase-pg.sql 的 ck_debate_turn / ck_debate_topic / ck_debate_say 一致）
+  const DEBATE = {
+    points: 10, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000, sayMax: 120, sayGap: 6000, sayPerStage: 6,
+    stages: [
+      { key: 'pro_open', label: '正方立论', secs: 60, turn: 'pro', topic: 'pro', hint: '大屏展示正方三个论点，正方辩手可以补充说明' },
+      { key: 'con_ask', label: '反方质询', secs: 90, turn: 'con', topic: 'pro', hint: '反方三位辩手针对正方论点①②③反驳、提问' },
+      { key: 'pro_answer', label: '正方答辩', secs: 60, turn: 'pro', topic: 'pro', hint: '正方辩手回应反方的反驳和提问' },
+      { key: 'con_open', label: '反方立论', secs: 60, turn: 'con', topic: 'con', hint: '大屏展示反方三个论点，反方辩手可以补充说明' },
+      { key: 'pro_ask', label: '正方质询', secs: 90, turn: 'pro', topic: 'con', hint: '正方三位辩手针对反方论点①②③反驳、提问' },
+      { key: 'con_answer', label: '反方答辩', secs: 60, turn: 'con', topic: 'con', hint: '反方辩手回应正方的反驳和提问' },
+      { key: 'free', label: '自由辩论', secs: 120, turn: 'both', topic: null, optional: true, hint: '你一言我一语，抓住对方的漏洞追问' },
+      { key: 'con_sum', label: '反方总结', secs: 60, turn: 'con', topic: null, hint: '反方总结陈词' },
+      { key: 'pro_sum', label: '正方总结', secs: 60, turn: 'pro', topic: null, hint: '正方总结陈词' },
+      { key: 'vote', label: '辩后投票', secs: 60, turn: null, topic: null, hint: '全班根据六位辩手的发言投辩后票' },
+    ],
+  };
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
   // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
   const FEEDBACK = { points: 5, min: 10 };
@@ -610,6 +627,75 @@
               }).filter((m) => m.posts);
             return list.sort((a, b) => b.likes - a.likes || a.first - b.first);
           };
+          // 辩论台（2026-10-29，规则同 cloudbase-pg.sql 的 ck_debate_pick / ck_debate_state_json / ck_debate_control / ck_debate_say）
+          const matches = read('debatematches');
+          const says = read('debatesays');
+          const matchOf = (classroom, no) => matches.find((d) => String(d.classroom) === String(classroom) && d.case_no === no);
+          const pick = (classroom, no, side) => {
+            const best = new Map();
+            posts.filter((p) => String(p.classroom) === String(classroom) && p.case_no === no && p.side === side && !p.hidden).forEach((p) => {
+              const n = likeCount(p.id);
+              const was = best.get(p.sid);
+              if (!was || n > was.likes || (n === was.likes && Number(p.id) < Number(was.post))) best.set(p.sid, { post: p.id, sid: p.sid, nick: p.nick, text: p.text, likes: n });
+            });
+            return Array.from(best.values()).sort((a, b) => b.likes - a.likes || Number(a.post) - Number(b.post)).slice(0, 3)
+              .map((a, i) => ({ n: i + 1, ...a, name: (members.find((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.sid === a.sid) || {}).name || '' }));
+          };
+          const stageOf = (key) => DEBATE.stages.find((g) => g.key === key) || {};
+          const leftOf = (d) => (d.paused_left != null ? d.paused_left : Math.max(0, d.stage_secs - Math.floor((Date.now() - d.stage_at) / 1000)));
+          const stateJson = (classroom, no, isTeacher, mySid) => {
+            const d = read('debatematches').find((x) => String(x.classroom) === String(classroom) && x.case_no === no);
+            if (!d) return { status: 'none' };
+            const strip = (a) => { const out = { n: a.n, nick: a.nick, text: a.text, likes: a.likes }; if (isTeacher) out.name = a.name; return out; };
+            let me = null;
+            ['pro', 'con'].forEach((side) => (d.args[side] || []).forEach((a) => { if (mySid && a.sid === mySid) me = { side, role: a.n }; }));
+            const nameOf = (x) => ((d.args[x.side] || []).find((a) => a.sid === x.sid) || {}).name;
+            return {
+              status: 'ok', stage: d.stage, secs: d.stage_secs, left: leftOf(d), paused: d.paused_left != null, turn: stageOf(d.stage).turn || null, topic: stageOf(d.stage).topic || null, me,
+              args: { pro: (d.args.pro || []).map(strip), con: (d.args.con || []).map(strip) },
+              says: read('debatesays').filter((x) => String(x.classroom) === String(classroom) && x.case_no === no && !x.hidden).slice(-200)
+                .map((x) => ({ id: x.id, stage: x.stage, side: x.side, role: x.role, nick: x.nick, target: x.target, text: x.text, at: x.created_at, ...(isTeacher ? { name: nameOf(x) } : {}) })),
+            };
+          };
+          if (name === 'ck_debate_control' || name === 'ck_debate_hide_say') {
+            teacherOnly();
+            if (name === 'ck_debate_hide_say') {
+              const row = says.find((x) => String(x.id) === String(params.p_id));
+              if (row) { row.hidden = params.p_hidden !== false; write('debatesays', says); }
+              return Boolean(row);
+            }
+            const classroom = params.p_classroom;
+            const no = String(params.p_case);
+            if (!rooms.some((r) => String(r.id) === String(classroom))) throw new Error('课堂不存在');
+            const otherSays = () => says.filter((x) => !(String(x.classroom) === String(classroom) && x.case_no === no));
+            const others = matches.filter((d) => !(String(d.classroom) === String(classroom) && d.case_no === no));
+            const d = matchOf(classroom, no);
+            if (params.p_action === 'lock') {
+              write('debatesays', otherSays());
+              write('debatematches', others.concat({ classroom: Number(classroom) || classroom, case_no: no, stage: 'ready', stage_at: Date.now(), stage_secs: 0, paused_left: null,
+                args: { pro: pick(classroom, no, 'pro'), con: pick(classroom, no, 'con') } }));
+            } else if (params.p_action === 'reset') {
+              write('debatesays', otherSays());
+              write('debatematches', others);
+            } else {
+              if (!d) throw new Error('请先选定论点与辩手');
+              const secs = (v) => Math.min(1800, Math.max(0, Math.round(Number(v) || 0)));
+              if (params.p_action === 'stage') {
+                if (!['ready', 'done'].concat(DEBATE.stages.map((g) => g.key)).includes(params.p_stage)) throw new Error('没有这个阶段');
+                Object.assign(d, { stage: params.p_stage, stage_at: Date.now(), stage_secs: secs(params.p_secs), paused_left: null });
+              } else if (params.p_action === 'pause') {
+                if (d.paused_left == null) d.paused_left = leftOf(d);
+              } else if (params.p_action === 'resume') {
+                if (d.paused_left != null) Object.assign(d, { stage_at: Date.now(), stage_secs: d.paused_left, paused_left: null });
+              } else if (params.p_action === 'extend') {
+                const add = params.p_secs == null ? 30 : Number(params.p_secs);
+                if (d.paused_left != null) d.paused_left = secs(d.paused_left + add);
+                else d.stage_secs = secs(Math.floor((Date.now() - d.stage_at) / 1000) + leftOf(d) + add);
+              } else throw new Error('没有这个操作');
+              write('debatematches', matches);
+            }
+            return stateJson(classroom, no, true, null);
+          }
           if (name === 'ck_debate_board' || name === 'ck_debate_hide' || name === 'ck_set_debate_winners') {
             teacherOnly();
             if (name === 'ck_debate_hide') {
@@ -627,7 +713,11 @@
                 if (!['pro', 'con'].includes(params.p_side)) throw new Error('请选择获胜方');
                 const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
                 const roster = new Set(((klass && klass.roster) || []).map((p) => sidKey(p.sid)));
-                ranked(room.id, no, params.p_side, roster).slice(0, DEBATE.top).forEach((m) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'debate', sid: m.sid, name: m.name, points: Number(params.p_points), created_at: new Date().toISOString() }));
+                const locked = matchOf(room.id, no);
+                const chosen = locked && (locked.args[params.p_side] || []).length
+                  ? locked.args[params.p_side].filter((a) => roster.has(a.sid)).map((a) => ({ sid: a.sid, name: a.name }))
+                  : ranked(room.id, no, params.p_side, roster).slice(0, DEBATE.top);
+                chosen.forEach((m) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'debate', sid: m.sid, name: m.name, points: Number(params.p_points), created_at: new Date().toISOString() }));
               }
               write('bonus', bonus);
               return bonus.filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
@@ -642,6 +732,7 @@
             ['pro', 'con'].forEach((side) => {
               const mine = posts.filter((p) => String(p.classroom) === String(room.id) && p.case_no === no && p.side === side && !p.hidden);
               board[side] = {
+                args: pick(room.id, no, side),
                 members: members.filter((m) => String(m.classroom) === String(room.id) && m.case_no === no && m.side === side).length,
                 posts: mine.length,
                 top: ranked(room.id, no, side).slice(0, 10).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
@@ -667,6 +758,31 @@
               .sort((a, b) => (a.ts || 0) - (b.ts || 0))[0];
             return c ? c.choice : null;
           };
+          if (name === 'ck_debate_live') return stateJson(classroom, no, teacher, sid);
+          if (name === 'ck_debate_say') {
+            const d = matchOf(classroom, no);
+            if (!d) return { status: 'none' };
+            let mine = null;
+            let side = null;
+            ['pro', 'con'].forEach((g) => (d.args[g] || []).forEach((a) => { if (a.sid === sid) { mine = a; side = g; } }));
+            if (!mine) return { status: 'not_debater' };
+            const turn = stageOf(d.stage).turn;
+            if (!turn || (turn !== 'both' && turn !== side)) return { status: 'not_turn' };
+            if (d.paused_left != null) return { status: 'paused' };
+            if (d.stage_secs > 0 && Date.now() > d.stage_at + (d.stage_secs + 15) * 1000) return { status: 'time_up' };
+            const text = String(params.p_text || '').replace(/\s+/g, ' ').trim();
+            if (text.length < 2 || text.length > DEBATE.sayMax) return { status: 'short' };
+            const target = params.p_target == null || params.p_target === '' ? null : Number(params.p_target);
+            const topic = stageOf(d.stage).topic;
+            if (target != null && (!topic || target < 1 || target > (d.args[topic] || []).length)) return { status: 'bad_target' };
+            const own = says.filter((x) => String(x.classroom) === String(classroom) && x.case_no === no && x.sid === sid);
+            if (own.some((x) => Date.now() - Date.parse(x.created_at) < DEBATE.sayGap)) return { status: 'wait' };
+            if (own.filter((x) => x.stage === d.stage).length >= DEBATE.sayPerStage) return { status: 'too_many' };
+            const row = { id: nextId(says), classroom: Number(classroom) || classroom, case_no: no, stage: d.stage, side, sid, nick: mine.nick, role: mine.n, target, text, hidden: false, created_at: new Date().toISOString() };
+            says.push(row);
+            write('debatesays', says);
+            return { status: 'ok', id: row.id };
+          }
           if (name === 'ck_debate_state') {
             if (mem) return { status: 'joined', side: mem.side, nick: mem.nick, test: Boolean(me.test) };
             const side = me.test ? null : voted();
@@ -716,6 +832,14 @@
               posts: posts.filter((p) => same(p) && p.side === mem.side && !p.hidden).slice(-150)
                 .map((p) => ({ id: p.id, nick: p.nick, text: p.text, at: p.created_at, mine: p.sid === sid, likes: likeCount(p.id), liked: likes.some((l) => String(l.post_id) === String(p.id) && l.sid === sid) })),
               top: ranked(classroom, no, mem.side).slice(0, DEBATE.top).map((m) => ({ nick: m.nick, likes: m.likes, me: m.sid === sid })),
+              stage: (matchOf(classroom, no) || {}).stage || null,
+              list: members.filter((m) => same(m) && m.side === mem.side).map((m) => {
+                const mine = posts.filter((p) => same(p) && p.sid === m.sid && !p.hidden);
+                const seen = read('presence').find((r) => String(r.classroom) === String(classroom) && r.sid === m.sid);
+                const role = (((matchOf(classroom, no) || {}).args || {})[m.side] || []).find((a) => a.sid === m.sid);
+                return { nick: m.nick, me: m.sid === sid, likes: mine.reduce((n, p) => n + likeCount(p.id), 0), posts: mine.length,
+                  online: Boolean(seen && Date.now() - Date.parse(seen.last_seen) < 120000), role: role ? role.n : null, joined: m.joined_at };
+              }).sort((a, b) => (a.role || 9) - (b.role || 9) || b.likes - a.likes || String(a.joined).localeCompare(String(b.joined))),
             };
           }
         }

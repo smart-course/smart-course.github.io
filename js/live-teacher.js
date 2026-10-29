@@ -534,6 +534,7 @@
     try { await backend.removeAll('feedback', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('examscores', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('debateposts', where); await backend.removeAll('debatemembers', where); } catch (error) { if (!missingTable(error)) throw error; }
+    try { await backend.removeAll('debatesays', where); await backend.removeAll('debatematches', where); } catch (error) { if (!missingTable(error)) throw error; }   // 辩论台（2026-10-29）
     try { await backend.removeAll('pollvotes', where); await backend.removeAll('polls', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
@@ -1907,9 +1908,9 @@
       </article>`;
     const match = `
       <article class="tw-card wide">
-        <h2>证据—理论配对</h2>
+        <h2>迁移任务 · 小案例 1—4 <small>（原证据—理论配对，题号和参考答案不变；小案例 5 见下方“迁移·选一选”）</small></h2>
         <ol class="tw-legend">${item.matching.legend.map((text, index) => `<li><b>K${index + 1}</b>${esc(text)}</li>`).join('')}</ol>
-        <table class="tw-table compact"><thead><tr><th>事实线索</th>${[1, 2, 3, 4].map((k) => `<th>K${k}</th>`).join('')}<th>人数</th>${showRef ? '<th>对应参考</th><th>错误率</th>' : ''}</tr></thead><tbody>
+        <table class="tw-table compact"><thead><tr><th>小案例</th>${[1, 2, 3, 4].map((k) => `<th>K${k}</th>`).join('')}<th>人数</th>${showRef ? '<th>对应参考</th><th>错误率</th>' : ''}</tr></thead><tbody>
         ${item.matching.clues.map((clue, index) => {
           const counts = tally(docs, `match-${index + 1}`);
           const total = sum(counts);
@@ -1947,7 +1948,7 @@
       const right = item.transfer.options.reduce((n, _, index) => n + (ok(index + 1) ? counts.get(`K${index + 1}`) || 0 : 0), 0);
       return `
       <article class="tw-card wide">
-        <h2>迁移任务 · 选一选 <small>${total} 人${showRef ? ` · 正确率 ${pct(right, total)}%（含可以成立的）` : ''}</small></h2>
+        <h2>迁移任务 · 小案例 5（新情境） <small>${total} 人${showRef ? ` · 正确率 ${pct(right, total)}%（含可以成立的）` : ''}</small></h2>
         <p class="tw-q">${esc(item.transfer.scene)}</p>
         ${item.transfer.options.map((text, index) => `<div class="tw-option single"><div class="tw-option-label">${star(index + 1 === item.transfer.answer)}<span>K${index + 1}</span>${esc(text)}${showRef && item.transfer.accept.includes(index + 1) ? '（可以成立）' : ''}</div>${bar(counts.get(`K${index + 1}`) || 0, total)}</div>`).join('')}
       </article>`;

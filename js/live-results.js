@@ -40,7 +40,7 @@
   .lv-count { color: var(--ink, #201c18); font-weight: 800; font-size: 16px; }
   .lv-note { color: var(--muted, #6d6259); font-size: 14px; }
   .lv-acts { display: flex; gap: 8px; margin-left: auto; }
-  .lv-head button { padding: 5px 12px; border: 1px solid var(--teal, #23655f); border-radius: 6px; color: var(--teal, #23655f); background: #fff; font: 700 14px/1.2 inherit; cursor: pointer; }
+  .lv-head button { padding: 5px 12px; border: 1px solid var(--teal, #23655f); border-radius: 6px; color: var(--teal, #23655f); background: #fff; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; cursor: pointer; }
   .lv-head button[hidden] { display: none; }
   .lv-head button[data-lv-stop] { border-color: #a4492d; color: #a4492d; }
   .lv-head button[data-lv-stop].is-confirm { color: #fff; background: #a4492d; }
@@ -142,13 +142,13 @@
       });
     });
     document.querySelectorAll('section.ix-match[data-match]').forEach((section) => {
-      addBlock(section.querySelector('.match-table-wrap'), {
-        kind: 'match', case: caseOf(section), stop: `${caseOf(section)}:match*`,
-        clues: Array.from(section.querySelectorAll('tr[data-match-row]')).map((row, index) => {
-          // 只取线索标题（如“01 制度起点”），不带下方的说明文字
-          const cell = row.cells[0].cloneNode(true);
+      addBlock(section.querySelector('.match-table-wrap, [data-match-grid]'), {
+        kind: 'match', case: caseOf(section), stop: `${caseOf(section)}:match*`, head: section.closest('[data-transfer]') ? '小案例' : '事实线索',
+        clues: Array.from(section.querySelectorAll('[data-match-row]')).map((row, index) => {
+          // 只取标题（如“01 制度起点”“小案例 1 联席会议”），不带下方的说明文字；2026-10-29 起迁移任务的第 5 个小案例题号是 transfer-k
+          const cell = (row.querySelector('[data-match-label] b') || row.cells[0]).cloneNode(true);
           cell.querySelectorAll('small, p').forEach((el) => el.remove());
-          return { item: `match-${index + 1}`, text: text(cell), answer: row.dataset.answer || '', accept: (row.dataset.accept || '').match(/\d/g) || [] };
+          return { item: row.dataset.liveItem || `match-${index + 1}`, text: text(cell), answer: row.dataset.answer || '', accept: (row.dataset.accept || '').match(/\d/g) || [] };
         }),
       });
     });
@@ -440,7 +440,7 @@
       const answered = Math.max(0, ...block.clues.map((clue) => total(tally(block.case, clue.item))));
       countEl.textContent = `已递交 ${answered} 人`;
       if (!block.open) return null;
-      return `<table class="lv-table"><thead><tr><th>事实线索</th>${[1, 2, 3, 4].map((k) => `<th>K${k}</th>`).join('')}<th>人数</th><th>对应参考</th><th>错误率</th></tr></thead><tbody>${block.clues.map((clue) => {
+      return `<table class="lv-table"><thead><tr><th>${block.head || '事实线索'}</th>${[1, 2, 3, 4].map((k) => `<th>K${k}</th>`).join('')}<th>人数</th><th>对应参考</th><th>错误率</th></tr></thead><tbody>${block.clues.map((clue) => {
         const map = tally(block.case, clue.item);
         const all = total(map);
         const alt = clue.accept.reduce((sum, k) => sum + (map.get('K' + k) || 0), 0);

@@ -96,7 +96,7 @@
   .clp-who strong { font-size: 15px; }
   .clp-no { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; color: #fff; background: #a4492d; font-size: 13px; font-weight: 800; vertical-align: 1px; }
   .clp-no[hidden] { display: none; }
-  .clp-realm { display: inline-block; margin-left: 6px; padding: 1px 8px; border: 1px solid rgba(0,0,0,.08); border-radius: 999px; font: 800 12.5px/1.5 inherit; vertical-align: 1px; cursor: pointer; }
+  .clp-realm { display: inline-block; margin-left: 6px; padding: 1px 8px; border: 1px solid rgba(0,0,0,.08); border-radius: 999px; font-family: inherit; font-weight: 800; font-size: 12.5px; line-height: 1.5; vertical-align: 1px; cursor: pointer; }
   .clp-realm[hidden] { display: none; }
   .clp-realm.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
   .clp-realm.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; text-shadow: 0 1px 1px rgba(10,60,48,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
@@ -115,7 +115,7 @@
   .clp-colors em { font-style: normal; font-size: 12px; }
   .clp-gifts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 6px 0 2px; font-size: 13px; color: #6d6259; }
   .clp-gifts[hidden] { display: none; }
-  .clp-gifts button { padding: 3px 9px; border: 1.5px solid rgba(164,73,45,.35); border-radius: 999px; background: #fffaf3; color: #201c18; font: 700 13px/1.4 inherit; cursor: pointer; }
+  .clp-gifts button { padding: 3px 9px; border: 1.5px solid rgba(164,73,45,.35); border-radius: 999px; background: #fffaf3; color: #201c18; font-family: inherit; font-weight: 700; font-size: 13px; line-height: 1.4; cursor: pointer; }
   .clp-gifts button[disabled] { opacity: .45; cursor: default; }
   .clp-relogin { margin: 2px 0 8px; padding: 8px 10px; border: 1.5px solid #e2a08a; border-radius: 8px; background: #fff1ec; color: #7a2a14; font-size: 13px; line-height: 1.55; }
   .clp-relogin[hidden] { display: none; }
@@ -131,7 +131,7 @@
   .clp-news-card li { margin: 2px 0; }
   .clp-news-card li b { color: #463322; }
   .clp-news-ok { display: flex; justify-content: flex-end; margin-top: 14px; }
-  .clp-news-ok button { padding: 7px 22px; border: 0; border-radius: 999px; background: #a4492d; color: #fff; font: 700 14.5px/1.4 inherit; cursor: pointer; }
+  .clp-news-ok button { padding: 7px 22px; border: 0; border-radius: 999px; background: #a4492d; color: #fff; font-family: inherit; font-weight: 700; font-size: 14.5px; line-height: 1.4; cursor: pointer; }
   .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
   .clp-realm-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #23655f, #b98cff, #ffd36b); }
   .clp-ladder { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 6px; padding: 16px 10px 0; border-radius: 12px; background: radial-gradient(ellipse at 40% 30%, #1f1a2c 0%, #13111a 55%, #0c0b10 100%); }
@@ -194,7 +194,7 @@
   .clp-ident input { min-width: 0; padding: 7px 8px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; background: #fff; font: inherit; }
   .clp-ident input:focus { outline: none; border-color: #23655f; }
   .clp-tools { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
-  .clp-tools button { padding: 7px 11px; border: 1px solid rgba(35,101,95,.45); border-radius: 7px; color: #23655f; background: #fff; font: 700 13px/1 inherit; cursor: pointer; }
+  .clp-tools button { padding: 7px 11px; border: 1px solid rgba(35,101,95,.45); border-radius: 7px; color: #23655f; background: #fff; font-family: inherit; font-weight: 700; font-size: 13px; line-height: 1; cursor: pointer; }
   .clp-tools button.is-main { border-color: #23655f; color: #fff; background: #23655f; }
   .clp-danmaku { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(70,51,34,.2); }
   .clp-mydm { margin-top: 6px; }
@@ -209,7 +209,7 @@
   .clp-mydm-list button[disabled] { opacity: .6; cursor: default; }
   .clp-danmaku input { flex: 1 1 auto; min-width: 0; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; font: inherit; background: #fff; }
   .clp-danmaku input:focus { outline: none; border-color: #23655f; }
-  .clp-danmaku button { flex: 0 0 auto; min-width: 52px; padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #a4492d; font: 800 13px/1 inherit; cursor: pointer; }
+  .clp-danmaku button { flex: 0 0 auto; min-width: 52px; padding: 7px 10px; border: 0; border-radius: 7px; color: #fff; background: #a4492d; font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1; cursor: pointer; }
   .clp-danmaku button[disabled] { opacity: .55; cursor: default; }
   .clp-panel.is-folded .clp-body { display: none; }
   .clp-dmq { margin: 20px 0; padding: 16px 18px; border: 1.5px dashed rgba(164,73,45,.45); border-radius: 12px; background: #fffaf3; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
@@ -221,7 +221,7 @@
   .clp-dmq-form { display: flex; gap: 8px; }
   .clp-dmq-form input { flex: 1 1 auto; min-width: 0; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; font: inherit; }
   .clp-dmq-form input:focus { outline: none; border-color: #a4492d; }
-  .clp-dmq-form button { flex: 0 0 auto; min-width: 64px; padding: 9px 14px; border: 0; border-radius: 8px; color: #fff; background: #a4492d; font: 800 14px/1 inherit; cursor: pointer; }
+  .clp-dmq-form button { flex: 0 0 auto; min-width: 64px; padding: 9px 14px; border: 0; border-radius: 8px; color: #fff; background: #a4492d; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
   .clp-dmq-form button[disabled], .clp-dmq-form input[disabled] { opacity: .55; cursor: default; }
   .clp-dmq-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
   .clp-dmq-state[data-state="ok"] { color: #23655f; }
@@ -250,7 +250,7 @@
   .clp-sub-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .clp-sub-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
   .clp-sub-who { color: #6d6259; font-size: 13px; }
-  .clp-sub-head button { margin-left: auto; padding: 5px 12px; border: 1.5px solid rgba(164,73,45,.45); border-radius: 8px; background: #fff; color: #a4492d; font: 800 13px/1.2 inherit; cursor: pointer; }
+  .clp-sub-head button { margin-left: auto; padding: 5px 12px; border: 1.5px solid rgba(164,73,45,.45); border-radius: 8px; background: #fff; color: #a4492d; font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.2; cursor: pointer; }
   .clp-sub-big { display: flex; align-items: baseline; gap: 8px; margin: 10px 0 6px; }
   .clp-sub-big b { font-size: 30px; line-height: 1; color: #a4492d; }
   .clp-sub-big.is-all b { color: #23655f; }
@@ -277,14 +277,14 @@
   .clp-fb textarea:focus { outline: none; border-color: #23655f; }
   .clp-fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .clp-fb-count { color: #6d6259; font-size: 13px; }
-  .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font: 800 14px/1 inherit; cursor: pointer; }
+  .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
   .clp-fb-row button[disabled], .clp-fb textarea[disabled] { opacity: .55; cursor: default; }
   .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
   .clp-fb-state[data-state="ok"] { color: #23655f; font-weight: 700; }
   .clp-fb-state[data-state="error"] { color: #a4492d; font-weight: 700; }
   .clp-mood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px dashed rgba(35,101,95,.35); }
   .clp-mood-q { font-weight: 800; color: #23655f; }
-  .clp-mood button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 999px; background: #fff; color: #201c18; font: 700 14px/1.2 inherit; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; }
+  .clp-mood button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 999px; background: #fff; color: #201c18; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; }
   .clp-mood button i { font-style: normal; font-size: 22px; line-height: 1; }
   .clp-mood button:hover:not([disabled]) { transform: translateY(-1px); border-color: #23655f; }
   .clp-mood button[aria-pressed="true"][data-mood="1"] { border-color: #2f9e62; background: #e8f7ee; color: #1d6a40; }
@@ -298,50 +298,123 @@
   .dbr-join.is-con { border-color: rgba(164,73,45,.4); background: #fbf2ed; }
   .dbr-lead { margin: 0 0 10px; font-size: 16px; } .dbr-lead b { color: #23655f; } .dbr-join.is-con .dbr-lead b { color: #a4492d; }
   .dbr-nick, .dbr-form { display: flex; gap: 8px; }
-  .dbr-nick input, .dbr-form input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font: 16px/1.4 inherit; }
-  .dbr-nick button, .dbr-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font: 800 15px/1 inherit; cursor: pointer; }
+  .dbr-nick input, .dbr-form input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font-size: 16px; line-height: 1.4; }
+  .dbr-nick button, .dbr-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
   .is-con .dbr-nick button, .dbr-room.is-con .dbr-form button { background: #a4492d; }
   .dbr-nick button[disabled], .dbr-form button[disabled] { opacity: .55; cursor: default; }
   .dbr-hint { margin: 8px 0 0; color: #6d6259; font-size: 13px; }
   .dbr-state { margin: 6px 0 0; min-height: 1em; color: #6d6259; font-size: 13.5px; } .dbr-state[data-state="error"] { color: #a4492d; font-weight: 700; }
   .dbr-room { border-radius: 14px; border: 1.5px solid rgba(35,101,95,.4); background: #fbfdfc; overflow: hidden; }
   .dbr-room.is-con { border-color: rgba(164,73,45,.45); background: #fffbf8; }
-  .dbr-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 12px; padding: 10px 16px; background: #23655f; color: #fff; }
-  .dbr-room.is-con .dbr-head { background: #a4492d; }
-  .dbr-head b { font-size: 17px; letter-spacing: .06em; } .dbr-head span { font-size: 13px; opacity: .9; }
-  .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 8px 16px; background: rgba(232,196,106,.18); font-size: 13.5px; }
-  .dbr-top > span { font-weight: 800; color: #8a5a1a; }
-  .dbr-top ol { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: dbr; }
-  .dbr-top li { counter-increment: dbr; padding: 2px 10px; border-radius: 999px; background: #fff; border: 1px solid rgba(138,90,26,.25); }
-  .dbr-top li::before { content: counter(dbr) " "; font-weight: 800; color: #b8862b; }
-  .dbr-top li.is-me { border-color: #b8862b; font-weight: 800; } .dbr-top em { margin-left: 4px; font-style: normal; color: #c0392b; }
-  .dbr-list { max-height: 360px; overflow-y: auto; padding: 12px 16px; display: grid; gap: 10px; }
-  .dbr-msg { position: relative; padding: 9px 56px 9px 12px; border-radius: 10px; background: #fff; border: 1px solid rgba(70,51,34,.12); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
-  .dbr-msg.is-mine { background: #eef6f3; } .dbr-room.is-con .dbr-msg.is-mine { background: #fbeee6; }
-  .dbr-who { display: flex; gap: 8px; align-items: baseline; font-size: 13px; color: #6d6259; } .dbr-who b { color: #201c18; font-size: 14px; }
-  .dbr-msg p { margin: 3px 0 0; font-size: 15.5px; line-height: 1.6; word-break: break-word; }
-  .dbr-like { position: absolute; right: 8px; top: 50%; transform: translateY(-50%); padding: 4px 9px; border: 1px solid rgba(192,57,43,.3); border-radius: 999px; background: #fff; color: #c0392b; font: 700 13px/1 inherit; cursor: pointer; }
+  .dbr-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 16px; background: linear-gradient(180deg, #2b7169, #23655f); color: #fff; }
+  .dbr-room.is-con .dbr-head { background: linear-gradient(180deg, #b55536, #a4492d); }
+  .dbr-head > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
+  .dbr-head b { font-size: 17px; letter-spacing: .06em; } .dbr-head span { font-size: 13px; opacity: .92; }
+  .dbr-stage { padding: 3px 10px; border-radius: 999px; background: #f6dc98; color: #3b2a07; font-size: 13px; font-weight: 800; opacity: 1 !important; }
+  .dbr-body { display: grid; grid-template-columns: 188px minmax(0, 1fr); min-height: 300px; }
+  .dbr-people { border-right: 1px solid rgba(70,51,34,.1); background: rgba(70,51,34,.03); padding: 10px 8px; max-height: 452px; overflow-y: auto; }
+  .dbr-people h5 { margin: 0 6px 8px; font-size: 13px; color: #6d6259; letter-spacing: .04em; }
+  .dbr-people ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 2px; }
+  .dbr-people li { display: flex; align-items: center; gap: 8px; padding: 6px; border-radius: 9px; }
+  .dbr-people li.is-me { background: rgba(35,101,95,.08); } .dbr-room.is-con .dbr-people li.is-me { background: rgba(164,73,45,.08); }
+  .dbr-people li > span { display: grid; min-width: 0; }
+  .dbr-people b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #201c18; } .dbr-people b small { font-weight: 400; color: #6d6259; }
+  .dbr-people span > small { color: #8a7f74; font-size: 12px; white-space: nowrap; }
+  .dbr-people em, .dbr-who em { margin-right: 4px; padding: 0 6px; border-radius: 999px; background: #b8862b; color: #fff; font-style: normal; font-size: 11.5px; font-weight: 800; }
+  .dbr-people-empty { color: #8a7f74; font-size: 13px; }
+  .dbr-av { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; background: hsl(var(--h) 45% 46%); color: #fff; font-style: normal; font-weight: 800; font-size: 15px; }
+  .dbr-av s { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fbfdfc; background: #c8c0b5; text-decoration: none; }
+  .dbr-av s.is-on { background: #2fb36b; }
+  .dbr-main { display: flex; flex-direction: column; min-width: 0; }
+  .dbr-list { flex: 1 1 auto; max-height: 380px; overflow-y: auto; padding: 12px 16px; display: grid; align-content: start; gap: 12px; }
+  .dbr-msg { display: flex; align-items: flex-start; gap: 8px; }
+  .dbr-msg.is-mine { flex-direction: row-reverse; }
+  .dbr-msg-body { display: grid; gap: 3px; min-width: 0; max-width: min(78%, 520px); }
+  .dbr-msg.is-mine .dbr-msg-body { justify-items: end; }
+  .dbr-who { display: flex; gap: 6px; align-items: baseline; font-size: 12.5px; color: #8a7f74; } .dbr-who b { color: #4a4038; font-size: 13px; }
+  .dbr-msg.is-mine .dbr-who { flex-direction: row-reverse; }
+  .dbr-bubble { position: relative; display: flex; align-items: flex-end; gap: 8px; padding: 8px 10px 8px 12px; border-radius: 4px 14px 14px 14px; background: #fff; border: 1px solid rgba(70,51,34,.12); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+  .dbr-msg.is-mine .dbr-bubble { border-radius: 14px 4px 14px 14px; background: #e2f1ec; border-color: rgba(35,101,95,.2); }
+  .dbr-room.is-con .dbr-msg.is-mine .dbr-bubble { background: #f9e5da; border-color: rgba(164,73,45,.2); }
+  .dbr-bubble p { margin: 0; font-size: 15.5px; line-height: 1.6; word-break: break-word; }
+  .dbr-like { flex: 0 0 auto; padding: 3px 8px; border: 1px solid rgba(192,57,43,.3); border-radius: 999px; background: #fff; color: #c0392b; font-weight: 700; font-size: 12.5px; line-height: 1; cursor: pointer; }
   .dbr-like em { font-style: normal; } .dbr-like[aria-pressed="true"] { background: #c0392b; color: #fff; border-color: #c0392b; }
   .dbr-like[disabled] { opacity: .45; cursor: default; }
-  .dbr-room .dbr-form { padding: 10px 16px 0; } .dbr-room .dbr-state { padding: 0 16px 10px; }
+  .dbr-room .dbr-form { padding: 10px 16px 0; border-top: 1px solid rgba(70,51,34,.08); } .dbr-room .dbr-state { padding: 0 16px 10px; }
+  @media (max-width: 640px) {
+    .dbr-body { grid-template-columns: 1fr; }
+    .dbr-people { border-right: 0; border-bottom: 1px solid rgba(70,51,34,.1); max-height: none; padding: 8px 10px; }
+    .dbr-people ul { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 4px; }
+    .dbr-people li { flex: 0 0 auto; padding: 4px 8px 4px 4px; border: 1px solid rgba(70,51,34,.1); border-radius: 999px; background: #fff; }
+    .dbr-people span > small { display: none; }
+    .dbr-msg-body { max-width: 86%; }
+  }
+  .dbs, .dbs-off { border-radius: 14px; border: 1.5px solid rgba(70,51,34,.18); background: #fffdf8; overflow: hidden; }
+  .dbs-off { padding: 14px 16px; } .dbs-off p { margin: 0 0 10px; color: #4a4038; font-size: 15px; }
+  .dbs-flow { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: dbs; }
+  .dbs-flow li { counter-increment: dbs; display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 10px; border-radius: 999px; background: #f2ece2; color: #6d6259; font-size: 13px; }
+  .dbs-flow li::before { content: counter(dbs); font-weight: 800; color: #b8862b; } .dbs-flow small { color: #8a7f74; }
+  .dbs-flow.is-small { padding: 8px 14px; border-bottom: 1px solid rgba(70,51,34,.08); }
+  .dbs-flow li.is-now { background: #3b2a07; color: #f6dc98; font-weight: 800; } .dbs-flow li.is-done { opacity: .55; }
+  .dbs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: #3b3530; color: #fff; }
+  .dbs.is-pro .dbs-head { background: linear-gradient(180deg, #2b7169, #23655f); } .dbs.is-con .dbs-head { background: linear-gradient(180deg, #b55536, #a4492d); }
+  .dbs.is-both .dbs-head { background: linear-gradient(90deg, #23655f, #6b4b2a 50%, #a4492d); }
+  .dbs-head > div { display: grid; } .dbs-head b { font-size: 18px; letter-spacing: .06em; } .dbs-head small { font-size: 13px; opacity: .9; }
+  .dbs-clock { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .04em; } .dbs-clock.is-low { color: #ffd38a; }
+  .dbs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
+  .dbs-cols > section { padding: 10px 14px 12px; } .dbs-cols > section + section { border-left: 1px solid rgba(70,51,34,.1); }
+  .dbs h5 { margin: 0 0 8px; font-size: 13.5px; color: #8a5a1a; letter-spacing: .04em; }
+  .dbs-args { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .dbs-arg { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(70,51,34,.12); background: #fff; }
+  .dbs-arg.is-topic { box-shadow: 0 0 0 2px rgba(232,196,106,.7); }
+  .dbs-arg-head { display: flex; align-items: baseline; gap: 6px; font-size: 13px; } .dbs-arg-head span { font-size: 16px; font-weight: 800; color: #23655f; }
+  .dbs-arg.is-con .dbs-arg-head span { color: #a4492d; } .dbs-arg-head small { color: #8a7f74; }
+  .dbs-arg > p { margin: 4px 0 0; font-size: 15px; line-height: 1.6; }
+  .dbs-thread { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
+  .dbs-say { display: grid; gap: 1px; padding: 6px 9px; border-radius: 8px; border-left: 3px solid #23655f; background: #eef6f3; font-size: 14px; line-height: 1.55; }
+  .dbs-say.is-con { border-left-color: #a4492d; background: #fbeee6; }
+  .dbs-say b { font-size: 12.5px; color: #23655f; } .dbs-say.is-con b { color: #a4492d; } .dbs-say b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
+  .dbs-general { padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.1); }
+  .dbs-empty { color: #8a7f74; font-size: 13px; }
+  .dbs-say-form { margin: 0; padding: 12px 14px; border-top: 1px solid rgba(70,51,34,.12); background: #f2f8f6; }
+  .dbs-say-form.is-con { background: #fbf2ed; }
+  .dbs-say-form > p:first-child { margin: 0 0 8px; font-size: 14px; } .dbs-say-form b { color: #23655f; } .dbs-say-form.is-con b { color: #a4492d; }
+  .dbs-say-form > div { display: flex; flex-wrap: wrap; gap: 8px; }
+  .dbs-say-form select { flex: 0 0 auto; padding: 9px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font-size: 14px; }
+  .dbs-say-form input { flex: 1 1 200px; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font-size: 16px; }
+  .dbs-say-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
+  .dbs-say-form.is-con button { background: #a4492d; } .dbs-say-form button[disabled] { opacity: .55; cursor: default; }
+  .dbs-state { margin: 6px 0 0; min-height: 1em; color: #a4492d; font-size: 13.5px; font-weight: 700; }
+  .dbs-note { margin: 0; padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.1); background: #f6f1e7; color: #4a4038; font-size: 14px; } .dbs-note b { color: #8a5a1a; }
+  @media (max-width: 640px) { .dbs-cols { grid-template-columns: 1fr; } .dbs-cols > section + section { border-left: 0; border-top: 1px solid rgba(70,51,34,.1); } }
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
   .clp-panel.is-gate .clp-gate-leave { margin: 8px 0 0 6px; padding: 8px 12px; border: 0; border-radius: 7px; color: #a4492d; background: #f5e7df; font: inherit; font-weight: 800; cursor: pointer; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
-  .clp-q { margin: 10px 0 6px; padding: 8px 10px; border: 1px dashed rgba(35,101,95,.4); border-radius: 8px; background: rgba(228,239,235,.45); color: #201c18; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-q { position: relative; margin: 10px 0 6px; padding: 10px 12px; border: 1px dashed rgba(35,101,95,.4); border-radius: 8px; background: rgba(228,239,235,.45); color: #201c18; font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-q.is-locked { border-style: solid; background: rgba(228,239,235,.7); }
-  .clp-q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
-  .clp-q-send { flex: 0 0 auto; padding: 7px 16px; border: 0; border-radius: 7px; color: #fff; background: #23655f; font: 800 14px/1 inherit; cursor: pointer; }
-  .clp-q-send.is-confirm { background: #a4492d; }
+  .clp-q-row { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; min-height: 44px; padding-right: 112px; box-sizing: border-box; }
+  .clp-q-send { flex: 0 0 auto; min-width: 112px; min-height: 44px; padding: 0 26px; border: 0; border-radius: 10px; color: #fff; background: linear-gradient(180deg, #2f7a72, #23655f); box-shadow: 0 2px 6px rgba(35,101,95,.28); font-weight: 800; font-size: 16px; line-height: 1; letter-spacing: .12em; cursor: pointer; touch-action: manipulation; }
+  .clp-q-send:active { transform: translateY(1px); }
+  .clp-q-send.is-confirm { background: #a4492d; box-shadow: 0 2px 6px rgba(164,73,45,.3); letter-spacing: 0; }
   .clp-q-send[disabled] { opacity: .5; cursor: default; }
   .clp-q-state { color: #6d6259; font-size: 13px; }
   .clp-q-state[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-q-state[data-state=error] { color: #a4492d; font-weight: 700; }
   .clp-q-state[data-state=stopped] { color: #a4492d; font-weight: 700; }
+  /* 我的备注放在右上角，和左边的“递交”隔开，手机上不容易误点（2026-10-29 用户：“手机页面，点击递交按钮容易误触我的备注”） */
   .clp-note { margin-top: 6px; }
-  .clp-note summary { color: #a4492d; font-size: 13px; font-weight: 700; cursor: pointer; }
-  .clp-note textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; margin-top: 6px; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; background: #fffdf8; color: #201c18; font: 14px/1.6 inherit; resize: vertical; }
+  .clp-q-row:not([hidden]) ~ .clp-note { margin-top: 0; }
+  .clp-q-row:not([hidden]) ~ .clp-note > summary { position: absolute; top: 10px; right: 12px; }
+  .clp-note summary { display: inline-flex; align-items: center; min-height: 44px; padding: 0 12px; box-sizing: border-box; border: 1px dashed rgba(164,73,45,.45); border-radius: 10px; background: #fffdf8; color: #a4492d; font-size: 13.5px; font-weight: 700; cursor: pointer; touch-action: manipulation; }
+  .clp-note[open] > summary { border-style: solid; background: #fbeee6; }
+  @media (max-width: 640px) {
+    .clp-q-row { padding-right: 0; }
+    .clp-q-state { flex: 1 1 100%; }
+    .clp-q-send[hidden] + .clp-q-state { margin-right: 108px; }
+  }
+  .clp-note textarea { display: block; box-sizing: border-box; width: 100%; min-height: 64px; margin-top: 8px; padding: 7px 9px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 7px; background: #fffdf8; color: #201c18; font-size: 14px; line-height: 1.6; resize: vertical; }
   .clp-note textarea:focus { outline: none; border-color: #23655f; }
   /* 课堂面板（已进入课堂）：境界头部＋醒目的发弹幕＋作答进度；按境界换材质（is-r0 素石 … is-r4 神光）。离线版与未进入课堂的面板仍用上面的样式 */
   .clp-panel.clp-v2 { --clp-head-bg: linear-gradient(135deg, #f1ece2, #d9d2c4); --clp-head-ink: #2f2a24; --clp-head-sub: #6d6259; --clp-link: #8a3b22;
@@ -465,7 +538,7 @@
   .clp-v2 .clp-gifts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 5px; margin: 7px 0 0; }
   .clp-v2 .clp-gifts[hidden] { display: none; }
   .clp-v2 .clp-gifts button { display: flex; align-items: center; gap: 7px; min-width: 0; height: 30px; padding: 0 10px; border: 1px solid #e0b64a; border-radius: 9px;
-    background: linear-gradient(180deg, #fff8e1, #ffefc2); color: #5a3a00; font: 800 13px/1 inherit; text-align: left; white-space: nowrap; }
+    background: linear-gradient(180deg, #fff8e1, #ffefc2); color: #5a3a00; font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1; text-align: left; white-space: nowrap; }
   .clp-v2 .clp-gifts button > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .clp-v2 .clp-gifts button[disabled] { opacity: .7; }
   .clp-v2 .clp-gifts .is-qingzhu { border-color: #7fcf9f; background: linear-gradient(180deg, #effbf3, #d7f3e1); color: #10432a; }
@@ -548,7 +621,7 @@
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
   .clp-sub .clp-xlbtn { margin-left: 6px; }
   .clp-rank-link { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 2px; padding: 4px 12px; border: 1px solid #b8801a; border-radius: 999px;
-    color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f); font: 800 13px/1.5 inherit; cursor: pointer; }
+    color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f); font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.5; cursor: pointer; }
   .clp-rank-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
   .clp-rank-modal { background: rgba(8,6,16,.62); -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); }
   .clp-rank-card { position: relative; isolation: isolate; width: min(460px, 100%); max-height: calc(100vh - 32px); overflow: auto; padding: 16px 18px 18px; border: 1px solid rgba(255,214,110,.35); border-radius: 18px;
@@ -1027,11 +1100,19 @@
   const STOPPED = '老师已停止递交这道题，不能再递交（不计修为）；可以继续看题、写备注';
   let stops = [];
   const stoppedQ = (q) => Boolean(Live.isStopped) && Live.isStopped(stops, q.key);
-  function applyStops() {
+  // 暂时收起递交的题（2026-10-29：辩论台进行中的“辩后投票”），与老师“停止递交”共用下面的显示
+  const heldQuestions = new Map();
+  function holdQuestion(key, text) {
+    if ((heldQuestions.get(key) || '') === (text || '')) return;
+    if (text) heldQuestions.set(key, text); else heldQuestions.delete(key);
+    applyStops(key);
+  }
+  function applyStops(changedKey) {
     questions.forEach((q) => {
       if (locked[q.key]) return;
-      const on = stoppedQ(q);
-      if (on === Boolean(q.stopped)) return;
+      const held = heldQuestions.get(q.key) || '';
+      const on = stoppedQ(q) || Boolean(held);
+      if (q.key !== changedKey && on === Boolean(q.stopped)) return;
       q.stopped = on;
       clearTimeout(q.timer);
       q.button.classList.remove('is-confirm');
@@ -1039,7 +1120,7 @@
       q.button.disabled = false;
       q.button.hidden = on;
       q.bar.classList.toggle('is-stopped', on);
-      setQ(q, on ? STOPPED : IDLE, on ? 'stopped' : '');
+      setQ(q, on ? (stoppedQ(q) ? STOPPED : held) : IDLE, on ? 'stopped' : '');
     });
   }
   async function loadStops() {
@@ -1622,6 +1703,7 @@
   setupFeedback(true);
   setupExamExport();
   setupDebateRooms(true);
+  setupDebateStages(true);
 
   // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
   // 大家不知道你是谁），然后大家可以在聊天室中发表自己的观点，其它同学可以点赞，每一方被点赞次数最多的三位同学上台辩论……”）：
@@ -1709,16 +1791,22 @@
           }
         });
       }
+      // 聊天室（2026-10-29 用户：“要能显示聊天室里面人的名字，你可以参照网上的一些聊天室来设计一下”）：仿群聊——左边成员名单（昵称、在线、点赞、辩手名次），
+      // 右边消息气泡（头像取昵称第一个字，自己的靠右），顶部显示辩论台进行到哪一步。同学之间仍只看到昵称
       function showRoom() {
         if (mode !== 'room') {
           mode = 'room';
           feedKey = '';
           box.innerHTML = `<div class="dbr-room">
-            <header class="dbr-head"><b data-dbr-title></b><span data-dbr-meta></span></header>
-            <div class="dbr-top" data-dbr-top></div>
-            <div class="dbr-list" data-dbr-list aria-live="polite"></div>
-            <form class="dbr-form"><input type="text" maxlength="${DB.textMax}" placeholder="写下你的观点（最多 ${DB.textMax} 字），用上论据卡和本章理论" aria-label="聊天室发言" autocomplete="off"><button type="submit">发送</button></form>
-            <p class="dbr-state" data-dbr-state role="status"></p></div>`;
+            <header class="dbr-head"><div><b data-dbr-title></b><span data-dbr-meta></span></div><span class="dbr-stage" data-dbr-stage hidden></span></header>
+            <div class="dbr-body">
+              <aside class="dbr-people"><h5 data-dbr-people-title>成员</h5><ul data-dbr-people></ul></aside>
+              <div class="dbr-main">
+                <div class="dbr-list" data-dbr-list aria-live="polite"></div>
+                <form class="dbr-form"><input type="text" maxlength="${DB.textMax}" placeholder="写下你的论点（最多 ${DB.textMax} 字），用上论据卡和本章理论" aria-label="聊天室发言" autocomplete="off"><button type="submit">发送</button></form>
+                <p class="dbr-state" data-dbr-state role="status"></p>
+              </div>
+            </div></div>`;
           box.querySelector('form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const input = box.querySelector('.dbr-form input');
@@ -1758,26 +1846,179 @@
         let feed;
         try { feed = await call('ck_debate_feed', { p_classroom: roomId, p_case: no }); } catch (problem) { console.warn('[辩论聊天室]', problem); return; }
         if (feed.status !== 'ok') { mode = ''; refresh(); return; }
-        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), feed.top, feed.members, feed.others]);
+        const people = Array.isArray(feed.list) ? feed.list : [];
+        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), people, feed.members, feed.others, feed.stage]);
         if (!force && key === feedKey) return;
         feedKey = key;
         const room = box.querySelector('.dbr-room');
         room.className = `dbr-room is-${feed.side}`;
+        const online = people.filter((p) => p.online).length;
         box.querySelector('[data-dbr-title]').textContent = `${SIDE[feed.side]}聊天室`;
-        box.querySelector('[data-dbr-meta]').textContent = `我的昵称：${feed.nick} · 本方 ${feed.members} 人 · 对方 ${feed.others} 人`;
-        box.querySelector('[data-dbr-top]').innerHTML = `<span>本方点赞前 ${DB.top}（将上台辩论）</span>${feed.top.length
-          ? `<ol>${feed.top.map((t) => `<li class="${t.me ? 'is-me' : ''}">${esc(t.nick)}<em>♥ ${t.likes}</em></li>`).join('')}</ol>` : '<small>还没有人发言，第一个说说你的观点吧。</small>'}`;
+        box.querySelector('[data-dbr-meta]').textContent = `我是“${feed.nick}” · 本方 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 对方 ${feed.others} 人`;
+        const stageLabel = feed.stage ? debateStageLabel(feed.stage) : '';
+        const pill = box.querySelector('[data-dbr-stage]');
+        pill.hidden = !stageLabel;
+        pill.textContent = stageLabel ? `辩论台 · ${stageLabel}` : '';
+        const roles = new Map(people.filter((p) => p.role).map((p) => [p.nick, p.role]));
+        box.querySelector('[data-dbr-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
+        box.querySelector('[data-dbr-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${p.role ? ' is-debater' : ''}">
+            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${p.role ? `<em>${debateRole(p.role)}</em>` : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+          || '<li class="dbr-people-empty">还没有人进来</li>';
         const list = box.querySelector('[data-dbr-list]');
         const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
         const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}"><div class="dbr-who"><b>${esc(p.nick)}</b><time>${esc(clock(p.at))}</time></div>
-          <p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div>`).join('')
-          || '<p class="dbr-empty">还没有发言。说说你为什么支持本方：用上一条案例事实或本章的一个理论要点。</p>';
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
+            <div class="dbr-who"><b>${esc(p.nick)}</b>${roles.get(p.nick) ? `<em>${debateRole(roles.get(p.nick))}</em>` : ''}<time>${esc(clock(p.at))}</time></div>
+            <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
+          || '<p class="dbr-empty">还没有发言。说说你为什么支持本方：用上一条案例事实或本章的一个理论要点。点赞最多的三个论点会入选辩论台。</p>';
         if (atBottom || force) list.scrollTop = list.scrollHeight;
       }
       refresh();
       // 递交辩前票后自动进聊天室
       document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; refresh(); } });
+    });
+  }
+
+  // 辩论台（2026-10-29 用户：“辩论赛，双方在选出得票最高的三个论点后，正方先抛出这三条，请反方的三位辩友在弹幕上进行反驳。然后正方再回答反方的观点
+  // 或者问题。这里要再设置一个弹幕问答器只能由这6人来问答。同时要按照3v3辩论的标准设置相应的流程和计时器。”）：习经“辩论赛”卡片里的 [data-debate-stage]。
+  // 老师在投屏页“选定论点与辩手”后，这里显示当前阶段、倒计时、两方论点和辩手发言；本人是辩手且轮到本方时可以发言（质询、答辩可注明针对哪个论点）。
+  // 辩论台进行中先收起“⑤ 辩后投票”的递交，老师切到“辩后投票”后再放开
+  // 下面几个小工具写成函数声明：聊天室（setupDebateRooms）比它们先被调用
+  function debateRole(n) { return ({ 1: '一辩', 2: '二辩', 3: '三辩' })[n] || ''; }
+  function debateStageLabel(key) {
+    if (key === 'ready') return '已选定辩手，等老师开始';
+    if (key === 'done') return '已结束';
+    const stage = ((Live.DEBATE && Live.DEBATE.stages) || []).find((g) => g.key === key);
+    return stage ? stage.label : '';
+  }
+  // 头像：昵称第一个字，底色按昵称算出（同一昵称颜色固定）；online 不传＝不显示在线点
+  function avatar(nick, online) {
+    const hue = Array.from(String(nick || '')).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17);
+    return `<i class="dbr-av" style="--h:${hue}" aria-hidden="true">${esc(Array.from(String(nick || '?'))[0])}${online === undefined ? '' : `<s class="${online ? 'is-on' : ''}"></s>`}</i>`;
+  }
+  function setupDebateStages(enabled) {
+    const boxes = $$('[data-debate-stage]');
+    if (!boxes.length || OFFLINE) return;
+    if (!enabled) return;
+    const DB = Live.DEBATE || { stages: [], sayMax: 120, poll: 4000 };
+    const SIDE = { pro: '正方', con: '反方' };
+    const CIRCLE = ['', '①', '②', '③'];
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
+    const fmt = (s) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, '0')}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
+    boxes.forEach((box) => {
+      const no = box.dataset.case;
+      shield(box);
+      let live = null;
+      let fetchedAt = 0;
+      let lastKey = '';
+      let draft = '';
+      let target = '';
+      const voteKey = `${no}:debate-post`;
+      const left = () => (live && live.status === 'ok' ? (live.paused ? live.left : Math.max(0, live.left - Math.floor((Date.now() - fetchedAt) / 1000))) : 0);
+      function tick() {
+        const el = box.querySelector('[data-dbs-clock]');
+        if (el && live && live.status === 'ok') {
+          const s = left();
+          el.textContent = live.paused ? `${fmt(s)} 暂停` : fmt(s);
+          el.classList.toggle('is-low', !live.paused && live.secs > 0 && s <= 10);
+        }
+      }
+      function render() {
+        // 发言框正在输入的内容、针对哪个论点，重画后保留
+        const input = box.querySelector('[data-dbs-text]');
+        if (input) draft = input.value;
+        const select = box.querySelector('[data-dbs-target]');
+        if (select) target = select.value;
+        if (!live || live.status === 'none') {
+          box.innerHTML = `<div class="dbs-off"><p>老师在投屏页“选定论点与辩手”后，这里显示 3v3 辩论台：每方点赞最多的三个论点入选，作者担任一、二、三辩。</p>
+            <ol class="dbs-flow">${(DB.stages || []).map((g) => `<li>${esc(g.label)}<small>${g.secs >= 60 ? `${g.secs / 60} 分钟` : `${g.secs} 秒`}${g.optional ? '·可跳过' : ''}</small></li>`).join('')}</ol></div>`;
+          holdQuestion(voteKey, '');
+          return;
+        }
+        if (live.status !== 'ok') { box.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再看辩论台。</p>'; return; }
+        const stage = (DB.stages || []).find((g) => g.key === live.stage);
+        const me = live.me;
+        const myTurn = Boolean(me && stage && (stage.turn === 'both' || stage.turn === me.side));
+        const sayRow = (s) => `<li class="dbs-say is-${esc(s.side)}"><b>${SIDE[s.side]}${debateRole(s.role)}<small>${esc(s.nick)}</small></b><span>${esc(s.text)}</span></li>`;
+        const argCard = (side, a) => {
+          const thread = (live.says || []).filter((s) => s.target === a.n && DB.stages.some((g) => g.key === s.stage && g.topic === side));
+          return `<li class="dbs-arg is-${side}${live.topic === side ? ' is-topic' : ''}"><div class="dbs-arg-head"><span>${CIRCLE[a.n]}</span><b>${SIDE[side]}${debateRole(a.n)}</b><small>${esc(a.nick)} · ♥ ${a.likes}</small></div>
+            <p>${esc(a.text)}</p>${thread.length ? `<ul class="dbs-thread">${thread.map(sayRow).join('')}</ul>` : ''}</li>`;
+        };
+        const general = (live.says || []).filter((s) => !s.target);
+        const flow = (DB.stages || []).map((g, i) => {
+          const at = (DB.stages || []).findIndex((x) => x.key === live.stage);
+          return `<li class="${g.key === live.stage ? 'is-now' : at > i || live.stage === 'done' ? 'is-done' : ''}">${esc(g.label)}</li>`;
+        }).join('');
+        const turnText = stage && stage.turn ? (stage.turn === 'both' ? '双方辩手都可以发言' : `轮到${SIDE[stage.turn]}辩手发言`) : live.stage === 'vote' ? '辩手发言已结束，请在下面投辩后票' : live.stage === 'done' ? '辩论结束' : '等老师开始';
+        let mine = '';
+        if (me && myTurn && !live.paused) {
+          const topic = stage.topic;
+          const options = topic ? (live.args[topic] || []).map((a) => `<option value="${a.n}">针对${SIDE[topic]}论点${CIRCLE[a.n]}</option>`).join('') : '';
+          mine = `<form class="dbs-say-form is-${me.side}" data-dbs-form>
+              <p>你是<b>${SIDE[me.side]}${debateRole(me.role)}</b>：${esc(stage.hint || '')}。可以先在本方聊天室和队友商量，再在这里发言（每条 ${DB.sayMax || 120} 字内）。</p>
+              <div>${topic ? `<select data-dbs-target aria-label="针对哪个论点"><option value="">不针对具体论点</option>${options}</select>` : ''}
+              <input type="text" data-dbs-text maxlength="${DB.sayMax || 120}" placeholder="${me.side === stage.topic ? '回应、补充本方论点' : '反驳或提问'}" autocomplete="off"><button type="submit">发言</button></div>
+              <p class="dbs-state" data-dbs-state role="status"></p></form>`;
+        } else if (me) {
+          mine = `<p class="dbs-note">你是<b>${SIDE[me.side]}${debateRole(me.role)}</b>${live.paused ? '：老师暂停了计时，稍等一下。' : '：轮到本方时这里会出现发言框。等的时候可以在本方聊天室和队友商量。'}</p>`;
+        } else if (live.stage !== 'vote' && live.stage !== 'done') {
+          mine = '<p class="dbs-note">辩论台只有六位辩手能发言。你可以在本方聊天室里给本方辩手出主意，最后根据六位辩手的发言投辩后票。</p>';
+        }
+        box.innerHTML = `<div class="dbs is-${stage ? stage.turn || 'none' : 'none'}">
+          <header class="dbs-head"><div><b>${esc(debateStageLabel(live.stage))}</b><small>${esc(turnText)}</small></div>${stage && stage.secs ? '<span class="dbs-clock" data-dbs-clock></span>' : ''}</header>
+          <ol class="dbs-flow is-small">${flow}</ol>
+          <div class="dbs-cols"><section><h5>正方论点</h5><ol class="dbs-args">${(live.args.pro || []).map((a) => argCard('pro', a)).join('') || '<li class="dbs-empty">正方没有入选的论点</li>'}</ol></section>
+            <section><h5>反方论点</h5><ol class="dbs-args">${(live.args.con || []).map((a) => argCard('con', a)).join('') || '<li class="dbs-empty">反方没有入选的论点</li>'}</ol></section></div>
+          ${general.length ? `<div class="dbs-general"><h5>自由辩论与总结陈词</h5><ul class="dbs-thread">${general.map(sayRow).join('')}</ul></div>` : ''}
+          ${mine}</div>`;
+        const form = box.querySelector('[data-dbs-form]');
+        if (form) {
+          const text = form.querySelector('[data-dbs-text]');
+          text.value = draft;
+          const sel = form.querySelector('[data-dbs-target]');
+          if (sel && [...sel.options].some((o) => o.value === target)) sel.value = target;
+          form.addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const value = text.value.trim();
+            const state = form.querySelector('[data-dbs-state]');
+            if (value.length < 2) { state.textContent = '写两个字以上再发言。'; return; }
+            const button = form.querySelector('button');
+            button.disabled = true;
+            try {
+              const res = await call('ck_debate_say', { p_classroom: roomId, p_case: no, p_target: sel && sel.value ? Number(sel.value) : null, p_text: value });
+              const why = { not_turn: '还没轮到本方发言。', paused: '老师暂停了计时，稍等再发。', time_up: '这一阶段的时间到了。', wait: '发得太快了，等几秒再发。',
+                too_many: '这一阶段你已经发了 6 条，留点机会给队友。', short: `发言要 2—${DB.sayMax || 120} 个字。`, not_debater: '你不是这场的辩手。', none: '老师还没选定辩手。', login: '请回首页用课堂码重新登录。' };
+              if (res.status === 'ok') { draft = ''; text.value = ''; await load(true); } else state.textContent = why[res.status] || '没有发出去，请再试一次。';
+            } catch (problem) {
+              console.warn('[辩论台]', problem);
+              state.textContent = '网络不通，没有发出去，请稍后再试。';
+            } finally {
+              button.disabled = false;
+            }
+          });
+        }
+        holdQuestion(voteKey, ['vote', 'done'].includes(live.stage) ? '' : '辩论台还在进行：等老师切到“辩后投票”后再递交。');
+        tick();
+      }
+      async function load(force) {
+        try {
+          const data = await call('ck_debate_live', { p_classroom: roomId, p_case: no });
+          live = data;
+          fetchedAt = Date.now();
+        } catch (problem) {
+          if (!/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) console.warn('[辩论台]', problem);
+          live = { status: 'none' };
+        }
+        const key = JSON.stringify(live && { ...live, left: undefined });
+        // 正在输入时不重画（计时照走），免得打断；阶段或发言变了才重画
+        const typing = document.activeElement && box.contains(document.activeElement) && document.activeElement.matches('[data-dbs-text]');
+        if (force || (key !== lastKey && !typing) || (key !== lastKey && live && live.stage !== JSON.parse(lastKey || '{}').stage)) { lastKey = key; render(); }
+      }
+      load(true);
+      setInterval(tick, 1000);
+      setInterval(() => { if (!document.hidden && box.isConnected) load(false); }, DB.poll || 4000);
     });
   }
 
@@ -2324,7 +2565,7 @@
         ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
         ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
         ...(config.course === 'xjp-economy' ? [
-          ['辩论聊天室', `辩论赛改版：投辩前票选好立场后，取一个昵称就进入本方聊天室（同学看不到你是谁，老师能看到，请文明发言），发表观点、给本方好观点点赞；每方点赞最多的三位同学上台辩论，全班投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
+          ['辩论台（3v3）', `辩论赛再次改版：投辩前票选好立场、选 2 张论据卡后，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。辩论结束、老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
         ] : []),
         ...(config.course === 'political-economy' ? [
           ['期中考查作业', '案例页“课后自修”里的课后思考（申论式大题）取消，改为老师另行发布的“期中考查作业”：老师公布课堂码后，在首页用它登录进入，读给定资料（题目出自的案例全部材料），写好后递交，总分 100 分，由老师批阅。'],
@@ -2862,13 +3103,14 @@
     // 证据—理论配对：一次递交全部线索
     $$('[data-live-match]').forEach((matchPanel) => {
       const rows = $$('[data-match-row]', matchPanel);
-      const clue = (row) => { const cell = row.querySelector('th').cloneNode(true); cell.querySelectorAll('small').forEach((el) => el.remove()); return textOf(cell); };
+      // 2026-10-29 起是迁移任务的小案例（[data-match-label] 里的标题）；以前是表格里的事实线索
+      const clue = (row) => { const cell = (row.querySelector('[data-match-label] b') || row.querySelector('th')).cloneNode(true); cell.querySelectorAll('small').forEach((el) => el.remove()); return textOf(cell); };
       const choiceOf = (row) => { const button = pressed(row, '[data-match-choice]'); return button ? button.dataset.matchChoice : (row.dataset.choice || null); };
       list.push({
-        key: `${matchPanel.dataset.liveCase}:match`, section: caseTitle(matchPanel), title: '证据—理论配对', prompt: textOf(matchPanel.querySelector('h3')),
+        key: `${matchPanel.dataset.liveCase}:match`, section: caseTitle(matchPanel), title: matchPanel.closest('[data-transfer]') ? '迁移任务 · 小案例' : '证据—理论配对', prompt: textOf(matchPanel.querySelector('h3')),
         anchor: (bar) => matchPanel.appendChild(bar),
         read: () => { const value = rows.map(choiceOf); return value.some(Boolean) ? value : null; },
-        check: (value) => { const missing = rows.length - (value || []).filter(Boolean).length; return missing ? `还有 ${missing} 条线索没有选，全部选好再递交` : ''; },
+        check: (value) => { const missing = rows.length - (value || []).filter(Boolean).length; return missing ? `还有 ${missing} ${matchPanel.closest('[data-transfer]') ? '个小案例' : '条线索'}没有选，全部选好再递交` : ''; },
         show: (value) => (value ? rows.map((row, i) => `${clue(row)} → ${value[i] ? 'K' + value[i] : '未选'}`) : []),
         lock: () => rows.forEach((row) => $$('[data-match-choice]', row).forEach((button) => { button.disabled = true; })),
         restore: (value) => rows.forEach((row, i) => $$('[data-match-choice]', row).forEach((button) => {
