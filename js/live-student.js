@@ -749,7 +749,41 @@
   form.cl-mcq > .cl-actions { display: none !important; }
   .cl-exit [data-action="submit"], .cl-exit [data-action="reset"], .cl-export, .cl-overview-exit { display: none !important; }
   .clp-exam-due { margin: 10px 0; padding: 9px 14px; border-left: 4px solid #a87a2a; border-radius: 8px; background: #fbf3e2; color: #6b4d14; font-weight: 700; }
-  .clp-exam-due.is-over { border-left-color: #a4492d; background: #f5e7df; color: #a4492d; }` : ''}
+  .clp-exam-due.is-over { border-left-color: #a4492d; background: #f5e7df; color: #a4492d; }
+  .clp-exam-due.is-soon { border-left-color: #c0502a; background: #fdece3; color: #a33c1c; }
+  .clp-exam-clock { display: grid; gap: 12px; margin: 4px 0 18px; padding: 18px 22px; border: 1px solid #e6d3a3; border-left: 6px solid #b8913a; border-radius: 14px;
+    background: linear-gradient(135deg, #fdf8ea, #f7ecd2); color: #4a3510; box-shadow: 0 6px 18px rgba(120, 90, 30, .1); }
+  .clp-exam-clock[hidden], .clp-exam-clock [hidden] { display: none !important; }
+  .clp-exam-clock-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; }
+  .clp-exam-clock-head b { padding: 2px 10px; border-radius: 999px; background: #2e4a70; color: #fff; font-size: .9em; letter-spacing: .12em; }
+  .clp-exam-clock-head strong { color: #201c18; font-size: 1.5em; font-weight: 800; line-height: 1.3; }
+  .clp-exam-clock-left { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; }
+  .clp-exam-clock-left > span:first-child { color: #6b4d14; font-weight: 700; }
+  .clp-exam-clock-units { display: flex; flex-wrap: wrap; gap: 6px; }
+  .clp-exam-clock-units i { display: inline-flex; align-items: baseline; justify-content: center; gap: 3px; min-width: 3.6em; padding: 6px 10px; border-radius: 10px;
+    background: #2e4a70; color: #fff; font-style: normal; box-shadow: inset 0 -3px 0 rgba(0, 0, 0, .18); }
+  .clp-exam-clock-units b { font-size: 1.55em; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .clp-exam-clock-units small { font-size: .8em; font-weight: 700; opacity: .85; }
+  .clp-exam-clock-note { margin: 0; color: #6b4d14; font-size: .95em; line-height: 1.6; }
+  .clp-exam-clock.is-soon { border-color: #efc2ab; border-left-color: #c0502a; background: linear-gradient(135deg, #fff3ec, #fbdfd0); }
+  .clp-exam-clock.is-soon .clp-exam-clock-units i { background: #b4432a; }
+  .clp-exam-clock.is-soon .clp-exam-clock-units i:last-child { animation: clp-due-pulse 1s ease-in-out infinite; }
+  .clp-exam-clock.is-soon .clp-exam-clock-note { color: #a33c1c; font-weight: 700; }
+  .clp-exam-clock.is-over { border-color: #e3bfb2; border-left-color: #a4492d; background: #f5e7df; }
+  .clp-exam-clock.is-over .clp-exam-clock-head b { background: #a4492d; }
+  .clp-exam-clock.is-over .clp-exam-clock-note { color: #a4492d; font-weight: 700; }
+  .clp-exam-clock.is-done { border-color: #bcd9c9; border-left-color: #2f7a55; background: linear-gradient(135deg, #f1f8f3, #e3f0e8); }
+  .clp-exam-clock.is-done .clp-exam-clock-head b { background: #2f7a55; }
+  .clp-exam-clock.is-done .clp-exam-clock-units i { background: #5f8a74; }
+  .clp-exam-clock.is-done .clp-exam-clock-note { color: #2f7a55; font-weight: 700; }
+  @keyframes clp-due-pulse { 50% { transform: scale(1.06); } }
+  @media (prefers-reduced-motion: reduce) { .clp-exam-clock .clp-exam-clock-units i { animation: none !important; } }
+  @media (max-width: 520px) {
+    .clp-exam-clock { padding: 14px 14px 14px 16px; }
+    .clp-exam-clock-head strong { font-size: 1.25em; }
+    .clp-exam-clock-units i { min-width: 0; padding: 5px 7px; }
+    .clp-exam-clock-units b { font-size: 1.3em; }
+  }` : ''}
   `;
   document.head.appendChild(style);
 
@@ -1710,6 +1744,8 @@
   // 习经“辩论赛”卡片里的 [data-debate-room]。立场取递交的辩前票（后台核对）；取昵称后进本方聊天室，只看得到本方发言；每 poll 毫秒刷新一次。
   // 学生版测试页（王不凡）的辩前票只在本机：按本机递交的辩前票进入那一方（2026-10-29 用户：“学生选完正反方后，不用再选了，直接填写昵称让他们进入聊天室就行”）。
   // 后台还没有这组函数（未执行 SQL）时显示说明
+  // 辩论赛的题号：习经“案例号:debate-pre”（ck_choices），政经“debate.pre”（ck_homework，一个课堂一个案例）
+  function debateKey(no, part) { return worksheet ? `debate.${part}` : `${no}:debate-${part}`; }
   function setupDebateRooms(enabled, note) {
     const boxes = $$('[data-debate-room]');
     if (!boxes.length || OFFLINE) return;
@@ -1747,11 +1783,12 @@
       }
       // 测试页：本机递交的辩前票（在别的设备递交的，看页面上恢复的选择）
       function localSide() {
-        const key = `${no}:debate-pre`;
+        const key = debateKey(no, 'pre');
         if (!locked[key]) return '';
         const group = document.querySelector(`[data-live-choice][data-live-case="${no}"][data-live-item="debate-pre"]`);
         const pressed = group && group.querySelector('[data-live-option][aria-pressed="true"]');
-        const value = locked[key].v || (pressed && pressed.dataset.liveOption);
+        const checked = document.querySelector(`.cl-debate[data-case="${no}"] input[name="debate-pre"]:checked`);   // 政经辩论赛（单选）
+        const value = locked[key].v || (pressed && pressed.dataset.liveOption) || (checked && checked.value);
         return value === 'pro' || value === 'con' ? value : '';
       }
       function showPick() {
@@ -1914,7 +1951,7 @@
       let lastKey = '';
       let draft = '';
       let target = '';
-      const voteKey = `${no}:debate-post`;
+      const voteKey = debateKey(no, 'post');
       const left = () => (live && live.status === 'ok' ? (live.paused ? live.left : Math.max(0, live.left - Math.floor((Date.now() - fetchedAt) / 1000))) : 0);
       function tick() {
         const el = box.querySelector('[data-dbs-clock]');
@@ -2034,19 +2071,25 @@
     button.textContent = '导出 Word（含姓名、学号）';
     shield(button);
     box.appendChild(button);
+    // 2026-10-29 按用户截图改版：学生信息栏（班级、学号、姓名）、“作答说明”框（含作答要求）、作答题目、作答
     button.addEventListener('click', () => {
       const entry = locked.exam;
       const text = (entry && entry.v) || area.value || '';
       const words = String(text).replace(/\s/g, '').length;
-      const title = textOf($('#start h2')) || '期中考查作业';
-      const reqs = $$('.cl-essay-req li', box).map(textOf);
+      const node = document.getElementById('concept-data');
+      const D = node ? JSON.parse(node.textContent) : {};
+      const info = D.exam || {};
+      const title = info.title || textOf($('#start h2')) || '期中考查作业';
+      const dueAt = Number(area.dataset.due) || 0;
+      const d = new Date(dueAt);
+      const deadline = dueAt ? `${d.getFullYear()} 年 ${d.getMonth() + 1} 月 ${d.getDate()} 日（周${'日一二三四五六'[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}` : '';
+      const notes = O.examNotes({ chapter: D.chapterTitle, type: info.type, words: info.words, requirements: $$('.cl-essay-req li', box).map(textOf), deadline });
       const status = entry ? (entry.other ? '已在其他设备递交（以第一次为准）' : `已递交 ${entry.iso ? new Date(entry.iso).toLocaleString('zh-CN', { hour12: false }) : entry.at || ''}`) : '未递交（草稿）';
-      const body = O.para('政治经济学 · 期中考查作业', 'title') + O.para(title, 'subtitle')
-        + O.table([['姓名', identity.name || '', '学号', String(identity.sid || '')], ['班级', identity.class_name || '', '课堂', identity.classroom_name || ''],
-          ['状态', status, '字数', `${words} 字`]], [1500, 3013, 1500, 3013], { head: false })
-        + O.para('题目', 'h') + O.para(textOf(box.querySelector('.cl-essay-q')), 'body')
-        + (reqs.length ? O.para('作答要求', 'h') + reqs.map((line, i) => O.para(`${i + 1}. ${line}`, 'plain')).join('') : '')
-        + O.para('作答', 'h') + (String(text).split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('') || O.para('（还没有写）', 'note'));
+      const body = O.para('政治经济学 · 期中考查作业', 'title') + O.para(`${title}（${info.type ? `${info.type}题 · ` : ''}总分 100 分）`, 'subtitle')
+        + O.examHead({ klass: identity.class_name, sid: identity.sid, name: identity.name }, notes)
+        + O.para('一、作答题目', 'h') + O.para([{ text: textOf(box.querySelector('.cl-essay-q')), bold: true }], 'body')
+        + O.para('二、作答', 'h') + O.para(`${status}　　字数：${words} 字`, 'note')
+        + (String(text).split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('') || O.para('（还没有写）', 'note'));
       const safe = (value) => String(value || '').replace(/[\\/:*?"<>|\s]+/g, '_');
       O.save(O.docx(body), `期中考查作业_${safe(identity.sid)}_${safe(identity.name)}.docx`);
     });
@@ -2552,7 +2595,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261028-exam' : '20261028-debate';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261029-pe-debate' : '20261028-debate';   // 两门课各自有新内容时才改自己的
   const NEWS_RANGE = '10 月 9 日—10 月 29 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
@@ -2568,7 +2611,7 @@
           ['辩论台（3v3）', `辩论赛再次改版：投辩前票选好立场、选 2 张论据卡后，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。辩论结束、老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
         ] : []),
         ...(config.course === 'political-economy' ? [
-          ['期中考查作业', '案例页“课后自修”里的课后思考（申论式大题）取消，改为老师另行发布的“期中考查作业”：老师公布课堂码后，在首页用它登录进入，读给定资料（题目出自的案例全部材料），写好后递交，总分 100 分，由老师批阅。'],
+          ['辩论赛', `案例页的“小组辨析”改为辩论赛，辩题只有正反两方（不再有“部分同意”）：先投辩前票选好立场、选 2 张论据卡，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
           ['课后自修不给答案', '课后自修（出门测、主动回忆、温故、讲给别人听）不再显示答案、解析和对错，讲评在下一次课；答对的照常计入修为。主动回忆改为写好后点“写好了”。'],
         ] : []),
         ['登录', '学号不在本班点名册上时，登录页会提示核对姓名和学号（多半是填错了），不再自动向老师申请；确实不在本班名单上的同学（如重修、跨班旁听）点“申请加入本班”。换了手机或电脑又忘记口令，可以在输口令的地方点“忘记口令”向老师申请重设，老师同意后在这台设备上设新口令。'],
@@ -3327,6 +3370,48 @@
         });
       }
     }
+    // 辩论赛（2026-10-29 起代替小组辨析，用户：“政经中的‘小组辨析’环节改成习经济思想的辩论赛形式，去掉部分同意这个选项，只保留正反方”）：
+    // 辩前投票、论据卡（最多 2 张）、辩后投票各自递交，题号 debate.pre / debate.cards / debate.post（政经一个课堂一个案例；后台 ck_debate_side 按辩前票分边）；
+    // 辩后票在老师切到“辩后投票”之前不能递交（setupDebateStages 的 holdQuestion）
+    const debate = $('.cl-debate[data-debate]');
+    if (debate) {
+      const no = debate.dataset.case;
+      const SIDE = { pro: '正方', con: '反方' };
+      const motion = textOf(debate.querySelector('[data-debate-motion]'));
+      const sideOf = (value) => `${SIDE[value] || value}：${textOf(debate.querySelector(`.cl-debate-sides .is-${value} strong`))}`;
+      const vote = (key, title) => {
+        const box = debate.querySelector(`[data-debate-vote="${key}"] fieldset`);
+        if (!box) return;
+        list.push({
+          key: `debate.${key}`, section: '辩论赛', title, prompt: motion, anchor: after(box),
+          read: () => radio(box),
+          check: (value) => (value ? '' : '请先选正方或反方，再点“递交”'),
+          show: (value) => (value ? [sideOf(value)] : []),
+          lock: () => disable(box, 'input'),
+          restore: (value) => setRadio(box, value),
+          send: send(`debate.${key}`),
+        });
+      };
+      vote('pre', '辩前投票：我站哪一方');
+      const cards = debate.querySelector('.cl-debate-cards');
+      if (cards) {
+        const max = Number(cards.dataset.max) || 2;
+        const boxes = $$('input[name="debate-cards"]', cards);
+        list.push({
+          key: 'debate.cards', section: '辩论赛', title: '我选的论据卡', prompt: `选 ${max} 张最能支持本方的论据卡`, anchor: after(cards),
+          read: () => { const value = boxes.filter((b) => b.checked).map((b) => b.value); return value.length ? value.join(',') : null; },
+          check: (value) => (!value ? `请先选好论据卡（最多 ${max} 张），再点“递交”` : value.split(',').length > max ? `最多选 ${max} 张` : ''),
+          show: (value) => String(value || '').split(',').filter(Boolean).map((v) => {
+            const box = boxes.find((b) => b.value === v);
+            return `${String.fromCharCode(64 + Number(v))}. ${textOf(box && box.closest('label').querySelector('.cl-debate-card-text'))}`;
+          }),
+          lock: () => disable(cards, 'input'),
+          restore: (value) => boxes.forEach((b) => { b.checked = String(value || '').split(',').includes(b.value); }),
+          send: send('debate.cards'),
+        });
+      }
+      vote('post', '辩后投票：我支持哪一方');
+    }
     // 期中考查作业（2026-10-28，原课后思考·申论式大题）：examNN 页，一篇短文写好后递交（key exam，只收第一次）；不计修为，老师在工作台批阅（满分 100）
     const exam = $('textarea[data-cl-text="exam"]');
     if (exam) {
@@ -3334,31 +3419,67 @@
       const count = box && box.querySelector('[data-essay-count]');
       const target = Number(count && count.dataset.target) || 0;
       const least = Number(count && count.dataset.least) || 100;
-      // 递交截止时间（2026-10-28 用户：发布期中考查作业时可以设置递交截止日期）：写在作答框上方；过了截止时间锁上作答框（后台 ck_submit_answer 同样不再收）
+      // 递交截止时间（2026-10-28 用户：发布期中考查作业时可以设置递交截止日期）：过了截止时间锁上作答框（后台 ck_submit_answer 同样不再收）。
+      // 2026-10-29 用户：“要突出显示递交截止日期，最好还有个倒计时功能”——首页醒目的截止卡片（每秒倒计时，最后 24 小时变红），作答框上方一行同步倒计时
       let dueAt = 0;
       const due = document.createElement('p');
       due.className = 'clp-exam-due';
       due.hidden = true;
       exam.insertAdjacentElement('beforebegin', due);
+      const clockBox = document.createElement('div');
+      clockBox.className = 'clp-exam-clock';
+      clockBox.hidden = true;
+      clockBox.innerHTML = '<div class="clp-exam-clock-head"><b>递交截止</b><strong data-due-when></strong></div>'
+        + '<div class="clp-exam-clock-left" data-due-left><span>距离截止还有</span><span class="clp-exam-clock-units" data-due-units></span></div>'
+        + '<p class="clp-exam-clock-note" data-due-note></p>';
+      const card = $('#start .cl-exam-card');
+      if (card) card.insertAdjacentElement('beforebegin', clockBox);
+      const pad = (n) => String(n).padStart(2, '0');
+      const dueWhen = (at) => { const d = new Date(at); return `${d.getMonth() + 1} 月 ${d.getDate()} 日（周${'日一二三四五六'[d.getDay()]}）${pad(d.getHours())}:${pad(d.getMinutes())}`; };
+      const sentAt = (entry) => (entry.other ? '已在其他设备递交' : entry.iso ? `已于 ${dueWhen(Date.parse(entry.iso))} 递交` : '已递交');
+      let dueTimer = 0;
+      const tickDue = () => {
+        const left = Math.max(0, dueAt - Date.now());
+        const over = left <= 0;
+        const soon = !over && left < 86400000;
+        const entry = locked.exam;
+        const days = Math.floor(left / 86400000);
+        const hours = Math.floor((left % 86400000) / 3600000);
+        const minutes = Math.floor((left % 3600000) / 60000);
+        const seconds = Math.floor((left % 60000) / 1000);
+        const when = dueWhen(dueAt);
+        clockBox.classList.toggle('is-over', over && !entry);
+        clockBox.classList.toggle('is-soon', soon && !entry);
+        clockBox.classList.toggle('is-done', Boolean(entry));
+        clockBox.querySelector('.clp-exam-clock-head b').textContent = entry ? '已递交' : over ? '已截止' : '递交截止';
+        clockBox.querySelector('[data-due-when]').textContent = when;
+        clockBox.querySelector('[data-due-left]').hidden = over;
+        clockBox.querySelector('[data-due-units]').innerHTML = [days ? [days, '天'] : null, [pad(hours), '时'], [pad(minutes), '分'], [pad(seconds), '秒']]
+          .filter(Boolean).map(([n, unit]) => `<i><b>${n}</b><small>${unit}</small></i>`).join('');
+        clockBox.querySelector('[data-due-note]').textContent = entry ? `✓ 你${sentAt(entry)}，不用再赶时间了。`
+          : over ? '递交截止时间已过，作答框已锁定，不能再递交。'
+            : soon ? '最后 24 小时！写好后记得点作答框下方的“递交”，递交后不能修改。'
+              : '写好后点作答框下方的“递交”，递交后不能修改；到截止时间作答框会自动锁定。';
+        due.classList.toggle('is-over', over && !entry);
+        due.classList.toggle('is-soon', soon && !entry);
+        due.textContent = entry ? `递交截止：${when}。你${sentAt(entry)}。` : over ? `递交截止时间 ${when} 已过，不能再递交。`
+          : `递交截止：${when}，还剩 ${days ? `${days} 天 ` : ''}${pad(hours)}:${pad(minutes)}:${pad(seconds)}。递交后不能修改。`;
+        if (over) {
+          if (!entry) exam.readOnly = true;
+          clearInterval(dueTimer);
+        }
+      };
       if (!OFFLINE && backend && identity.classroom && (joined || PREVIEW)) {
         backend.rpc('ck_room_deadline', { p_classroom: identity.classroom }).then((value) => {
           const raw = Array.isArray(value) ? value[0] : value;
           const at = Date.parse(String((raw && typeof raw === 'object' ? Object.values(raw)[0] : raw) || '').replace(/(\.\d{3})\d+/, '$1'));
           if (!at) return;
           dueAt = at;
-          const d = new Date(at);
-          const when = `${d.getMonth() + 1} 月 ${d.getDate()} 日（周${'日一二三四五六'[d.getDay()]}）${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
-          const left = at - Date.now();
+          exam.dataset.due = String(at);
           due.hidden = false;
-          due.classList.toggle('is-over', left <= 0);
-          if (left <= 0) {
-            due.textContent = `递交截止时间 ${when} 已过，不能再递交。`;
-            exam.readOnly = true;
-          } else {
-            const days = Math.floor(left / 86400000);
-            const hours = Math.floor((left % 86400000) / 3600000);
-            due.textContent = `递交截止：${when}，还剩 ${days ? `${days} 天 ` : ''}${hours} 小时。递交后不能修改。`;
-          }
+          clockBox.hidden = false;
+          tickDue();
+          if (at > Date.now()) dueTimer = setInterval(tickDue, 1000);
         }).catch((error) => console.warn('[期中考查] 截止时间读取失败：', error));
       }
       list.push({

@@ -935,13 +935,8 @@
     paperExam = unit && unit.exam;
     if (!paperExam || !Array.isArray(paperExam.materials)) { actionStatus('找不到这道题的资料，请刷新工作台后再试。'); return; }
     $('[data-paper-what]').textContent = `${paperExam.case} · ${paperExam.type}题：${paperExam.title}。导出的 Word 含学生信息栏、作答说明、给定资料（${paperExam.materials.length} 则）和作答题目。`;
-    const chapter = String(paperExam.chapter || '').replace(/^(第[一二三四五六七八九十]+章)\s*(.+)$/, '$1“$2”');
-    paperForm.elements.notes.value = [
-      `请运用本课程${chapter || '相关章节'}的相关概念与理论作答。`,
-      `${paperExam.type}题，总分 100 分，${paperExam.words} 字左右；独立完成，联系给定资料论证。`,
-      room.deadline ? `递交截止日期：${deadlineText(room.deadline)}，请登录课程网站在本作业页面递交（递交后不能修改）。`
-        : '请登录课程网站在本作业页面递交（递交后不能修改）。',
-    ].join('\n');
+    // 2026-10-29 起作答要求也写进“作答说明”框（用户：“作答要求可以放到图中‘作答说明’的位置”）
+    paperForm.elements.notes.value = window.ClassLive.office.examNotes({ ...paperExam, deadline: room.deadline ? deadlineText(room.deadline) : '' }).join('\n');
     paperDialog.showModal();
   });
   $('[data-paper-cancel]').addEventListener('click', () => paperDialog.close());
@@ -954,26 +949,14 @@
   });
   function examQuestionDoc(info, notes, space) {
     const O = window.ClassLive.office;
-    const GOLD = 'B8913A';
-    const p = (inner, { jc = 'left', before = 0, after = 0, border = '', ind = '' } = {}) => `<w:p><w:pPr>${border}<w:spacing w:before="${before}" w:after="${after}" w:line="360" w:lineRule="auto"/>${ind}<w:jc w:val="${jc}"/></w:pPr>${inner}</w:p>`;
-    const blank = '_____________';
-    const student = p(O.runs(`班级：${blank}　　学号：${blank}　　姓名：${blank}`, { size: 24 }), {
-      jc: 'center', before: 240, after: 360, border: `<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="12" w:color="${GOLD}"/></w:pBdr>` });
-    const items = notes.map((line, i) => p(O.runs(`${i + 1}. ${line}`, { size: 24 }), { jc: 'both', after: 60, ind: '<w:ind w:left="400" w:hanging="400"/>' })).join('');
-    const box = `<w:tbl><w:tblPr><w:tblW w:w="9026" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="single" w:sz="36" w:space="0" w:color="${GOLD}"/>`
-      + '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/>'
-      + '<w:tblCellMar><w:top w:w="200" w:type="dxa"/><w:left w:w="320" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="240" w:type="dxa"/></w:tblCellMar></w:tblPr>'
-      + '<w:tblGrid><w:gridCol w:w="9026"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="9026" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8F4E8"/></w:tcPr>'
-      + p(O.runs('作答说明', { bold: true, size: 28, east: '黑体', color: '2E4A70' }), { after: 120 }) + items + '</w:tc></w:tr></w:tbl>';
     const paras = (text) => String(text || '').split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('');
+    const label = (text) => `<w:p><w:pPr><w:keepNext/><w:spacing w:before="160" w:after="40" w:line="360" w:lineRule="auto"/><w:jc w:val="left"/></w:pPr>${O.runs(text, { bold: true, east: '黑体' })}</w:p>`;
     return O.para(`${course.title} · 期中考查作业`, 'title')
       + O.para(`${info.title}（${info.type}题 · 总分 100 分）`, 'subtitle')
-      + student + box + O.para('', 'plain')
+      + O.examHead({}, notes)
       + O.para(`一、给定资料（题目出自${info.case}）`, 'h') + (info.lead ? O.para([{ text: info.lead, east: '楷体' }], 'body') : '')
-      + info.materials.map((m, i) => p(O.runs(`资料 ${i + 1}${m.title ? `　${m.title}` : ''}`, { bold: true, size: 24, east: '黑体' }), { before: 160, after: 40 }) + paras(m.text)).join('')
+      + info.materials.map((m, i) => label(`资料 ${i + 1}${m.title ? `　${m.title}` : ''}`) + paras(m.text)).join('')
       + O.para('二、作答题目', 'h') + O.para([{ text: info.question, bold: true }], 'body')
-      + O.para([{ text: '作答要求：', bold: true, east: '黑体' }], 'plain')
-      + (info.requirements || []).map((r, i) => O.para(`${i + 1}. ${r}`, 'plain')).join('')
       + (space ? O.para('三、作答', 'h', { pageBreak: true }) + O.para('（在下方作答，篇幅不够可另附页。）', 'note')
         + Array.from({ length: 16 }, () => O.para('', 'plain')).join('') : '');
   }
@@ -1279,19 +1262,25 @@
         person.sub ? examAt(person.sub.at) : '', person.sub ? examWords(person.sub.text) : '', examScore(person.mark) == null ? '' : examScore(person.mark), (person.mark && person.mark.comment) || '']));
     O.save(O.xlsx('期中考查成绩', rows, [12, 16, 10, 16, 10, 18, 8, 16, 40]), `${examFileStem()}_成绩.xlsx`);
   });
+  // 每位同学一份（2026-10-29 按用户截图改版）：学生信息栏（已填班级、学号、姓名）、“作答说明”框（含作答要求）、作答题目、作答，最后是批阅
   function examPaper(person, pageBreak) {
     const O = window.ClassLive.office;
     const info = examInfo();
     const unit = examUnit();
+    const ex = (unit && unit.exam) || {};
     const score = examScore(person.mark);
+    const notes = O.examNotes({ ...ex, deadline: exam.room && exam.room.deadline ? deadlineText(exam.room.deadline) : '' });
+    const label = (text) => ({ text, bold: true, east: '黑体' });
     return O.para(`${course.title} · 期中考查作业`, 'title', { pageBreak })
-      + O.para(`${info.title || ''}（${info.case || ''}，${info.type || ''}题，总分 100 分）`, 'subtitle')
-      + O.table([['学号', String(person.sid), '姓名', person.name], ['班级', person.class_name || '', '递交时间', examAt(person.sub.at)],
-        ['字数', String(examWords(person.sub.text)), '得分（满分 100）', score == null ? '' : String(score)]], [1500, 3013, 1800, 2713], { head: false })
-      + O.para([{ text: '评语：', bold: true, east: '黑体' }, (person.mark && person.mark.comment) || ''], 'plain')
-      + O.para('批阅教师：____________　　批阅日期：____________', 'plain')
-      + O.para('题目', 'h') + O.para((unit && unit.exam && unit.exam.question) || info.title || '', 'body')
-      + O.para('作答', 'h') + person.sub.text.split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('');
+      + O.para(`${ex.title || info.title || ''}（${ex.type || info.type || ''}题 · 总分 100 分）`, 'subtitle')
+      + O.examHead({ klass: person.class_name, sid: person.sid, name: person.name }, notes)
+      + O.para('一、作答题目', 'h') + O.para([{ text: ex.question || info.title || '', bold: true }], 'body')
+      + O.para('二、作答', 'h') + O.para(`递交时间：${examAt(person.sub.at)}　　字数：${examWords(person.sub.text)} 字`, 'note')
+      + person.sub.text.split(/\n+/).map((line) => line.trim()).filter(Boolean).map((line) => O.para(line, 'body')).join('')
+      + O.para('三、批阅', 'h')
+      + O.para([label('得分（满分 100）：'), score == null ? '__________' : String(score)], 'plain')
+      + O.para([label('评语：'), (person.mark && person.mark.comment) || ''], 'plain')
+      + O.para('批阅教师：____________　　批阅日期：____________', 'plain');
   }
   $('[data-exam-docx]').addEventListener('click', () => {
     if (!exam.room) return;
@@ -2063,7 +2052,7 @@
       { id: 'overview', label: '总览：逐题作答与正确率' },
       ...unit.concepts.map((k, index) => ({ id: k.id, label: `概念 ${index + 1} · ${k.name}` })),
       { id: 'chain', label: '概念串联' },
-      { id: 'discussion', label: '小组辨析' },
+      { id: 'discussion', label: unit.debate ? '辩论赛' : '小组辨析' },
       { id: 'exit', label: '出门测' },
       ...(unit.poll ? [{ id: 'poll', label: '课堂投票' }] : []),
       ...(unit.essay && !unit.essay.legacy ? [{ id: 'essay', label: '课后思考' }] : []),
@@ -2071,7 +2060,8 @@
   }
 
   // 一份作业快照 → 逐题记录。type：option 选项题 / value 填空与计算 / text 文字题（不判对错）/ order 串联位置
-  function gradeHomework(unit, payload) {
+  // legacy：这份作业来自小组辨析时期（2026-10-29 改为辩论赛之前的课堂），仍按原来的立场、理由显示和计分，以前课堂的修为不变
+  function gradeHomework(unit, payload, legacy) {
     const S = payload && typeof payload === 'object' ? payload : {};
     const texts = S.texts || {};
     const items = [];
@@ -2136,11 +2126,23 @@
         shown: placed == null ? '' : `放了“${short(chain.texts[placed], 24)}”`, ref: pos, refShown: short(t, 24),
         correct: placed == null ? null : placed === pos });
     });
-    const discussion = S.discussion || {};
-    option('discussion', 'discussion.stance', '小组辨析', '我的立场', unit.discussion.stances.map((x) => ({ value: x, label: x })),
-      discussion.stance, null, unit.discussion.question);
-    text('discussion', 'discussion.reason', '小组辨析', '我的理由', texts['discussion.reason'], '我的理由（至少用到一个概念）');
-    text('discussion', 'discussion.after', '小组辨析', '讨论后的修改或补充', texts['discussion.after'], '讨论后，我修改或补充的想法');
+    if (!unit.debate || legacy) {
+      const discussion = S.discussion || {};
+      option('discussion', 'discussion.stance', '小组辨析', '我的立场', unit.discussion.stances.map((x) => ({ value: x, label: x })),
+        discussion.stance, null, unit.discussion.question);
+      text('discussion', 'discussion.reason', '小组辨析', '我的理由', texts['discussion.reason'], '我的理由（至少用到一个概念）');
+      text('discussion', 'discussion.after', '小组辨析', '讨论后的修改或补充', texts['discussion.after'], '讨论后，我修改或补充的想法');
+    } else {
+      // 辩论赛（2026-10-29 起）：辩前票、论据卡、辩后票，只计参与（不判对错）
+      const db = S.debate || {};
+      const sides = [{ value: 'pro', label: `正方：${unit.debate.pro}` }, { value: 'con', label: `反方：${unit.debate.con}` }];
+      option('discussion', 'debate.pre', '辩论赛', '辩前投票', sides, db.pre, null, unit.debate.motion);
+      const picked = String(db.cards || '').split(',').filter((v) => unit.debate.cards[Number(v) - 1]);
+      items.push({ section: 'discussion', key: 'debate.cards', step: '辩论赛', label: '论据卡', prompt: '选 2 张最能支持本方的论据卡', type: 'option',
+        value: picked.length ? picked.join(',') : null, shown: picked.map((v) => `${LET(Number(v) - 1)}. ${short(unit.debate.cards[Number(v) - 1], 30)}`).join('；'),
+        ref: null, refShown: '', correct: null });
+      option('discussion', 'debate.post', '辩论赛', '辩后投票', sides, db.post, null, unit.debate.motion);
+    }
     const exit = S.exit || {};
     unit.exit.forEach((q, i) => option('exit', `exit.${i}`, '出门测', `出门测 ${i + 1}`, lettered(q.options), (exit.answers || [])[i], q.answer, q.prompt));
     if (unit.poll) {
@@ -2183,6 +2185,8 @@
         else S.texts[key] = value;
         return;
       }
+      match = key.match(/^debate\.(pre|cards|post)$/);
+      if (match) { (S.debate || (S.debate = {}))[match[1]] = value; return; }
       match = key.match(/^exit\.(\d+)$/);
       if (match) S.exit.answers[Number(match[1])] = value;
       else if (key === 'chain') S.chain = { order: value, submitted: true };
@@ -2199,9 +2203,16 @@
     .replace(/^(k\d+\.(check|apply))\.\d+$/, '$1')
     .replace(/^chain\.\d+$/, 'chain')
     .replace(/^discussion\.(stance|reason)$/, 'discussion');
+  // 政经辩论赛上线之前的作业按小组辨析算：递交过小组辨析，或者没有辩论赛题、且最早的递交在 10 月 30 日之前
+  const DEBATE_SINCE = Date.parse('2026-10-30T00:00:00+08:00');
+  const legacyDiscussion = (S, at) => {
+    const keys = Object.keys(at);
+    return Boolean(S.discussion) || keys.some((key) => /^discussion/.test(key))
+      || (!keys.some((key) => /^debate\./.test(key)) && keys.some((key) => millis(at[key]) && millis(at[key]) < DEBATE_SINCE));
+  };
   const gradeOf = (unit, payload) => {
     const { S, at } = stateOf(unit, payload);
-    const result = gradeHomework(unit, S);
+    const result = gradeHomework(unit, S, legacyDiscussion(S, at));
     result.items.forEach((item) => { item.at = at[submitKey(item.key)] || ''; });
     return result;
   };
@@ -2794,7 +2805,7 @@
   // 这里不再算进课堂的“作答完成／作答正确”，免得重复计分（递交记录照旧，工作台和投屏统计不受影响）
   const peKind = (key) => {
     if (/^exit\.\d+$/.test(key) || key === 'essay') return { kind: 'self' };
-    if (/\.discover$/.test(key) || key === 'poll') return { kind: 'part' };
+    if (/\.discover$/.test(key) || key === 'poll' || /^debate\.(pre|cards|post)$/.test(key)) return { kind: 'part' };
     if (/\.challenge$/.test(key)) return { kind: 'bonus' };
     if (/\.explain$/.test(key) || key === 'discussion' || key === 'discussion.after') return { kind: 'text', min: 10 };
     if (key === 'essay') return { kind: 'text', min: 60 };

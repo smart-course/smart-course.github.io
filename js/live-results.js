@@ -266,6 +266,22 @@
       const later = disc.querySelector('textarea[data-cl-text="discussion.after"]');
       if (later) addBlock(later, { kind: 'cl-count', key: 'discussion.after', label: '递交了讨论后的补充' });
     }
+    // 辩论赛（2026-10-29 起代替小组辨析）：辩前票分布、论据卡被选次数、辩后票与辩前比较（题号 debate.pre / debate.cards / debate.post）
+    const debate = document.querySelector('.cl-debate[data-debate]');
+    if (debate) {
+      const no = debate.dataset.case;
+      const sides = ['pro', 'con'].map((key) => ({ key, label: key === 'pro' ? '正方' : '反方', text: text(debate.querySelector(`.cl-debate-sides .is-${key} strong`)) }));
+      const pre = debate.querySelector('[data-debate-vote="pre"] fieldset');
+      if (pre) addBlock(pre, { kind: 'cl-poll', key: 'debate.pre', options: sides });
+      const cards = debate.querySelector('.cl-debate-cards');
+      if (cards) {
+        addBlock(cards, { kind: 'cl-pick', key: 'debate.cards',
+          options: Array.from(cards.querySelectorAll('input[name="debate-cards"]')).map((input) => ({
+            key: input.value, label: String.fromCharCode(64 + Number(input.value)), text: text(input.closest('label').querySelector('.cl-debate-card-text')) })) });
+      }
+      const post = debate.querySelector('[data-debate-vote="post"] fieldset');
+      if (post) addBlock(post, { kind: 'cl-versus', key: 'debate.post', preKey: 'debate.pre', options: sides });
+    }
     // 案例 01 的课堂投票（如“说说你喜欢的授课方式”）：讲解版里没有投票区块，在学习总览后补一张卡片显示结果
     if (D.poll && Array.isArray(D.poll.options) && D.poll.options.length) {
       const anchor = document.querySelector('[data-overview]') || document.querySelector('.cl-exit');
@@ -484,6 +500,23 @@
       return rateLine(map.get(String(block.answer)) || 0, all) + optionRows(block.options, map, all, block.answer);
     }
     if (block.kind === 'cl-poll') return optionRows(block.options, countMap(list), all, null);
+    if (block.kind === 'cl-pick') {
+      const map = countMap(list.flatMap((value) => String(value || '').split(',').filter(Boolean)));
+      return '<p class="lv-rate">论据卡：每张被选的人数（每人最多选 2 张）</p>' + optionRows(block.options, map, all, null);
+    }
+    if (block.kind === 'cl-versus') {
+      const before = valuesOf(block.preKey);
+      const preMap = countMap(before);
+      const postMap = countMap(list);
+      countEl.textContent = `辩前 ${before.length} 人 · 辩后 ${all} 人`;
+      return '<div class="lv-legend"><span><i class="is-pre"></i>辩前</span><span><i></i>辩后</span></div>' + block.options.map((option) => {
+        const a = pct(preMap.get(option.key) || 0, before.length);
+        const b = pct(postMap.get(option.key) || 0, all);
+        const delta = b - a;
+        return `<div class="lv-row is-pair"><span class="lv-label"><b>${esc(option.label)}</b>${esc(option.text)}</span>${bar(preMap.get(option.key) || 0, before.length, 'is-pre')}${bar(postMap.get(option.key) || 0, all)}
+          <span class="lv-num">${a}% → ${b}%（${delta > 0 ? '+' : ''}${delta}）</span></div>`;
+      }).join('') + '<p class="lv-note">看看哪一方说服了更多同学；改变立场的同学说说是哪条论据或哪句质询让你改变了。</p>';
+    }
     if (block.kind === 'cl-stance') {
       const map = countMap(list.map((value) => (value && value.stance) || ''));
       return optionRows(block.stances.map((s) => ({ key: s, label: '', text: s })), map, all, null);

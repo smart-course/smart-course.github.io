@@ -235,7 +235,7 @@
   // ---------- 辩论台（卡片里的主持面板 + 全屏大屏） ----------
   stagesEls.forEach((holder) => {
     const no = holder.dataset.case;
-    const motion = ((holder.closest('[data-debate]') || document).querySelector('.interaction-heading h3') || {}).textContent || '';
+    const motion = ((holder.closest('[data-debate]') || document).querySelector('[data-debate-motion], .interaction-heading h3') || {}).textContent || '';   // 政经辩论赛的辩题带 data-debate-motion
     let room = null;
     let live = null;
     let fetchedAt = 0;

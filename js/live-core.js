@@ -726,6 +726,9 @@
               const first = new Map();
               read('choices').filter((c) => String(c.classroom) === String(room.id) && c.case === no && c.item === 'debate-post').sort((a, b) => (a.ts || 0) - (b.ts || 0))
                 .forEach((c) => { if (!first.has(sidKey(c.sid))) first.set(sidKey(c.sid), c.choice); });
+              // 政经辩论赛的辩后票在作业里（题号 debate.post，同 cloudbase-pg.sql 的 ck_debate_board）
+              read('homework').filter((h) => String(h.classroom) === String(room.id) && h.payload && h.payload['debate.post'])
+                .forEach((h) => { if (!first.has(sidKey(h.sid))) first.set(sidKey(h.sid), h.payload['debate.post'].v); });
               return Array.from(first.values()).filter((v) => v === side).length;
             };
             const board = {};
@@ -756,7 +759,11 @@
           const voted = () => {
             const c = read('choices').filter((row) => String(row.classroom) === String(classroom) && row.case === no && row.item === 'debate-pre' && sidKey(row.sid) === sid && ['pro', 'con'].includes(row.choice))
               .sort((a, b) => (a.ts || 0) - (b.ts || 0))[0];
-            return c ? c.choice : null;
+            if (c) return c.choice;
+            // 政经辩论赛：辩前票在作业里（题号 debate.pre，同 cloudbase-pg.sql 的 ck_debate_side）
+            const h = read('homework').find((row) => String(row.classroom) === String(classroom) && sidKey(row.sid) === sid && row.payload
+              && row.payload['debate.pre'] && ['pro', 'con'].includes(row.payload['debate.pre'].v));
+            return h ? h.payload['debate.pre'].v : null;
           };
           if (name === 'ck_debate_live') return stateJson(classroom, no, teacher, sid);
           if (name === 'ck_debate_say') {
@@ -1713,8 +1720,8 @@
     };
     const fonts = (east) => `<w:rFonts w:ascii="Times New Roman" w:hAnsi="${east}" w:eastAsia="${east}" w:cs="Times New Roman"/>`;
     const SONG_ALL = '<w:rFonts w:ascii="宋体" w:hAnsi="宋体" w:eastAsia="宋体" w:cs="宋体"/>';
-    function runs(text, { bold = false, size = 24, east = '宋体', color = '' } = {}) {
-      const props = (font) => `<w:rPr>${font}${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/></w:rPr>`;
+    function runs(text, { bold = false, size = 24, east = '宋体', color = '', underline = false } = {}) {
+      const props = (font) => `<w:rPr>${font}${bold ? '<w:b/><w:bCs/>' : ''}${color ? `<w:color w:val="${color}"/>` : ''}<w:sz w:val="${size}"/><w:szCs w:val="${size}"/>${underline ? '<w:u w:val="single"/>' : ''}</w:rPr>`;
       return curly(text).split(/([“”‘’])/).filter(Boolean).map((part) => (/^[“”‘’]$/.test(part)
         ? `<w:r>${props(SONG_ALL)}<w:t xml:space="preserve">${xml(part)}</w:t></w:r>`
         : `<w:r>${props(fonts(east))}<w:t xml:space="preserve">${xml(part)}</w:t></w:r>`)).join('');
@@ -1747,6 +1754,35 @@
             + lines.map((line) => `<w:p><w:pPr><w:spacing w:before="40" w:after="40" w:line="300" w:lineRule="auto"/><w:jc w:val="${bold ? 'center' : 'left'}"/></w:pPr>${runs(line, { bold, size: 21, east: bold ? '黑体' : '宋体' })}</w:p>`).join('')
             + '</w:tc>';
         }).join('')}</w:tr>`).join('') + '</w:tbl>' + para('', 'plain');
+    }
+    // 期中考查作业 Word 的开头（2026-10-29 用户截图）：学生信息栏（班级、学号、姓名，下面一道金色横线）＋“作答说明”框（左侧金色竖条、米色底、藏青标题）。
+    // fields 里有值的写上并加下划线，没有的留横线让学生手写；notes 每条一项，自动编号
+    function examHead(fields = {}, notes = []) {
+      const GOLD = 'B8913A';
+      const p = (inner, { jc = 'left', before = 0, after = 0, border = '', ind = '' } = {}) => `<w:p><w:pPr>${border}<w:spacing w:before="${before}" w:after="${after}" w:line="360" w:lineRule="auto"/>${ind}<w:jc w:val="${jc}"/></w:pPr>${inner}</w:p>`;
+      const field = (label, value) => runs(`${label}：`) + (value ? runs(`　${value}　`, { underline: true }) : runs('_____________'));
+      const student = p([field('班级', fields.klass), field('学号', fields.sid), field('姓名', fields.name)].join(runs('　　')), {
+        jc: 'center', before: 240, after: 360, border: `<w:pBdr><w:bottom w:val="single" w:sz="12" w:space="12" w:color="${GOLD}"/></w:pBdr>` });
+      const items = notes.map((line, i) => p(runs(`${i + 1}. ${line}`), { jc: 'both', after: 60, ind: '<w:ind w:left="400" w:hanging="400"/>' })).join('');
+      const box = `<w:tbl><w:tblPr><w:tblW w:w="9026" w:type="dxa"/><w:jc w:val="center"/><w:tblBorders><w:top w:val="nil"/><w:left w:val="single" w:sz="36" w:space="0" w:color="${GOLD}"/>`
+        + '<w:bottom w:val="nil"/><w:right w:val="nil"/><w:insideH w:val="nil"/><w:insideV w:val="nil"/></w:tblBorders><w:tblLayout w:type="fixed"/>'
+        + '<w:tblCellMar><w:top w:w="200" w:type="dxa"/><w:left w:w="320" w:type="dxa"/><w:bottom w:w="160" w:type="dxa"/><w:right w:w="240" w:type="dxa"/></w:tblCellMar></w:tblPr>'
+        + '<w:tblGrid><w:gridCol w:w="9026"/></w:tblGrid><w:tr><w:tc><w:tcPr><w:tcW w:w="9026" w:type="dxa"/><w:shd w:val="clear" w:color="auto" w:fill="F8F4E8"/></w:tcPr>'
+        + p(runs('作答说明', { bold: true, size: 28, east: '黑体', color: '2E4A70' }), { after: 120 }) + items + '</w:tc></w:tr></w:tbl>';
+      return student + box + para('', 'plain');
+    }
+    // “作答说明”的默认各条：出自哪一章、题型分值、作答要求（逐条，去掉句末分号）、截止时间与递交方式
+    function examNotes({ chapter = '', type = '', words = 0, requirements = [], deadline = '' } = {}) {
+      const named = String(chapter || '').replace(/^(第[一二三四五六七八九十]+章)\s*(.+)$/, '$1“$2”');
+      const reqs = (requirements || []).map((line) => String(line).trim().replace(/[；;，,、]$/, '')).filter(Boolean)
+        .map((line) => (/[。！？]$/.test(line) ? line : `${line}。`));
+      const counted = reqs.some((line) => /\d+\s*字/.test(line));
+      return [
+        named ? `请运用本课程${named}的相关概念与理论作答。` : '',
+        `${type ? `${type}题，` : ''}总分 100 分${words && !counted ? `，${words} 字左右` : ''}；独立完成，联系给定资料论证。`,
+        ...reqs,
+        `${deadline ? `递交截止日期：${deadline}，` : ''}请登录课程网站在本作业页面递交（递交后不能修改）。`,
+      ].filter(Boolean);
     }
     // opts.landscape：A4 横向（课表）
     function docx(bodyXml, opts = {}) {
@@ -1793,7 +1829,7 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
-    return { docx, xlsx, para, table, save, curly, runs, xml };
+    return { docx, xlsx, para, table, save, curly, runs, xml, examHead, examNotes };
   })();
 
   window.ClassLive = window.ClassLive || {};
