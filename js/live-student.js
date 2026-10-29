@@ -694,6 +694,13 @@
   .clp-rank-row.is-me { border-color: rgba(255,211,107,.75); background: linear-gradient(90deg, rgba(255,211,107,.24), rgba(255,211,107,.05)); box-shadow: 0 0 16px rgba(255,211,107,.28); }
   .clp-rank-mine { margin: 12px 0 0; padding: 10px 12px; border: 1px dashed rgba(255,211,107,.55); border-radius: 12px; background: rgba(255,211,107,.08); color: #ffe8a8; font-weight: 700; }
   .clp-rank-note { margin: 10px 0 0; color: rgba(244,236,255,.5); font-size: 11.5px; line-height: 1.55; }
+  /* 修为榜隐匿姓名（2026-10-30）：本人的名字可以点（结丹以上），说明行带切换按钮 */
+  button.clp-rank-hide { padding: 0; border: 0; border-bottom: 1px dashed rgba(255,211,107,.6); background: none; color: inherit; font: inherit; font-weight: 700; cursor: pointer; }
+  button.clp-rank-hide:hover { color: #ffd36b; } button.clp-rank-hide:disabled { opacity: .6; cursor: default; }
+  .clp-pod button.clp-rank-hide { font-size: 14.5px; } .clp-pod.is-1 button.clp-rank-hide { color: #ffe8a8; font-size: 16px; }
+  .clp-rank-privacy { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: 10px 0 0; color: rgba(244,236,255,.75); font-size: 12.5px; line-height: 1.6; }
+  .clp-rank-privacy button { padding: 4px 12px; border: 1px solid rgba(255,211,107,.6); border-radius: 999px; background: rgba(255,211,107,.12); color: #ffe8a8; font: 700 12.5px/1.4 -apple-system, "PingFang SC", sans-serif; cursor: pointer; }
+  .clp-rank-privacy button:hover { background: rgba(255,211,107,.25); } .clp-rank-privacy button:disabled { opacity: .6; cursor: default; }
   .clp-rank-state { margin: 28px 0 20px; color: rgba(244,236,255,.82); text-align: center; }
   @media (max-width: 420px) {
     .clp-rank-card { padding: 14px 12px 16px; }
@@ -2454,7 +2461,7 @@
   const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
   // 境界阶梯图：越往上台阶越高、材质越华贵；台阶上写解锁的法宝和弹幕特权，“你”标出本人所在境界
   // 每境解锁的弹幕字色（与 live-core.js 的 ClassLive.COLORS 同名）和边框
-  const PERKS = { 0: ['霜白、月银'], 1: ['加青冥、翠竹'], 2: ['加金曦、大红'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流金、七彩', '七彩边框'] };
+  const PERKS = { 0: ['霜白、月银'], 1: ['加青冥、翠竹'], 2: ['加金曦、大红', '修为榜可隐名'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流金、七彩', '七彩边框'] };
   const ladderHtml = (mine) => `<div class="clp-ladder" role="img" aria-label="${esc(REALMS.map((realm) => {
     const gift = GIFTS.find((item) => item.level === realm.level);
     return `${realm.name}（${realm.look}，${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}${gift ? `，解锁${gift.name}` : ''}${(PERKS[realm.level] || []).map((perk) => `，${perk}`).join('')}）`;
@@ -2524,6 +2531,14 @@
   const realmText = (row) => `${REALMS[row.realm] ? REALMS[row.realm].name : '炼气'}${(Live.STAGES || [])[row.stage || 0] || ''}`;
   const initial = (name) => Array.from(String(name || '').trim())[0] || '？';
   const youTag = (row) => (row.me ? '<i>你</i>' : '');
+  // 修为榜隐匿姓名（2026-10-30 用户：“到结丹期后，学生可以选择在修为榜上隐匿自己的名字，修为值和排名正常显示……比如点击一下自己的名字就显示为‘***’”）：
+  // 隐匿的同学在榜上显示“***”（后台对别人已换成 ***，本人那一行带真名和 hidden），头像换成“＊”；本人达到「结丹」后点自己的名字切换
+  const shownName = (row) => (row.hidden ? '***' : row.name);
+  const avatarText = (row) => (row.hidden ? '＊' : initial(row.name));
+  let rankCanHide = false;
+  const nameHtml = (row, cls) => (row.me && !PREVIEW && (rankCanHide || row.hidden)
+    ? `<button type="button" class="${cls} clp-rank-hide" data-rank-hide title="${row.hidden ? '点一下恢复显示你的姓名' : '点一下在榜上隐匿你的姓名（显示为 ***）'}">${esc(shownName(row))}${youTag(row)}</button>`
+    : `<strong class="${cls}">${esc(shownName(row))}${youTag(row)}</strong>`);
   const rankShell = (inner) => `<div class="clp-rank-card" role="dialog" aria-modal="true" aria-label="修为榜">
       <i class="clp-rank-stars" aria-hidden="true"></i><i class="clp-rank-stars is-b" aria-hidden="true"></i>
       <header class="clp-rank-head"><div><span>${esc(identity.class_name || '本班')} · 修为前十名</span><h3>修为榜</h3></div><button type="button" data-rank-close aria-label="关闭">×</button></header>
@@ -2532,8 +2547,8 @@
     // 领奖台：左第二、中第一、右第三（并列时按名单顺序站位，台座上写实际名次）
     return `<div class="clp-podium">${[[top[1], 'is-2', 1], [top[0], 'is-1', 0], [top[2], 'is-3', 2]].map(([row, cls, d]) => (row
       ? `<div class="clp-pod ${cls}${row.me ? ' is-me' : ''}" style="--d:${d}">${cls === 'is-1' ? `<span class="clp-crown">${CROWN}</span>` : ''}
-          <span class="clp-ava is-r${Number(row.realm) || 0}"><b>${esc(initial(row.name))}</b></span>
-          <strong class="clp-pod-name">${esc(row.name)}${youTag(row)}</strong>${chip(Number(row.realm) || 0, realmText(row))}${ptsHtml(row, 'clp-pod-pts')}
+          <span class="clp-ava is-r${Number(row.realm) || 0}"><b>${esc(avatarText(row))}</b></span>
+          ${nameHtml(row, 'clp-pod-name')}${chip(Number(row.realm) || 0, realmText(row))}${ptsHtml(row, 'clp-pod-pts')}
           <span class="clp-pod-base"><em>${Number(row.rank) || ''}</em></span></div>`
       : `<div class="clp-pod ${cls} is-empty" aria-hidden="true"><span class="clp-pod-base"></span></div>`)).join('')}</div>`;
   }
@@ -2547,6 +2562,7 @@
     const when = data.updated_at ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(data.updated_at)) : '';
     const rest = top.slice(3);
     const mine = data.mine;
+    rankCanHide = Boolean(mine && mine.can_hide);
     const onBoard = top.some((row) => row.me);
     const mineHtml = PREVIEW ? ''
       : mine && onBoard ? `<p class="clp-rank-mine">你在榜上：第 ${Number(mine.rank)} 名${mine.points != null ? `，修为 ${ptsText(mine.points)}` : ''}！${Number(mine.rank) === 1 ? '傲视全班，' : ''}继续保持。</p>`
@@ -2555,9 +2571,11 @@
     return `<p class="clp-rank-meta">共 ${Number(data.total) || 0} 人上榜${when ? ` · 结算于 ${esc(when)}` : ''}</p>
       ${podiumHtml(top)}
       ${rest.length ? `<ol class="clp-rank-list">${rest.map((row, i) => `<li class="clp-rank-row${row.me ? ' is-me' : ''}" style="--i:${i}">
-        <span class="clp-rank-no">${Number(row.rank) || ''}</span><span class="clp-rank-ava is-r${Number(row.realm) || 0}">${esc(initial(row.name))}</span>
-        <span class="clp-rank-name">${esc(row.name)}${youTag(row)}</span>${ptsHtml(row, 'clp-rank-pts')}${chip(Number(row.realm) || 0, realmText(row))}</li>`).join('')}</ol>` : ''}
-      ${mineHtml}
+        <span class="clp-rank-no">${Number(row.rank) || ''}</span><span class="clp-rank-ava is-r${Number(row.realm) || 0}">${esc(avatarText(row))}</span>
+        ${nameHtml(row, 'clp-rank-name')}${ptsHtml(row, 'clp-rank-pts')}${chip(Number(row.realm) || 0, realmText(row))}</li>`).join('')}</ol>` : ''}
+      ${mineHtml}${PREVIEW || !mine ? '' : mine.can_hide || mine.hidden
+        ? `<p class="clp-rank-privacy">${mine.hidden ? '你的姓名已在榜上隐匿：同学们看到的是“***”，修为和名次照常显示。' : '你已达到「结丹」，可以在榜上隐匿姓名：同学们会看到“***”，修为和名次照常显示（老师那里照常显示）。'}<button type="button" data-rank-hide>${mine.hidden ? '恢复显示我的姓名' : '隐匿我的姓名'}</button></p>`
+        : '<p class="clp-rank-privacy">达到「结丹」境界后，可以在修为榜上隐匿自己的姓名（显示为“***”）。</p>'}
       <p class="clp-rank-note">按老师最近一次结算的全学期修为排名，修为相同名次并列；榜上显示境界和修为。老师结算后这里随之更新。</p>`;
   }
   async function openRank() {
@@ -2581,7 +2599,24 @@
     const close = rankModal.querySelector('[data-rank-close]');
     if (close) close.focus();
   }
-  rankModal.addEventListener('click', (event) => { if (event.target === rankModal || event.target.closest('[data-rank-close]')) rankModal.hidden = true; });
+  rankModal.addEventListener('click', async (event) => {
+    if (event.target === rankModal || event.target.closest('[data-rank-close]')) { rankModal.hidden = true; return; }
+    const hide = event.target.closest('[data-rank-hide]');
+    if (!hide || !rankCache) return;
+    const mine = rankCache.data.mine || {};
+    hide.disabled = true;
+    try {
+      const value = await backend.rpc('ck_set_rank_hidden', { p_classroom: Number(identity.classroom) || identity.classroom, p_hidden: !mine.hidden });
+      const res = (Array.isArray(value) ? value[0] : value) || {};
+      if (res.status === 'ok') { rankCache = null; await openRank(); toast(res.hidden ? '已在修为榜上隐匿你的姓名，同学们看到的是“***”。' : '已恢复在修为榜上显示你的姓名。'); }
+      else toast(res.status === 'realm' ? '达到「结丹」境界后才能在修为榜上隐匿姓名。' : '请回首页用课堂码重新登录后再试。');
+    } catch (problem) {
+      const missing = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+      toast(missing ? '隐匿姓名还没有开通（老师后台尚未更新）。' : '没有改成功，请检查网络后再试。');
+    } finally {
+      hide.disabled = false;
+    }
+  });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !rankModal.hidden) rankModal.hidden = true; });
   panel.querySelectorAll('[data-cl-rank-open]').forEach((button) => button.addEventListener('click', openRank));
   // 修炼场（live-practice.js）：两门课各自一个，平时做题攒修为
@@ -2595,15 +2630,16 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261029-pe-debate' : '20261028-debate';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = '10 月 9 日—10 月 29 日';
+  const NEWS_ID = config.course === 'political-economy' ? '20261030-transfer' : '20261030-rank-hide-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_RANGE = '10 月 9 日—10 月 30 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 28—29 日）', items: [
+      { title: '最新（10 月 28—30 日）', items: [
+        ['修为榜隐名', '达到「结丹」境界后，可以在修为榜上隐匿自己的姓名：打开修为榜，点一下自己的名字（或下面的“隐匿我的姓名”），同学们看到的就是“***”，修为和名次照常显示；再点一下恢复。老师那里照常显示姓名。'],
         ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
         ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
         ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
@@ -2611,6 +2647,7 @@
           ['辩论台（3v3）', `辩论赛再次改版：投辩前票选好立场、选 2 张论据卡后，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。辩论结束、老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
         ] : []),
         ...(config.course === 'political-economy' ? [
+          ['迁移任务', '案例页的辩论赛之前新增“迁移任务”：几个新的小案例（都不是本案例里的事），像猜谜一样想一想，每个小案例最能用本案例哪个概念来解释，给每个选一个概念，全部选好后一起递交，课上跟老师核对。'],
           ['辩论赛', `案例页的“小组辨析”改为辩论赛，辩题只有正反两方（不再有“部分同意”）：先投辩前票选好立场、选 2 张论据卡，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
           ['课后自修不给答案', '课后自修（出门测、主动回忆、温故、讲给别人听）不再显示答案、解析和对错，讲评在下一次课；答对的照常计入修为。主动回忆改为写好后点“写好了”。'],
         ] : []),
@@ -2620,7 +2657,7 @@
         ['修炼场多攒修为', `修炼场每天最多 ${(Live.PRACTICE || {}).of ? Live.PRACTICE.of(config.course).cap : 10} 修为（原来${config.course === 'political-economy' ? ' 10' : ' 3'}）；答对过的题隔 ${(Live.PRACTICE || {}).gap || 3} 天以上再答对，还能再得一次（“回炉巩固”里会出现到期的题）。境界按全学期满分算，平时天天练的同学能更早冲上「化神」。`],
         ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、回炉巩固（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
         ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
-        ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深）。'],
+        ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深），还可以在修为榜上隐匿姓名。'],
         ...(config.course === 'political-economy' ? [
           ['课后自修', '出门测、课后思考（申论式大题）并入每个案例页的“课后自修”，下课后完成：出门测每题答对 +2 修为，课后思考写满 100 字递交 +5 修为（不评对错），照常逐题递交给老师；“本堂作业递交情况”移到课后自修的最后。'],
           ['提问', '概念小结的“提问墙”弹幕取消：没想通的地方写进每个案例页最后的“匿名建议和提问箱”，老师看到后在下一堂课统一解答。'],
@@ -3339,6 +3376,22 @@
         lock: () => disable(chain, 'button'),
         restore: (order) => order.forEach((id) => { const li = listEl.querySelector(`.cl-chain-item[data-step-id="${id}"]`); if (li) listEl.appendChild(li); }),
         send: send('chain'),
+      });
+    }
+    // 迁移任务（2026-10-30 起代替各概念里的“把案例和概念对上号”）：给每个小案例选一个概念，全部选好后一起递交（题号 transfer，值是各条所选概念的序号，0 起）
+    const transfer = $('.cl-transfer[data-key="transfer"]');
+    if (transfer) {
+      const items = $$('.cl-item', transfer);
+      const names = $$('.cl-tk-legend li', transfer).map((li) => textOf(li.querySelector('a')).replace(/^概念\s*\d+\s*/, ''));
+      const labelOf = (item) => textOf(item.querySelector('.cl-tk-label'));
+      list.push({
+        key: 'transfer', section: '迁移任务', title: '小案例里找概念', prompt: textOf(transfer.querySelector('.cl-prompt')), anchor: after(transfer),
+        read: () => { const values = segValues(transfer); return values.some((v) => v !== null) ? values : null; },
+        check: (values) => { const missing = items.length - (values || []).filter((v) => v !== null).length; return missing ? `还有 ${missing} 个小案例没有选，全部选好再递交` : ''; },
+        show: (values) => (values ? items.map((item, i) => `${i + 1}. ${labelOf(item)} → ${values[i] === null || values[i] === undefined ? '未选' : `概念 ${values[i] + 1} ${names[values[i]] || ''}`}`) : []),
+        lock: () => disable(transfer, 'button'),
+        restore: (values) => segRestore(transfer, values),
+        send: send('transfer'),
       });
     }
     // 小组辨析：立场＋理由；讨论后的补充另行递交

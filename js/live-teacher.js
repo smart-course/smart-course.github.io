@@ -2052,6 +2052,7 @@
       { id: 'overview', label: '总览：逐题作答与正确率' },
       ...unit.concepts.map((k, index) => ({ id: k.id, label: `概念 ${index + 1} · ${k.name}` })),
       { id: 'chain', label: '概念串联' },
+      ...(unit.transfer ? [{ id: 'transfer', label: '迁移任务' }] : []),
       { id: 'discussion', label: unit.debate ? '辩论赛' : '小组辨析' },
       { id: 'exit', label: '出门测' },
       ...(unit.poll ? [{ id: 'poll', label: '课堂投票' }] : []),
@@ -2061,7 +2062,8 @@
 
   // 一份作业快照 → 逐题记录。type：option 选项题 / value 填空与计算 / text 文字题（不判对错）/ order 串联位置
   // legacy：这份作业来自小组辨析时期（2026-10-29 改为辩论赛之前的课堂），仍按原来的立场、理由显示和计分，以前课堂的修为不变
-  function gradeHomework(unit, payload, legacy) {
+  // noTransfer：这份作业来自迁移任务上线之前（2026-10-30 起才有），不列迁移任务，以前课堂的修为不变
+  function gradeHomework(unit, payload, legacy, noTransfer) {
     const S = payload && typeof payload === 'object' ? payload : {};
     const texts = S.texts || {};
     const items = [];
@@ -2126,6 +2128,11 @@
         shown: placed == null ? '' : `放了“${short(chain.texts[placed], 24)}”`, ref: pos, refShown: short(t, 24),
         correct: placed == null ? null : placed === pos });
     });
+    // 迁移任务（2026-10-30 起代替“把案例和概念对上号”）：每个小案例选一个概念，逐条判对错
+    if (unit.transfer && !noTransfer) {
+      const bins = unit.transfer.names.map((name, j) => ({ value: j, label: `概念 ${j + 1} ${name}` }));
+      unit.transfer.labels.forEach((t, i) => option('transfer', `transfer.${i}`, '迁移任务', `小案例 ${i + 1}`, bins, ((S.transfer || {}).sel || [])[i], unit.transfer.answers[i], t));
+    }
     if (!unit.debate || legacy) {
       const discussion = S.discussion || {};
       option('discussion', 'discussion.stance', '小组辨析', '我的立场', unit.discussion.stances.map((x) => ({ value: x, label: x })),
@@ -2185,6 +2192,7 @@
         else S.texts[key] = value;
         return;
       }
+      if (key === 'transfer') { S.transfer = { sel: Array.isArray(value) ? value : [] }; return; }
       match = key.match(/^debate\.(pre|cards|post)$/);
       if (match) { (S.debate || (S.debate = {}))[match[1]] = value; return; }
       match = key.match(/^exit\.(\d+)$/);
@@ -2202,6 +2210,7 @@
   const submitKey = (itemKey) => itemKey
     .replace(/^(k\d+\.(check|apply))\.\d+$/, '$1')
     .replace(/^chain\.\d+$/, 'chain')
+    .replace(/^transfer\.\d+$/, 'transfer')
     .replace(/^discussion\.(stance|reason)$/, 'discussion');
   // 政经辩论赛上线之前的作业按小组辨析算：递交过小组辨析，或者没有辩论赛题、且最早的递交在 10 月 30 日之前
   const DEBATE_SINCE = Date.parse('2026-10-30T00:00:00+08:00');
@@ -2210,9 +2219,15 @@
     return Boolean(S.discussion) || keys.some((key) => /^discussion/.test(key))
       || (!keys.some((key) => /^debate\./.test(key)) && keys.some((key) => millis(at[key]) && millis(at[key]) < DEBATE_SINCE));
   };
+  // 迁移任务上线（2026-10-30）之前的作业：没有递交迁移任务、而且最早的递交在 10 月 31 日之前，就不列迁移任务（以前课堂的完成率和修为不变）
+  const TRANSFER_SINCE = Date.parse('2026-10-31T00:00:00+08:00');
+  const oldTransfer = (at) => {
+    const keys = Object.keys(at);
+    return !keys.includes('transfer') && keys.some((key) => millis(at[key]) && millis(at[key]) < TRANSFER_SINCE);
+  };
   const gradeOf = (unit, payload) => {
     const { S, at } = stateOf(unit, payload);
-    const result = gradeHomework(unit, S, legacyDiscussion(S, at));
+    const result = gradeHomework(unit, S, legacyDiscussion(S, at), oldTransfer(at));
     result.items.forEach((item) => { item.at = at[submitKey(item.key)] || ''; });
     return result;
   };
@@ -2248,12 +2263,12 @@
 
   const rateText = (right, answered) => (answered ? `正确率 ${pct(right, answered)}%` : '正确率 —');
   // 整题统计：由几道小题组成、一起递交的题（辨一辨判断、用一用、概念串联）。全部小题都作答才算“作答”，全部做对才算“整题全对”
-  const GROUP_LABEL = { '辨一辨': '辨一辨（整题全对）', '用一用': '用一用（整题全对）', '概念串联': '概念串联（全部排对）' };
+  const GROUP_LABEL = { '辨一辨': '辨一辨（整题全对）', '用一用': '用一用（整题全对）', '概念串联': '概念串联（全部排对）', '迁移任务': '迁移任务（全部选对）' };
   function groupStats(templates, rows) {
     const groups = new Map();
     templates.filter((item) => item.ref != null && item.type !== 'text').forEach((item) => {
       const key = submitKey(item.key);   // 挑战题（变一变）单独递交、可选，不并入用一用整题
-      if (!/\.(check|apply)$|^chain$/.test(key)) return;
+      if (!/\.(check|apply)$|^(chain|transfer)$/.test(key)) return;
       const list = groups.get(key) || [];
       list.push(item);
       groups.set(key, list);
@@ -2360,6 +2375,11 @@
       const done = rows.filter((row) => row.items.some((item) => item.section === 'chain' && item.value != null));
       const perfect = done.filter((row) => row.items.filter((item) => item.section === 'chain').every((item) => item.correct)).length;
       extra = `<p class="tw-hint">已递交 ${done.length} 人${showRef ? `；全部排对 ${perfect} 人 · ${rateText(perfect, done.length)}。下面按正确顺序列出每个位置，条形为该位置放对的人数和比例` : ''}。</p>`;
+    }
+    if (section === 'transfer') {
+      const done = rows.filter((row) => row.items.some((item) => item.section === 'transfer' && item.value != null));
+      const perfect = done.filter((row) => row.items.filter((item) => item.section === 'transfer').every((item) => item.correct)).length;
+      extra = `<p class="tw-hint">已递交 ${done.length} 人${showRef ? `；全部选对 ${perfect} 人 · ${rateText(perfect, done.length)}。下面逐个小案例列出各概念的人数，★ 是参考答案` : ''}。</p>`;
     }
     if (section === 'exit') {
       extra = `<p class="tw-hint">${rows.filter((row) => row.exitSubmitted).length} 人递交了全部 ${unit.exit.length} 题；各题按已递交的人数统计。</p>`;

@@ -66,6 +66,8 @@
   .lv-table { width: 100%; border-collapse: collapse; font-size: 15px; }
   .lv-table th, .lv-table td { padding: 5px 8px; border-bottom: 1px solid rgba(70, 51, 34, .14); text-align: center; }
   .lv-table th:first-child, .lv-table td:first-child { text-align: left; }
+  .lv-table th:first-child, .lv-table th:last-child, .lv-table td:last-child { white-space: nowrap; }
+  .lv-table td:first-child { min-width: 6.5em; }
   .lv-table td.is-ref { color: #fff; background: var(--teal, #23655f); font-weight: 800; }
   .lv-table td.is-alt { background: rgba(35, 101, 95, .16); }
   .lv-table small { display: block; opacity: .75; font-size: 11px; }
@@ -258,6 +260,12 @@
     const chain = document.querySelector('.cl-chain');
     if (chain && D.chain && Array.isArray(config.chainPerm)) {
       addBlock(chain, { kind: 'cl-chain', key: 'chain', texts: D.chain.texts || [], perm: config.chainPerm });
+    }
+    // 迁移任务（2026-10-30）：每个小案例选了哪个概念、正确率（同“分一分”的表格）
+    const transfer = document.querySelector('.cl-transfer[data-key="transfer"]');
+    if (transfer && D.transfer && Array.isArray(D.transfer.answers)) {
+      addBlock(transfer, { kind: 'cl-sort', key: 'transfer', head: '小案例', perfect: ' · 全部选对', answers: D.transfer.answers,
+        bins: D.transfer.names.map((name, i) => `概念${i + 1} ${name}`), items: D.transfer.labels });
     }
     const disc = document.querySelector('.cl-disc-work');
     if (disc) {
@@ -533,7 +541,7 @@
     }
     if (block.kind === 'cl-sort') {
       const perfect = list.filter((values) => Array.isArray(values) && block.answers.every((a, i) => values[i] === a)).length;
-      return rateLine(perfect, all, ' · 全部分对') + `<table class="lv-table"><thead><tr><th>项目</th>${block.bins.map((b) => `<th>${esc(b)}</th>`).join('')}<th>正确率</th></tr></thead><tbody>${block.items.map((item, i) => {
+      return rateLine(perfect, all, block.perfect || ' · 全部分对') + `<table class="lv-table"><thead><tr><th>${esc(block.head || '项目')}</th>${block.bins.map((b) => `<th>${esc(b)}</th>`).join('')}<th>正确率</th></tr></thead><tbody>${block.items.map((item, i) => {
         const picks = list.map((values) => (Array.isArray(values) ? values[i] : null)).filter((v) => v !== null && v !== undefined);
         const map = countMap(picks);
         return `<tr><td>${esc(short(item, 24))}</td>${block.bins.map((_, j) => {
@@ -603,6 +611,8 @@
     try {
       stops = window.ClassLive.stopList(await backend.rpc('ck_stop_item', { p_classroom: Number(room.id), p_item: block.stop, p_stop: !on }));
       block.error = '';
+      // 辩论赛：辩后投票停止递交后按票数公布胜负（live-debate.js 听这个事件）
+      document.dispatchEvent(new CustomEvent('classlive:stops', { detail: { source: 'results', item: block.stop, stopped: !on, stops } }));
     } catch (error) {
       console.warn('[停止递交]', error);
       block.error = on ? '恢复没有成功，请再试一次' : '停止没有成功，请再试一次';
@@ -611,6 +621,13 @@
       render();
     }
   }
+  // 辩论流程图里“停止递交，公布胜负”停止了辩后投票：这里的按钮马上跟着变
+  document.addEventListener('classlive:stops', (event) => {
+    const detail = event.detail || {};
+    if (detail.source === 'results' || !Array.isArray(detail.stops)) return;
+    stops = detail.stops;
+    render();
+  });
   async function loadStops() {
     if (!room || status) { stops = []; return; }
     try {

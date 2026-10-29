@@ -1093,13 +1093,31 @@
             if (!me) return { status: 'login' };
             sid = sidKey(me.sid);
           }
+          // 修为榜隐匿姓名（同 ck_rank_hidden）：别人看到“***”，本人带真名和 hidden，教师照常
+          const hidden = new Set(read('rankhidden').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0)).map((row) => row.sid));
           const rows = read('realms').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && Number(row.points) > 0)
             .sort((a, b) => Number(b.points) - Number(a.points) || String(a.sid).localeCompare(String(b.sid)));
-          const ranked = rows.map((row) => ({ ...row, rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
+          const ranked = rows.map((row) => ({ ...row, hidden: hidden.has(row.sid), rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
           const mine = ranked.find((row) => row.sid === sid);
           return { status: 'ok', total: ranked.length, updated_at: ranked.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
-            top: ranked.filter((row, i) => row.rank <= 10 && i < 15).map((row) => ({ rank: row.rank, name: row.name, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
-            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points) } : null };
+            top: ranked.filter((row, i) => row.rank <= 10 && i < 15).map((row) => ({ rank: row.rank, name: row.hidden && sid !== null && row.sid !== sid ? '***' : row.name,
+              hidden: row.hidden, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
+            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) >= 2 } : null };
+        }
+        if (name === 'ck_set_rank_hidden') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const me = room && myCheckin(await this.ensureAnonymous(), params.p_classroom);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const classId = Number(room.class_id) || 0;
+          const list = read('rankhidden').filter((row) => !(row.course === room.course && Number(row.class_id) === classId && row.sid === sid));
+          if (params.p_hidden) {
+            const realm = read('realms').find((row) => row.course === room.course && Number(row.class_id) === classId && row.sid === sid);
+            if (!realm || Number(realm.realm) < 2) return { status: 'realm', hidden: false };
+            list.push({ course: room.course, class_id: classId, sid, hidden_at: new Date().toISOString() });
+          }
+          write('rankhidden', list);
+          return { status: 'ok', hidden: Boolean(params.p_hidden) };
         }
         // 本人境界、祭出法宝（学生调用，须放在 teacherOnly 之前）
         if (name === 'ck_my_realm' || name === 'ck_send_gift' || name === 'ck_my_gifts') {
