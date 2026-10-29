@@ -195,6 +195,8 @@
     return groups;
   }
   // 班级上课安排的简短写法：周二第 1—2 节、周四第 3—4 节 · A101 · 1—16 周
+  // 卡片上的上课时间只在“ · ”处换行，“明理楼北203”“1—16 周”“教学班 1364”不拆开（2026-10-29，同工作台班级卡片）
+  const summaryHtml = (plan) => summary(plan).split(' · ').map((part) => esc(part).replace(/ /g, '&nbsp;')).join('&nbsp;· ');   // 圆点留在上一行末尾
   function summary(plan) {
     if (!plan || !Array.isArray(plan.slots) || !plan.slots.length) return '';
     const slots = plan.slots.map((slot) => `周${WEEKDAYS[(Number(slot.day) || 1) - 1]}${periodText(Number(slot.from), Number(slot.to)).replace(/ /g, '')}`
@@ -523,7 +525,7 @@
       <div class="pl-classes">${classes.map((item) => `
         <article class="pl-class" style="--c:${item.c};--s:${item.s}">
           <div><em>${esc(tagOf(item.klass))}</em><b>${esc(item.klass.name)}</b><small>${esc(titleOf(item.klass))}${rosterCount(item.klass) ? ` · ${rosterCount(item.klass)} 人` : ''}${item.klass.extra ? ' · 不在本网站上课' : ''}</small></div>
-          <p>${esc(summary(item.klass.schedule))}</p>
+          <p>${summaryHtml(item.klass.schedule)}</p>
           <p class="pl-class-times">${item.klass.schedule.slots.map((slot) => `周${WEEKDAYS[slot.day - 1]} ${timeOf(Number(slot.from), Number(slot.to))}`).filter((t) => /\d/.test(t)).join('　')}</p>
           <button type="button" class="pl-link" data-pl-edit="${esc(item.klass.id)}">${item.klass.extra ? '修改这门课' : '修改上课时间'}</button>
         </article>`).join('')}

@@ -60,6 +60,8 @@ body { margin: 0; color: var(--ink); background: var(--paper); font: 16px/1.6 va
 /* 列多的表格放在可左右滑动的框里：窗口窄时不撑出面板，表头也不会挤成一字一行 */
 .tw-scroll { max-width: 100%; overflow-x: auto; border-radius: 12px; box-shadow: var(--shadow); }
 .tw-scroll > .tw-table { box-shadow: none; }
+/* 短内容不折行之后（live-teacher.js keepShortCells），长文字（弹幕、建议、评语等）的列至少留 15 个字宽，不被挤成窄条；窗口窄时表格左右滑动 */
+.tw-table td:not(.tw-nowrap):not(.empty) { min-width: 15em; }
 .tw-cell small { display: block; color: var(--muted); font-size: 12px; }
 .tw-cell.is-answer { background: var(--teal); color: #fff; font-weight: 800; }
 .tw-cell.is-answer small { color: rgba(255,255,255,.85); }
@@ -478,7 +480,7 @@ body.is-planner .tw-main > section:not(.pl), body.is-planner .tw-nav { display: 
 .pl-class em { padding: 1px 7px; border-radius: 6px; background: var(--c); color: #fff; font: 800 12px/1.6 var(--sans); font-style: normal; }
 .pl-class b { color: var(--c); font-size: 17px; }
 .pl-class small { flex-basis: 100%; color: var(--muted); font-size: 13px; }
-.pl-class p { margin: 8px 0 0; font-size: 14px; }
+.pl-class p { margin: 8px 0 0; font-size: 14px; word-break: keep-all; overflow-wrap: anywhere; }
 .pl-class .pl-class-times { margin-top: 2px; color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; }
 .pl-class .pl-link { margin-top: 8px; }
 .pl-pending { display: flex; flex-wrap: wrap; gap: 10px; }
@@ -860,43 +862,7 @@ body select:not([multiple]):not([size]):not(#_) {
 body select:not([multiple]):not([size]):not(#_):disabled { cursor: default; opacity: .6; }
 /* 窄的小下拉框（课表编辑器的节次、校历编辑行）箭头再靠近一些 */
 body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple]):not([size]):not(#_) { padding-left: 10px; padding-right: 28px; background-position: right 10px center; }
-/* 锁定（2026-10-29）：全屏虚化，像猜词游戏大屏的背景，后面的姓名、作答都看不清 */
-.tw-lock { position: fixed; inset: 0; width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; padding: 24px; box-sizing: border-box; border: 0; overflow: auto; color: #fff; font-family: var(--sans); outline: none;
-  background: radial-gradient(circle at 50% 12%, rgba(232, 196, 106, .18), transparent 48%), rgba(16, 32, 30, .74);
-  -webkit-backdrop-filter: blur(26px) saturate(.7); backdrop-filter: blur(26px) saturate(.7); }
-.tw-lock[open] { display: flex; }
-.tw-lock::backdrop { background: transparent; }
-@supports not ((backdrop-filter: blur(1px)) or (-webkit-backdrop-filter: blur(1px))) { .tw-lock { background: #15302c; } }
-.tw-lock-card { width: min(380px, 100%); margin: auto; text-align: center; }
-.tw-lock-icon { width: 64px; height: 64px; margin: 0 auto 16px; display: grid; place-items: center; border-radius: 50%; color: #3b2a07; background: linear-gradient(180deg, #f6dc98, #dcb253); box-shadow: 0 0 0 6px rgba(246, 220, 152, .16), 0 12px 30px rgba(0, 0, 0, .28); }
-.tw-lock-icon svg { width: 30px; height: 30px; }
-.tw-lock-time { margin: 0; font-size: 64px; font-weight: 800; line-height: 1; letter-spacing: .02em; font-variant-numeric: tabular-nums; }
-.tw-lock-date { margin: 8px 0 20px; color: rgba(255, 255, 255, .72); font-size: 15px; }
-.tw-lock h2 { margin: 0; font-size: 22px; letter-spacing: .04em; }
-.tw-lock-note { margin: 6px 0 20px; color: rgba(255, 255, 255, .72); font-size: 14px; text-wrap: balance; }
-.tw-lock-dots { display: flex; justify-content: center; gap: 18px; margin-bottom: 10px; }
-.tw-lock-dots i { width: 16px; height: 16px; border: 2px solid rgba(255, 255, 255, .78); border-radius: 50%; transition: background .12s ease; }
-.tw-lock-dots i.is-on { border-color: #fff; background: #fff; }
-.tw-lock-dots.is-wrong { animation: tw-lock-shake .42s ease; }
-.tw-lock-dots.is-wrong i { border-color: #ffb59d; }
-@keyframes tw-lock-shake { 0%, 100% { transform: none; } 20%, 60% { transform: translateX(-10px); } 40%, 80% { transform: translateX(10px); } }
-.tw-lock-msg { min-height: 21px; margin: 0 0 12px; color: #ffcdbd; font-size: 14px; font-weight: 700; }
-.tw-lock-pad { display: grid; grid-template-columns: repeat(3, 72px); justify-content: center; gap: 14px 24px; }
-.tw-lock-pad button { width: 72px; height: 72px; padding: 0; border: 1px solid rgba(255, 255, 255, .26); border-radius: 50%; color: #fff; background: rgba(255, 255, 255, .1); font: 600 28px/1 var(--sans); cursor: pointer; transition: background .15s ease, transform .08s ease; }
-.tw-lock-pad button:hover { background: rgba(255, 255, 255, .2); }
-.tw-lock-pad button:active { background: rgba(255, 255, 255, .32); transform: scale(.96); }
-.tw-lock-pad button.is-small { border-color: transparent; background: transparent; font-size: 16px; font-weight: 700; }
-.tw-lock-pad button.is-small:hover { background: rgba(255, 255, 255, .12); }
-.tw-lock-pad button:disabled { opacity: .35; cursor: default; transform: none; }
-.tw-lock-pad button:focus-visible { outline: none; box-shadow: 0 0 0 3px rgba(246, 220, 152, .7); }
-.tw-lock-forgot { margin-top: 22px; padding: 4px 8px; border: 0; color: rgba(255, 255, 255, .7); background: none; font: 600 14px/1.4 var(--sans); text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
-.tw-lock-forgot:hover { color: #fff; }
-.tw-lock-out { margin-top: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .1); font-size: 14px; line-height: 1.6; }
-.tw-lock-out p { margin: 0 0 4px; text-wrap: balance; }
-.tw-lock-card.is-forgot .tw-lock-dots, .tw-lock-card.is-forgot .tw-lock-msg, .tw-lock-card.is-forgot .tw-lock-pad { display: none; }
+/* 锁定（2026-10-29）：锁定页的样式在 live-lock.js 里（投屏页、学生页也要用）；这里只是工作台“设置临时密码”对话框 */
 .tw-lock-set .tw-lock-pins input::placeholder { font-size: 15px; letter-spacing: .1em; }
-.tw-lock-out .tw-actions { justify-content: center; }
-.tw-lock-out .tw-secondary { color: #fff; border-color: rgba(255, 255, 255, .5); background: transparent; }
 .tw-lock-set .tw-lock-pins { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .tw-lock-set .tw-lock-pins input { -webkit-text-security: disc; text-align: center; font-size: 20px; letter-spacing: .4em; }
-@media (max-height: 700px) { .tw-lock-time { font-size: 48px; } .tw-lock-pad { gap: 10px 20px; grid-template-columns: repeat(3, 62px); } .tw-lock-pad button { width: 62px; height: 62px; font-size: 24px; } .tw-lock-date { margin-bottom: 12px; } }

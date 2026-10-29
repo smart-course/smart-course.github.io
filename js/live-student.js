@@ -297,10 +297,6 @@
   .dbr-join { padding: 16px 18px; border-radius: 12px; border: 1.5px solid rgba(35,101,95,.35); background: #f2f8f6; }
   .dbr-join.is-con { border-color: rgba(164,73,45,.4); background: #fbf2ed; }
   .dbr-lead { margin: 0 0 10px; font-size: 16px; } .dbr-lead b { color: #23655f; } .dbr-join.is-con .dbr-lead b { color: #a4492d; }
-  .dbr-sides { display: flex; gap: 8px; margin: 0 0 10px; }
-  .dbr-sides button { padding: 6px 16px; border: 1.5px solid rgba(70,51,34,.25); border-radius: 999px; background: #fff; font: 700 14px/1.2 inherit; cursor: pointer; }
-  .dbr-sides button[aria-pressed="true"] { border-color: #23655f; background: #23655f; color: #fff; }
-  .dbr-sides button[data-dbr-side="con"][aria-pressed="true"] { border-color: #a4492d; background: #a4492d; }
   .dbr-nick, .dbr-form { display: flex; gap: 8px; }
   .dbr-nick input, .dbr-form input { flex: 1 1 auto; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font: 16px/1.4 inherit; }
   .dbr-nick button, .dbr-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font: 800 15px/1 inherit; cursor: pointer; }
@@ -1630,7 +1626,8 @@
   // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
   // 大家不知道你是谁），然后大家可以在聊天室中发表自己的观点，其它同学可以点赞，每一方被点赞次数最多的三位同学上台辩论……”）：
   // 习经“辩论赛”卡片里的 [data-debate-room]。立场取递交的辩前票（后台核对）；取昵称后进本方聊天室，只看得到本方发言；每 poll 毫秒刷新一次。
-  // 学生版测试页（王不凡）没有辩前票：取昵称时自己选一方。后台还没有这组函数（未执行 SQL）时显示说明
+  // 学生版测试页（王不凡）的辩前票只在本机：按本机递交的辩前票进入那一方（2026-10-29 用户：“学生选完正反方后，不用再选了，直接填写昵称让他们进入聊天室就行”）。
+  // 后台还没有这组函数（未执行 SQL）时显示说明
   function setupDebateRooms(enabled, note) {
     const boxes = $$('[data-debate-room]');
     if (!boxes.length || OFFLINE) return;
@@ -1657,8 +1654,23 @@
         }
         if (state.status === 'login') { box.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再进聊天室。</p>'; return; }
         if (state.status === 'pick') { showPick(); return; }
+        if (state.status === 'nick' && state.test) {
+          const side = localSide();
+          if (!side) { showPick(); return; }
+          showNick({ ...state, side });
+          return;
+        }
         if (state.status === 'nick') { showNick(state); return; }
         showRoom();
+      }
+      // 测试页：本机递交的辩前票（在别的设备递交的，看页面上恢复的选择）
+      function localSide() {
+        const key = `${no}:debate-pre`;
+        if (!locked[key]) return '';
+        const group = document.querySelector(`[data-live-choice][data-live-case="${no}"][data-live-item="debate-pre"]`);
+        const pressed = group && group.querySelector('[data-live-option][aria-pressed="true"]');
+        const value = locked[key].v || (pressed && pressed.dataset.liveOption);
+        return value === 'pro' || value === 'con' ? value : '';
       }
       function showPick() {
         if (mode === 'pick') return;
@@ -1670,18 +1682,12 @@
         if (mode === 'nick') return;
         mode = 'nick';
         stop();
-        const pickSide = state.test ? '<div class="dbr-sides" role="group" aria-label="测试：选一方"><button type="button" data-dbr-side="pro" aria-pressed="true">正方</button><button type="button" data-dbr-side="con" aria-pressed="false">反方</button></div>' : '';
         box.innerHTML = `<div class="dbr-join is-${esc(state.side || 'pro')}">
-          <p class="dbr-lead">${state.test ? '学生版测试页：先选一方，再取昵称进入聊天室（学生的立场取他们递交的辩前票）。' : `你站在<b>${SIDE[state.side]}</b>：取一个昵称，进入${SIDE[state.side]}聊天室。`}</p>${pickSide}
+          <p class="dbr-lead">你站在<b>${SIDE[state.side]}</b>：取一个昵称，进入${SIDE[state.side]}聊天室。${state.test ? '（测试页按本机递交的辩前票）' : ''}</p>
           <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
           <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
           <p class="dbr-state" data-dbr-state role="status"></p></div>`;
-        let side = state.side || 'pro';
-        box.querySelectorAll('[data-dbr-side]').forEach((button) => button.addEventListener('click', () => {
-          side = button.dataset.dbrSide;
-          box.querySelectorAll('[data-dbr-side]').forEach((item) => item.setAttribute('aria-pressed', String(item === button)));
-          box.querySelector('.dbr-join').className = `dbr-join is-${side}`;
-        }));
+        const side = state.side;
         box.querySelector('form').addEventListener('submit', async (event) => {
           event.preventDefault();
           const input = box.querySelector('input');
@@ -2206,6 +2212,7 @@
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>辩论赛：本方聊天室里点赞最多的三位同学上台辩论，全班投票获胜的一方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。</li>` : ''}
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
+        <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
         <li>情境猜谜抢答：老师出题后，在面板最上方“情境猜谜抢答”里输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -2377,7 +2384,7 @@
         ['点名册编号', '面板上姓名前的“N号”是你在点名册上的编号，课堂抽人时用。'],
       ] },
       { title: '修为境界', items: [
-        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名、情境猜谜第一个猜中另外加。'],
+        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名、情境猜谜第一个猜中、匿名建议另外加。'],
         ['五个境界', `炼气 → 筑基 → 结丹 → 元婴 → 化神，按全学期修为占满分的比例晋升（${REALMS.slice(1).map((realm) => `${realm.name} ${Math.round(realm.min * 100)}%`).join('、')}）。点面板上的境界或“修为说明”查看进度。`],
         ['弹幕字色', '每升一境多两种（炼气霜白、月银，筑基加青冥、翠竹，结丹加金曦、大红，元婴加樱粉、紫霄，化神加流金、七彩）；投屏上你的名字颜色也与境界一致。'],
         ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，每次课最多祭出一件。`],
@@ -2650,7 +2657,10 @@
       // 只在这台设备上记个数，提醒自己提交过几条
       const key = `classlive-feedback:${identity.classroom}:${caseNo}`;
       const sent = Number(load(key, 0)) || 0;
-      say(sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : '写好后点“匿名提交”，可以提交多条。');
+      // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）
+      const FBP = Live.FEEDBACK || { points: 5, min: 10 };
+      const reward = `本堂课第一次提交 ${FBP.min} 字以上的${FB.what}，加 ${FBP.points} 修为（只记你提交过，老师看不到哪条是你写的）。`;
+      say(sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : `写好后点“匿名提交”，可以提交多条。${reward}`);
       card.querySelector('form').addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = area.value.trim();
@@ -2659,10 +2669,11 @@
         sync();
         try {
           if (PREVIEW) { say('测试页：不会真的提交（学生页会匿名提交给老师）。', 'ok'); return; }
-          await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
+          const got = await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
+          const earned = (Array.isArray(got) ? got[0] : got) === true;
           area.value = '';
           save(key, (Number(load(key, 0)) || 0) + 1);
-          say(`已匿名提交（${time()}），${FB.thanks}还可以继续写下一条。`, 'ok');
+          say(`已匿名提交（${time()}），${earned ? `修为 +${FBP.points}（老师结算后计入）。` : ''}${FB.thanks}还可以继续写下一条。`, 'ok');
         } catch (problem) {
           console.error(problem);
           const message = `${(problem && problem.message) || problem || ''}`;

@@ -92,6 +92,8 @@
   // 每方点赞最多的 top 位上台辩论，辩后投票获胜方的这几位各加 points 修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）
   const DEBATE = { points: 10, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
+  // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
+  const FEEDBACK = { points: 5, min: 10 };
   const POLL = { presets: [['是', '否'], ['对', '错'], ['赞同', '反对'], ['一', '二'], ['A', 'B', 'C', 'D']], check: 4000, refresh: 2000, keep: 180000 };
   // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
   // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分，
@@ -1325,7 +1327,8 @@
         if (name === 'ck_submit_feedback') {
           const uid = await this.ensureAnonymous();
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
-          if (!room || !myCheckin(uid, params.p_classroom)) {
+          const me = room && myCheckin(uid, params.p_classroom);
+          if (!me) {
             throw Object.assign(new Error('进入课堂后才能提交建议'), { code: '42501' });
           }
           const text = String(params.p_text || '').trim();
@@ -1334,6 +1337,11 @@
           rows.push({ id: Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1, course: room.course, classroom: room.id, unit: room.chapter,
             case_no: params.p_case, text, created_on: today() });
           write('feedback', rows);
+          // 每个课堂第一次提交 10 字以上加修为（只记提交过，不记是哪一条）
+          const bonus = read('bonus');
+          if (text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;
+          bonus.push({ id: `${Date.now()}-fb`, course: room.course, classroom: room.id, day: today(), kind: 'feedback', sid: sidKey(me.sid), name: me.name, points: FEEDBACK.points, created_at: new Date().toISOString() });
+          write('bonus', bonus);
           return true;
         }
         // 修为境界：教师结算后整班替换；学生只能查本人（按本人这次登录在本课堂的学号）；法宝按境界和“每次课一件”核对
@@ -1680,6 +1688,7 @@
     PK,
     DEBATE,
     POLL,
+    FEEDBACK,
     PRACTICE,
     LEAVE,
     office,
