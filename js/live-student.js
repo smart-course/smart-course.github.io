@@ -67,6 +67,12 @@
   const viewing = Boolean(viewFlag && (!identity.joined_at || Number(viewFlag.at) > Number(identity.joined_at)));
   const joined = OFFLINE || (!viewing && Boolean(identity.classroom && identity.name && identity.sid
     && identity.course === config.course && identity.chapter === unit));
+  // 旁听（2026-11-05 用户：“点名册名单外的学生，也可以申请加入课堂进行学习，但是所递交的答案和弹幕等不进入统计、课堂上也不会被抽中参与小游戏等，
+  // 也不参与修为榜等，也不能提匿名建议等，只能看一下内容和答题。”）：首页登录时后台返回 audit。只能看内容、答题——“递交”只在本机锁定、不交给老师，
+  // 不计入统计和修为；不能发弹幕、提匿名建议、投票、参加聊天室和课堂小游戏（抢答、经营沙盘等），没有修为境界和修为榜。后台也不收旁听同学的任何写入
+  const AUDIT = !OFFLINE && !PREVIEW && joined && Boolean(identity.audit);
+  const LOCAL_ONLY = PREVIEW || AUDIT;   // 递交只在本机锁定（测试页、旁听）
+  const AUDIT_NOTE = '你是旁听：可以看内容、做题，“递交”只在这台设备上锁定答案，不交给老师，不计入统计和修为；不能发弹幕、提匿名建议，课堂小游戏也不会抽到。';
   // 一章两个案例分开上（2026-10-23，习经）：本周课堂只上其中一个时，页面只显示这个案例、只收这个案例的题
   // （案例号来自登录时后台返回的课堂；只查看时取查看的课堂；学生版测试页取地址里的 case 参数）
   const activeCase = worksheet ? 0 : Number(PREVIEW ? new URLSearchParams(location.search).get('case')
@@ -173,6 +179,18 @@
   @media (prefers-reduced-motion: reduce) { .clp-ladder, .clp-ladder * { animation: none !important; } }
   .clp-toast { position: fixed; z-index: 2147483001; left: 50%; top: 18px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
     color: #3b1d00; background: linear-gradient(100deg, #f3e3ff, #fff3c8); box-shadow: 0 10px 30px rgba(0,0,0,.25); font: 800 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  /* 隐藏彩蛋的弹出提示（2026-11-05）：建议被采纳、点笑脸、一周登录满 3 天加修为 */
+  .clp-egg { position: fixed; inset: 0; z-index: 2147483002; display: grid; place-items: center; padding: 16px; background: rgba(20,14,8,.38); animation: clp-egg-in .25s ease; }
+  .clp-egg-card { position: relative; box-sizing: border-box; width: min(420px, 100%); padding: 22px 22px 18px; border-radius: 16px; text-align: center; color: #3b1d00;
+    background: linear-gradient(140deg, #fff7d6, #f3e3ff); box-shadow: 0 18px 50px rgba(0,0,0,.3); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-egg-burst { display: block; font-size: 34px; line-height: 1; color: #d99a1a; animation: clp-egg-pop .9s ease; }
+  .clp-egg-card p { margin: 10px 0 6px; font-weight: 800; font-size: 17px; line-height: 1.7; text-wrap: pretty; }
+  .clp-egg-card small { display: block; color: #7a6450; font-size: 12.5px; }
+  .clp-egg-card button { margin-top: 14px; padding: 9px 26px; border: 0; border-radius: 999px; color: #fff; background: #a4492d; font-family: inherit; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
+  .clp-egg-card button:focus-visible { outline: 3px solid rgba(164,73,45,.35); outline-offset: 2px; }
+  @keyframes clp-egg-in { from { opacity: 0; } }
+  @keyframes clp-egg-pop { from { transform: scale(.3) rotate(-90deg); opacity: 0; } }
+  @media (prefers-reduced-motion: reduce) { .clp-egg, .clp-egg-burst { animation: none; } }
   .clp-preview { position: fixed; z-index: 2147482990; left: 50%; top: 8px; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px;
     max-width: calc(100vw - 24px); padding: 6px 12px; border-radius: 10px; background: rgba(120,28,20,.92); color: #fff4e0; box-shadow: 0 6px 18px rgba(0,0,0,.25);
     font: 700 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
@@ -266,32 +284,7 @@
   .clp-subm li button { padding: 0; border: 0; background: none; color: #23655f; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; }
   .clp-subm li small { color: #6d6259; margin-left: 6px; }
   .clp-sub-note { margin: 8px 0 0; color: #6d6259; font-size: 12.5px; }
-  .clp-fb { margin: 28px 0 8px; padding: 16px 18px; border: 1.5px solid rgba(35,101,95,.35); border-radius: 12px; background: #f4f8f6; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
-  .clp-fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
-  .clp-fb-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #23655f; font-weight: 800; font-size: 13px; }
-  .clp-fb-label { color: #6d6259; font-size: 13px; font-weight: 700; }
-  .clp-fb h4 { margin: 8px 0 4px; font-size: 18px; line-height: 1.6; }
-  .clp-fb-hint { margin: 0 0 8px; color: #4d443c; font-size: 14px; }
-  .clp-fb-hint b { color: #23655f; }
-  .clp-fb textarea { display: block; box-sizing: border-box; width: 100%; min-height: 96px; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; color: #201c18; font: inherit; resize: vertical; }
-  .clp-fb textarea:focus { outline: none; border-color: #23655f; }
-  .clp-fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
-  .clp-fb-count { color: #6d6259; font-size: 13px; }
-  .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
-  .clp-fb-row button[disabled], .clp-fb textarea[disabled] { opacity: .55; cursor: default; }
-  .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
-  .clp-fb-state[data-state="ok"] { color: #23655f; font-weight: 700; }
-  .clp-fb-state[data-state="error"] { color: #a4492d; font-weight: 700; }
-  .clp-mood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px dashed rgba(35,101,95,.35); }
-  .clp-mood-q { font-weight: 800; color: #23655f; }
-  .clp-mood button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 999px; background: #fff; color: #201c18; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; }
-  .clp-mood button i { font-style: normal; font-size: 22px; line-height: 1; }
-  .clp-mood button:hover:not([disabled]) { transform: translateY(-1px); border-color: #23655f; }
-  .clp-mood button[aria-pressed="true"][data-mood="1"] { border-color: #2f9e62; background: #e8f7ee; color: #1d6a40; }
-  .clp-mood button[aria-pressed="true"][data-mood="-1"] { border-color: #c0703f; background: #fbeee4; color: #8a3f17; }
-  .clp-mood button[disabled] { opacity: .55; cursor: default; }
-  .clp-mood-state { flex: 1 1 100%; color: #6d6259; font-size: 12.5px; }
-  .clp-mood[hidden] { display: none; }
+  ${(Live.feedbackBox || {}).css || ''}
   /* 辩论聊天室（2026-10-28） */
   .dbr-note, .dbr-empty { margin: 0; padding: 12px 16px; border-radius: 10px; background: #f6f1e7; color: #6d6259; font-size: 15px; }
   .dbr-join { padding: 16px 18px; border-radius: 12px; border: 1.5px solid rgba(35,101,95,.35); background: #f2f8f6; }
@@ -472,21 +465,35 @@
   .clp-v2 .clp-sec-note { color: #8a7f74; font-size: 12px; text-wrap: pretty; }
   .clp-v2 .clp-sec-note[data-state=ok] { color: #23655f; font-weight: 700; }
   .clp-v2 .clp-relogin { margin: 0 0 10px; }
-  .clp-v2 .clp-pz { background: linear-gradient(180deg, #fff3d6, #fffaf0); }
-  .clp-v2 .clp-pz .clp-sec-title { color: #a4492d; }
-  .clp-pz-form { display: flex; gap: 8px; margin: 0; }
-  .clp-pz-form input { flex: 1 1 auto; min-width: 0; height: 40px; padding: 0 12px; border: 1.5px solid #dcae57; border-radius: 12px; background: #fff; color: #2b2118; font-size: 16px; }
-  .clp-pz-form input:focus { outline: none; box-shadow: 0 0 0 3px rgba(220,174,87,.35); }
-  .clp-pz-form button { min-width: 74px; height: 40px; padding: 0 14px; border: 0; border-radius: 12px; color: #fff; background: #a4492d; font-family: inherit; font-size: 16px; font-weight: 800; cursor: pointer; }
-  .clp-pz-form :disabled { opacity: .55; cursor: default; }
-  .clp-pz-surface { margin: 0 0 7px; color: #5b4a3a; font-size: 13px; }
-  .clp-pz-surface summary { color: #a4492d; font-weight: 700; cursor: pointer; }
-  .clp-pz-surface p { margin: 4px 0 0; line-height: 1.6; }
-  .clp-pz .clp-hint { margin: 6px 0 0; }
-  .clp-pz .clp-hint[data-state=ok] { color: #23655f; font-weight: 800; }
-  .clp-pz .clp-hint[data-state=bad] { color: #a4492d; font-weight: 700; }
-  .clp-pz.is-won { animation: clp-pz-pop .7s ease; }
-  @keyframes clp-pz-pop { 0% { transform: scale(.96); } 50% { transform: scale(1.03); } 100% { transform: none; } }
+  /* 情境猜谜抢答对话框（2026-11-05）：老师点“看玩法”或出题后在页面上方弹出，大屏关闭前一直在；出题后按后台时钟同步倒计时 */
+  .clp-pzd { position: fixed; z-index: 2147482900; top: 12px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); box-sizing: border-box;
+    padding: 12px 16px 12px; border: 1.5px solid #dcae57; border-radius: 16px; background: linear-gradient(180deg, #fff3d6, #fffaf0); color: #2b2118;
+    box-shadow: 0 14px 34px rgba(80,50,10,.24); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-pzd[hidden] { display: none; }
+  .clp-pzd-head { display: flex; align-items: baseline; justify-content: space-between; gap: 10px; margin: 0 0 6px; }
+  .clp-pzd-head b { color: #a4492d; font-size: 17px; font-weight: 900; letter-spacing: .04em; }
+  .clp-pzd-head span { color: #6d5a44; font-size: 13.5px; font-weight: 700; text-align: right; }
+  .clp-pzd-surface { margin: 0 0 8px; color: #5b4a3a; font-size: 13.5px; }
+  .clp-pzd-surface summary { color: #a4492d; font-weight: 700; cursor: pointer; }
+  .clp-pzd-surface p { margin: 4px 0 0; line-height: 1.65; }
+  .clp-pzd-count { display: flex; align-items: center; justify-content: center; gap: 12px; margin: 2px 0 10px; color: #7a4a10; font-weight: 800; font-size: 15.5px; }
+  .clp-pzd-count[hidden] { display: none; }
+  .clp-pzd-num { display: grid; place-items: center; width: 58px; height: 58px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe08a, #e0a12a); color: #4a2b00;
+    font: 900 30px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; font-variant-numeric: tabular-nums; box-shadow: 0 0 0 4px rgba(224,161,42,.22); }
+  .clp-pzd-count.is-go .clp-pzd-num { background: radial-gradient(circle at 35% 30%, #9be8c4, #23855f); color: #fff; font-size: 20px; }
+  .clp-pzd-count.is-tick .clp-pzd-num { animation: clp-pzd-tick .35s ease; }
+  @keyframes clp-pzd-tick { 0% { transform: scale(1.18); } 100% { transform: none; } }
+  .clp-pzd-form { display: flex; gap: 8px; margin: 0; }
+  .clp-pzd-form input { flex: 1 1 auto; min-width: 0; height: 44px; padding: 0 12px; border: 1.5px solid #dcae57; border-radius: 12px; background: #fff; color: #2b2118; font-size: 17px; }
+  .clp-pzd-form input:focus { outline: none; box-shadow: 0 0 0 3px rgba(220,174,87,.35); }
+  .clp-pzd-form button { min-width: 82px; height: 44px; padding: 0 16px; border: 0; border-radius: 12px; color: #fff; background: #a4492d; font-family: inherit; font-size: 17px; font-weight: 800; cursor: pointer; }
+  .clp-pzd-form :disabled { opacity: .5; cursor: default; }
+  .clp-pzd-state { margin: 7px 0 0; color: #5b4a3a; font-size: 13.5px; }
+  .clp-pzd-state[data-state=ok] { color: #23655f; font-weight: 800; }
+  .clp-pzd-state[data-state=bad] { color: #a4492d; font-weight: 700; }
+  .clp-pzd.is-won { animation: clp-pz-pop .7s ease; }
+  @keyframes clp-pz-pop { 0% { transform: translateX(-50%) scale(.96); } 50% { transform: translateX(-50%) scale(1.03); } 100% { transform: translateX(-50%); } }
+  @media (max-width: 560px) { .clp-pzd { top: 8px; width: calc(100vw - 16px); padding: 10px 12px; } .clp-pzd-num { width: 50px; height: 50px; font-size: 26px; } }
   .clp-v2 .clp-danmaku { gap: 8px; margin: 0; padding: 0; border: 0; }
   .clp-v2 .clp-dm-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; }
   .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 40px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
@@ -609,6 +616,9 @@
   /* 修为榜：面板头部的金色按钮＋星空弹窗（前三名领奖台、第四名起逐行飞入、本人高亮） */
   .clp-v2 .clp-sub { display: flex; align-items: center; gap: 8px; }
   .clp-v2 .clp-sub > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clp-audit-tag { margin-left: 6px; padding: 0 7px; border: 1px solid #8a7f74; border-radius: 999px; color: #5b5047; background: #f1ece4; font-size: 12px; font-weight: 800; line-height: 1.6; }
+  .clp-audit p { margin: 0; padding: 8px 10px; border-radius: 10px; background: #f3efe8; color: #4a4038; font-size: 13px; line-height: 1.6; }
+  .clp-rankbtn[hidden] { display: none; }
   .clp-rankbtn { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; overflow: hidden; border: 1px solid #b8801a; border-radius: 999px;
     color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 55%, #d9a032); box-shadow: 0 0 8px rgba(242,198,79,.45), inset 0 1px 0 rgba(255,255,255,.8);
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
@@ -620,6 +630,39 @@
     color: #fff8e6; background: linear-gradient(180deg, #3a8a7b, #245e55); box-shadow: 0 0 8px rgba(47,111,99,.35), inset 0 1px 0 rgba(255,255,255,.25);
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
   .clp-sub .clp-xlbtn { margin-left: 6px; }
+  /* 宗门（2026-11-05）：面板头部的宗门按钮（拜入后显示宗门名和宗门色）＋宗门榜弹窗（沿用修为榜的星空卡片） */
+  .clp-sectbtn[hidden] { display: none; }
+  .clp-sectbtn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 10px 2px 4px; border: 1px solid rgba(0,0,0,.22); border-radius: 999px;
+    color: #fff; background: var(--sc, #5b4a9e); box-shadow: 0 0 8px var(--sg, rgba(150,130,230,.45)), inset 0 1px 0 rgba(255,255,255,.3);
+    font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
+  .clp-sectbtn > span:first-child, .clp-sect-dot, .clp-sect-emb { display: inline-grid; place-items: center; border-radius: 50%; font-family: "Kaiti SC", STKaiti, KaiTi, serif; font-weight: 900; font-style: normal; }
+  .clp-sectbtn > span:first-child { width: 17px; height: 17px; background: rgba(255,255,255,.94); color: var(--sc, #5b4a9e); font-size: 11.5px; line-height: 1; }
+  .clp-sectbtn.is-sanxiu { background: #6f665c; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+  .clp-sect-dot { flex: 0 0 auto; width: 17px; height: 17px; margin-left: 4px; background: var(--sc); color: #fff; font-size: 10.5px; line-height: 1; vertical-align: 1px; box-shadow: 0 0 6px var(--sg); }
+  .clp-sect-welcome { margin: 4px 0 8px; padding: 9px 12px; border-radius: 12px; background: linear-gradient(100deg, rgba(255,211,107,.26), rgba(185,140,255,.14)); color: #ffe8a8; font-size: 13.5px; font-weight: 700; line-height: 1.6; }
+  .clp-sect-list { display: grid; gap: 10px; margin: 6px 0 0; padding: 0; list-style: none; }
+  .clp-sect-row { display: grid; grid-template-columns: 24px 44px minmax(0, 1fr) auto; align-items: center; gap: 4px 10px; padding: 10px 12px; border: 1px solid rgba(255,255,255,.1); border-radius: 14px;
+    background: linear-gradient(100deg, var(--sa), rgba(255,255,255,.03) 70%); animation: clp-rank-in .5s ease both; animation-delay: calc(var(--i, 0) * 90ms); }
+  .clp-sect-row.is-mine { border-color: rgba(255,211,107,.8); box-shadow: 0 0 16px rgba(255,211,107,.28); }
+  .clp-sect-emb { width: 44px; height: 44px; background: radial-gradient(circle at 35% 30%, var(--sg), var(--sc) 62%); color: #fff; font-size: 22px; line-height: 1;
+    box-shadow: 0 0 14px var(--sg), inset 0 0 0 2px rgba(255,255,255,.55); text-shadow: 0 1px 2px rgba(0,0,0,.35); }
+  .clp-sect-main { min-width: 0; }
+  .clp-sect-main strong { display: block; color: #fff; font: 900 19px/1.3 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: .08em; }
+  .clp-sect-main strong small { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: #ffd36b; color: #3e2400; font: 800 11px/1.6 -apple-system, "PingFang SC", sans-serif; letter-spacing: 0; vertical-align: 2px; }
+  .clp-sect-motto { display: block; margin-top: 2px; color: rgba(244,236,255,.72); font-size: 12px; line-height: 1.5; }
+  .clp-sect-way { display: block; color: rgba(244,236,255,.5); font-size: 11.5px; }
+  .clp-sect-meta { display: block; margin-top: 3px; color: rgba(255,232,168,.85); font-size: 12px; font-weight: 700; }
+  .clp-sect-pts { align-self: start; padding-top: 2px; text-align: right; color: #ffd36b; font: 800 18px/1.2 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
+  .clp-sect-pts small { display: block; margin-top: 3px; color: rgba(244,236,255,.62); font: 600 11px/1.4 -apple-system, "PingFang SC", sans-serif; }
+  .clp-sect-act { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
+  .clp-sect-act p { flex: 1 1 100%; margin: 2px 0 0; color: #ffe8a8; font-size: 12.5px; line-height: 1.55; }
+  .clp-sect-act button, .clp-sect-mine button { padding: 6px 14px; border: 1px solid rgba(255,255,255,.35); border-radius: 999px; background: rgba(255,255,255,.08); color: #f4ecff;
+    font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.2; cursor: pointer; }
+  .clp-sect-act button.is-go { border-color: var(--sg); background: var(--sc); color: #fff; box-shadow: 0 0 10px var(--sg); }
+  .clp-sect-act button:disabled, .clp-sect-mine button:disabled { opacity: .55; cursor: default; }
+  .clp-sect-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .clp-sect-mine span { flex: 1 1 200px; }
+  @media (max-width: 420px) { .clp-sect-row { grid-template-columns: 22px 38px minmax(0, 1fr) auto; gap: 4px 8px; padding: 9px 10px; } .clp-sect-emb { width: 38px; height: 38px; font-size: 19px; } .clp-sect-main strong { font-size: 17px; } }
   .clp-rank-link { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 2px; padding: 4px 12px; border: 1px solid #b8801a; border-radius: 999px;
     color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f); font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.5; cursor: pointer; }
   .clp-rank-link svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
@@ -833,26 +876,11 @@
     });
   }
   // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在页面最后的“资料与延伸阅读”之后
-  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。后台不记录提交者，只记日期。
+  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。建议本身只记日期；
+  //   2026-11-05 起后台另记提交者（老师读不到），只用于老师点赞采纳后给作者加修为、作者下次打开页面时通知
   //   政经叫“匿名建议和提问箱”：2026-10-22 起概念小结的“提问墙”弹幕删去，没想通的问题写在这里，老师下一堂课统一解答 ----------
   const fbCards = [];
-  const FB = worksheet ? {
-    tag: '匿名建议和提问箱',
-    title: '还有哪里没想通？对这堂课有什么意见或建议？',
-    hint: '学完这一课还有哪里没想通、想问老师什么，都写下来，老师看到后在下一堂课统一解答；老师的讲授、案例的呈现、课堂互动和网页用起来怎么样，希望以后增加哪些内容或互动方式，也可以写。',
-    placeholder: '写下你的疑问，或对这堂课的意见和建议（500 字内）',
-    aria: '本堂课的匿名建议和提问',
-    thanks: '老师看到后会在下一堂课解答疑问。',
-    what: '建议或提问',
-  } : {
-    tag: '匿名建议箱',
-    title: '对这堂课，你有什么意见或建议？',
-    hint: '老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。',
-    placeholder: '写下你对这堂课的意见或建议（500 字内）',
-    aria: '本堂课的匿名建议',
-    thanks: '谢谢你的建议！',
-    what: '建议',
-  };
+  const FB = Live.feedbackBox ? Live.feedbackBox.texts(worksheet) : {};   // 文字、样式、卡片与投屏页共用（live-core.js；离线版没有建议箱）
   if (!OFFLINE) {
     const spots = worksheet
       ? [{ caseNo: (/(\d{2})$/.exec(unit) || [])[1], page: document.getElementById('sources') }]
@@ -863,16 +891,7 @@
       if (!/^\d{2}$/.test(caseNo || '') || !page) return;
       const card = document.createElement('section');
       card.className = 'clp-fb';
-      card.innerHTML = `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
-        <h4>${FB.title}</h4>
-        <div class="clp-mood" role="group" aria-label="上完这堂课的感觉"><span class="clp-mood-q">上完这堂课，你感觉怎么样？</span>
-          <button type="button" data-mood="1" aria-pressed="false" disabled><i aria-hidden="true">😊</i>开心</button>
-          <button type="button" data-mood="-1" aria-pressed="false" disabled><i aria-hidden="true">☹️</i>不开心</button>
-          <small class="clp-mood-state" role="status">点一下就行，每天可以改；老师只看到各有多少人，看不到是谁选的。</small></div>
-        <p class="clp-fb-hint">${FB.hint}<b>完全匿名</b>：后台不记录你的姓名、学号和登录信息，老师只看到内容和提交日期。</p>
-        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="${FB.placeholder}" aria-label="${FB.aria}" disabled></textarea>
-        <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled>匿名提交</button></div></form>
-        <p class="clp-fb-state" role="status"></p>`;
+      card.innerHTML = Live.feedbackBox.html(FB, false);
       // 政治经济学：放在“资料与延伸阅读”里、“继续阅读下一案例”之前；习经：放在章节页“资料与延伸阅读”这一节的末尾
       const pager = worksheet ? page.querySelector('.case-sequence') : null;
       if (pager) pager.insertAdjacentElement('beforebegin', card);
@@ -907,7 +926,7 @@
     .filter((q) => !activeCase || String(q.key).startsWith(`${String(activeCase).padStart(2, '0')}:`));
 
   // 递交记录：按页面保存，每个课堂一份（同一页面在别的课堂重新发布时重新作答）
-  const LOCK_KEY = `classlive-locked${PREVIEW ? '-preview' : ''}:${location.pathname}`;   // 测试页的递交记录另存，可一键清空
+  const LOCK_KEY = `classlive-locked${PREVIEW ? '-preview' : AUDIT ? '-audit' : ''}:${location.pathname}`;   // 测试页、旁听的递交记录另存（测试页可一键清空；旁听转正后不挡正式递交）
   const lockBook = load(LOCK_KEY, {});
   const lastRoom = () => Object.keys(lockBook).sort((a, b) => (lockBook[b].$t || 0) - (lockBook[a].$t || 0))[0];
   const roomKey = OFFLINE ? 'offline' : joined ? String(identity.classroom) : lastRoom();
@@ -941,14 +960,15 @@
   });
 
   const IDLE = OFFLINE ? '选好或写好后点“递交”锁定答案，递交后不能修改'
-    : PREVIEW ? '测试页：点“递交”只在本机锁定，不交给后台、不计入统计' : '选好或写好后点“递交”交给老师，递交后不能修改';
+    : PREVIEW ? '测试页：点“递交”只在本机锁定，不交给后台、不计入统计'
+      : AUDIT ? '旁听：点“递交”只在这台设备上锁定答案，不交给老师、不计入统计' : '选好或写好后点“递交”交给老师，递交后不能修改';
   const setQ = (q, text, state) => { q.state.textContent = text; q.state.dataset.state = state || ''; };
   // ---------- 境界解锁（2026-10-22）：筑基解锁递交后的题目解答（后台 ck_my_explain 再核对境界和递交），结丹解锁“学习方法小锦囊” ----------
   const EXPLAIN_LEVEL = 1;
   const STUDY_LEVEL = 2;
-  const canExplain = !OFFLINE && joined;   // 测试页也可展开（后台对教师账号直接给解答）
+  const canExplain = !OFFLINE && joined && !AUDIT;   // 测试页也可展开（后台对教师账号直接给解答）；旁听没有境界，不展开
   const cachedRealm = load(`classlive-realm:${config.course}:${identity.sid}`, null);
-  let gateLevel = OFFLINE || PREVIEW ? 4 : cachedRealm ? Number(cachedRealm.realm) || 0 : -1;   // -1：还不知道本人境界
+  let gateLevel = OFFLINE || PREVIEW ? 4 : AUDIT ? 0 : cachedRealm ? Number(cachedRealm.realm) || 0 : -1;   // -1：还不知道本人境界；旁听按炼气
   const EXPLAIN_TEXT = {
     none: '这道题是开放题，没有标准解答，请对照课堂讲评。', todo: '后台还没收到你这道题的递交：递交成功后再来看解答。',
     locked: '达到「筑基」境界才能看解答：老师结算修为后，境界会更新。', login: '请回首页用课堂码重新登录后再看解答。',
@@ -1017,7 +1037,7 @@
     else setQ(q, joined ? IDLE : '', '');
   });
   applyRealmGates(gateLevel);
-  if (worksheet && joined && !OFFLINE) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）
+  if (worksheet && joined && !OFFLINE && !AUDIT) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）；旁听不计
 
   // ---------- 政经“课后自修”计分（2026-10-22）：主动回忆、温故、讲给别人听交到修炼场后台（ck_practice_essay / answer），计入修炼场每日上限 ----------
   // 都写成函数声明：setupSelfStudy 在本段之前就被调用
@@ -1206,8 +1226,8 @@
     q.button.textContent = '正在递交……';
     q.button.disabled = true;
     try {
-      // 离线版、学生版测试页只在本机锁定；在线版交给后台
-      const result = OFFLINE || PREVIEW ? null : await q.send(value);
+      // 离线版、学生版测试页、旁听只在本机锁定；在线版交给后台
+      const result = OFFLINE || LOCAL_ONLY ? null : await q.send(value);
       // 服务器说这题之前已递交过（例如在另一台设备上）：以第一次为准，不记这次的作答
       const rejected = result && result.accepted === false;
       const entry = rejected ? { at: '', v: null, other: true } : { at: time(), iso: new Date().toISOString(), v: value };
@@ -1472,22 +1492,14 @@
   panel.innerHTML = `
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
-      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>
-        <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
-      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${window.ClassLivePractice ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}</div>
+      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : ''}
+        <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
+      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名"${AUDIT ? ' hidden' : ''}>${TROPHY}修为榜</button>${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
-      <section class="clp-sec clp-pz" data-cl-pz hidden>
-        <div class="clp-sec-head"><span class="clp-sec-title">情境猜谜抢答</span><span class="clp-sec-note" data-cl-pz-label></span></div>
-        <details class="clp-pz-surface" data-cl-pz-surface hidden><summary>看汤面</summary><p></p></details>
-        <form class="clp-pz-form" data-cl-pz-form>
-          <input type="text" maxlength="20" placeholder="输入谜底（一个概念）" aria-label="情境猜谜的谜底" autocomplete="off">
-          <button type="submit">抢答</button>
-        </form>
-        <p class="clp-hint" data-cl-pz-state role="status"></p>
-      </section>
-      <section class="clp-sec">
+      ${AUDIT ? `<section class="clp-sec clp-audit"><p>${esc(AUDIT_NOTE)}</p></section>` : ''}
+      <section class="clp-sec"${AUDIT ? ' hidden' : ''}>
         <div class="clp-relogin" data-cl-relogin hidden><b>请回首页重新登录</b>：本课堂要核对身份（课堂码＋点名册＋个人口令），核对通过后才能递交作答、发弹幕。<a href="${joinUrl()}" data-cl-relogin-link>去首页登录 →</a></div>
         <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span></div>
         <form class="clp-danmaku" data-cl-danmaku>
@@ -1504,7 +1516,7 @@
         <span class="clp-state" data-cl-state>每题做完点题目下方的“递交”</span>${tools}
       </section>
       <div class="clp-foot">
-        <details class="clp-mydm" data-cl-mydm>
+        <details class="clp-mydm" data-cl-mydm${AUDIT ? ' hidden' : ''}>
           <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
           <ul class="clp-mydm-list" data-cl-mydm-list></ul>
           <p class="clp-hint" data-cl-mydm-state></p>
@@ -1550,7 +1562,7 @@
   document.addEventListener('classlive:choice', (event) => {
     const el = event.detail && event.detail.el;
     const status = el && el.querySelector('[data-live-status]');
-    if (status) { status.textContent = '已选择，点下方“递交”交给老师'; status.dataset.state = ''; }
+    if (status) { status.textContent = AUDIT ? '已选择，点下方“递交”锁定答案（旁听：只在这台设备上）' : '已选择，点下方“递交”交给老师'; status.dataset.state = ''; }
   });
 
   // 页面里的姓名、学号、班级：按课堂登录信息填写并锁定
@@ -1716,7 +1728,7 @@
     } catch (problem) { /* 后台还没有这个函数或网络中断：下次再查 */ }
   }
   let likeTimer = 0;
-  const scheduleLikes = (ms) => { clearTimeout(likeTimer); likeTimer = setTimeout(likeLoop, ms); };
+  const scheduleLikes = (ms) => { if (AUDIT) return; clearTimeout(likeTimer); likeTimer = setTimeout(likeLoop, ms); };   // 旁听不发弹幕，不查点赞
   async function likeLoop() { await checkLikes(); scheduleLikes(sentMine ? 12000 : 45000); }
   // 切回这个页面（手机解锁、从别的应用回来）时马上查一次
   document.addEventListener('visibilitychange', () => { if (!document.hidden && likesPrimed) scheduleLikes(300); });
@@ -1741,12 +1753,22 @@
       dmState.textContent = dmProblem(problem);
     }
   });
-  setupMechDanmaku(true);
-  setupFeedback(true);
-  setupExamExport();
-  setupDebateRooms(true);
-  setupDebateStages(true);
-  setupBizGames(true);
+  if (AUDIT) {
+    // 旁听（2026-11-05）：弹幕接龙、匿名建议（含笑脸投票）、辩论聊天室、辩论台、经营会都不参加，页面里显示说明
+    setupMechDanmaku(false, '旁听同学不能发弹幕，可以看看大家怎么说。');
+    setupFeedback(false, `旁听同学不能提交${FB.what}。`);
+    setupExamExport();
+    setupDebateRooms(false, '旁听同学不参加辩论聊天室，可以看大屏上的辩论。');
+    setupDebateStages(false);
+    setupBizGames(false, '旁听同学不参加经营会，可以看大屏上的经营台。');
+  } else {
+    setupMechDanmaku(true);
+    setupFeedback(true);
+    setupExamExport();
+    setupDebateRooms(true);
+    setupDebateStages(true);
+    setupBizGames(true);
+  }
 
   // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
   // 大家不知道你是谁），然后大家可以在聊天室中发表自己的观点，其它同学可以点赞，每一方被点赞次数最多的三位同学上台辩论……”）：
@@ -1943,7 +1965,7 @@
     const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
     const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
     const STAGE = { chat: '各组在聊天室商量本组主张，等老师确认四位代表', vote1: '第一轮决策：四位代表投票中', show1: '第一轮结果已揭晓，等老师抽突发事件卡',
-      vote2: '突发事件后：代表可以改投（每改一项，经营利润扣分）', done: '已结束，看下面的结算结果' };
+      vote2: '突发事件后：代表可以改投（改投有代价，会扣分）', done: '已结束，看下面的结算结果' };
     sections.forEach((section) => {
       const node = section.querySelector('script[data-biz-public]');
       const pub = node ? JSON.parse(node.textContent) : { roles: [], indicators: [], decisions: [], red: 30 };
@@ -2113,7 +2135,7 @@
         const shown = game.shown;
         const bars = shown && Array.isArray(shown.values) ? `<div class="bzs-bars">${pub.indicators.map((ind, i) => {
           const v = shown.values[i];
-          return `<div class="bzs-bar${v < pub.red ? ' is-low' : ''}"><div class="bzs-bar-head"><b>${esc(ind.name)}</b><small>${esc(ind.roleName)}组</small><em>${v}</em></div>
+          return `<div class="bzs-bar${v < pub.red ? ' is-low' : ''}"><div class="bzs-bar-head"><b>${esc(ind.name)}</b><small>${ind.role ? `${esc(ind.roleName)}组` : '全班共同'}</small><em>${v}</em></div>
             <div class="bzs-track"><span style="width:${Math.max(0, Math.min(100, v))}%"></span><s style="left:${pub.red}%"></s></div></div>`;
         }).join('')}</div>` : '';
         const verdict = shown && shown.round === 2 ? `<p class="bzg-me">${shown.pass ? `经营合格！本方指标最高：${(shown.top || []).map((k) => `${ROLE[k]}组`).join('、')}。四位代表各加 ${BZ.rep} 修为，指标最高的组里发过言的同学各加 ${BZ.top} 修为。` : '经营不合格：有指标跌破了红线，这次不加修为。'}</p>` : '';
@@ -2341,7 +2363,20 @@
   const checkMembership = () => (PREVIEW ? Promise.resolve('ok') : backend.rpc('ck_checkin_today', { p_classroom: Number(identity.classroom) || identity.classroom, p_sid: identity.sid }))
     .then((result) => {
       const status = Array.isArray(result) ? result[0] : result;
+      // 老师把旁听改成“加进点名册”或反过来（2026-11-05）：按后台的身份重新打开本页
+      if ((status === 'audit' && !AUDIT) || (status === 'ok' && AUDIT)) {
+        const flip = { ...identity, audit: status === 'audit' };
+        save(STORE, flip);
+        save(`${STORE}:${config.course}:${unit}`, flip);
+        location.reload();
+        return status;
+      }
       loginNeeded = status === 'login';
+      // 隐藏彩蛋（2026-11-05 用户：“对于一个礼拜登陆3次以上的同学，也自动增加10点修为值”）：后台只在加上修为的这一次多返回 {bonus, days}
+      const extra = Array.isArray(result) ? result[1] : null;
+      if (status === 'ok' && !LOCAL_ONLY && extra && Number(extra.bonus) > 0) {
+        egg(`这周你已经登录 ${Number(extra.days) || 3} 天啦！勤学不辍，修为值提升 ${Number(extra.bonus)} 点（每周一次）^_^`);
+      }
       reloginBox.hidden = !loginNeeded;
       panel.querySelector('[data-cl-mini-dot]').hidden = !loginNeeded;
       if (loginNeeded && panel.classList.contains('is-folded')) panel.querySelector('[data-cl-fold]').click();
@@ -2351,15 +2386,27 @@
   let blockedAt = 0;
   onBlocked = () => { if (Date.now() - blockedAt > 10000) { blockedAt = Date.now(); checkMembership(); } };
   const checkedIn = checkMembership();
+  // 旁听（2026-11-05）：每分钟再核对一次，老师改为“加进点名册”后本页自动切换为正式（正式同学被改为旁听时，下一次递交被后台拒收就会核对、切换）
+  if (AUDIT) setInterval(() => { if (!document.hidden) checkMembership(); }, 60000);
   if (!OFFLINE && joined) checkedIn.then(() => questions.forEach((q) => {
     const entry = locked[q.key];
     if (q.after && entry && entry.v != null && !load(xlFlag(q.key), 0)) q.after(entry.v, true);
   }));
   checkedIn.then(() => scheduleLikes(3000));
+  // 隐藏彩蛋（2026-11-05 用户：“老师也可以进行点赞……学生下次登陆的时候弹出一条信息”）：老师在工作台点赞采纳了自己的匿名建议，
+  // 打开页面时弹出（ck_my_notices 返回新加的修为，问过即记为已通知；本班哪个课堂的建议都算）
+  if (!OFFLINE && !LOCAL_ONLY && joined) checkedIn.then((status) => {
+    if (status !== 'ok') return;
+    backend.rpc('ck_my_notices', { p_classroom: Number(identity.classroom) || identity.classroom }).then((got) => {
+      const row = Array.isArray(got) ? got[0] : got;
+      const points = Number(row && row.adopt) || 0;
+      if (points > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points}点，勇敢的人先享受世界^_^`, true);
+    }).catch(() => {});   // 后台还没有这个函数（未执行 SQL）时安静跳过
+  });
 
   // 在线状态：页面在前台（没有切走、手机没锁屏）时每 45 秒向后台报一次“在线”，老师在工作台加入名单里看到小绿灯；
-  // 后台还没有 ck_ping（未执行 SQL）时安静停止
-  if (!PREVIEW) {
+  // 后台还没有 ck_ping（未执行 SQL）时安静停止；旁听不报在线（工作台小绿灯、猜词抽人只看点名册上的同学）
+  if (!LOCAL_ONLY) {
     let pingOff = false;
     const ping = () => {
       if (pingOff || document.hidden || loginNeeded) return;
@@ -2372,118 +2419,259 @@
     document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
   }
 
-  // 情境猜谜抢答：老师在投屏页出题时开一轮（ck_puzzle_open）；本面板在页面前台时每 15 秒问一次后台有没有正在进行的一轮（ck_puzzle_live），
-  // 有就在面板最上方显示输入框。谜底由后台核对（学生页拿不到谜底），每题最多猜 PUZZLE.tries 次，第一个猜中的自动加修为；
-  // 后台还没有这组函数（未执行 SQL）时安静停止
-  if (!PREVIEW) setupPuzzle();
+  // 情境猜谜抢答（2026-11-05 改为对话框）：用户：“老师点击‘看玩法’或者‘开始第一题’后，学生端立马出现情景猜谜抢答对话框。该对话框在未关闭游戏期间一直存在。
+  // 然后学生端统一延迟10秒才可以抢答，在此期间学生端会有倒计时，要注意所有学生的倒计时都要求是同步的（如果不同步的话瞬间刷新同步），倒计时结束才可以输入答案抢答。
+  // 点‘下一题’后重新开始倒计时，在倒计时的同时也在同步学生端，这样可以缓解有些同学因为网速原因弹不出输入框。”
+  //   · 后台 ck_puzzle_live 在投屏页大屏打开期间一直返回 open（phase：rules 讲玩法 / ask 出题 / reveal 揭晓），出题时带 go_at（可以抢答的时刻）和后台现在的时刻；
+  //   · 本页按“后台时刻－请求往返中点”估计本机与后台的时差，倒计时一律按后台时钟算，所以全班同时到 0；每次读到的时差与原来差 0.25 秒以上就立刻改用新的；
+  //   · 对话框打开时每 2 秒、没打开时每 3 秒问一次后台（页面在前台时）；倒计时没结束输入框不能用，后台 ck_puzzle_guess 也不收（返回 wait 时顺带重新同步）。
+  //   谜底由后台核对（学生页拿不到谜底），每题最多猜 PUZZLE.tries 次，第一个猜中的自动加修为；后台还没有这组函数（未执行 SQL）时安静停止
+  if (!LOCAL_ONLY) setupPuzzle();   // 旁听不参加抢答
   function setupPuzzle() {
-    const sec = panel.querySelector('[data-cl-pz]');
-    const form = sec.querySelector('[data-cl-pz-form]');
+    const P = Live.PUZZLE || { points: 5, tries: 3, delay: 10 };
+    const delay = P.delay || 10;
+    const box = document.createElement('div');
+    box.className = 'clp-pzd';
+    box.hidden = true;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', '情境猜谜抢答');
+    box.innerHTML = `<div class="clp-pzd-head"><b>情境猜谜抢答</b><span data-pzd-label></span></div>
+      <details class="clp-pzd-surface" data-pzd-surface hidden><summary>看汤面</summary><p></p></details>
+      <div class="clp-pzd-count" data-pzd-count hidden><span class="clp-pzd-num" data-pzd-num></span><span data-pzd-count-text></span></div>
+      <form class="clp-pzd-form" data-pzd-form>
+        <input type="text" maxlength="20" aria-label="情境猜谜的谜底" autocomplete="off" enterkeyhint="send">
+        <button type="submit">抢答</button>
+      </form>
+      <p class="clp-pzd-state" data-pzd-state role="status" aria-live="polite"></p>`;
+    document.body.appendChild(box);
+    const form = box.querySelector('[data-pzd-form]');
     const input = form.querySelector('input');
     const button = form.querySelector('button');
-    const stateEl = sec.querySelector('[data-cl-pz-state]');
-    const labelEl = sec.querySelector('[data-cl-pz-label]');
-    const surfaceBox = sec.querySelector('[data-cl-pz-surface]');
-    const P = Live.PUZZLE || { points: 5, tries: 3 };
+    const stateEl = box.querySelector('[data-pzd-state]');
+    const labelEl = box.querySelector('[data-pzd-label]');
+    const surfaceBox = box.querySelector('[data-pzd-surface]');
+    const countEl = box.querySelector('[data-pzd-count]');
+    const numEl = box.querySelector('[data-pzd-num]');
+    const countText = box.querySelector('[data-pzd-count-text]');
     const room = Number(identity.classroom) || identity.classroom;
     const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
-    let round = null;
+    let round = null;        // 后台最近一次返回的状态
     let off = false;
     let busy = false;
+    let offset = null;       // 后台时钟－本机时钟（毫秒）
+    let goAt = null;         // 本题可以抢答的时刻（后台时钟）
+    let shownNum = null;
+    let tick = 0;
+    let poll = 0;
+    let stamp = '';          // 换题、换阶段时清空输入框
+    let noLogin = false;     // 这台设备没登录本课堂（后台返回 login）：放慢询问
+    let holdUntil = 0;       // 刚抢答过：几秒内不让定时刷新盖掉“不对，再想想”之类的提示
     const say = (text, state) => { stateEl.textContent = text; stateEl.dataset.state = state || ''; };
-    function apply(data) {
-      if (!data || data.status !== 'open') {
-        round = null;
-        sec.hidden = true;
+    const serverNow = () => Date.now() + (offset || 0);
+    const leftMs = () => (goAt ? goAt - serverNow() : 0);
+    // 按一次请求的往返估计时差；和原来差 0.25 秒以上就立刻改用新的（“不同步就瞬间刷新同步”），小的网络抖动不让数字来回跳
+    function measure(t0, t1, now) {
+      const value = Number(now);
+      if (!value) return;
+      const estimate = value - (t0 + t1) / 2;
+      if (offset === null || Math.abs(estimate - offset) > 250) offset = estimate;
+    }
+    const triesOf = () => (round && round.tries) || P.tries;
+    const usedOf = () => (round && Number(round.used)) || 0;
+    const finished = () => Boolean(round && (round.mine === 'won' || round.mine === 'right' || usedOf() >= triesOf()));
+    function resultLine() {
+      if (round.mine === 'won') return [`恭喜！你第一个猜中，修为 +${round.points || P.points}（老师结算修为时计入）。`, 'ok'];
+      if (round.mine === 'right') return ['你猜对了！不过已经有同学抢先一步。', 'ok'];
+      return null;
+    }
+    // 画对话框：讲玩法 → 出题倒计时 → 可以抢答 → 揭晓（等下一题）
+    function paint() {
+      if (!round) { box.hidden = true; return; }
+      box.hidden = false;
+      const phase = round.phase || 'ask';
+      const label = round.label || '';
+      surfaceBox.hidden = !(phase !== 'rules' && round.surface);
+      surfaceBox.querySelector('p').textContent = round.surface || '';
+      if (phase === 'rules') {
+        labelEl.textContent = '等待出题';
+        countEl.hidden = true;
+        input.disabled = true;
+        button.disabled = true;
+        input.placeholder = `出题后统一倒计时 ${delay} 秒`;
+        say(`老师正在讲玩法。出题后全班统一倒计时 ${delay} 秒，倒计时结束才能输入谜底抢答；每题最多猜 ${P.tries} 次，第一个猜中的加 ${P.points} 修为。`);
         return;
       }
-      const fresh = !round || String(round.round) !== String(data.round);
-      round = data;
-      sec.hidden = false;
-      labelEl.textContent = `${data.label || '这一题'}进行中`;
-      surfaceBox.hidden = !data.surface;
-      surfaceBox.querySelector('p').textContent = data.surface || '';
-      if (fresh) {
-        input.value = '';
-        sec.classList.remove('is-won');
-        // 新的一轮：面板收起时展开一次，方便马上抢答
-        if (panel.classList.contains('is-folded')) panel.querySelector('[data-cl-fold]').click();
+      if (phase === 'reveal') {
+        labelEl.textContent = label ? `${label} · 已揭晓` : '已揭晓';
+        countEl.hidden = true;
+        input.disabled = true;
+        button.disabled = true;
+        input.placeholder = '等老师出下一题';
+        const line = resultLine();
+        if (line) say(line[0] + '　等老师出下一题。', line[1]);
+        else say('谜底已经揭晓，看大屏上的汤底；老师出下一题时这里会重新倒计时。');
+        return;
       }
-      const tries = data.tries || P.tries;
-      const used = Number(data.used) || 0;
-      const done = data.mine === 'won' || data.mine === 'right' || used >= tries;
-      input.disabled = done;
-      button.disabled = done;
-      if (data.mine === 'won') say(`恭喜！你第一个猜中，修为 +${data.points || P.points}（老师结算修为时计入）。`, 'ok');
-      else if (data.mine === 'right') say('你猜对了！不过已经有同学抢先一步，等老师揭晓汤底吧。', 'ok');
-      else if (used >= tries) say(`${tries} 次机会已经用完，等老师揭晓谜底吧。`, '');
-      else say(`${data.won ? '已经有同学猜中了，你也可以试试' : `第一个猜中的同学加 ${data.points || P.points} 修为`}；每题最多猜 ${tries} 次${used ? `，还剩 ${tries - used} 次` : ''}。`, '');
+      labelEl.textContent = label || '这一题';
+      const left = leftMs();
+      if (left > 0) {
+        const n = Math.ceil(left / 1000);
+        countEl.hidden = false;
+        countEl.classList.remove('is-go');
+        if (n !== shownNum) {
+          shownNum = n;
+          numEl.textContent = String(n);
+          countEl.classList.remove('is-tick');
+          void countEl.offsetWidth;
+          countEl.classList.add('is-tick');
+        }
+        countText.textContent = '秒后开始抢答（全班同步倒计时）';
+        input.disabled = true;
+        button.disabled = true;
+        input.placeholder = '倒计时结束后输入谜底';
+        say('先看大屏上的汤面想一想，倒计时结束才能输入。');
+        return;
+      }
+      // 倒计时结束（或没有倒计时的旧版出题）：可以抢答
+      if (shownNum !== 0) {
+        const wasCounting = shownNum !== null;
+        shownNum = 0;
+        if (goAt && wasCounting) {
+          countEl.hidden = false;
+          countEl.classList.add('is-go');
+          numEl.textContent = '抢!';
+          countText.textContent = '抢答开始！';
+          setTimeout(() => { if (shownNum === 0) countEl.hidden = true; }, 1600);
+          if (!finished()) setTimeout(() => { if (!input.disabled && document.activeElement !== input) input.focus(); }, 30);
+        } else {
+          countEl.hidden = true;
+        }
+      }
+      const done = finished();
+      input.disabled = done || busy;
+      button.disabled = done || busy;
+      input.placeholder = '输入谜底（一个概念）';
+      if (Date.now() < holdUntil) return;
+      const line = resultLine();
+      if (line) say(line[0] + '　等老师揭晓汤底吧。', line[1]);
+      else if (usedOf() >= triesOf()) say(`${triesOf()} 次机会已经用完，等老师揭晓谜底吧。`);
+      else if (!busy) say(`${round.won ? '已经有同学猜中了，你也可以试试' : `第一个猜中的同学加 ${round.points || P.points} 修为`}；每题最多猜 ${triesOf()} 次${usedOf() ? `，还剩 ${triesOf() - usedOf()} 次` : ''}。`);
+    }
+    function startTick() {
+      clearInterval(tick);
+      tick = 0;
+      if (leftMs() > 0) {
+        tick = setInterval(() => { paint(); if (leftMs() <= 0) { clearInterval(tick); tick = 0; paint(); } }, 100);
+      }
+    }
+    function apply(data, t0, t1) {
+      if (data) measure(t0, t1, data.now);
+      if (!data || data.status !== 'open') {
+        round = null;
+        goAt = null;
+        stamp = '';
+        clearInterval(tick);
+        tick = 0;
+        box.hidden = true;
+        return;
+      }
+      const key = `${data.phase || 'ask'}:${data.round || ''}:${data.go_at || ''}`;
+      if (key !== stamp) {
+        stamp = key;
+        input.value = '';
+        box.classList.remove('is-won');
+        shownNum = null;
+      }
+      round = data;
+      goAt = Number(data.go_at) || null;
+      paint();
+      startTick();
+    }
+    function schedule() {
+      clearTimeout(poll);
+      // 对话框开着（游戏进行中）每 2 秒、没开时每 3 秒；这台设备没登录本课堂时放慢到 30 秒
+      poll = setTimeout(check, round ? 2000 : (noLogin || loginNeeded) ? 30000 : 3000);
     }
     async function check() {
-      if (off || document.hidden || loginNeeded) return;
+      clearTimeout(poll);
+      if (off) return;
+      if (document.hidden || loginNeeded) { schedule(); return; }
+      const t0 = Date.now();
       try {
         const result = await backend.rpc('ck_puzzle_live', { p_classroom: room });
-        apply(Array.isArray(result) ? result[0] : result);
+        const data = Array.isArray(result) ? result[0] : result;
+        noLogin = Boolean(data && data.status === 'login');
+        apply(noLogin ? null : data, t0, Date.now());
       } catch (problem) {
-        if (missing(problem)) { off = true; sec.hidden = true; }
+        if (missing(problem)) { off = true; box.hidden = true; return; }
       }
+      schedule();
     }
     form.addEventListener('submit', async (event) => {
       event.preventDefault();
       const text = input.value.trim();
-      if (!round || busy) return;
+      if (!round || busy || (round.phase || 'ask') !== 'ask') return;
+      if (leftMs() > 0) { say('还没到抢答时间，倒计时结束再抢答。', 'bad'); return; }
       if (!text) { say('先输入谜底再抢答。', 'bad'); input.focus(); return; }
       busy = true;
       button.disabled = true;
-      say('正在核对……', '');
+      say('正在核对……');
+      const t0 = Date.now();
       try {
         const result = await backend.rpc('ck_puzzle_guess', { p_classroom: room, p_round: Number(round.round) || round.round, p_text: text });
         const data = Array.isArray(result) ? result[0] : result;
         const status = data && data.status;
-        if (status === 'won') {
-          round.mine = 'won';
-          sec.classList.add('is-won');
-          say(`恭喜！你第一个猜中，修为 +${data.points || P.points}（老师结算修为时计入）。`, 'ok');
-        } else if (status === 'right') {
-          round.mine = 'right';
-          say('你猜对了！不过已经有同学抢先一步，等老师揭晓汤底吧。', 'ok');
+        busy = false;
+        holdUntil = Date.now() + 6000;
+        if (status === 'won' || status === 'right') {
+          round.mine = status;
+          if (status === 'won') box.classList.add('is-won');
+          paint();
+          const line = resultLine();
+          say(line[0] + '　等老师揭晓汤底吧。', line[1]);
         } else if (status === 'wrong') {
           round.used = data.used;
+          paint();
           const left = (data.tries || P.tries) - (Number(data.used) || 0);
           say(left > 0 ? `“${text}”不对，再想想，还能猜 ${left} 次。` : `“${text}”不对，${data.tries || P.tries} 次机会已经用完，等老师揭晓谜底吧。`, 'bad');
-          input.select();
+          if (left > 0) input.select();
         } else if (status === 'used') {
           round.used = data.used;
-          say(`${data.tries || P.tries} 次机会已经用完，等老师揭晓谜底吧。`, '');
+          paint();
+        } else if (status === 'wait') {
+          // 本机倒计时比后台快：按后台重新同步
+          measure(t0, Date.now(), data.now);
+          goAt = Number(data.go_at) || goAt;
+          shownNum = null;
+          paint();
+          startTick();
+          say('还没到抢答时间，已按老师的时钟重新同步倒计时。', 'bad');
         } else if (status === 'closed') {
-          say('这一题已经结束了。', '');
-          setTimeout(check, 1500);
+          paint();
+          say('这一题已经结束了。');
+          setTimeout(check, 800);
         } else if (status === 'login') {
           say('这台设备还没有通过本堂课的登录核对：请回首页用课堂码重新登录。', 'bad');
           onBlocked();
         } else {
+          paint();
           say('先输入谜底再抢答。', 'bad');
         }
-        const tries = (data && data.tries) || P.tries;
-        const over = round.mine === 'won' || round.mine === 'right' || (Number(round.used) || 0) >= tries || status === 'closed';
-        input.disabled = over;
-        button.disabled = over;
       } catch (problem) {
-        say(missing(problem) ? '情境猜谜抢答还没有开通（老师后台尚未更新）。' : '没有交上去：请检查网络后再点“抢答”。', 'bad');
-        button.disabled = false;
-      } finally {
         busy = false;
+        holdUntil = Date.now() + 6000;
+        paint();
+        say(missing(problem) ? '情境猜谜抢答还没有开通（老师后台尚未更新）。' : '没有交上去：请检查网络后再点“抢答”。', 'bad');
       }
     });
     checkedIn.then(check);
-    setInterval(check, 15000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
   }
 
   // 投票器（2026-10-29 用户：“课堂工具可以再增加一个投票器的功能……点击投票器后学生端会弹出投票选项可以让学生选择”）：
   // 页面在前台时每 4 秒问一次本课堂有没有正在进行的投票（ck_poll_live），有就在屏幕中间弹出选项；投票结束前可以改。
   // 老师结束并公布结果后显示各项人数（3 分钟内）。点“×”收起，有新的投票或投票结束时再弹出。学生版测试页只在本机点选，不计入。
-  if (!OFFLINE) setupPoll();
+  if (!OFFLINE && !AUDIT) setupPoll();   // 旁听不参加课堂投票
   function setupPoll() {
     const P = Live.POLL || { check: 4000 };
     const room = Number(identity.classroom) || identity.classroom;
@@ -2567,7 +2755,7 @@
     card.className = 'clp-subm';
     card.setAttribute('data-ix', '');
     card.innerHTML = `<div class="clp-sub-head"><span class="clp-sub-tag">本堂作业递交情况</span><span class="clp-sub-who"></span><button type="button" data-sub-refresh>刷新</button></div>
-      <div class="clp-sub-big"><b data-sub-count>—</b><span>题已递交（${PREVIEW ? '测试页：按这台电脑上的测试递交统计' : '以老师后台收到的为准'}）</span></div>
+      <div class="clp-sub-big"><b data-sub-count>—</b><span>题已递交（${PREVIEW ? '测试页：按这台电脑上的测试递交统计' : AUDIT ? '旁听：按这台设备上锁定的答案统计，不交给老师' : '以老师后台收到的为准'}）</span></div>
       <div class="clp-sub-bar"><i data-sub-bar></i></div>
       <p class="clp-sub-state" data-sub-state role="status">正在读取后台的递交记录……</p>
       <details data-sub-missing hidden><summary></summary><ol></ol></details>
@@ -2599,7 +2787,7 @@
       busy = true;
       try {
         // 测试页的递交只在本机：按本机记下的测试递交统计
-        const result = PREVIEW ? { status: 'ok', items: questions.filter((q) => locked[q.key]).map((q) => ({ key: q.key, ts: Date.parse(locked[q.key].iso || '') || 0 })) }
+        const result = LOCAL_ONLY ? { status: 'ok', items: questions.filter((q) => locked[q.key]).map((q) => ({ key: q.key, ts: Date.parse(locked[q.key].iso || '') || 0 })) }
           : await backend.rpc('ck_my_submissions', { p_classroom: Number(identity.classroom) || identity.classroom });
         const data = Array.isArray(result) ? result[0] : result;
         if (!data || data.status === 'login') {
@@ -2637,6 +2825,7 @@
         });
         card.querySelector('[data-sub-note]').textContent = `核对时间 ${new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date())}。`
           + (PREVIEW ? '学生页读的是老师后台收到的记录，和老师工作台“加入名单”里的“递交情况”一致。'
+            : AUDIT ? '旁听的答案只保存在这台设备上，不交给老师、不计入统计。'
             : '和老师工作台“加入名单”里的“递交情况”一致；如果这里和左下角面板的数字不一样，以这里为准，有疑问可以截图给老师。');
         lastAt = Date.now();
       } catch (problem) {
@@ -2667,7 +2856,7 @@
     noEl.hidden = !no;
   };
   showNo(load(noKey, null));
-  checkedIn.then(() => (PREVIEW ? null : backend.rpc('ck_my_roster_no', { p_classroom: Number(identity.classroom) || identity.classroom })))
+  checkedIn.then(() => (LOCAL_ONLY ? null : backend.rpc('ck_my_roster_no', { p_classroom: Number(identity.classroom) || identity.classroom })))
     .then((value) => {
       const raw = Array.isArray(value) ? value[0] : value;
       const no = Number(raw && typeof raw === 'object' ? Object.values(raw)[0] : raw) || null;
@@ -2694,7 +2883,7 @@
   const chip = (level, text) => `<b class="clp-realm is-r${level}">${esc(text || REALMS[level].name)}</b>`;
   // 境界阶梯图：越往上台阶越高、材质越华贵；台阶上写解锁的法宝和弹幕特权，“你”标出本人所在境界
   // 每境解锁的弹幕字色（与 live-core.js 的 ClassLive.COLORS 同名）和边框
-  const PERKS = { 0: ['霜白、月银'], 1: ['加青冥、翠竹'], 2: ['加金曦、大红', '修为榜可隐名'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流金、七彩', '七彩边框'] };
+  const PERKS = { 0: ['霜白、月银'], 1: ['加青冥、翠竹', '可入宗门'], 2: ['加金曦、大红', '修为榜可隐名'], 3: ['加樱粉、紫霄', '紫色辉边'], 4: ['加流金、七彩', '七彩边框'] };
   const ladderHtml = (mine) => `<div class="clp-ladder" role="img" aria-label="${esc(REALMS.map((realm) => {
     const gift = GIFTS.find((item) => item.level === realm.level);
     return `${realm.name}（${realm.look}，${realm.min ? `${Math.round(realm.min * 100)}%` : '起步'}${gift ? `，解锁${gift.name}` : ''}${(PERKS[realm.level] || []).map((perk) => `，${perk}`).join('')}）`;
@@ -2734,11 +2923,11 @@
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
-        ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 08）：四项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
+        ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 06、08、09、19）：各项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>辩论赛：本方聊天室里点赞最多的三位同学上台辩论，全班投票获胜的一方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。</li>` : ''}
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
-        <li>情境猜谜抢答：老师出题后，在面板最上方“情境猜谜抢答”里输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
+        <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
       <h4>境界与奖励</h4>
@@ -2771,8 +2960,8 @@
   const avatarText = (row) => (row.hidden ? '＊' : initial(row.name));
   let rankCanHide = false;
   const nameHtml = (row, cls) => (row.me && !PREVIEW && (rankCanHide || row.hidden)
-    ? `<button type="button" class="${cls} clp-rank-hide" data-rank-hide title="${row.hidden ? '点一下恢复显示你的姓名' : '点一下在榜上隐匿你的姓名（显示为 ***）'}">${esc(shownName(row))}${youTag(row)}</button>`
-    : `<strong class="${cls}">${esc(shownName(row))}${youTag(row)}</strong>`);
+    ? `<button type="button" class="${cls} clp-rank-hide" data-rank-hide title="${row.hidden ? '点一下恢复显示你的姓名' : '点一下在榜上隐匿你的姓名（显示为 ***）'}">${esc(shownName(row))}${youTag(row)}${sectDot(row.sect)}</button>`
+    : `<strong class="${cls}">${esc(shownName(row))}${youTag(row)}${sectDot(row.sect)}</strong>`);
   const rankShell = (inner) => `<div class="clp-rank-card" role="dialog" aria-modal="true" aria-label="修为榜">
       <i class="clp-rank-stars" aria-hidden="true"></i><i class="clp-rank-stars is-b" aria-hidden="true"></i>
       <header class="clp-rank-head"><div><span>${esc(identity.class_name || '本班')} · 修为前十名</span><h3>修为榜</h3></div><button type="button" data-rank-close aria-label="关闭">×</button></header>
@@ -2853,6 +3042,174 @@
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !rankModal.hidden) rankModal.hidden = true; });
   panel.querySelectorAll('[data-cl-rank-open]').forEach((button) => button.addEventListener('click', openRank));
+
+  // ---------- 宗门（2026-11-05 用户：“设置四个不同的宗门……达到筑基期的同学可以让他们选择加入不同的宗门，也可以选择做散修，然后宗门也有分数和排名，
+  //   加总宗门弟子的修为值就是宗门的分值，也会有排名。宗门是打通每门课程不同年份的……一年一年一直传承下去，允许新同学的加入。”）：
+  //   面板“宗门”按钮打开宗门榜（ck_sect_board：四宗总修为＝本课程历届弟子修为之和，历届／本班弟子人数）；达到「筑基」（按老师最近一次结算）后
+  //   可以拜入一个宗门或暂做散修（ck_sect_join）：拜入后可以改投他宗一次（2026-11-05 用户：“学生只有一次更改宗门的机会”），不能退为散修；
+  //   散修以后仍可拜入（不算改投）；老师可在工作台解除。第一次达到筑基时自动弹出一次。
+  //   拜入后面板按钮显示宗门名和宗门色，修为榜上名字旁有宗门标记。测试页用示意数据，不会真的拜入；旁听没有宗门 ----------
+  const SECTS = Live.SECTS || [];
+  const SECT_MIN = Live.SECT_MIN_REALM || 1;
+  const sectOf = (key) => SECTS.find((item) => item.key === key) || null;
+  const rgba = (hex, alpha) => { const n = parseInt(String(hex).slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`; };
+  const sectVars = (sect) => `--sc:${sect.color};--sg:${rgba(sect.glow, 0.75)};--sa:${rgba(sect.color, 0.42)}`;
+  function sectDot(key) {
+    const sect = sectOf(key);
+    return sect ? `<span class="clp-sect-dot" style="${sectVars(sect)}" title="${esc(sect.name)}弟子" aria-label="${esc(sect.name)}弟子">${esc(sect.mark)}</span>` : '';
+  }
+  const sectButton = panel.querySelector('[data-cl-sect-open]');
+  const sectModal = document.createElement('div');
+  sectModal.className = 'clp-realm-modal clp-rank-modal';
+  sectModal.hidden = true;
+  document.body.appendChild(sectModal);
+  const sectAskKey = `classlive-sect-asked:${config.course}:${identity.class_name || ''}:${identity.sid || ''}`;
+  let sectCache = null;     // { at, data }：30 秒内重复打开不再读后台
+  let sectPending = '';     // 正在确认拜入的宗门
+  let sectWelcome = false;  // 第一次达到筑基时自动弹出：顶部加一句恭喜
+  let sectBusy = false;
+  function showSectButton(mine) {
+    if (!sectButton) return;
+    const sect = sectOf(mine && mine.sect);
+    sectButton.classList.toggle('is-sanxiu', Boolean(mine && mine.sect === 'sanxiu'));
+    sectButton.style.cssText = sect ? sectVars(sect) : '';
+    sectButton.innerHTML = sect ? `<span aria-hidden="true">${esc(sect.mark)}</span>${esc(sect.name)}`
+      : mine && mine.sect === 'sanxiu' ? '<span aria-hidden="true">散</span>散修' : '<span aria-hidden="true">宗</span>宗门';
+    sectButton.title = sect ? `你是${sect.name}弟子：点开看宗门榜` : mine && mine.sect === 'sanxiu' ? '你现在是散修，随时可以拜入宗门' : '宗门榜：达到「筑基」后可以拜入宗门';
+  }
+  async function loadSect() {
+    if (PREVIEW) {
+      const data = { status: 'ok', sects: SECTS.map((sect) => ({ key: sect.key, points: 0, members: 0, class_members: 0, class_points: 0 })), sanxiu: 0, class_sanxiu: 0, classes: 0,
+        mine: { sect: null, realm: Number(myRealm && myRealm.realm) || 0, points: null, can_join: true } };
+      sectCache = { at: Date.now(), data };
+      return data;
+    }
+    const value = await backend.rpc('ck_sect_board', { p_classroom: Number(identity.classroom) || identity.classroom });
+    const data = Array.isArray(value) ? value[0] : value;
+    if (data && data.status === 'ok') { sectCache = { at: Date.now(), data }; showSectButton(data.mine); }
+    return data;
+  }
+  const sectShell = (inner) => `<div class="clp-rank-card" role="dialog" aria-modal="true" aria-label="宗门榜">
+      <i class="clp-rank-stars" aria-hidden="true"></i><i class="clp-rank-stars is-b" aria-hidden="true"></i>
+      <header class="clp-rank-head"><div><span>${esc({ 'xjp-economy': '习近平经济思想概论', 'political-economy': '政治经济学' }[config.course] || '本课程')} · 历届弟子修为合计</span><h3>宗门榜</h3></div><button type="button" data-sect-close aria-label="关闭">×</button></header>
+      ${inner}</div>`;
+  const bigNum = (value) => { const n = Number(value) || 0; return n.toLocaleString('zh-CN', { maximumFractionDigits: 1 }); };
+  function sectBody(data) {
+    if (!data || data.status === 'login') return '<p class="clp-rank-state">这台设备还没有通过本堂课的登录核对，看不到宗门榜：请回首页用课堂码重新登录。</p>';
+    const list = SECTS.map((sect) => ({ ...sect, ...((data.sects || []).find((row) => row.key === sect.key) || {}) }))
+      .sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0));
+    list.forEach((row) => { row.rank = 1 + list.filter((other) => (Number(other.points) || 0) > (Number(row.points) || 0)).length; });
+    const mine = data.mine || {};
+    const choosing = Boolean(mine.can_join) && (!mine.sect || mine.sect === 'sanxiu');
+    const switching = Boolean(mine.can_change) && !choosing;   // 已在宗门、还有一次改投机会
+    const from = sectOf(mine.sect);
+    const rows = list.map((row, i) => {
+      const isMine = mine.sect === row.key;
+      const ask = choosing ? `拜入以后还有一次改投他宗的机会（只有一次）。确定拜入「${esc(row.name)}」吗？`
+        : `改投机会只有一次：改投以后不能再换，也不能退为散修。确定从「${esc(from ? from.name : '')}」改投「${esc(row.name)}」吗？`;
+      const act = !(choosing || (switching && !isMine)) ? ''
+        : sectPending === row.key
+          ? `<div class="clp-sect-act"><p>${ask}</p><button type="button" data-sect-cancel>再想想</button><button type="button" class="is-go" data-sect-confirm="${row.key}"${sectBusy ? ' disabled' : ''}>${choosing ? '确定拜入' : '确定改投'}</button></div>`
+          : choosing ? `<div class="clp-sect-act"><button type="button" class="is-go" data-sect-pick="${row.key}">拜入${esc(row.name)}</button></div>`
+            : `<div class="clp-sect-act"><button type="button" data-sect-pick="${row.key}">改投${esc(row.name)}</button></div>`;
+      return `<li class="clp-sect-row${isMine ? ' is-mine' : ''}" style="${sectVars(row)};--i:${i}">
+        <span class="clp-rank-no">${row.rank}</span><span class="clp-sect-emb" aria-hidden="true">${esc(row.mark)}</span>
+        <span class="clp-sect-main"><strong>${esc(row.name)}${isMine ? '<small>本门</small>' : ''}</strong>
+          <span class="clp-sect-motto">“${esc(row.motto)}”——${esc(row.source)}</span><span class="clp-sect-way">宗风：${esc(row.way)}</span>
+          <span class="clp-sect-meta">历届弟子 ${Number(row.members) || 0} 人 · 本班 ${Number(row.class_members) || 0} 人</span></span>
+        <span class="clp-sect-pts">${bigNum(row.points)}<small>宗门分</small></span>${act}</li>`;
+    }).join('');
+    const sect = sectOf(mine.sect);
+    const mineHtml = PREVIEW ? '<p class="clp-rank-mine">测试页：示意数据，点“拜入”不会真的拜入宗门。</p>'
+      : sect ? `<p class="clp-rank-mine">你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</p>`
+      : mine.sect === 'sanxiu' && mine.can_join ? '<p class="clp-rank-mine">你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。</p>'
+      : mine.can_join ? `<div class="clp-rank-mine clp-sect-mine"><span>你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（散修以后仍可拜入宗门）。</span><button type="button" data-sect-sanxiu${sectBusy ? ' disabled' : ''}>暂做散修</button></div>`
+      : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
+    return `${sectWelcome && choosing && !mine.sect ? `<p class="clp-sect-welcome">恭喜筑基！从现在起你可以拜入四大宗门之一，与历届同门一起为宗门争光；也可以暂做散修，想清楚再拜入。</p>` : ''}
+      <p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
+      <ol class="clp-sect-list">${rows}</ol>${mineHtml}
+      <p class="clp-rank-note">宗门分＝本课程历届弟子的修为之和（按老师最近一次结算），分高者排名在前。弟子结课以后修为仍留在宗门里，一届一届传承下去，新同学随时可以加入；散修不计入任何宗门。拜入宗门以后有一次改投他宗的机会，改投时修为随你转到新宗门。</p>`;
+  }
+  async function openSect(welcome) {
+    sectWelcome = Boolean(welcome);
+    sectPending = '';
+    sectModal.innerHTML = sectShell('<p class="clp-rank-state">正在读取宗门榜……</p>');
+    sectModal.hidden = false;
+    sectModal.querySelector('[data-sect-close]').focus();
+    try {
+      const data = sectCache && Date.now() - sectCache.at < 30000 ? sectCache.data : await loadSect();
+      if (sectModal.hidden) return;
+      sectModal.innerHTML = sectShell(sectBody(data));
+    } catch (problem) {
+      if (sectModal.hidden) return;
+      const missing = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+      sectModal.innerHTML = sectShell(`<p class="clp-rank-state">${missing ? '宗门还没有开通（老师后台尚未更新）。' : '读取宗门榜失败：请检查网络后再打开一次。'}</p>`);
+    }
+    const close = sectModal.querySelector('[data-sect-close]');
+    if (close) close.focus({ preventScroll: true });
+  }
+  const redrawSect = () => { if (sectCache && !sectModal.hidden) sectModal.innerHTML = sectShell(sectBody(sectCache.data)); };
+  async function joinSect(key) {
+    if (PREVIEW) { toast('测试页：不会真的拜入宗门（学生页会记下你的选择）。'); sectPending = ''; redrawSect(); return; }
+    sectBusy = true;
+    redrawSect();
+    try {
+      const value = await backend.rpc('ck_sect_join', { p_classroom: Number(identity.classroom) || identity.classroom, p_sect: key });
+      const res = (Array.isArray(value) ? value[0] : value) || {};
+      const sect = sectOf(res.sect || key);
+      if (res.status === 'ok') toast(key === 'sanxiu' ? '你选择了暂做散修，以后随时可以拜入宗门。'
+        : Number(res.changes) >= 1 ? `已改投「${sect.name}」！你的修为随你转入本门；改投机会已经用完。`
+          : `恭喜拜入「${sect.name}」！从此你的修为计入本门，与历届同门一起为宗门争光。`);
+      else if (res.status === 'locked' || res.status === 'already') toast(`你是「${sect ? sect.name : ''}」弟子：改投机会只有一次${Number(res.changes) >= 1 ? '，已经用过了' : ''}，也不能退为散修。`);
+      else if (res.status === 'realm') toast(`达到「${REALMS[SECT_MIN].name}」境界后才能拜入宗门（按老师最近一次结算的境界）。`);
+      else toast('请回首页用课堂码重新登录后再试。');
+      sectCache = null;
+      rankCache = null;
+      sectBusy = false;
+      sectPending = '';
+      const data = await loadSect();
+      if (!sectModal.hidden) sectModal.innerHTML = sectShell(sectBody(data));
+    } catch (problem) {
+      console.error(problem);
+      toast('没有拜入成功，请检查网络后再试。');
+    } finally {
+      sectBusy = false;
+      redrawSect();
+    }
+  }
+  sectModal.addEventListener('click', (event) => {
+    if (event.target === sectModal || event.target.closest('[data-sect-close]')) { sectModal.hidden = true; return; }
+    const pick = event.target.closest('[data-sect-pick]');
+    if (pick) { sectPending = pick.dataset.sectPick; redrawSect(); return; }
+    if (event.target.closest('[data-sect-cancel]')) { sectPending = ''; redrawSect(); return; }
+    const go = event.target.closest('[data-sect-confirm]');
+    if (go && !sectBusy) { joinSect(go.dataset.sectConfirm); return; }
+    if (event.target.closest('[data-sect-sanxiu]') && !sectBusy) joinSect('sanxiu');
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !sectModal.hidden) sectModal.hidden = true; });
+  if (sectButton) sectButton.addEventListener('click', () => openSect(false));
+  // 打开页面（和每分钟刷新境界）时：已达筑基的同学读一次宗门榜，按钮显示所属宗门；还没选过的，第一次自动弹出宗门榜（等更新说明等弹窗关掉以后）
+  let sectLoaded = false;
+  async function sectInit() {
+    if (sectLoaded || LOCAL_ONLY || OFFLINE || !joined || !sectButton) return;
+    if (!myRealm || (Number(myRealm.realm) || 0) < SECT_MIN) return;
+    sectLoaded = true;
+    try {
+      const data = await loadSect();
+      const mine = data && data.mine;
+      if (!mine || !mine.can_join || mine.sect || load(sectAskKey, 0)) return;
+      let waited = 0;
+      const tryOpen = () => {
+        const busy = !newsModal.hidden || !realmModal.hidden || !rankModal.hidden || !sectModal.hidden || document.querySelector('.clp-egg');
+        if (busy && (waited += 1) < 120) { setTimeout(tryOpen, 1500); return; }
+        save(sectAskKey, 1);
+        if (sectModal.hidden) openSect(true);
+      };
+      setTimeout(tryOpen, 2500);
+    } catch (problem) {
+      sectLoaded = false;   // 后台还没有宗门（未执行 SQL）或网络问题：下次刷新境界时再试
+    }
+  }
   // 修炼场（live-practice.js）：两门课各自一个，平时做题攒修为
   panel.querySelectorAll('[data-cl-practice-open]').forEach((button) => button.addEventListener('click', () => {
     if (window.ClassLivePractice) window.ClassLivePractice.open({ backend, identity, config });
@@ -2864,17 +3221,21 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261030-transfer' : '20261104-biz-xjp';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = config.course === 'political-economy' ? '10 月 9 日—10 月 30 日' : '10 月 9 日—11 月 4 日';
+  const NEWS_ID = config.course === 'political-economy' ? '20261105-sect' : '20261105-sect-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_RANGE = '10 月 9 日—11 月 5 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: config.course === 'political-economy' ? '最新（10 月 28—30 日）' : '最新（10 月 28 日—11 月 4 日）', items: [
+      { title: '最新（10 月 28 日—11 月 5 日）', items: [
+        ['宗门', `达到「筑基」境界后，可以点面板学号一行右边的“宗门”拜入四大宗门之一：${(Live.SECTS || []).map((sect) => sect.name).join('、')}，也可以暂做散修（散修以后仍可拜入宗门）。拜入以后有一次改投他宗的机会，只有一次，也不能退为散修。宗门分是本课程历届弟子的修为之和，宗门榜按宗门分排名；弟子结课以后修为仍留在宗门里，一届一届传承下去。拜入后修为榜上你的名字旁会显示宗门标记。`],
+        ['情境猜谜抢答', `老师点“看玩法”或出题后，页面上方会弹出“情境猜谜抢答”对话框，大屏关掉前一直都在；每次出题（包括“下一题”）全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，大家的倒计时按老师的时钟同步，倒计时结束才能输入谜底抢答，网速慢的同学也来得及。`],
+        ['法宝', '祭出法宝时，除了投屏，你自己的页面上也会出现法宝的画面。'],
+        ['展开解答', '「筑基」以上展开解答时，单选题会逐项说明每个错误选项错在哪里；选择题的选项也改得更有迷惑性，正确答案不再总是最长的那一项。'],
         ...(config.course === 'xjp-economy' ? [
-          ['经营沙盘', `案例 08（第十章）第二课时的圆桌会议改为“经营沙盘”：全班为一家虚拟车企“远航汽车”开经营会。先选一个角色组（整车企业、零部件供应商、购车消费者、产业主管部门）并递交，看本组的私密信息；再取昵称进本组聊天室商量、给好建议点赞，点赞最多的建议作者当本组代表；四位代表为定价、供应链、资金投向三项决策投票，中途还有一张突发事件卡。四项指标都守住红线就算经营合格：四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。`],
+          ['经营沙盘', `案例 06（第九章）、08（第十章）、09（第十章）、19（第六章）第二课时的圆桌会议改为“经营沙盘”：全班为一家虚拟的企业、银行或城市片区开会做决策。先选一个角色组并递交，看本组的私密信息；再取昵称进本组聊天室商量、给好建议点赞，点赞最多的建议作者当本组代表；四位代表为三项决策投票，中途还有一张突发事件卡。各项指标都守住红线就算经营合格：四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。`],
         ] : []),
         ['修为榜隐名', '达到「结丹」境界后，可以在修为榜上隐匿自己的姓名：打开修为榜，点一下自己的名字（或下面的“隐匿我的姓名”），同学们看到的就是“***”，修为和名次照常显示；再点一下恢复。老师那里照常显示姓名。'],
         ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
@@ -2903,12 +3264,12 @@
         ] : []),
         ...(config.course === 'xjp-economy' ? [
           ['一章两个案例', '第三、四章这样有两个案例的章，老师可以一次只上一个案例：这次课的页面只显示这个案例，下次课再上另一个。'],
-          ['情境猜谜', '第二章第二课时在猜词游戏之后加了“情境猜谜 · 抢答”：看大屏上的小情境，在面板最上方的“情境猜谜抢答”里输入谜底，第一个猜中的加修为。'],
+          ['情境猜谜', '第二章第二课时在猜词游戏之后加了“情境猜谜 · 抢答”：看大屏上的小情境，在“情境猜谜抢答”里输入谜底，第一个猜中的加修为（11 月 5 日起改为页面上方弹出的对话框）。'],
           ['递交情况', '“本堂作业递交情况”移到“本章知识点小结”的前面，做完本堂课的题就能看到还有哪些没交。'],
         ] : []),
         ...(config.course === 'xjp-economy' ? [['PK 对决', '部分案例第二课时的圆桌会议换成了 PK 对决：老师抽两位同学上台一对一，比擂台抢答、时间轴排排站、因果链拼图或数据猜猜猜，获胜的同学加修为；台下同学先自己作答，揭晓时对照。']] : []),
         ['修为榜', '面板上学号那一行右边的金色“修为榜”：看本班修为前十名（前三名站领奖台），也能看到自己排第几；按老师最近一次结算排名，显示境界和修为。'],
-        ['情境猜谜抢答', `老师在大屏出“情境猜谜”时，面板最上方会出现“情境猜谜抢答”：输入谜底（本章或本案例的一个概念）点“抢答”，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为，投屏上会出现恭喜。`],
+        ['情境猜谜抢答', `老师在大屏打开“情境猜谜”（看玩法或出题）时，页面上方会弹出“情境猜谜抢答”对话框，老师关掉大屏前一直都在；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒（按老师的时钟同步），倒计时结束才能输入谜底（本章或本案例的一个概念）点“抢答”，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为，投屏上会出现恭喜。`],
         ['递交情况', '页面最下方新增“本堂作业递交情况”：以老师后台收到的为准，显示已递交几题、还有哪些没交（点一下就跳过去），和老师工作台看到的一样。'],
         ['学习方法', '“资料与延伸阅读”里新增“学习方法小锦囊”：番茄工作法、西蒙学习法、记忆宫殿、费曼学习法、间隔重复、主动回忆，每种都有用在这门课的例子。'],
         ['弹幕', `回答弹幕小问题、弹幕接龙最多可以写 50 字；老师每堂课最多点 ${like.limit || 20} 个赞。`],
@@ -2945,7 +3306,7 @@
         ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名、情境猜谜第一个猜中、匿名建议另外加。'],
         ['五个境界', `炼气 → 筑基 → 结丹 → 元婴 → 化神，按全学期修为占满分的比例晋升（${REALMS.slice(1).map((realm) => `${realm.name} ${Math.round(realm.min * 100)}%`).join('、')}）。点面板上的境界或“修为说明”查看进度。`],
         ['弹幕字色', '每升一境多两种（炼气霜白、月银，筑基加青冥、翠竹，结丹加金曦、大红，元婴加樱粉、紫霄，化神加流金、七彩）；投屏上你的名字颜色也与境界一致。'],
-        ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，每次课最多祭出一件。`],
+        ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，你自己的页面上也会显示，每次课最多祭出一件。`],
         ['突破恭喜', '有同学突破境界时，投屏最上方会显示一行恭喜。'],
       ] },
       { title: '弹幕与课堂', items: [
@@ -2989,6 +3350,36 @@
     document.body.appendChild(box);
     setTimeout(() => box.remove(), 6000);
   }
+  // 隐藏彩蛋的弹出提示（2026-11-05，“更新说明”里不写，让学生自己发现）：建议被采纳（stay＝一直显示到点“收下”）、点笑脸、一周登录满 3 天；
+  // 几条同时到时一条一条显示
+  const eggQueue = [];
+  function egg(text, stay) {
+    eggQueue.push([text, stay]);
+    if (eggQueue.length === 1) showEgg();
+  }
+  function showEgg() {
+    const [text, stay] = eggQueue[0];
+    const box = document.createElement('div');
+    box.className = 'clp-egg';
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', '修为提升');
+    box.innerHTML = '<div class="clp-egg-card"><span class="clp-egg-burst" aria-hidden="true">✦</span><p></p><small>老师结算修为后计入境界</small><button type="button">收下</button></div>';
+    box.querySelector('p').textContent = text;
+    shield(box);
+    let timer = 0;
+    const close = () => {
+      if (!box.isConnected) return;
+      clearTimeout(timer);
+      box.remove();
+      eggQueue.shift();
+      if (eggQueue.length) showEgg();
+    };
+    box.addEventListener('click', (event) => { if (event.target === box || event.target.closest('button')) close(); });
+    box.addEventListener('keydown', (event) => { if (event.key === 'Escape') close(); });
+    document.body.appendChild(box);
+    box.querySelector('button').focus({ preventScroll: true });
+    if (!stay) timer = setTimeout(close, 9000);
+  }
   // 法宝小图（与投屏画面同一套造型，用 CSS／SVG 画，不依赖表情字体）
   const GIFT_ICONS = {
     zhujidan: '<span class="clp-gi clp-gi-dan" aria-hidden="true">丹</span>',
@@ -3003,16 +3394,16 @@
     if (!PREVIEW) applyRealmGates(level);
     realmEl.className = `clp-realm is-r${level}`;
     realmEl.textContent = REALMS[level] ? REALMS[level].name : '炼气';
-    realmEl.hidden = !REALMS.length;
+    realmEl.hidden = !REALMS.length || AUDIT;   // 旁听没有境界
     const miniCh = panel.querySelector('[data-cl-mini-ch]');
     if (miniCh) {
-      miniCh.textContent = (REALMS[level] ? REALMS[level].name : '炼气').slice(0, 1);
+      miniCh.textContent = AUDIT ? '旁' : (REALMS[level] ? REALMS[level].name : '炼气').slice(0, 1);
       panel.querySelector('[data-cl-mini]').setAttribute('aria-label', `展开课堂面板（境界：${REALMS[level] ? REALMS[level].name : '炼气'}）`);
     }
     // 面板材质随境界变化；头部进度条只显示“距下一境界”，不显示分数
     [0, 1, 2, 3, 4].forEach((n) => panel.classList.toggle(`is-r${n}`, n === level));
     const rise = panel.querySelector('[data-cl-rise]');
-    if (rise && REALMS[level]) {
+    if (rise && REALMS[level] && !AUDIT) {
       const next = REALMS[level + 1];
       const stage = Math.max(0, Math.min(2, Number(r && r.stage) || 0));
       const lo = REALMS[level].min;
@@ -3079,7 +3470,7 @@
   showRealm(myRealm);
   // 本人境界：打开页面时核对一次，之后每分钟核对一次（老师课上结算后不用刷新也能看到突破）
   async function refreshRealm() {
-    if (PREVIEW) return false;
+    if (LOCAL_ONLY) return false;   // 测试页按化神；旁听没有境界
     let previewed = false;
     try {
       const value = await backend.rpc('ck_my_realm', { p_classroom: Number(identity.classroom) || identity.classroom });
@@ -3102,14 +3493,16 @@
     return previewed;
   }
   // 进入课堂后自动弹出更新说明（每台设备每一版一次）；刚播放突破预览时，等法宝画面放完再弹
-  checkedIn.then(refreshRealm).then((previewed) => {
+  const refreshRealmDone = checkedIn.then(refreshRealm);
+  refreshRealmDone.then((previewed) => {
     if (load(newsKey, '') === NEWS_ID) return;
     const gap = previewed ? ((window.ClassLiveGifts && window.ClassLiveGifts.GIFT_MS) || 3200) + 800 : 800;
     setTimeout(() => { if (newsModal.hidden && realmModal.hidden) openNews(); }, gap);
   });
-  if (!PREVIEW) setInterval(() => { if (!document.hidden) refreshRealm(); }, 60000);
-  // 本人已经祭出过的法宝：按钮显示“已祭出”（测试页法宝不限次数）
-  if (!PREVIEW) {
+  if (!LOCAL_ONLY) setInterval(() => { if (!document.hidden) refreshRealm().then(() => sectInit()); }, 60000);
+  if (!LOCAL_ONLY) refreshRealmDone.then(() => sectInit());   // 宗门：已达筑基的读一次宗门榜，第一次自动弹出
+  // 本人已经祭出过的法宝：按钮显示“已祭出”（测试页法宝不限次数；旁听没有法宝）
+  if (!LOCAL_ONLY) {
     checkedIn.then(() => backend.rpc('ck_my_gifts', { p_classroom: Number(identity.classroom) || identity.classroom }))
       .then((value) => { usedGifts = new Set(Live.stopList ? Live.stopList(value) : []); showRealm(myRealm); })
       .catch(() => { /* 后台还没有这项功能时忽略 */ });
@@ -3129,6 +3522,12 @@
         dmState.textContent = `已祭出法宝「${gift.name}」，正在飞上投屏！每件法宝只能祭出一次。`;
       }
       dmState.dataset.state = 'ok';
+      // 2026-11-04 用户：“学生在使用法宝的时候，自己的页面也会显示”——祭出成功后，本人页面也放一遍同样的法宝画面（名牌与投屏一致：本人境界＋姓名）
+      if (window.ClassLiveGifts) {
+        const level = PREVIEW ? GIFTS.reduce((top, item) => Math.max(top, item.level), 0) : (myRealm ? Number(myRealm.realm) || 0 : gift.level);
+        const sealName = (REALMS[Math.max(level, gift.level)] || REALMS[gift.level] || {}).name || '';
+        window.ClassLiveGifts.play({ gift, sealName, who: `${identity.name}　${gift.verb || '祭出'}`, fit: 'narrow' });
+      }
     } catch (problem) {
       console.warn('[法宝]', problem);
       const text = String((problem && problem.message) || problem || '');
@@ -3175,6 +3574,8 @@
             if (Array.isArray(result)) result = result[0];
             if (result && result.status === 'login') { say('没有记上：请回到首页用课堂码重新登录后再选。'); return; }
             if (result && result.status === 'closed') { say('这个课堂已经停止，不能再选了。'); return; }
+            // 隐藏彩蛋（2026-11-05 用户：“学生点笑脸能够自动增加5点修为值，并弹出修为值增加5点的消息，多点无法重复计数”）：后台每人每天只加一次
+            if (result && Number(result.bonus) > 0) egg(`谢谢你的笑脸！修为值增加 ${Number(result.bonus)} 点 😊`);
           }
           mine = want;
           show();
@@ -3193,7 +3594,7 @@
     });
   }
 
-  // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数只核对进过本课堂，存下的行里没有提交者）
+  // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数按本人这次登录核对进过本课堂；建议行里没有提交者，提交者另记、老师读不到）
   function setupFeedback(enabled, note) {
     setupMood(enabled);
     fbCards.forEach(({ card, caseNo }) => {
@@ -3217,7 +3618,7 @@
       const sent = Number(load(key, 0)) || 0;
       // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）
       const FBP = Live.FEEDBACK || { points: 5, min: 10 };
-      const reward = `本堂课第一次提交 ${FBP.min} 字以上的${FB.what}，加 ${FBP.points} 修为（只记你提交过，老师看不到哪条是你写的）。`;
+      const reward = `本堂课第一次提交 ${FBP.min} 字以上的${FB.what}，加 ${FBP.points} 修为（老师看不到哪条是你写的）。`;
       say(sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : `写好后点“匿名提交”，可以提交多条。${reward}`);
       card.querySelector('form').addEventListener('submit', async (event) => {
         event.preventDefault();

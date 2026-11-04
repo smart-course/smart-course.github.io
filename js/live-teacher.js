@@ -189,7 +189,7 @@
       if (!session || session.anonymous) throw new Error('not-teacher');
       form.password.value = '';
       store.set(LOGIN_FAILS, '[]');
-      backend.rpc('ck_log_teacher_login', { p_agent: navigator.userAgent.slice(0, 200) }).catch((problem) => console.warn('[教师登录记录]', problem));
+      logTeacherEntry('密码登录', true);
       enterApp(session);
     } catch (problem) {
       console.error(problem);
@@ -207,6 +207,18 @@
     try { await backend.signOut(); } catch (error) { /* 忽略 */ }
     location.reload();
   });
+
+  // 教师登录记录（2026-11-04 用户：“登陆安全里面的教师登陆记录总是无法及时更新”）：原来只在输入密码登录时记一笔，
+  // 保存了登录状态直接打开工作台（最常见的情况）不记，所以记录总停在很久以前。现在：输密码登录每次都记；
+  // 保存了登录状态打开工作台或投屏页（live-room.js）时也记，同一台设备 10 分钟内只记一次（刷新页面不重复记）
+  function logTeacherEntry(how, always) {
+    const key = 'teacher-entry-log';
+    if (!always && Date.now() - (Number(store.get(key)) || 0) < 10 * 60000) return Promise.resolve(false);
+    store.set(key, String(Date.now()));
+    return backend.rpc('ck_log_teacher_login', { p_agent: `[${how}] ${navigator.userAgent}`.slice(0, 200) })
+      .then(() => { if (sec.loaded && !$('[data-panel="security"]').hidden) loadSecurity(true); return true; })
+      .catch((problem) => { console.warn('[教师登录记录]', problem); return false; });
+  }
 
   async function enterApp(session) {
     $('[data-login]').hidden = true;
@@ -975,6 +987,7 @@
   function subscribe() {
     stopWatching();
     state.docs = emptyDocs();
+    state.auditors = [];
     renderAll();
     setLive('连接中……');
     // 实时推送不可用时后台自动改为每 5 秒刷新，这里只提示方式
@@ -988,6 +1001,11 @@
     const where = { course: course.slug, classroom: Number(state.room.id) };
     KINDS.forEach((kind) => {
       state.stops.push(backend.watch(kind, where, (docs) => {
+        // 旁听（2026-11-05）：点名册外、老师允许旁听的同学的加入记录另放，不进加入名单统计、作答统计和修为
+        if (kind === 'checkins') {
+          state.auditors = docs.filter((doc) => doc.auditor);
+          docs = docs.filter((doc) => !doc.auditor);
+        }
         if (kind === 'checkins' && docs.length !== state.docs.checkins.length) presenceAfterJoin();
         state.docs[kind] = docs;
         setLive(`${mode()} · ${clock(Date.now())}`);
@@ -1001,11 +1019,12 @@
     });
   }
 
-  // ---------------- 匿名建议（表里没有提交者，只有日期） ----------------
+  // ---------------- 匿名建议（表里没有提交者，只有日期；2026-11-05 起提交者另记在后台，老师读不到，只用于点赞采纳后给作者加修为） ----------------
   // 表还没建（还没执行相应的 SQL）：安静地按空表处理。“列不存在”（42703）不算，要报出来（2026-10-28 在线状态就是这样被悄悄吞掉的）
   const missingTable = (error) => /42P01|PGRST205|relation "?[\w.]+"? does not exist|Could not find the table/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`);
   let feedbackRows = [];
   let feedbackProblem = '';
+  let adoptNote = '';   // 刚点赞（或取消）的结果，跟在条数后面，直到下一次点赞
   async function loadFeedback() {
     if (!state.klass) return;
     const rooms = $('[data-fb-scope]').value === 'class' ? state.rooms : state.room ? [state.room] : [];
@@ -1052,18 +1071,78 @@
     const query = $('[data-fb-search]').value.trim();
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.filter((doc) => !query || String(doc.text || '').includes(query)).sort((a, b) => Number(b.id) - Number(a.id));
-    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。` : '');
+    const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
+    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${liked ? `（已点赞 ${liked} 条）` : ''}${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。${adoptNote}` : '');
     $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
-      <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action"><button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
+      <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action tw-fb-actions">${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
       || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</td></tr>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
+  // 点赞采纳（2026-11-05 用户：“对于匿名建议，教师工作台老师也可以进行点赞(在删除按钮左边增加一个点赞按钮)，然后有一个弹出框可以选择加不同修为分（5、10、20），
+  // 学生下次登陆的时候弹出一条信息”）：后台 ck_adopt_feedback 按另记的提交者给作者加修为（ck_bonus kind adopt，计入“额外加分”），
+  // 老师仍看不到是谁写的；作者下次打开章节页时弹出“建议已被采纳”。可以改分或取消点赞；11-05 之前提交的建议没有记作者，不能加
+  const LIKE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3z"/><path d="M7 10l4-7a2.5 2.5 0 0 1 3 3l-1 4h5.5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 21H7"/></svg>';
+  function likeButton(doc) {
+    const points = Number(doc.adopted) || 0;
+    return `<button type="button" class="tw-fb-like${points ? ' is-on' : ''}" data-fb-like="${esc(doc.id)}" aria-pressed="${points ? 'true' : 'false'}"
+      title="${points ? `已点赞采纳，给作者加了 ${points} 修为（点一下可改分或取消）` : '点赞采纳：给写这条建议的同学加修为'}">${LIKE_ICON}<span>${points ? `+${points}` : '赞'}</span></button>`;
+  }
+  const adoptDialog = $('[data-adopt-dialog]');
+  let adoptId = '';
+  const adoptSay = (text) => { adoptDialog.querySelector('[data-adopt-error]').textContent = text || ''; };
+  function openAdopt(id) {
+    const doc = feedbackRows.find((item) => String(item.id) === String(id));
+    if (!doc) return;
+    adoptId = String(id);
+    const points = Number(doc.adopted) || 0;
+    adoptDialog.querySelector('[data-adopt-text]').textContent = String(doc.text || '').slice(0, 140) + (String(doc.text || '').length > 140 ? '…' : '');
+    adoptDialog.querySelectorAll('[data-adopt-points]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(Number(button.dataset.adoptPoints) === points));
+      button.disabled = false;
+    });
+    adoptDialog.querySelector('[data-adopt-unlike]').hidden = !points;
+    adoptSay('');
+    if (typeof adoptDialog.showModal === 'function') adoptDialog.showModal(); else adoptDialog.setAttribute('open', '');
+  }
+  async function adopt(points) {
+    const buttons = Array.from(adoptDialog.querySelectorAll('button'));
+    buttons.forEach((button) => { button.disabled = true; });
+    adoptSay('');
+    try {
+      let result = await backend.rpc('ck_adopt_feedback', { p_id: Number(adoptId) || adoptId, p_points: points });
+      if (Array.isArray(result)) result = result[0];
+      if (result && result.status === 'no_author') {
+        adoptSay('这条建议是 11 月 5 日之前提交的，后台没有记下作者，不能给作者加修为。');
+        return;
+      }
+      const doc = feedbackRows.find((item) => String(item.id) === adoptId);
+      if (doc) doc.adopted = points;
+      adoptNote = points
+        ? `刚才的点赞：给写这条建议的同学加了 ${points} 修为（“修为境界”重新结算后计入），作者下次打开页面时会看到提示。`
+        : '刚才已取消点赞，作者的这份修为已撤回。';
+      adoptDialog.close();
+      renderFeedback();
+    } catch (error) {
+      console.error(error);
+      adoptSay(missingFunction(error) ? '后台还没有点赞功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261105-建议采纳.sql。' : `没有成功：${error.message || error}`);
+    } finally {
+      buttons.forEach((button) => { button.disabled = false; });
+    }
+  }
+  adoptDialog.addEventListener('click', (event) => {
+    const pick = event.target.closest('[data-adopt-points]');
+    if (pick) { adopt(Number(pick.dataset.adoptPoints)); return; }
+    if (event.target.closest('[data-adopt-unlike]')) { adopt(0); return; }
+    if (event.target.closest('[data-adopt-close]')) adoptDialog.close();
+  });
   $('[data-fb-scope]').addEventListener('change', loadFeedback);
   $('[data-fb-search]').addEventListener('input', renderFeedback);
   $('[data-tab="feedback"]').addEventListener('click', loadFeedback);
   // 打开“匿名建议”标签时每 20 秒刷新一次
   setInterval(() => { if (state.room && !$('[data-panel="feedback"]').hidden) loadFeedback(); }, 20000);
   $('[data-fb-rows]').addEventListener('click', async (event) => {
+    const like = event.target.closest('[data-fb-like]');
+    if (like) { openAdopt(like.dataset.fbLike); return; }
     const trash = event.target.closest('[data-fb-delete]');
     if (!trash) return;
     const id = trash.dataset.fbDelete;
@@ -1082,10 +1161,10 @@
   $('[data-fb-export]').addEventListener('click', () => {
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
-      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), doc.text]);
+      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), doc.text, Number(doc.adopted) || '']);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
-      csv([['序号', '日期', '课堂', '哪次课', '建议'], ...rows]));
+      csv([['序号', '日期', '课堂', '哪次课', '建议', '点赞加修为'], ...rows]));
   });
 
   // ---------------- 期中考查：批阅与导出（2026-10-28 用户：“期中考查作业要可以一键导出为word文档，导出的文档中包含学生的学号、姓名等信息。
@@ -1509,7 +1588,19 @@
     clearTimeout(presenceSoon);
     presenceSoon = setTimeout(refreshPresence, 4000);
   };
+  // 旁听名单（2026-11-05）：只列出，不计入上面的统计
+  function renderAuditors() {
+    const box = $('[data-audit-list]');
+    if (!box) return;
+    const day = checkinDay();
+    const people = new Map();
+    (state.auditors || []).filter((doc) => !day || dayOf(doc) === day).forEach((doc) => { if (!people.has(sidKey(doc.sid))) people.set(sidKey(doc.sid), doc); });
+    box.hidden = !people.size;
+    box.textContent = people.size ? `旁听 ${people.size} 人（点名册外、老师允许旁听，只能看内容和做题，答案只在本人设备上，不计入上面的统计和修为）：`
+      + Array.from(people.values()).map((doc) => `${doc.name}（${doc.sid}）`).join('、') : '';
+  }
   function renderCheckins() {
+    renderAuditors();
     const submitted = submissions();
     const total = CONCEPT ? 0 : roomTotal();
     const progress = new Map(CONCEPT ? homeworkRows().map((doc) => [doc.sid, { done: doc.progress, total: doc.total }])
@@ -1821,7 +1912,7 @@
     try {
       const rooms = state.rooms.slice().sort((a, b) => Number(a.id) - Number(b.id));
       const ids = new Set(rooms.map((room) => String(room.id)));
-      const checkins = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)));
+      const checkins = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计
       // 一列＝一个课堂的一个上课日期（同一课堂分几次课上就有几列）；没有任何登录的课堂按发布日期占一列
       const seen = new Map();   // 学号 → 出现过的“课堂|日期”
       const columns = [];
@@ -2615,7 +2706,7 @@
       const roomMap = new Map(rooms.map((room) => [String(room.id), room]));
       const pick = (docs) => docs.filter((doc) => roomMap.has(String(doc.classroom))).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const kinds = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
-      const fetched = await Promise.all(kinds.map(async (kind) => pick(await backend.fetchAll(kind, { course: course.slug }))));
+      const fetched = await Promise.all(kinds.map(async (kind) => pick((await backend.fetchAll(kind, { course: course.slug })).filter((doc) => !doc.auditor))));   // 旁听不导出
       const docs = Object.fromEntries(kinds.map((kind, index) => [kind, fetched[index]]));
       const { checkins, danmaku } = docs;
       const choices = docs.choices || [];
@@ -2805,8 +2896,8 @@
   };
   const sameSet = (value, answer) => String(value).split(',').filter(Boolean).sort().join(',') === answer.slice().map(String).sort().join(',');
 
-  // 习经：一个案例的题目。kind：obj 客观题（按对错）/ part 投票、站队（参与即可）/ text 文字题
-  function xjpQuestions(c) {
+  // 习经：一个案例的题目。kind：obj 客观题（按对错）/ part 投票、站队（参与即可）/ text 文字题；m＝这位学生在本案例的选择（题号 → 选项），可不传
+  function xjpQuestions(c, m) {
     const qs = [];
     const P = c.practice || {};
     const ref = c.poll && c.poll.reference;
@@ -2826,8 +2917,15 @@
     if (P.debate) ['debate-pre', 'debate-post', 'debate-cards'].forEach((key) => qs.push({ kind: 'part', items: [key] }));
     // 圆桌会议（2026-10-16 简化）：只计认领角色；三项议程的投票在上面 sim-1—3 里（参与即可）
     if (P.roundtable) qs.push({ kind: 'part', items: ['rt-role'] });
-    // 经营沙盘（2026-11-03，代替案例 08 的圆桌会议）：只计选角色；代表投票、聊天室发言不算题，修为另由结算发放
-    if (P.biz) qs.push({ kind: 'part', items: ['biz-role'] });
+    // 经营沙盘（2026-11-03／04，代替案例 06、08、09、19 的圆桌会议）：只计选角色；代表投票、聊天室发言不算题，修为另由结算发放。
+    // 以前上过这几个案例的圆桌会议（递交过认领角色或议程投票）的学生，仍按圆桌会议的题算（认领角色＋三项议程），以前的修为不变
+    if (P.biz) {
+      const legacy = P.biz.legacy && m && (m['rt-role'] != null || Object.keys(m).some((key) => /^sim-\d+$/.test(key)));
+      if (legacy) {
+        qs.push({ kind: 'part', items: ['rt-role'] });
+        for (let i = 1; i <= P.biz.legacy.sims; i += 1) qs.push({ kind: 'part', items: [`sim-${i}`] });
+      } else qs.push({ kind: 'part', items: ['biz-role'] });
+    }
     return qs;
   }
   // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
@@ -2887,9 +2985,10 @@
     const kinds = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
     const docs = {};
     for (const kind of kinds) {
-      docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)));
+      docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计修为
     }
-    // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、经营沙盘 biz、匿名建议 feedback）；后台还没有这张表时按 0 算
+    // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、经营沙盘 biz、匿名建议 feedback、
+    // 2026-11-05 起：建议被点赞采纳 adopt、点笑脸 mood、一周登录满 3 天 week）；后台还没有这张表时按 0 算
     const gameBonus = new Map();
     try {
       (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
@@ -2988,7 +3087,7 @@
             const answers = firstOf((info.answers.get(person.sid) || []).filter((doc) => doc.case === c.number));
             const m2 = {};
             choices.forEach((doc, item) => { m2[item] = String(doc.choice); });
-            xjpQuestions(c).forEach((q) => {
+            xjpQuestions(c, m2).forEach((q) => {
               count += 1;
               if (q.kind === 'text') {
                 const doc = answers.get(q.items[0]);
@@ -3043,6 +3142,47 @@
   const demoHref = () => (course.chapters[0] ? `/${course.chapters[0].file}?demo=1` : '#');
   $('[data-realm-demo]').href = demoHref();
   const realmChip = (level, title) => `<span class="tw-realm is-r${level}">${esc(title || REALMS[level].name)}</span>`;
+  // 宗门（2026-11-05）：本课程历届弟子（ck_sect_members；学生经 ck_sect_join 自己选，教师可读、可删＝解除选择），宗门分＝历届弟子修为之和
+  const SECTS = window.ClassLive.SECTS || [];
+  let sectRows = [];
+  let sectProblem = '';
+  const sectChip = (key) => {
+    const sect = SECTS.find((item) => item.key === key);
+    return sect ? `<span class="tw-sect" style="--sc:${sect.color}"><i>${esc(sect.mark)}</i>${esc(sect.name)}</span>` : key === 'sanxiu' ? '<span class="tw-sect is-sanxiu">散修</span>' : '';
+  };
+  const sectName = (key) => { const sect = SECTS.find((item) => item.key === key); return sect ? sect.name : key === 'sanxiu' ? '散修' : ''; };
+  async function loadSects() {
+    try {
+      sectRows = await backend.fetchAll('sectmembers', { course: course.slug });
+      sectProblem = '';
+    } catch (error) {
+      sectRows = [];
+      sectProblem = missingTable(error) ? '宗门的数据表还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261105-宗门.sql。' : `读取宗门失败：${error.message || error}`;
+    }
+  }
+  function renderSects() {
+    const box = $('[data-sect-box]');
+    if (!box || !SECTS.length) return;
+    box.hidden = false;
+    if (sectProblem) { box.innerHTML = `<p>${esc(sectProblem)}</p>`; return; }
+    const classId = String(state.klass ? state.klass.id : '');
+    const sum = (rows) => Math.round(rows.reduce((total, row) => total + (Number(row.points) || 0), 0) * 10) / 10;
+    const list = SECTS.map((sect) => {
+      const rows = sectRows.filter((row) => row.sect === sect.key);
+      const mine = rows.filter((row) => String(row.class_id) === classId);
+      return { ...sect, points: sum(rows), members: rows.length, classMembers: mine.length, classPoints: sum(mine) };
+    }).sort((a, b) => b.points - a.points);
+    list.forEach((row) => { row.rank = 1 + list.filter((other) => other.points > row.points).length; });
+    const sanxiu = sectRows.filter((row) => row.sect === 'sanxiu');
+    const years = new Set(sectRows.filter((row) => row.sect !== 'sanxiu').map((row) => String(row.class_id))).size;
+    box.innerHTML = `<p>宗门榜（本课程历届，已有 ${years} 个班的弟子；散修 ${sanxiu.length} 人，本班 ${sanxiu.filter((row) => String(row.class_id) === classId).length} 人）：宗门分＝历届弟子修为之和，每次结算时同步。</p>`
+      + list.map((row) => `<div class="tw-sect-card" style="--sc:${row.color}"><b>${esc(row.mark)}</b><strong><em>${row.rank}</em>${esc(row.name)}</strong>
+        <span>宗门分 <b>${row.points}</b> · 历届 ${row.members} 人 · 本班 ${row.classMembers} 人（${row.classPoints}）</span></div>`).join('');
+  }
+  const sectCell = (sid) => {
+    const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid);
+    return row ? `${sectChip(row.sect)}${Number(row.changes) >= 1 ? '<small title="已用掉唯一一次改投机会">已改投</small>' : ''}<button type="button" data-sect-reset="${esc(row.id)}" title="解除这位同学的宗门选择，让其重新选择（宗门分随之减去其修为，改投机会也恢复）">解除</button>` : '';
+  };
   let realmResult = null;
   let realmSaved = '';
   function renderRealms() {
@@ -3062,10 +3202,11 @@
     $('[data-realm-summary]').textContent = `本班上课范围：${scopeText(state.klass)}；共 ${meetings} 次课，满分 ${max} 修为；已上过 ${realmResult.units}/${realmResult.total} 个${UNIT}。`
       + ` 本班境界：${REALMS.map((realm, i) => `${realm.name} ${counts[i]} 人`).join('，')}。${realmSaved}`;
     box.innerHTML = rows.map((row, i) => `<tr class="${row.inRoster ? '' : 'is-muted'}"><td>${i + 1}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
-      <td>${realmChip(row.realm, row.title)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
+      <td>${realmChip(row.realm, row.title)}</td><td class="tw-sect-cell">${sectCell(row.sid)}</td><td><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></td>
       <td>${row.detail.attend}</td><td>${row.detail.leave || 0}</td><td>${row.detail.done}</td><td>${row.detail.right}</td><td>${row.detail.danmaku}</td><td>${row.detail.like || 0}</td><td>${row.detail.game || 0}</td><td>${row.detail.practice || 0}</td>
       <td class="tw-realm-flags">${row.flags.map(esc).join('<br>')}</td></tr>`).join('')
-      || '<tr><td colspan="14" class="empty">本班还没有学生记录。</td></tr>';
+      || '<tr><td colspan="15" class="empty">本班还没有学生记录。</td></tr>';
+    renderSects();
   }
   async function refreshRealms(save, quiet) {
     if (!state.klass) return;
@@ -3073,12 +3214,14 @@
     if (!quiet) status.textContent = '正在读取本班全部课堂的记录并计算……';
     try {
       realmResult = await computeRealms();
+      await loadSects();
       if (save) {
         const rows = realmResult.rows.filter((row) => row.inRoster)
           .map((row) => ({ sid: row.sid, name: row.name, points: row.points, max: row.max, realm: row.realm, stage: row.stage, detail: row.detail }));
         await backend.rpc('ck_save_realms', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id, p_rows: rows });
         store.set(`realm-saved:${course.slug}:${state.klass.id}`, String(Date.now()));
         realmSaved = ` 已于 ${clock(Date.now())} 更新 ${rows.length} 位同学的称号。`;
+        await loadSects();   // 结算时后台已同步宗门弟子的修为
       }
       if (!quiet || save) status.textContent = save ? `已结算并更新称号（${clock(Date.now())}）。学生刷新页面后看到新境界。` : '已重新计算（尚未保存）。点“结算修为并更新学生称号”后学生端才会更新。';
     } catch (error) {
@@ -3093,12 +3236,28 @@
   $('[data-realm-refresh]').addEventListener('click', () => refreshRealms(false));
   $('[data-realm-save]').addEventListener('click', () => refreshRealms(true));
   $('[data-realm-search]').addEventListener('input', renderRealms);
+  $('[data-realm-rows]').addEventListener('click', async (event) => {
+    const reset = event.target.closest('[data-sect-reset]');
+    if (!reset) return;
+    const row = sectRows.find((item) => String(item.id) === reset.dataset.sectReset);
+    if (!row || !window.confirm(`解除 ${row.name || row.sid} 的选择（${sectName(row.sect)}）？解除后这位同学可以重新拜入宗门或做散修（改投机会也恢复），${sectName(row.sect)}的宗门分减去其修为。`)) return;
+    reset.disabled = true;
+    try {
+      await backend.removeAll('sectmembers', { id: Number(row.id) || row.id });
+      await loadSects();
+    } catch (error) {
+      console.error(error);
+      window.alert(`没有解除成功：${error.message || error}`);
+    }
+    renderRealms();
+  });
   $('[data-realm-export]').addEventListener('click', () => {
     if (!realmResult) return;
-    const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
+    const sectOfSid = (sid) => { const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid); return row ? sectName(row.sect) : ''; };
+    const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, sectOfSid(row.sid), row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
       row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.detail.practice || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答、PK 胜者、辩论获胜、匿名建议（额外）', '修炼场（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '宗门', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答、PK 胜者、辩论获胜、经营沙盘、匿名建议（含点赞采纳）、点笑脸、每周登录（额外）', '修炼场（额外）', '提示'], ...rows]));
   });
   // ---------------- 修炼场题库（2026-10-22）：工作台里带着本课程题库（gzip＋base64），按单元版本号同步到后台 ----------------
   const PRACTICE = window.ClassLive.PRACTICE || { delay: 3, essayMin: 200, of: () => ({ cap: 3, item: 1 }) };
@@ -3170,7 +3329,7 @@
   const SEC_KIND = {
     bad_code: '课堂码错误', bad_sid: '学号不在点名册上（已提示核对姓名和学号）', bad_name: '姓名与点名册不符', bad_pin: '口令错误', locked: '口令连续输错 10 次，锁定',
     pin_set: '设置口令', new_device: '新设备登录（口令正确）', request: '申请加入（不在点名册上）', approve: '老师允许加入',
-    reject: '老师拒绝或撤销加入', pin_reset: '老师重置口令', unlock: '老师解锁', rotate: '更换课堂码', teacher_login: '教师登录',
+    reject: '老师拒绝或撤销加入', audit: '老师允许旁听', pin_reset: '老师重置口令', unlock: '老师解锁', rotate: '更换课堂码', teacher_login: '教师登录',
     view_past: '用历史课堂码进来查看', pin_forgot: '忘记口令，申请重设', pin_allow: '老师同意重设口令', pin_deny: '老师没有同意重设口令',
   };
   const SEC_BAD = new Set(['bad_sid', 'bad_name', 'bad_pin', 'locked', 'request', 'pin_forgot']);
@@ -3191,7 +3350,7 @@
       sec.codeFails = (await backend.fetchAll('seclog', { kind: 'bad_code' }, { since: ['at', new Date(Date.now() - 10 * 60000).toISOString()], limit: 300 })).length;
       if (full) {
         sec.log = await backend.fetchAll('seclog', { class_id: secClassId() }, { limit: 200 });
-        sec.teacher = await backend.fetchAll('seclog', { kind: 'teacher_login' }, { limit: 10 });
+        sec.teacher = await backend.fetchAll('seclog', { kind: 'teacher_login' }, { limit: 20 });
       }
       sec.problem = '';
       sec.loaded = true;
@@ -3209,7 +3368,7 @@
     const room = state.room;
     if (room && room.is_current && !rosterOf().length) lines.push('<p>本班还没有上传点名册：学生现在不能登录。请在“加入名单”里上传点名册。<button type="button" data-sec-go="checkins">去上传</button></p>');
     const pending = sec.requests.filter((row) => row.status === 'pending').length;
-    if (pending) lines.push(`<p>有 ${pending} 位不在点名册上的同学申请进入本班课堂，允许后才能登录。<button type="button" data-sec-go="security">去处理</button></p>`);
+    if (pending) lines.push(`<p>有 ${pending} 位不在点名册上的同学申请旁听本班课堂，允许后才能登录。<button type="button" data-sec-go="security">去处理</button></p>`);
     const forgot = sec.pinreqs.filter((row) => row.status === 'pending').length;
     if (forgot) lines.push(`<p>有 ${forgot} 位同学换了设备又忘记口令，申请重设口令。<button type="button" data-sec-go="security">去处理</button></p>`);
     const locked = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > Date.now()).length;
@@ -3239,16 +3398,20 @@
     // 班外加入申请：拒绝过的不再显示，学生再次申请才重新出现（2026-10-28 用户要求）
     const reqs = sec.requests.filter((row) => row.status !== 'rejected');
     const waiting = reqs.filter((row) => row.status === 'pending').length;
-    $('[data-sec-req-count]').textContent = reqs.length ? `待处理 ${waiting}${reqs.length > waiting ? ` · 已允许 ${reqs.length - waiting}` : ''}` : '';
+    const auditing = reqs.filter((row) => row.status === 'audit').length;
+    $('[data-sec-req-count]').textContent = reqs.length ? `待处理 ${waiting}${auditing ? ` · 旁听 ${auditing}` : ''}${reqs.length > waiting + auditing ? ` · 加进点名册 ${reqs.length - waiting - auditing}` : ''}` : '';
     $('[data-sec-requests]').innerHTML = reqs.map((row) => {
       const twin = byName.get(row.name);
       const note = twin && sidKey(twin.sid) !== sidKey(row.sid) ? `<span class="tw-sec-tag">点名册上有同名同学（学号 ${esc(twin.sid)}），可能填错了学号</span>` : '';
-      const label = { pending: '<b class="tw-sec-bad">待处理</b>', approved: '已允许', rejected: '已拒绝' }[row.status] || esc(row.status);
+      // 2026-11-05：允许分两种——“允许旁听”（默认：只能看内容、做题，不进点名册、不计统计和修为）和“加进点名册”（重修等，计入统计）
+      const label = { pending: '<b class="tw-sec-bad">待处理</b>', approved: '已加进点名册', audit: '旁听中', rejected: '已拒绝' }[row.status] || esc(row.status);
       const actions = row.status === 'pending'
-        ? `<button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">允许</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">拒绝</button>`
-        : `<button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">撤销允许</button>`;
+        ? `<button type="button" class="tw-secondary" data-sec-audit="${esc(row.id)}">允许旁听</button><button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">加进点名册</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">拒绝</button>`
+        : row.status === 'audit'
+          ? `<button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">改为加进点名册</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">撤销旁听</button>`
+          : `<button type="button" class="tw-secondary" data-sec-audit="${esc(row.id)}">改为旁听</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">撤销允许</button>`;
       return `<tr><td>${esc(stamp(row.created_at))}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}${note}</td><td>${esc(row.class_name || '')}</td><td>${label}</td><td>${actions}</td></tr>`;
-    }).join('') || '<tr><td colspan="6" class="empty">没有班外加入申请。学号不在点名册上的同学，登录页只提示核对姓名和学号；确实不在名单上（重修、旁听等）才会点“申请加入”。</td></tr>';
+    }).join('') || '<tr><td colspan="6" class="empty">没有班外旁听申请。学号不在点名册上的同学，登录页只提示核对姓名和学号；确实不在名单上（跨班旁听、自学等）才会点“申请旁听”。</td></tr>';
 
     const asks = pinreqShown();
     const asking = asks.filter((row) => row.status === 'pending').length;
@@ -3300,8 +3463,11 @@
     $('[data-sec-log]').innerHTML = sec.log.slice(0, 100).map((row) => `<tr><td>${esc(stamp(row.at))}</td>
       <td class="${SEC_BAD.has(row.kind) ? 'warn' : ''}">${esc(SEC_KIND[row.kind] || row.kind)}${row.kind === 'locked' && row.detail ? `（${esc(row.detail)}）` : ''}</td><td>${esc(row.sid || '')}</td><td>${esc(row.name || '')}</td></tr>`).join('')
       || '<tr><td colspan="4" class="empty">还没有记录。</td></tr>';
-    $('[data-sec-teacher]').innerHTML = sec.teacher.map((row) => `<tr><td>${esc(stamp(row.at))}</td><td>${esc(browserOf(row.detail))}</td></tr>`).join('')
-      || '<tr><td colspan="2" class="empty">还没有记录（下次登录工作台时开始记录）。</td></tr>';
+    // detail 开头的“[方式]”是 2026-11-04 起记的（密码登录 / 打开工作台 / 打开投屏页），以前的记录都是输密码登录
+    $('[data-sec-teacher]').innerHTML = sec.teacher.map((row) => {
+      const how = (String(row.detail || '').match(/^\[([^\]]+)\]/) || [])[1] || '密码登录';
+      return `<tr><td>${esc(stamp(row.at))}</td><td>${esc(how)}</td><td>${esc(browserOf(String(row.detail || '').replace(/^\[[^\]]+\]\s*/, '')))}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="empty">还没有记录（下次打开工作台时开始记录）。</td></tr>';
   }
   // 浏览器信息只显示大概：系统＋浏览器
   const browserOf = (agent) => {
@@ -3325,6 +3491,7 @@
   $('[data-panel="security"]').addEventListener('click', async (event) => {
     const allow = event.target.closest('[data-sec-allow]');
     const reject = event.target.closest('[data-sec-reject]');
+    const audit = event.target.closest('[data-sec-audit]');
     const unlock = event.target.closest('[data-sec-unlock]');
     const reset = event.target.closest('[data-sec-reset]');
     const pinAllow = event.target.closest('[data-sec-pin-allow]');
@@ -3338,13 +3505,25 @@
         () => backend.rpc('ck_decide_pin_request', { p_id: Number(row.id) || row.id, p_allow: Boolean(pinAllow) }));
       return;
     }
+    if (audit) {
+      const row = sec.requests.find((item) => String(item.id) === audit.dataset.secAudit);
+      if (!row) return;
+      await secAction(`允许 ${row.name} 旁听`, async () => {
+        await backend.rpc('ck_audit_request', { p_id: Number(row.id) || row.id });
+        await loadClasses();
+        showClassInfo();
+        renderCheckins();
+      });
+      return;
+    }
     if (allow || reject) {
       const id = (allow || reject).dataset[allow ? 'secAllow' : 'secReject'];
       const row = sec.requests.find((item) => String(item.id) === id);
       if (!row) return;
-      if (reject && row.status === 'approved'
-        && !window.confirm(`撤销允许 ${row.name}（学号 ${row.sid}）？该生会从本班点名册移除，已登录的设备不能再递交，也不能再登录。`)) return;
-      await secAction(allow ? `允许 ${row.name} 加入` : `拒绝 ${row.name}`, async () => {
+      if (allow && !window.confirm(`把 ${row.name}（学号 ${row.sid}）加进本班点名册？\n\n加进点名册后和本班同学一样：作答、弹幕计入统计，参与修为和修为榜。只想让他看内容、做题的话，请点“允许旁听”。`)) return;
+      if (reject && (row.status === 'approved' || row.status === 'audit')
+        && !window.confirm(`撤销${row.status === 'audit' ? '旁听' : '允许'} ${row.name}（学号 ${row.sid}）？${row.status === 'audit' ? '该生' : '该生会从本班点名册移除，'}已登录的设备不能再进入，也不能再登录。`)) return;
+      await secAction(allow ? `把 ${row.name} 加进点名册` : `拒绝 ${row.name}`, async () => {
         await backend.rpc('ck_decide_request', { p_id: Number(row.id) || row.id, p_allow: Boolean(allow) });
         await loadClasses();
         showClassInfo();
@@ -3369,8 +3548,10 @@
     if (!backend) { showLogin(); return; }
     try {
       const session = await backend.session();
-      if (session && !session.anonymous) await enterApp(session);
-      else showLogin();
+      if (session && !session.anonymous) {
+        logTeacherEntry('打开工作台', false);
+        await enterApp(session);
+      } else showLogin();
     } catch (error) {
       console.error(error);
       showLogin('无法连接课堂后台，请检查网络后刷新。');

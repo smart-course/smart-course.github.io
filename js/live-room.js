@@ -174,13 +174,14 @@
     const rooms = await backend.fetchAll('classrooms', { course: config.course });
     const current = window.ClassLive.pickRoom(rooms, config.course, unit);
     if (!current || current.chapter !== unit) return { students: [], today: false };
-    const [checkins, classes] = await Promise.all([
+    let [checkins, classes] = await Promise.all([
       backend.fetchAll('checkins', { course: config.course, classroom: Number(current.id) }),
       backend.fetchAll('classes', { course: config.course }).catch(() => []),
     ]);
     const klass = classes.find((item) => String(item.id) === String(current.class_id));
     const numberOf = new Map(((klass && klass.roster) || []).map((person, index) => [sidKey(person.sid), index + 1]));
     const day = window.ClassLive.today();
+    checkins = checkins.filter((doc) => !doc.auditor);   // 旁听同学（2026-11-05）不参加课堂小游戏，抽人时不算
     const todays = checkins.filter((doc) => (doc.session || '') === day);
     const people = new Map();
     (todays.length ? todays : checkins).forEach((doc) => people.set(sidKey(doc.sid), { sid: doc.sid, name: doc.name, no: numberOf.get(sidKey(doc.sid)) || null }));
@@ -251,12 +252,22 @@
   window.ClassLivePuzzle = {
     points: (window.ClassLive.PUZZLE || {}).points || 5,
     tries: (window.ClassLive.PUZZLE || {}).tries || 3,
+    delay: (window.ClassLive.PUZZLE || {}).delay || 10,
+    // 出题：后台开一轮，并把游戏状态改为 ask、从后台现在起倒计时 delay 秒（goAt、now 都是后台时钟的毫秒，投屏页据此显示倒计时）
     async open({ key, label, surface, answer, accept }) {
       const current = await roomHere();
+      const t0 = Date.now();
       const result = await backend.rpc('ck_puzzle_open', { p_classroom: Number(current.id), p_key: String(key).slice(0, 60), p_label: label || '',
         p_surface: surface || '', p_answer: answer, p_accept: accept || [], p_points: this.points });
       const row = Array.isArray(result) ? result[0] : result;
-      return { id: row.id, points: row.points, winner: winnerOf(row) };
+      return { id: row.id, points: row.points, winner: winnerOf(row), goAt: Number(row.go_at) || null, now: Number(row.now) || null, sent: t0, got: Date.now() };
+    },
+    // 大屏的游戏状态（2026-11-05）：rules 讲玩法、reveal 揭晓、end 关闭、beat 大屏打开期间报到；学生端据此显示或关掉抢答对话框
+    async stage(action) {
+      const current = await roomHere();
+      const result = await backend.rpc('ck_puzzle_game', { p_classroom: Number(current.id), p_action: action });
+      const row = Array.isArray(result) ? result[0] : result;
+      return row || {};
     },
     async status(id) {
       const row = (await backend.fetchAll('puzzles', { id: Number(id) || id }))[0];
@@ -270,19 +281,45 @@
     },
   };
 
-  // 习经课堂版“资料与延伸阅读”里的匿名建议箱提示卡（默认隐藏）：投屏时显示，并显示这堂课（今天）收到几条建议；建议内容不上投屏
-  const fbCard = document.querySelector('[data-fb-projector]');
+  // 匿名建议箱（2026-11-05 用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）：投屏页在学生页同样的位置放同样的建议箱
+  //   （卡片、文字、样式都与学生页共用 ClassLive.feedbackBox；笑脸、输入框、“匿名提交”都不能用），最下面一行显示这堂课（今天）收到几条；
+  //   建议内容不上投屏，只在老师的工作台里看。习经：章节页“资料与延伸阅读”末尾（原来的提示卡 data-fb-projector 换成建议箱）；
+  //   政经：案例页“资料与延伸阅读”里“继续阅读下一案例”之前
+  const fbCard = (() => {
+    const box = window.ClassLive.feedbackBox;
+    if (!box) return null;
+    const worksheet = config.kind === 'concept-html';
+    const old = document.querySelector('[data-fb-projector]');
+    const page = document.getElementById(worksheet ? 'sources' : 'chapter-sources');
+    if (!old && !page) return null;
+    const FB = box.texts(worksheet);
+    const css = document.createElement('style');
+    css.textContent = box.css;
+    document.head.appendChild(css);
+    const card = document.createElement('section');
+    card.className = 'clp-fb';
+    card.innerHTML = box.html(FB, true);
+    card.querySelector('form').addEventListener('submit', (event) => event.preventDefault());
+    const pager = worksheet && page ? page.querySelector('.case-sequence') : null;
+    if (old) old.replaceWith(card);
+    else if (pager) pager.insertAdjacentElement('beforebegin', card);
+    else (page.querySelector('.section-inner') || page.querySelector('.inner') || page).appendChild(card);
+    card.dataset.what = FB.what;
+    return card;
+  })();
   if (fbCard) {
-    fbCard.hidden = false;
-    const countEl = fbCard.querySelector('[data-fb-count]');
+    const stateEl = fbCard.querySelector('.clp-fb-state');
+    const what = fbCard.dataset.what;
+    const note = `老师的页面只展示、不能提交：请在你自己页面最后的这个${what === '建议' ? '建议箱' : '建议和提问箱'}里写。`;
+    stateEl.textContent = note;
     const refreshFeedback = async () => {
       try {
         const current = await roomHere();
         const today = window.ClassLive.today();
         const n = (await backend.fetchAll('feedback', { classroom: Number(current.id) })).filter((row) => String(row.created_on || '').slice(0, 10) === today).length;
-        countEl.textContent = n ? `这堂课已经收到 ${n} 条匿名建议，谢谢大家！（建议内容只在老师的工作台里看）` : '这堂课还没有收到建议：下课前花一分钟写一写吧。';
+        stateEl.textContent = `${note}${n ? `这堂课已经收到 ${n} 条${what}，谢谢大家！（内容只在老师的工作台里看）` : `这堂课还没有收到${what}：下课前花一分钟写一写吧。`}`;
       } catch (error) {
-        countEl.textContent = '';   // 不是当前课堂、未登录教师工作台或后台还没有建议箱时不显示
+        stateEl.textContent = note;   // 不是当前课堂、未登录教师工作台或后台还没有建议箱时只显示说明
       }
     };
     refreshFeedback();
@@ -323,6 +360,14 @@
       dodge();
       return;
     }
+    // 教师登录记录（2026-11-04）：保存了登录状态直接打开投屏页也记一笔，与工作台共用“同一台设备 10 分钟内只记一次”
+    try {
+      const key = 'teacher:teacher-entry-log';   // 与工作台 store.get('teacher-entry-log') 同一个键
+      if (Date.now() - (Number(localStorage.getItem(key)) || 0) >= 10 * 60000) {
+        localStorage.setItem(key, String(Date.now()));
+        backend.rpc('ck_log_teacher_login', { p_agent: `[打开投屏页] ${navigator.userAgent}`.slice(0, 200) }).catch((problem) => console.warn('[教师登录记录]', problem));
+      }
+    } catch (error) { /* 无痕模式等读不了本机存储时不记 */ }
     await load();
     setInterval(load, ROOM_MS);
     window.addEventListener('resize', dodge);

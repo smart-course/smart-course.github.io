@@ -1,7 +1,8 @@
 /* 学生登录（首页）：填写课堂码和个人信息 → 后台 ck_join 一并核对：课堂码、点名册（学号、姓名一致）、4 位个人口令 → 记录加入 → 打开本周章节。
  *   · 第一次登录设口令；同一设备登录过不用再输，换设备要输；连续输错 10 次锁定（15 分钟→1 小时→须老师解锁）；
  *     忘记口令：点“忘记口令”向老师申请（ck_pin_forgot），老师同意后由这台设备设新口令（本页每 10 秒查一次，同意了就提示设口令）；
- *   · 学号不在点名册上（2026-10-28 起）：只提示核对姓名和学号，不再自动申请；确实不在名单上的同学点“申请加入本班”（ck_join_apply），
+ *   · 学号不在点名册上（2026-10-28 起）：只提示核对姓名和学号，不再自动申请；确实不在名单上的同学点“申请旁听”（ck_join_apply；2026-11-05 起
+ *     老师允许的是旁听：ck_join 返回 audit，章节页按旁听显示——答案只在本机、不计统计和修为，不能发弹幕、提建议、参加小游戏），
  *     老师在工作台允许后本页自动继续；班级没有点名册时不能登录。
  * 章节页各自加密，ck_join 只在全部核对通过后返回该章节的解密值，页面凭它自动打开（并记住 30 天）。
  * 需要页面先加载 live-core.js，并设置 window.CLASS_LIVE_CONFIG。
@@ -199,6 +200,9 @@
       } else if (status === 'listed') {
         applyBox.hidden = true;
         showError('这个学号在本班点名册上，不用申请：核对姓名后直接点“登录”。', field('name'));
+      } else if (status === 'audit') {
+        applyBox.hidden = true;
+        showError('老师已经允许你旁听：直接点“登录”即可（第一次登录要设 4 位口令）。');
       } else {
         commonError(status);
       }
@@ -311,8 +315,8 @@
         case 'not_listed':
           showError('本班点名册上没有这个学号：请核对姓名和学号后重新登录。', field('sid'));
           applyBox.querySelector('[data-join-apply-note]').textContent = result.rejected
-            ? '老师上次没有允许这个学号加入。如果你确实不在本班名单上（如重修、跨班旁听），可以再次'
-            : '如果你确实不在本班名单上（如重修、跨班旁听），可以';
+            ? '老师上次没有允许这个学号旁听。如果你确实不在本班名单上（如跨班旁听、自学），可以再次'
+            : '如果你确实不在本班名单上（如跨班旁听、自学），可以';
           applyBox.hidden = false;
           return;
         case 'set_pin':
@@ -377,6 +381,7 @@
     const identity = {
       code: request.code, name: room.name || request.name, sid: room.sid || request.sid, class_name: request.className, group_name: request.groupName,
       agreed: true, course: room.course, chapter: room.chapter, case_no: room.case_no || null, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
+      audit: Boolean(room.audit),   // 旁听（2026-11-05）：点名册外、老师允许旁听的同学
     };
     save(identity);
     // 每个章节（案例）也各记一份：一个班同时开放几个课堂时，章节页用自己的那份（见 live-student.js）

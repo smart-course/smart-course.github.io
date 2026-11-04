@@ -6,7 +6,8 @@
  * 表：加入 ck_checkins、选择 ck_choices、作答 ck_answers（只增不改，教师端取每人最新一条）、课堂 ck_classrooms
  * 函数：ck_join（学生凭课堂码进入）、ck_publish / ck_set_current / ck_set_open（教师管理课堂）、
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
- *       ck_submit_feedback（每个案例最后的匿名建议：不存提交者身份，只记日期）、ck_my_roster_no（本人在点名册里的编号）、
+ *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为）、
+ *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
@@ -18,7 +19,7 @@
  *       ck_puzzle_live / ck_puzzle_guess（学生面板看正在进行的一轮、抢答；后台核对谜底，第一个猜中的自动加修为）
  *       ck_set_pk_winners（教师在 PK 大屏给今天各局的胜者加修为）
  *       ck_join_apply（不在点名册上的同学自己点“申请加入”）、ck_pin_forgot / ck_decide_pin_request（忘记口令申请、教师同意或拒绝；教师读 ck_pin_requests）
- *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸）、ck_mood_stats（教师只看人数）
+ *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸；点笑脸每天 +5 一次）、ck_mood_stats（教师只看人数）
  *       ck_set_deadline / ck_room_deadline（期中考查作业的递交截止时间：教师设置，学生页读取；过了截止时间 ck_submit_answer 不再收）
  *       ck_poll_open / ck_poll_close（投屏页课堂工具“投票器”发起、结束投票；教师读 ck_polls、ck_poll_votes）、ck_poll_live / ck_poll_vote（学生页弹出投票、投票）
  *       ck_set_class_schedule（班级的上课时间、教室，工作台“课表”）、ck_save_teacher_setting（课表设置：学期、第 1 周、各节时间；校历 calendar）、ck_save_event（“日程”里的安排；教师读、删 ck_teacher_events）
@@ -29,9 +30,10 @@
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
-    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
+    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
-    teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes' };
+    teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes',
+    sectmembers: 'ck_sect_members' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
   const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
@@ -47,6 +49,16 @@
     { level: 4, name: '化神', look: '神光', min: 0.90 },   // 2026-10-22 用户要求化神 90%；2026-10-28 用户：“修为分到65%可以进阶元婴吧”
   ];
   const STAGES = ['初期', '中期', '后期'];
+  // 宗门（2026-11-05 用户：“设置四个不同的宗门，名称你来定，不要跟凡人里面的相同……达到筑基期的同学可以让他们选择加入不同的宗门，也可以选择做散修，
+  // 然后宗门也有分数和排名，加总宗门弟子的修为值就是宗门的分值……宗门是打通每门课程不同年份的……一年一年一直传承下去，允许新同学的加入。”）：
+  // 键名与后台 ck_sect_members.sect 一致（sanxiu＝散修，不计入任何宗门）；宗训取自典籍原文；每门课各自一张宗门榜，历届弟子的修为一直留在宗门里
+  const SECTS = [
+    { key: 'fengxia', name: '枫霞谷', mark: '枫', color: '#b8462a', glow: '#ffb48a', motto: '不积跬步，无以至千里', source: '《荀子·劝学》', way: '勤修不辍，日日有进' },
+    { key: 'xuanyue', name: '玄月宗', mark: '月', color: '#4b3f9e', glow: '#c2b4ff', motto: '学而不思则罔，思而不学则殆', source: '《论语·为政》', way: '明辨深思，追根究底' },
+    { key: 'lingxi', name: '灵犀山', mark: '犀', color: '#2a7a55', glow: '#a3e8c8', motto: '独学而无友，则孤陋而寡闻', source: '《礼记·学记》', way: '同道切磋，互助共进' },
+    { key: 'xinglan', name: '星澜宫', mark: '星', color: '#1d5f9a', glow: '#a6d6ff', motto: '致广大而尽精微', source: '《礼记·中庸》', way: '博观约取，胸怀全局' },
+  ];
+  const SECT_MIN_REALM = 1;   // 达到「筑基」才能拜入宗门或做散修（后台 ck_sect_join 写死同样的数）
   // 弹幕法宝（取自《凡人修仙传》）：每升到一个境界获得该境界法宝的一次使用机会（每件只能祭出一次，记在 ck_gift_uses），
   //   且每次课（同一课堂同一天）最多祭出一件；不加修为，由后台函数 ck_send_gift 核对。学生经 ck_my_gifts 查本人已祭出的法宝。
   // 投屏画面见 live-danmaku.js 的 .dm-gift-<id>；名牌写“某某 verb / 法宝名 / tail”
@@ -85,7 +97,7 @@
   const WORDGAME = { points: 10 };
   // 情境猜谜抢答：老师在投屏页出题时开一轮，学生在面板里抢答，每题最多 tries 次；第一个猜中的自动加 points 修为
   // （同一课堂同一天每人最多累计 cap，额外奖励，不计入满分；后台 ck_puzzle_guess 核对）
-  const PUZZLE = { points: 5, tries: 3, cap: 20 };
+  const PUZZLE = { points: 5, tries: 3, cap: 20, delay: 10 };   // delay：出题后统一倒计时几秒才能抢答（2026-11-05，与 cloudbase-pg.sql 的 ck_puzzle_open 一致）
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
   // 辩论聊天室（2026-10-28，习经辩论赛）：选好立场后取昵称进本方聊天室（昵称 2—nickMax 字），每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；
@@ -114,6 +126,73 @@
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
   // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
   const FEEDBACK = { points: 5, min: 10 };
+  // 隐藏彩蛋（2026-11-05，学生页“更新说明”里不写，让学生自己发现）：老师点赞采纳匿名建议可选的修为 adopt、点笑脸 mood（每人每天一次）、
+  // 一周（周一至周日）登录满 days 天 week（每周一次）。后台 ck_adopt_feedback / ck_set_mood / ck_checkin_today 写死同样的数
+  const EGG = { adopt: [5, 10, 20], mood: 5, week: 10, days: 3 };
+  // 匿名建议箱的文字、样式和卡片（2026-11-05 起学生页与投屏页共用。用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）：
+  // texts(worksheet) 政经（概念学习页）叫“匿名建议和提问箱”；html(FB, teacher) teacher＝投屏页：同样的笑脸、输入框和“匿名提交”，一律不能用
+  const FEEDBACK_BOX = {
+    texts(worksheet) {
+      return worksheet ? {
+        tag: '匿名建议和提问箱',
+        title: '还有哪里没想通？对这堂课有什么意见或建议？',
+        hint: '学完这一课还有哪里没想通、想问老师什么，都写下来，老师看到后在下一堂课统一解答；老师的讲授、案例的呈现、课堂互动和网页用起来怎么样，希望以后增加哪些内容或互动方式，也可以写。',
+        placeholder: '写下你的疑问，或对这堂课的意见和建议（500 字内）',
+        aria: '本堂课的匿名建议和提问',
+        thanks: '老师看到后会在下一堂课解答疑问。',
+        what: '建议或提问',
+      } : {
+        tag: '匿名建议箱',
+        title: '对这堂课，你有什么意见或建议？',
+        hint: '老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。',
+        placeholder: '写下你对这堂课的意见或建议（500 字内）',
+        aria: '本堂课的匿名建议',
+        thanks: '谢谢你的建议！',
+        what: '建议',
+      };
+    },
+    css: `
+  .clp-fb { margin: 28px 0 8px; padding: 16px 18px; border: 1.5px solid rgba(35,101,95,.35); border-radius: 12px; background: #f4f8f6; color: #201c18; font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-fb-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .clp-fb-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #23655f; font-weight: 800; font-size: 13px; }
+  .clp-fb-label { color: #6d6259; font-size: 13px; font-weight: 700; }
+  .clp-fb h4 { margin: 8px 0 4px; font-size: 18px; line-height: 1.6; }
+  .clp-fb-hint { margin: 0 0 8px; color: #4d443c; font-size: 14px; }
+  .clp-fb-hint b { color: #23655f; }
+  .clp-fb textarea { display: block; box-sizing: border-box; width: 100%; min-height: 96px; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; color: #201c18; font: inherit; resize: vertical; }
+  .clp-fb textarea:focus { outline: none; border-color: #23655f; }
+  .clp-fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
+  .clp-fb-count { color: #6d6259; font-size: 13px; }
+  .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
+  .clp-fb-row button[disabled], .clp-fb textarea[disabled] { opacity: .55; cursor: default; }
+  .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
+  .clp-fb-state[data-state="ok"] { color: #23655f; font-weight: 700; }
+  .clp-fb-state[data-state="error"] { color: #a4492d; font-weight: 700; }
+  .clp-mood { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; margin: 4px 0 12px; padding: 10px 12px; border-radius: 10px; background: #fff; border: 1px dashed rgba(35,101,95,.35); }
+  .clp-mood-q { font-weight: 800; color: #23655f; }
+  .clp-mood button { display: inline-flex; align-items: center; gap: 6px; padding: 6px 14px 6px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 999px; background: #fff; color: #201c18; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; cursor: pointer; transition: transform .12s, background .12s, border-color .12s; }
+  .clp-mood button i { font-style: normal; font-size: 22px; line-height: 1; }
+  .clp-mood button:hover:not([disabled]) { transform: translateY(-1px); border-color: #23655f; }
+  .clp-mood button[aria-pressed="true"][data-mood="1"] { border-color: #2f9e62; background: #e8f7ee; color: #1d6a40; }
+  .clp-mood button[aria-pressed="true"][data-mood="-1"] { border-color: #c0703f; background: #fbeee4; color: #8a3f17; }
+  .clp-mood button[disabled] { opacity: .55; cursor: default; }
+  .clp-mood-state { flex: 1 1 100%; color: #6d6259; font-size: 12.5px; }
+  .clp-mood[hidden] { display: none; }
+  `,
+    // 2026-11-05 起后台另记提交者（只用于老师采纳后给作者加修为、通知作者），老师在工作台和导出里仍看不到是谁写的，所以说明改为“老师看不到是谁写的”
+    html(FB, teacher) {
+      return `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
+        <h4>${FB.title}</h4>
+        <div class="clp-mood" role="group" aria-label="上完这堂课的感觉"><span class="clp-mood-q">上完这堂课，你感觉怎么样？</span>
+          <button type="button" data-mood="1" aria-pressed="false" disabled><i aria-hidden="true">😊</i>开心</button>
+          <button type="button" data-mood="-1" aria-pressed="false" disabled><i aria-hidden="true">☹️</i>不开心</button>
+          <small class="clp-mood-state" role="status">点一下就行，每天可以改；老师只看到各有多少人，看不到是谁选的。</small></div>
+        <p class="clp-fb-hint">${FB.hint}<b>匿名</b>：老师只看到内容和提交日期，看不到是谁写的。</p>
+        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="${FB.placeholder}" aria-label="${FB.aria}" disabled></textarea>
+        <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
+        <p class="clp-fb-state" role="status"></p>`;
+    },
+  };
   const POLL = { presets: [['是', '否'], ['对', '错'], ['赞同', '反对'], ['一', '二'], ['A', 'B', 'C', 'D']], check: 4000, refresh: 2000, keep: 180000 };
   // 修炼场（2026-10-22，两门课各一个）：本班开放过某单元的课堂就开放（当前课堂，或已有学生登录上过课；之前上过的也开放；
   // 提前发布、还没开放的课堂只能查看，不开放、不计修为）；客观题当天第一次作答就答对得分，
@@ -394,11 +473,13 @@
       .map((b) => b.toString(16).padStart(2, '0')).join('');
     const weakPin = (pin, sid) => /^(\d)\1{3}$/.test(pin) || '0123456789'.includes(pin) || '9876543210'.includes(pin) || pin === sidKey(sid).slice(-4);
     // 本人（这台设备）在某课堂最近一条核对通过、且设备仍绑定的加入记录
-    const myCheckin = (uid, classroom) => {
+    // audit：旁听（2026-11-05，规则同 cloudbase-pg.sql 的 ck_my_checkin / ck_my_audit）——正式成员的写入只认非旁听记录
+    const myCheckin = (uid, classroom, audit = false) => {
       const room = read('classrooms').find((row) => String(row.id) === String(classroom));
       if (!room) return null;
       const devices = read('devices');
       const mine = read('checkins').filter((row) => row.owner === uid && String(row.classroom) === String(classroom) && row.verified
+        && Boolean(row.auditor) === audit
         && devices.some((d) => String(d.class_id) === String(room.class_id) && d.sid === sidKey(row.sid) && d.owner === uid));
       return mine[mine.length - 1] || null;
     };
@@ -501,14 +582,20 @@
           const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
           const roster = klass && Array.isArray(klass.roster) ? klass.roster : [];
           if (!roster.length) return { status: 'no_roster' };
-          const person = roster.find((item) => sidKey(item.sid) === sid);
+          let person = roster.find((item) => sidKey(item.sid) === sid);
+          let audit = false;   // 旁听（2026-11-05）
           const ctx = { owner: uid, course: room.course, class_id: room.class_id, classroom: room.id, sid, name: nm };
           // 不在点名册上（2026-10-28）：只提示核对姓名和学号，不再自动申请；确实不在名单上的同学自己点“申请加入”（ck_join_apply）
           if (!person) {
             const req = read('requests').find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid);
             if (req && req.status === 'pending') return { status: 'pending' };
-            secLog('bad_sid', ctx);
-            return { status: 'not_listed', rejected: Boolean(req && req.status === 'rejected') };
+            if (req && req.status === 'audit') {
+              person = { sid: req.sid, name: req.name };
+              audit = true;
+            } else {
+              secLog('bad_sid', ctx);
+              return { status: 'not_listed', rejected: Boolean(req && req.status === 'rejected') };
+            }
           }
           if (plain(person.name) !== nm) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
           const devices = read('devices');
@@ -557,15 +644,15 @@
           }
           if (!room.is_current) {   // 历史课堂：只查看，不记登录
             secLog('view_past', ctx);
-            return { status: 'view', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name, pwd_hash: '', name: person.name, sid: person.sid };
+            return { status: 'view', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name, pwd_hash: '', name: person.name, sid: person.sid, audit };
           }
           const rows = read('checkins');
           rows.push({ id: nextId(rows), owner: uid, course: room.course, session: today(), name: person.name, sid: person.sid, page: room.chapter, path: '/',
             ts: now, classroom: room.id, class_name: String(params.p_class || '').trim().slice(0, 40) || null,
-            group_name: String(params.p_group || '').trim().slice(0, 20) || null, verified: true });
+            group_name: String(params.p_group || '').trim().slice(0, 20) || null, verified: true, auditor: audit });
           write('checkins', rows);
           return { status: 'ok', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name,
-            submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid };
+            submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid, audit };
         }
         // 申请加入、忘记口令（规则同 cloudbase-pg.sql 的 ck_join_apply / ck_pin_forgot / ck_decide_pin_request）
         if (name === 'ck_join_apply' || name === 'ck_pin_forgot') {
@@ -589,6 +676,7 @@
             const reqs = read('requests');
             const req = reqs.find((row) => sameClass(row) && row.sid === sid);
             if (req && req.status === 'pending') return { status: 'pending' };
+            if (req && req.status === 'audit') return { status: 'audit' };   // 已允许旁听，直接登录（2026-11-05）
             if (reqs.filter((row) => sameClass(row) && row.status === 'pending').length >= 100) return { status: 'too_many' };
             const fields = { name: nm, class_name: String(params.p_class || '').trim().slice(0, 40) || null, owner: uid, status: 'pending', created_at: at, decided_at: null };
             if (req) Object.assign(req, fields);
@@ -1050,7 +1138,19 @@
           const rest = rows.filter((row) => !mineAt(row));
           if (mood) rest.push({ classroom: Number(params.p_classroom), sid: sidKey(me.sid), day, mood, at: new Date().toISOString() });
           write('moods', rest);
-          return { status: 'ok', mood };
+          // 隐藏彩蛋（2026-11-05）：点笑脸加 EGG.mood 修为，每人每天只加一次（本班各课堂合起来；改选、撤回再点都不再加）
+          let bonus = 0;
+          if (mood === 1) {
+            const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+            const sameClass = new Set(read('classrooms').filter((row) => row.course === room.course && String(row.class_id || '') === String(room.class_id || '')).map((row) => String(row.id)));
+            const list = read('bonus');
+            if (!list.some((row) => row.kind === 'mood' && row.sid === sidKey(me.sid) && row.day === day && sameClass.has(String(row.classroom)))) {
+              list.push({ id: `${Date.now()}-mood`, course: room.course, classroom: room.id, day, kind: 'mood', sid: sidKey(me.sid), name: me.name, points: EGG.mood, created_at: new Date().toISOString() });
+              write('bonus', list);
+              bonus = EGG.mood;
+            }
+          }
+          return { status: 'ok', mood, bonus };
         }
         if (name === 'ck_mood_stats') {
           if (!localStorage.getItem(prefix + 'teacher')) return [];
@@ -1068,14 +1168,46 @@
         if (name === 'ck_checkin_today') {
           const uid = await this.ensureAnonymous();
           const open = classroomState(params.p_classroom) !== null;
-          const me = myCheckin(uid, params.p_classroom);
-          if (!me || sidKey(me.sid) !== sidKey(params.p_sid)) return open ? 'login' : 'past';
+          let me = myCheckin(uid, params.p_classroom);
+          if (!me || sidKey(me.sid) !== sidKey(params.p_sid)) {
+            me = myCheckin(uid, params.p_classroom, true);   // 旁听（2026-11-05）
+            if (!me || sidKey(me.sid) !== sidKey(params.p_sid)) return open ? 'login' : 'past';
+          }
           if (open && me.session !== today()) {
             const rows = read('checkins');
             rows.push({ ...me, id: nextId(rows), session: today(), ts: Date.now() });
             write('checkins', rows);
           }
-          return 'ok';
+          // 2026-11-04：已登录过的设备直接打开章节页，也刷新“最近登录”（规则同 cloudbase-pg.sql，2 分钟内不重复写）
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const devices = read('devices');
+          const mine = room && devices.find((d) => String(d.class_id) === String(room.class_id) && d.sid === sidKey(me.sid) && d.owner === uid);
+          if (mine && Date.now() - Date.parse(mine.last_at || 0) > 120000) {
+            mine.last_at = new Date().toISOString();
+            write('devices', devices);
+          }
+          // 隐藏彩蛋（2026-11-05，规则同 cloudbase-pg.sql）：每人每天记一次登录；同一周（周一至周日）满 EGG.days 天加 EGG.week 修为，每周一次。旁听不算
+          if (!me.auditor && room && room.class_id != null) {
+            const days = read('logindays');
+            const sid = sidKey(me.sid);
+            const day = today();
+            if (!days.some((row) => String(row.class_id) === String(room.class_id) && row.sid === sid && row.day === day)) {
+              days.push({ class_id: room.class_id, sid, day });
+              write('logindays', days);
+              const at = new Date(`${day}T00:00:00Z`);
+              const monday = new Date(at.getTime() - ((at.getUTCDay() + 6) % 7) * 86400000).toISOString().slice(0, 10);
+              const sunday = new Date(Date.parse(`${monday}T00:00:00Z`) + 6 * 86400000).toISOString().slice(0, 10);
+              const count = days.filter((row) => String(row.class_id) === String(room.class_id) && row.sid === sid && row.day >= monday && row.day <= sunday).length;
+              const classRooms = new Set(read('classrooms').filter((row) => String(row.class_id) === String(room.class_id)).map((row) => String(row.id)));
+              const list = read('bonus');
+              if (count >= EGG.days && !list.some((row) => row.kind === 'week' && row.sid === sid && row.day === monday && classRooms.has(String(row.classroom)))) {
+                list.push({ id: `${Date.now()}-week`, course: room.course, classroom: room.id, day: monday, kind: 'week', sid, name: me.name, points: EGG.week, created_at: new Date().toISOString() });
+                write('bonus', list);
+                return ['ok', { bonus: EGG.week, kind: 'week', days: count }];
+              }
+            }
+          }
+          return me.auditor ? 'audit' : 'ok';
         }
         // 本人递交情况（规则同 cloudbase-pg.sql 的 ck_my_submissions）
         if (name === 'ck_my_submissions') {
@@ -1092,6 +1224,8 @@
           return { status: 'ok', items: Array.from(first.entries()).map(([key, ts]) => ({ key, ts })).sort((a, b) => a.ts - b.ts) };
         }
         // 情境猜谜抢答（规则同 cloudbase-pg.sql 的 ck_puzzle_open / close / live / guess）
+        // 模拟“后台时钟”：用 performance 的时刻，不受页面里改动 Date.now 的影响（本机测试倒计时同步时用）
+        const serverClock = () => Math.round(performance.timeOrigin + performance.now());
         const puzzleNorm = (text) => String(text == null ? '' : text).replace(/[\s\p{P}\p{S}]/gu, '').toLowerCase().slice(0, 40);
         if (name === 'ck_puzzle_open') {
           teacherOnly();
@@ -1109,7 +1243,40 @@
           if (row) Object.assign(row, fields, row.winner_sid ? {} : { points });
           else rows.push(row = { id: Date.now(), course: room.course, classroom: room.id, day, pkey: params.p_key, points, opened_at: new Date().toISOString(), winner_sid: null, winner_name: null, won_at: null, ...fields });
           write('puzzles', rows);
-          return { id: row.id, points: row.points, winner_sid: row.winner_sid, winner_name: row.winner_name, won_at: row.won_at };
+          // 游戏状态：出题＝ask，倒计时 PUZZLE.delay 秒（规则同 cloudbase-pg.sql）
+          const goAt = serverClock() + PUZZLE.delay * 1000;
+          const games = read('puzzlegames').filter((g) => String(g.classroom) !== String(room.id));
+          games.push({ classroom: room.id, course: room.course, phase: 'ask', round_id: row.id, label: row.label, surface: row.surface, go_at: goAt, seen_at: serverClock(), updated_at: serverClock() });
+          write('puzzlegames', games);
+          return { id: row.id, points: row.points, winner_sid: row.winner_sid, winner_name: row.winner_name, won_at: row.won_at, delay: PUZZLE.delay, go_at: goAt, now: serverClock() };
+        }
+        // 投屏页大屏的游戏状态（规则同 cloudbase-pg.sql 的 ck_puzzle_game）：rules / reveal / end / beat
+        if (name === 'ck_puzzle_game') {
+          teacherOnly();
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) throw new Error('课堂不存在');
+          const action = params.p_action;
+          const games = read('puzzlegames');
+          let game = games.find((g) => String(g.classroom) === String(room.id));
+          if (['rules', 'reveal', 'end'].includes(action)) {
+            const rows = read('puzzles');
+            rows.forEach((row) => { if (String(row.classroom) === String(room.id)) row.is_open = false; });
+            write('puzzles', rows);
+          }
+          if (action === 'beat') { if (game) game.seen_at = serverClock(); }
+          else if (action === 'rules') {
+            if (!game) games.push(game = { classroom: room.id, course: room.course });
+            Object.assign(game, { phase: 'rules', round_id: null, label: '', surface: '', go_at: null, seen_at: serverClock(), updated_at: serverClock() });
+          } else if (action === 'reveal') {
+            if (!game) games.push(game = { classroom: room.id, course: room.course, round_id: null, label: '', surface: '' });
+            Object.assign(game, { phase: 'reveal', go_at: null, seen_at: serverClock(), updated_at: serverClock() });
+          } else if (action === 'end') {
+            game = null;
+            write('puzzlegames', games.filter((g) => String(g.classroom) !== String(room.id)));
+            return { phase: null, now: serverClock() };
+          } else throw new Error(`不认识的操作：${action}`);
+          write('puzzlegames', games);
+          return { phase: game ? game.phase : null, now: serverClock() };
         }
         if (name === 'ck_puzzle_close') {
           teacherOnly();
@@ -1128,16 +1295,30 @@
           const guesses = read('puzzleguesses');
           const mineOf = (row) => guesses.filter((g) => String(g.round_id) === String(row.id) && g.sid === sid);
           if (name === 'ck_puzzle_live') {
-            const row = rows.filter((item) => String(item.classroom) === String(params.p_classroom) && item.is_open && item.day === today()).pop();
-            if (!row) return { status: 'none' };
-            const mine = mineOf(row);
-            return { status: 'open', round: row.id, label: row.label, surface: row.surface, points: row.points, tries: PUZZLE.tries, used: mine.length,
-              won: Boolean(row.winner_sid), mine: row.winner_sid === sid ? 'won' : mine.some((g) => g.ok) ? 'right' : null };
+            const now = serverClock();
+            const game = read('puzzlegames').find((g) => String(g.classroom) === String(params.p_classroom));
+            let row = null;
+            let phase = 'ask';
+            if (game) {
+              if (now - game.seen_at > 150000 || new Date(game.updated_at).toDateString() !== new Date(now).toDateString()) return { status: 'none', now };
+              row = game.round_id != null ? rows.find((item) => String(item.id) === String(game.round_id)) || null : null;
+              phase = game.phase === 'ask' && (!row || !row.is_open) ? 'reveal' : game.phase;
+            } else {
+              row = rows.filter((item) => String(item.classroom) === String(params.p_classroom) && item.is_open && item.day === today()).pop();
+              if (!row) return { status: 'none', now };
+            }
+            const mine = row ? mineOf(row) : [];
+            return { status: 'open', phase, round: row ? row.id : null, label: (game && game.label) || (row && row.label) || '', surface: (game && game.surface) || (row && row.surface) || '',
+              points: row ? row.points : null, tries: PUZZLE.tries, used: mine.length, won: Boolean(row && row.winner_sid),
+              mine: !row ? null : row.winner_sid === sid ? 'won' : mine.some((g) => g.ok) ? 'right' : null,
+              go_at: phase === 'ask' && game && game.go_at ? game.go_at : null, now };
           }
           const guess = puzzleNorm(params.p_text);
           if (!guess) return { status: 'empty' };
           const row = rows.find((item) => String(item.id) === String(params.p_round) && String(item.classroom) === String(params.p_classroom));
           if (!row || !row.is_open || row.day !== today()) return { status: 'closed' };
+          const game = read('puzzlegames').find((g) => String(g.classroom) === String(params.p_classroom) && String(g.round_id) === String(row.id));
+          if (game && game.go_at && game.go_at > serverClock()) return { status: 'wait', go_at: game.go_at, now: serverClock() };
           const mine = mineOf(row);
           if (mine.some((g) => g.ok)) return { status: row.winner_sid === sid ? 'won' : 'right', points: row.points };
           if (mine.length >= PUZZLE.tries) return { status: 'used', used: mine.length, tries: PUZZLE.tries };
@@ -1246,12 +1427,59 @@
           const hidden = new Set(read('rankhidden').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0)).map((row) => row.sid));
           const rows = read('realms').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && Number(row.points) > 0)
             .sort((a, b) => Number(b.points) - Number(a.points) || String(a.sid).localeCompare(String(b.sid)));
-          const ranked = rows.map((row) => ({ ...row, hidden: hidden.has(row.sid), rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
+          const sectOf = new Map(read('sectmembers').filter((m) => m.course === room.course && Number(m.class_id) === (Number(room.class_id) || 0) && m.sect !== 'sanxiu').map((m) => [m.sid, m.sect]));
+          const ranked = rows.map((row) => ({ ...row, hidden: hidden.has(row.sid), sect: sectOf.get(row.sid) || null, rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
           const mine = ranked.find((row) => row.sid === sid);
           return { status: 'ok', total: ranked.length, updated_at: ranked.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
             top: ranked.filter((row, i) => row.rank <= 10 && i < 15).map((row) => ({ rank: row.rank, name: row.hidden && sid !== null && row.sid !== sid ? '***' : row.name,
-              hidden: row.hidden, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
-            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) >= 2 } : null };
+              hidden: row.hidden, sect: row.sect, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
+            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) >= 2, sect: mine.sect } : null };
+        }
+        // 宗门榜与拜入宗门（规则同 cloudbase-pg.sql 的 ck_sect_board / ck_sect_join）
+        if (name === 'ck_sect_board' || name === 'ck_sect_join') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) return { status: 'login' };
+          const classId = Number(room.class_id) || 0;
+          // 本机测试版里同一个浏览器常常也登录着教师工作台：有本人加入记录时按学生算，没有时教师才看到不带本人的宗门榜
+          const me = myCheckin(await this.ensureAnonymous(), params.p_classroom);
+          const teacher = !me && name === 'ck_sect_board' && Boolean(localStorage.getItem(prefix + 'teacher'));
+          if (!me && !teacher) return { status: 'login' };
+          const sid = me ? sidKey(me.sid) : null;
+          const realm = sid && read('realms').find((row) => row.course === room.course && Number(row.class_id) === classId && row.sid === sid);
+          const list = read('sectmembers');
+          const old = sid && list.find((m) => m.course === room.course && Number(m.class_id) === classId && m.sid === sid);
+          if (name === 'ck_sect_join') {
+            const want = String(params.p_sect || '');
+            if (!SECTS.some((item) => item.key === want) && want !== 'sanxiu') throw new Error('没有这个宗门');
+            if (!realm || Number(realm.realm) < SECT_MIN_REALM) return { status: 'realm' };
+            // 2026-11-05 用户：“学生只有一次更改宗门的机会。”——拜入后可改投他宗一次，不能退为散修；散修拜入不算改投
+            let changes = old ? Number(old.changes) || 0 : 0;
+            if (old && old.sect !== 'sanxiu') {
+              if (old.sect === want) return { status: 'ok', sect: want, changes };
+              if (want === 'sanxiu' || changes >= 1) return { status: 'locked', sect: old.sect, changes };
+              changes += 1;
+            }
+            const klass = read('classes').find((row) => Number(row.id) === classId);
+            const at = new Date().toISOString();
+            const row = { id: old ? old.id : Date.now(), course: room.course, class_id: classId, class_name: klass ? klass.name : '', sid, name: realm.name, sect: want,
+              points: Number(realm.points) || 0, realm: Number(realm.realm) || 0, changes, joined_at: old && old.sect === want ? old.joined_at : at, updated_at: at };
+            write('sectmembers', list.filter((m) => m !== old).concat(row));
+            return { status: 'ok', sect: want, changes };
+          }
+          const inCourse = list.filter((m) => m.course === room.course);
+          const sum = (rows) => rows.reduce((total, m) => total + (Number(m.points) || 0), 0);
+          return { status: 'ok',
+            sects: SECTS.map((item) => {
+              const rows = inCourse.filter((m) => m.sect === item.key);
+              const mineClass = rows.filter((m) => Number(m.class_id) === classId);
+              return { key: item.key, points: sum(rows), members: rows.length, class_members: mineClass.length, class_points: sum(mineClass) };
+            }),
+            sanxiu: inCourse.filter((m) => m.sect === 'sanxiu').length,
+            class_sanxiu: inCourse.filter((m) => m.sect === 'sanxiu' && Number(m.class_id) === classId).length,
+            classes: new Set(inCourse.filter((m) => m.sect !== 'sanxiu').map((m) => Number(m.class_id))).size,
+            mine: teacher ? null : { sect: old ? old.sect : null, realm: realm ? Number(realm.realm) : null, points: realm ? Number(realm.points) : old ? Number(old.points) : null,
+              can_join: Boolean(realm && Number(realm.realm) >= SECT_MIN_REALM), changes: old ? Number(old.changes) || 0 : 0,
+              can_change: Boolean(realm && Number(realm.realm) >= SECT_MIN_REALM && old && old.sect !== 'sanxiu' && !(Number(old.changes) >= 1)) } };
         }
         if (name === 'ck_set_rank_hidden') {
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
@@ -1595,10 +1823,10 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes', 'fbauthors'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
-          ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
+          ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses', 'logindays'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
           return ids.length;
         }
         if (name === 'ck_set_open') return updateRoom(params.p_classroom, (room) => { room.submissions_open = Boolean(params.p_open); });
@@ -1632,15 +1860,60 @@
           const text = String(params.p_text || '').trim();
           if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
           const rows = read('feedback');
-          rows.push({ id: Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1, course: room.course, classroom: room.id, unit: room.chapter,
-            case_no: params.p_case, text, created_on: today() });
+          const id = Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1;
+          rows.push({ id, course: room.course, classroom: room.id, unit: room.chapter, case_no: params.p_case, text, created_on: today(), adopted: 0, adopted_at: null });
           write('feedback', rows);
+          // 2026-11-05：另记提交者（老师读不到；只用于采纳后给作者加修为、通知作者）
+          const authors = read('fbauthors');
+          authors.push({ feedback_id: id, course: room.course, class_id: room.class_id, classroom: room.id, sid: sidKey(me.sid), name: me.name, created_on: today(), points: 0, notified: 0 });
+          write('fbauthors', authors);
           // 每个课堂第一次提交 10 字以上加修为（只记提交过，不记是哪一条）
           const bonus = read('bonus');
           if (text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;
           bonus.push({ id: `${Date.now()}-fb`, course: room.course, classroom: room.id, day: today(), kind: 'feedback', sid: sidKey(me.sid), name: me.name, points: FEEDBACK.points, created_at: new Date().toISOString() });
           write('bonus', bonus);
           return true;
+        }
+        // 老师点赞采纳匿名建议（规则同 cloudbase-pg.sql 的 ck_adopt_feedback）：0／5／10／20，同一人同一课堂同一天被采纳的合成一行加分
+        if (name === 'ck_adopt_feedback') {
+          teacherOnly();
+          const points = Number(params.p_points);
+          if (![0, ...EGG.adopt].includes(points)) throw new Error('修为只能选 5、10 或 20');
+          const rows = read('feedback');
+          const doc = rows.find((row) => String(row.id) === String(params.p_id));
+          if (!doc) throw new Error('这条建议已经删除');
+          const authors = read('fbauthors');
+          const author = authors.find((row) => String(row.feedback_id) === String(params.p_id));
+          if (!author) return { status: 'no_author', adopted: Number(doc.adopted) || 0 };
+          doc.adopted = points;
+          doc.adopted_at = points ? new Date().toISOString() : null;
+          write('feedback', rows);
+          author.points = points;
+          author.notified = Math.min(Number(author.notified) || 0, points);
+          write('fbauthors', authors);
+          const same = (row) => String(row.classroom) === String(author.classroom) && row.created_on === author.created_on && row.sid === author.sid;
+          const sum = authors.filter(same).reduce((total, row) => total + (Number(row.points) || 0), 0);
+          const list = read('bonus').filter((row) => !(row.kind === 'adopt' && String(row.classroom) === String(author.classroom) && row.day === author.created_on && row.sid === author.sid));
+          if (sum > 0) list.push({ id: `${Date.now()}-adopt`, course: author.course, classroom: author.classroom, day: author.created_on, kind: 'adopt', sid: author.sid, name: author.name, points: Math.min(sum, 100), created_at: new Date().toISOString() });
+          write('bonus', list);
+          return { status: 'ok', adopted: points };
+        }
+        // 学生打开章节页时取“建议被采纳”的通知（本班各课堂），取过即记为已通知
+        if (name === 'ck_my_notices') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login', adopt: 0 };
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const authors = read('fbauthors');
+          let adopt = 0;
+          authors.forEach((row) => {
+            if (row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid) && row.points > row.notified) {
+              adopt += row.points - row.notified;
+              row.notified = row.points;
+            }
+          });
+          write('fbauthors', authors);
+          return { status: 'ok', adopt };
         }
         // 修为境界：教师结算后整班替换；学生只能查本人（按本人这次登录在本课堂的学号）；法宝按境界和“每次课一件”核对
         if (name === 'ck_save_realms') {
@@ -1652,6 +1925,13 @@
           const fresh = (params.p_rows || []).map((row, i) => ({ id: `${Date.now()}-${i}`, course: params.p_course, class_id: classId, sid: key(row.sid),
             name: row.name, points: row.points, max_points: row.max, realm: row.realm, stage: row.stage, detail: row.detail || {}, updated_at: at }));
           write('realms', keep.concat(fresh));
+          // 宗门（同后台触发器 ck_sect_sync）：结算时同步弟子的修为和境界
+          const sects = read('sectmembers');
+          sects.forEach((m) => {
+            const got = fresh.find((row) => m.course === params.p_course && Number(m.class_id) === classId && row.sid === m.sid);
+            if (got) Object.assign(m, { points: Number(got.points) || 0, realm: Number(got.realm) || 0, name: got.name, updated_at: at });
+          });
+          write('sectmembers', sects);
           return fresh.length;
         }
         // 登录安全（教师）：重置口令（连同已登录设备）、解锁、处理班外加入申请、更换课堂码、口令状态、教师登录记录
@@ -1682,6 +1962,9 @@
             if (params.p_allow) {
               if (!roster.some((person) => sidKey(person.sid) === req.sid)) roster.push({ sid: req.sid, name: req.name, class: req.class_name || '', extra: true });
               klass.roster = roster;
+              // 原来是旁听的：以前的加入记录转为正式（2026-11-05）
+              const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(req.class_id)).map((r) => String(r.id)));
+              write('checkins', read('checkins').map((row) => (row.auditor && sidKey(row.sid) === req.sid && rooms.has(String(row.classroom)) ? { ...row, auditor: false } : row)));
             } else {
               klass.roster = roster.filter((person) => !(sidKey(person.sid) === req.sid && person.extra));
               write('devices', read('devices').filter((row) => !(String(row.class_id) === String(req.class_id) && row.sid === req.sid)));
@@ -1692,6 +1975,28 @@
           write('requests', reqs);
           secLog(params.p_allow ? 'approve' : 'reject', { course: req.course, class_id: req.class_id, sid: req.sid, name: req.name, owner: 'teacher' });
           return params.p_allow ? 'approved' : 'rejected';
+        }
+        // 允许旁听（2026-11-05，规则同 cloudbase-pg.sql 的 ck_audit_request）：不进点名册；原来加进点名册的移出，以前的加入记录转为旁听
+        if (name === 'ck_audit_request') {
+          teacherOnly();
+          const reqs = read('requests');
+          const req = reqs.find((row) => String(row.id) === String(params.p_id));
+          if (!req) throw new Error('申请不存在');
+          const classes = read('classes');
+          const klass = classes.find((row) => String(row.id) === String(req.class_id));
+          if (klass) {
+            klass.roster = (klass.roster || []).filter((person) => !(sidKey(person.sid) === req.sid && person.extra));
+            write('classes', classes);
+          }
+          const listed = klass && (klass.roster || []).some((person) => sidKey(person.sid) === req.sid);
+          if (!listed) {
+            const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(req.class_id)).map((r) => String(r.id)));
+            write('checkins', read('checkins').map((row) => (!row.auditor && sidKey(row.sid) === req.sid && rooms.has(String(row.classroom)) ? { ...row, auditor: true } : row)));
+          }
+          Object.assign(req, { status: 'audit', decided_at: new Date().toISOString() });
+          write('requests', reqs);
+          secLog('audit', { course: req.course, class_id: req.class_id, sid: req.sid, name: req.name, owner: 'teacher' });
+          return { status: 'audit' };
         }
         if (name === 'ck_rotate_code') {
           teacherOnly();
@@ -2006,6 +2311,8 @@
     COLLECTIONS,
     REALMS,
     STAGES,
+    SECTS,
+    SECT_MIN_REALM,
     GIFTS,
     COLORS,
     colorFor,
@@ -2017,6 +2324,8 @@
     BIZ,
     POLL,
     FEEDBACK,
+    EGG,
+    feedbackBox: FEEDBACK_BOX,
     PRACTICE,
     LEAVE,
     office,
