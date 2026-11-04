@@ -30,7 +30,7 @@
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
-    debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says',
+    debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
@@ -108,6 +108,9 @@
       { key: 'vote', label: '辩后投票', secs: 60, turn: null, topic: null, hint: '全班根据六位辩手的发言投辩后票' },
     ],
   };
+  // 经营沙盘（2026-11-03，习经案例 08 第二课时）：四个角色组聊天室沿用辩论聊天室（房间＝案例号＋b，side＝r1—r4）；
+  // 经营合格时四位代表各 rep、本方指标最高的角色组里发过言的同学各 top（同一人相加，不超过 20；后台 ck_set_biz_awards 发放）；学生页每 poll 毫秒刷新
+  const BIZ = { rep: 10, top: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
   // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
   const FEEDBACK = { points: 5, min: 10 };
@@ -609,6 +612,152 @@
           write('pinreqs', asks);
           secLog('pin_forgot', { ...ctx, name: person.name });
           return { status: 'pending' };
+        }
+        // 经营沙盘（规则同 cloudbase-pg.sql 的 ck_biz_state / join / vote / board / control 与 ck_set_biz_awards）
+        if (/^ck_biz_|^ck_set_biz_awards$/.test(name)) {
+          const uid = await this.ensureAnonymous();
+          const teacher = Boolean(localStorage.getItem(prefix + 'teacher'));
+          const classroom = params.p_classroom;
+          const no = String(params.p_case);
+          const roomNo = `${no}b`;
+          const room = read('classrooms').find((row) => String(row.id) === String(classroom));
+          const members = read('debatemembers');
+          const posts = read('debateposts');
+          const likes = read('debatelikes');
+          const games = read('bizgames');
+          const votes = read('bizvotes');
+          const same = (row) => String(row.classroom) === String(classroom);
+          const likeCount = (id) => likes.filter((l) => String(l.post_id) === String(id)).length;
+          const gameRow = () => games.find((g) => same(g) && g.case_no === no);
+          const ranked = (role) => members.filter((m) => same(m) && m.case_no === roomNo && m.side === role).map((m) => {
+            const mine = posts.filter((p) => same(p) && p.case_no === roomNo && p.sid === m.sid && !p.hidden);
+            return { ...m, likes: mine.reduce((n, p) => n + likeCount(p.id), 0), posts: mine.length, first: mine.length ? Math.min(...mine.map((p) => Date.parse(p.created_at))) : Infinity };
+          }).filter((m) => m.posts).sort((a, b) => b.likes - a.likes || a.first - b.first);
+          const gameJson = (names) => {
+            const g = gameRow() || {};
+            const reps = {};
+            Object.entries(g.reps || {}).forEach(([k, v]) => { reps[k] = names ? { ...v } : { nick: v.nick }; });
+            const out = {};
+            votes.filter((v) => same(v) && v.case_no === no).forEach((v) => {
+              const r = out[String(v.round)] || (out[String(v.round)] = {});
+              (r[String(v.decision)] || (r[String(v.decision)] = {}))[v.role] = v.choice;
+            });
+            return { stage: g.stage || 'chat', reps, event: g.event || null, shown: g.shown || null, votes: out };
+          };
+          if (name === 'ck_biz_board' || name === 'ck_biz_control' || name === 'ck_set_biz_awards') {
+            teacherOnly();
+            if (!room) throw new Error('课堂不存在');
+            if (name === 'ck_biz_board') {
+              const roles = {};
+              BIZ.roles.forEach((role) => {
+                const mine = posts.filter((p) => same(p) && p.case_no === roomNo && p.side === role && !p.hidden);
+                roles[role] = {
+                  members: members.filter((m) => same(m) && m.case_no === roomNo && m.side === role).length,
+                  posts: mine.length,
+                  top: ranked(role).slice(0, 5).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
+                  hot: mine.map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => same(m) && m.case_no === roomNo && m.sid === p.sid) || {}).name, text: p.text, likes: likeCount(p.id) }))
+                    .sort((a, b) => b.likes - a.likes || Number(b.id) - Number(a.id)).slice(0, 4),
+                };
+              });
+              const awarded = read('bonus').filter((b) => same(b) && b.day === today() && b.kind === 'biz').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
+              return { roles, game: gameJson(true), awarded };
+            }
+            if (name === 'ck_set_biz_awards') {
+              const day = today();
+              const bonus = read('bonus').filter((b) => !(same(b) && b.day === day && b.kind === 'biz'));
+              if (params.p_pass === true) {
+                const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+                const roster = new Set(((klass && klass.roster) || []).map((x) => sidKey(x.sid)));
+                const add = new Map();
+                Object.values((gameRow() || {}).reps || {}).forEach((r) => add.set(r.sid, { name: r.name, points: (add.get(r.sid) || { points: 0 }).points + Number(params.p_rep) }));
+                if (Number(params.p_top_points) > 0) {
+                  members.filter((m) => same(m) && m.case_no === roomNo && (params.p_top || []).includes(m.side)
+                    && posts.some((p) => same(p) && p.case_no === roomNo && p.sid === m.sid && !p.hidden))
+                    .forEach((m) => add.set(m.sid, { name: m.name, points: ((add.get(m.sid) || { points: 0 }).points) + Number(params.p_top_points) }));
+                }
+                add.forEach((v, sid) => { if (roster.has(sid)) bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'biz', sid, name: String(v.name || '').slice(0, 20), points: Math.min(20, v.points), created_at: new Date().toISOString() }); });
+              }
+              write('bonus', bonus);
+              return bonus.filter((b) => same(b) && b.day === day && b.kind === 'biz').map((b) => ({ sid: b.sid, name: b.name, points: b.points })).sort((a, b) => b.points - a.points);
+            }
+            let g = gameRow();
+            if (!g) { g = { classroom: Number(classroom) || classroom, case_no: no, stage: 'chat', reps: {}, event: null, shown: null }; games.push(g); }
+            const args = params.p_args || {};
+            const action = params.p_action;
+            if (action === 'reps') {
+              if (args.role) {
+                if (!BIZ.roles.includes(args.role)) throw new Error('角色组不对');
+                if (!args.sid) delete g.reps[args.role];
+                else {
+                  const m = members.find((x) => same(x) && x.case_no === roomNo && x.side === args.role && x.sid === sidKey(args.sid));
+                  if (!m) throw new Error('这位同学不在这个角色组');
+                  g.reps[args.role] = { sid: m.sid, name: m.name, nick: m.nick };
+                }
+              } else {
+                g.reps = {};
+                BIZ.roles.forEach((role) => { const best = ranked(role)[0]; if (best) g.reps[role] = { sid: best.sid, name: best.name, nick: best.nick }; });
+              }
+            } else if (action === 'stage') {
+              if (!['chat', 'vote1', 'show1', 'vote2', 'done'].includes(args.stage)) throw new Error('阶段不对');
+              g.stage = args.stage;
+            } else if (action === 'event') {
+              if (args.key) { g.event = { key: String(args.key).slice(0, 8), title: String(args.title || '').slice(0, 40), text: String(args.text || '').slice(0, 120) }; g.stage = 'vote2'; }
+              else { g.event = null; g.stage = 'show1'; write('bizvotes', votes.filter((v) => !(same(v) && v.case_no === no && v.round === 2))); votes.splice(0, votes.length, ...read('bizvotes')); }
+            } else if (action === 'show') {
+              g.shown = Object.keys(args).length ? args : null;
+            } else if (action === 'reset') {
+              write('bizvotes', votes.filter((v) => !(same(v) && v.case_no === no)));
+              votes.splice(0, votes.length, ...read('bizvotes'));
+              Object.assign(g, { stage: 'chat', reps: {}, event: null, shown: null });
+            } else throw new Error('不支持的操作');
+            write('bizgames', games);
+            return gameJson(true);
+          }
+          const me = myCheckin(uid, classroom) || (teacher && room ? { sid: 'WBF0001', name: '王不凡', test: true } : null);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const mem = members.find((m) => same(m) && m.case_no === roomNo && m.sid === sid);
+          const chosen = () => {
+            const c = read('choices').filter((row) => same(row) && row.case === no && row.item === 'biz-role' && sidKey(row.sid) === sid && BIZ.roles.includes(row.choice))
+              .sort((a, b) => (a.ts || 0) - (b.ts || 0))[0];
+            return c ? c.choice : null;
+          };
+          if (name === 'ck_biz_state') {
+            const game = gameJson(false);
+            if (mem) {
+              const g = gameRow();
+              return { status: 'joined', role: mem.side, nick: mem.nick, test: Boolean(me.test), rep: Boolean(g && g.reps && g.reps[mem.side] && g.reps[mem.side].sid === sid), game };
+            }
+            const role = me.test ? null : chosen();
+            return { status: !role && !me.test ? 'pick' : 'nick', role, test: Boolean(me.test), rep: false, game };
+          }
+          if (name === 'ck_biz_join') {
+            if (!room || !room.is_current) return { status: 'closed' };
+            if (mem) return { status: 'ok', role: mem.side, nick: mem.nick };
+            const role = me.test ? (BIZ.roles.includes(params.p_role) ? params.p_role : null) : chosen();
+            if (!role) return { status: 'pick' };
+            const nick = String(params.p_nick || '').replace(/\s+/g, '');
+            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
+            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
+            if (members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            members.push({ id: nextId(members), classroom: Number(classroom), case_no: roomNo, side: role, sid, name: me.name, nick, joined_at: new Date().toISOString() });
+            write('debatemembers', members);
+            return { status: 'ok', role, nick };
+          }
+          if (name === 'ck_biz_vote') {
+            const d = Number(params.p_decision);
+            if (!(d >= 1 && d <= 3) || !['A', 'B', 'C'].includes(params.p_choice)) return { status: 'bad' };
+            const g = gameRow();
+            const role = g && Object.keys(g.reps || {}).find((k) => g.reps[k].sid === sid);
+            if (!role) return { status: 'not_rep' };
+            const round = g.stage === 'vote1' ? 1 : g.stage === 'vote2' ? 2 : 0;
+            if (!round || !room || !room.is_current || !room.submissions_open) return { status: 'closed' };
+            const rest = votes.filter((v) => !(same(v) && v.case_no === no && v.round === round && v.decision === d && v.role === role));
+            rest.push({ classroom: Number(classroom) || classroom, case_no: no, round, decision: d, role, choice: params.p_choice, sid, updated_at: new Date().toISOString() });
+            write('bizvotes', rest);
+            return { status: 'ok', round };
+          }
+          throw new Error(`未知的后台函数：${name}`);
         }
         // 辩论聊天室（规则同 cloudbase-pg.sql 的 ck_debate_state / join / post / feed / like / board / hide 与 ck_set_debate_winners）
         if (/^ck_debate_|^ck_set_debate_winners$/.test(name)) {
@@ -1446,7 +1595,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -1865,6 +2014,7 @@
     PUZZLE,
     PK,
     DEBATE,
+    BIZ,
     POLL,
     FEEDBACK,
     PRACTICE,

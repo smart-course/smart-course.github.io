@@ -1426,6 +1426,7 @@
     setupMechDanmaku(false, viewed ? `${pastNote}这里不能发弹幕。` : elsewhere ? '本周课堂不在这一页，这里不能发弹幕。' : '进入课堂后才能发弹幕：请先在首页输入老师发布的课堂码。');
     setupFeedback(false, viewed ? `${pastNote}这里不能提交${FB.what}。` : elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
     setupDebateRooms(false, viewed ? `${pastNote}聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，聊天室不能进入。' : '进入本周课堂后，递交辩前票就能进入本方聊天室。');
+    setupBizGames(false, viewed ? `${pastNote}经营会不能参加。` : elsewhere ? '本周课堂不在这一页，经营会不能参加。' : '进入本周课堂后，递交角色就能进入本组聊天室。');
     return;
   }
 
@@ -1745,6 +1746,7 @@
   setupExamExport();
   setupDebateRooms(true);
   setupDebateStages(true);
+  setupBizGames(true);
 
   // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
   // 大家不知道你是谁），然后大家可以在聊天室中发表自己的观点，其它同学可以点赞，每一方被点赞次数最多的三位同学上台辩论……”）：
@@ -1920,6 +1922,237 @@
       refresh();
       // 递交辩前票后自动进聊天室
       document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; refresh(); } });
+    });
+  }
+
+  // 经营沙盘（2026-11-03，习经案例 08 第二课时，代替圆桌会议；用户：“让他们自己选择角色卡，然后每个角色卡通过内部聊天室讨论，
+  // 最后再各自选出一位同学来代表本角色组做决策”）：[data-biz-room] 本组聊天室，[data-biz-game] 经营会。
+  // 角色取递交的“biz-role”（后台核对）；聊天室沿用辩论聊天室的函数（房间＝案例号＋b，ck_debate_post / feed / like）；
+  // 代表由老师在投屏页按点赞确认（ck_biz_control）；代表在这里为三项决策投票（ck_biz_vote），大家都看得到四位代表的选择、事件卡和老师揭晓的指标。
+  // 测试页（王不凡）按本机递交的角色进入。后台还没有这组函数时显示说明
+  function setupBizGames(enabled, note) {
+    const sections = $$('[data-biz]').filter((section) => section.querySelector('[data-biz-room], [data-biz-game]'));
+    if (!sections.length || OFFLINE) return;
+    if (!enabled) {
+      sections.forEach((section) => $$('[data-biz-room], [data-biz-game]', section).forEach((box) => { box.innerHTML = `<p class="debate-room-off">${esc(note || '进入本周课堂后，递交角色就能进入本组聊天室。')}</p>`; }));
+      return;
+    }
+    const BZ = Live.BIZ || { rep: 10, top: 5, poll: 3000 };
+    const DB = Live.DEBATE || { nickMax: 10, textMax: 100 };
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
+    const STAGE = { chat: '各组在聊天室商量本组主张，等老师确认四位代表', vote1: '第一轮决策：四位代表投票中', show1: '第一轮结果已揭晓，等老师抽突发事件卡',
+      vote2: '突发事件后：代表可以改投（每改一项，经营利润扣分）', done: '已结束，看下面的结算结果' };
+    sections.forEach((section) => {
+      const node = section.querySelector('script[data-biz-public]');
+      const pub = node ? JSON.parse(node.textContent) : { roles: [], indicators: [], decisions: [], red: 30 };
+      const ROLE = Object.fromEntries(pub.roles.map((r) => [r.key, r.name]));
+      const roomBox = section.querySelector('[data-biz-room]');
+      const gameBox = section.querySelector('[data-biz-game]');
+      const no = (roomBox || gameBox).dataset.case;
+      const chatNo = `${no}b`;
+      [roomBox, gameBox].filter(Boolean).forEach((box) => shield(box));
+      let mode = '';
+      let feedKey = '';
+      let gameKey = '';
+      let state = {};
+      let timer = 0;
+      const say = (box, text, kind) => { const el = box && box.querySelector('[data-bz-state]'); if (el) { el.textContent = text || ''; el.dataset.state = kind || ''; } };
+      const localRole = () => {
+        const key = `${no}:biz-role`;
+        const group = section.querySelector('[data-live-item="biz-role"]');
+        const pressedButton = group && group.querySelector('[data-live-option][aria-pressed="true"]');
+        const value = (locked[key] && locked[key].v) || (locked[key] && pressedButton && pressedButton.dataset.liveOption);
+        return ROLE[value] ? value : '';
+      };
+      async function tick(force) {
+        if (document.hidden && !force) return;
+        try { state = await call('ck_biz_state', { p_classroom: roomId, p_case: no }); } catch (problem) {
+          console.warn('[经营沙盘]', problem);
+          const text = missing(problem) ? '经营沙盘还没有开通（老师后台尚未更新）。' : '暂时连不上，请稍后刷新页面。';
+          [roomBox, gameBox].filter(Boolean).forEach((box) => { box.innerHTML = `<p class="debate-room-off">${text}</p>`; });
+          mode = 'error';
+          return;
+        }
+        if (state.status === 'login') { if (roomBox) roomBox.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再进聊天室。</p>'; mode = 'login'; return; }
+        if (roomBox) {
+          if (state.status === 'pick') showPick();
+          else if (state.status === 'nick') { const role = state.role || (state.test ? localRole() : ''); if (role) showNick(role, state.test); else showPick(); }
+          else showRoom(force);
+        }
+        if (gameBox) renderGame(force);
+      }
+      function showPick() {
+        if (mode === 'pick') return;
+        mode = 'pick';
+        roomBox.innerHTML = '<p class="dbr-note">先在上面“① 选角色”选好并点“递交”：递交后自动带你进入本组聊天室。</p>';
+      }
+      function showNick(role, test) {
+        if (mode === 'nick') return;
+        mode = 'nick';
+        roomBox.innerHTML = `<div class="dbr-join is-pro">
+          <p class="dbr-lead">你在<b>${esc(ROLE[role])}组</b>：取一个昵称，进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
+          <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-bz-state role="status"></p></div>`;
+        roomBox.querySelector('form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const nick = roomBox.querySelector('input').value.replace(/\s+/g, '');
+          if (nick.length < 2) { say(roomBox, '昵称至少 2 个字。', 'error'); return; }
+          const button = roomBox.querySelector('form button');
+          button.disabled = true;
+          try {
+            const res = await call('ck_biz_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_role: role });
+            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+              closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交角色，才能进入本组聊天室。', login: '请回首页用课堂码重新登录。' };
+            if (res.status === 'ok') { mode = ''; await tick(true); return; }
+            say(roomBox, why[res.status] || '没有进去，请再试一次。', 'error');
+          } catch (problem) {
+            console.warn('[经营沙盘]', problem);
+            say(roomBox, missing(problem) ? '经营沙盘还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      }
+      function showRoom(force) {
+        if (mode !== 'room') {
+          mode = 'room';
+          feedKey = '';
+          roomBox.innerHTML = `<div class="dbr-room is-pro">
+            <header class="dbr-head"><div><b data-bz-title></b><span data-bz-meta></span></div><span class="dbr-stage" data-bz-rep hidden></span></header>
+            <div class="dbr-body">
+              <aside class="dbr-people"><h5 data-bz-people-title>成员</h5><ul data-bz-people></ul></aside>
+              <div class="dbr-main">
+                <div class="dbr-list" data-bz-list aria-live="polite"></div>
+                <form class="dbr-form"><input type="text" maxlength="${DB.textMax}" placeholder="本组对三项决策怎么主张？用上私密信息和本章理论（最多 ${DB.textMax} 字）" aria-label="聊天室发言" autocomplete="off"><button type="submit">发送</button></form>
+                <p class="dbr-state" data-bz-state role="status"></p>
+              </div>
+            </div></div>`;
+          roomBox.querySelector('form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = roomBox.querySelector('.dbr-form input');
+            const text = input.value.trim();
+            if (text.length < 2) { say(roomBox, '写两个字以上再发送。', 'error'); return; }
+            const button = roomBox.querySelector('.dbr-form button');
+            button.disabled = true;
+            try {
+              const res = await call('ck_debate_post', { p_classroom: roomId, p_case: chatNo, p_text: text });
+              const why = { wait: '发得太快了，等几秒再发。', too_many: '每人最多发 30 条，把机会留给别人吧。', closed: '老师已结束提交，聊天室不能再发言。', short: `发言要 2—${DB.textMax} 个字。`, join: '请先取昵称进入聊天室。' };
+              if (res.status === 'ok') { input.value = ''; say(roomBox, ''); await loadFeed(true); } else say(roomBox, why[res.status] || '没有发出去，请再试一次。', 'error');
+            } catch (problem) {
+              console.warn('[经营沙盘]', problem);
+              say(roomBox, '网络不通，没有发出去，请稍后再试。', 'error');
+            } finally {
+              button.disabled = false;
+            }
+          });
+          roomBox.querySelector('[data-bz-list]').addEventListener('click', async (event) => {
+            const like = event.target.closest('[data-dbr-like]');
+            if (!like || like.disabled) return;
+            const on = like.getAttribute('aria-pressed') !== 'true';
+            like.disabled = true;
+            try {
+              const res = await call('ck_debate_like', { p_post: Number(like.dataset.dbrLike) || like.dataset.dbrLike, p_like: on });
+              if (res.status === 'mine') say(roomBox, '不能给自己的发言点赞。');
+              await loadFeed(true);
+            } catch (problem) { console.warn('[经营沙盘]', problem); } finally { like.disabled = false; }
+          });
+        }
+        loadFeed(force);
+      }
+      async function loadFeed(force) {
+        let feed;
+        try { feed = await call('ck_debate_feed', { p_classroom: roomId, p_case: chatNo }); } catch (problem) { console.warn('[经营沙盘]', problem); return; }
+        if (feed.status !== 'ok') { mode = ''; return; }
+        const people = Array.isArray(feed.list) ? feed.list : [];
+        const reps = (state.game && state.game.reps) || {};
+        const rep = reps[feed.side];
+        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), people, feed.members, feed.others, rep]);
+        if (!force && key === feedKey) return;
+        feedKey = key;
+        const room = roomBox.querySelector('.dbr-room');
+        room.className = `dbr-room is-${feed.side === 'r4' ? 'con' : 'pro'}`;
+        const online = people.filter((p) => p.online).length;
+        roomBox.querySelector('[data-bz-title]').textContent = `${ROLE[feed.side] || ''}组聊天室`;
+        roomBox.querySelector('[data-bz-meta]').textContent = `我是“${feed.nick}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
+        const pill = roomBox.querySelector('[data-bz-rep]');
+        pill.hidden = !rep;
+        pill.textContent = rep ? `本组代表：${rep.nick}${state.rep ? '（就是你）' : ''}` : '';
+        roomBox.querySelector('[data-bz-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
+        roomBox.querySelector('[data-bz-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${rep && rep.nick === p.nick ? ' is-debater' : ''}">
+            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+          || '<li class="dbr-people-empty">还没有人进来</li>';
+        const list = roomBox.querySelector('[data-bz-list]');
+        const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+        const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
+            <div class="dbr-who"><b>${esc(p.nick)}</b>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}<time>${esc(clock(p.at))}</time></div>
+            <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
+          || '<p class="dbr-empty">还没有发言。说说本组对三项决策的主张：定价、供应链、资金投向各选哪个方案，为什么。点赞最多的建议作者当本组代表。</p>';
+        if (atBottom || force) list.scrollTop = list.scrollHeight;
+      }
+      // 经营会：代表投票（只有代表、只在投票阶段）；大家都看得到四位代表的选择、事件卡和老师揭晓的指标
+      function renderGame(force) {
+        const game = state.game || {};
+        const key = JSON.stringify([game, state.rep, state.role]);
+        if (!force && key === gameKey) return;
+        gameKey = key;
+        const stage = game.stage || 'chat';
+        const reps = game.reps || {};
+        const votes = game.votes || {};
+        const round = stage === 'vote2' || stage === 'done' ? 2 : 1;
+        const open = state.rep && (stage === 'vote1' || stage === 'vote2');
+        const ballot = (d, role) => {
+          const v1 = ((votes['1'] || {})[String(d + 1)] || {})[role];
+          const v2 = ((votes['2'] || {})[String(d + 1)] || {})[role];
+          return round === 2 ? v2 || v1 : v1;
+        };
+        const myRole = state.role;
+        const shown = game.shown;
+        const bars = shown && Array.isArray(shown.values) ? `<div class="bzs-bars">${pub.indicators.map((ind, i) => {
+          const v = shown.values[i];
+          return `<div class="bzs-bar${v < pub.red ? ' is-low' : ''}"><div class="bzs-bar-head"><b>${esc(ind.name)}</b><small>${esc(ind.roleName)}组</small><em>${v}</em></div>
+            <div class="bzs-track"><span style="width:${Math.max(0, Math.min(100, v))}%"></span><s style="left:${pub.red}%"></s></div></div>`;
+        }).join('')}</div>` : '';
+        const verdict = shown && shown.round === 2 ? `<p class="bzg-me">${shown.pass ? `经营合格！本方指标最高：${(shown.top || []).map((k) => `${ROLE[k]}组`).join('、')}。四位代表各加 ${BZ.rep} 修为，指标最高的组里发过言的同学各加 ${BZ.top} 修为。` : '经营不合格：有指标跌破了红线，这次不加修为。'}</p>` : '';
+        gameBox.innerHTML = `<p class="bzg-stage"><b>经营会</b>${esc(STAGE[stage] || '')}</p>
+          <ul class="bzg-reps">${pub.roles.map((r) => `<li><b>${esc(r.name)}组</b>${reps[r.key] ? `代表 ${esc(reps[r.key].nick)}` : '代表未定'}</li>`).join('')}</ul>
+          ${state.rep ? `<p class="bzg-me">你是${esc(ROLE[myRole] || '')}组的代表：${open ? '请为三项决策各投一票（可以改选）。组员在聊天室给你出主意。'
+            : stage === 'show1' ? '第一轮投票结束了，等老师抽突发事件卡，之后可以改投。' : stage === 'done' ? '经营会结束了，谢谢你代表本组投票。' : '老师开始投票后，在这里为三项决策投票。'}</p>` : ''}
+          ${game.event ? `<div class="bzs-event"><span>突发事件</span><h5>${esc(game.event.title)}</h5><p>${esc(game.event.text)}</p></div>` : ''}
+          ${pub.decisions.map((dec, d) => `<div class="bzg-dec"><h5>${d + 1}. ${esc(dec.title)}</h5><div class="bzg-opts">${dec.options.map((text, k) => {
+            const c = 'ABC'[k];
+            const who = pub.roles.filter((r) => ballot(d, r.key) === c).map((r) => `<i class="bzs-chip is-${r.key}">${esc(r.name)}</i>`).join('');
+            const mine = state.rep && ballot(d, myRole) === c;
+            const inner = `<span>${c}</span><p>${esc(text)}</p><div class="bzs-who">${who}</div>`;
+            return open ? `<button type="button" class="bzg-opt" data-bz-vote="${d + 1}:${c}" aria-pressed="${mine}">${inner}</button>` : `<div class="bzg-opt" aria-pressed="${mine}">${inner}</div>`;
+          }).join('')}</div></div>`).join('')}
+          ${bars ? `<h5>${shown.round === 2 ? '最终指标' : '第一轮指标'}（红线 ${pub.red}）</h5>${bars}` : ''}${verdict}
+          <p class="bzg-state" data-bz-state role="status"></p>`;
+      }
+      if (gameBox) {
+        gameBox.addEventListener('click', async (event) => {
+          const button = event.target.closest('[data-bz-vote]');
+          if (!button || button.disabled) return;
+          const [d, c] = button.dataset.bzVote.split(':');
+          button.disabled = true;
+          try {
+            const res = await call('ck_biz_vote', { p_classroom: roomId, p_case: no, p_decision: Number(d), p_choice: c });
+            const why = { not_rep: '你不是本组代表，只有代表能投票。', closed: '现在不是投票时间。', bad: '没有投上，请再试一次。', login: '请回首页用课堂码重新登录。' };
+            if (res.status !== 'ok') say(gameBox, why[res.status] || '没有投上，请再试一次。', 'error');
+            await tick(true);
+          } catch (problem) {
+            console.warn('[经营沙盘]', problem);
+            say(gameBox, '网络不通，没有投上，请稍后再试。', 'error');
+            button.disabled = false;
+          }
+        });
+      }
+      tick(true);
+      timer = setInterval(() => { if (section.isConnected && !section.closest('[hidden]')) tick(false); }, BZ.poll);
+      document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; tick(true); } });
     });
   }
 
@@ -2501,6 +2734,7 @@
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
+        ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 08）：四项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>辩论赛：本方聊天室里点赞最多的三位同学上台辩论，全班投票获胜的一方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。</li>` : ''}
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
@@ -2630,15 +2864,18 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261030-transfer' : '20261030-rank-hide-xjp';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = '10 月 9 日—10 月 30 日';
+  const NEWS_ID = config.course === 'political-economy' ? '20261030-transfer' : '20261104-biz-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_RANGE = config.course === 'political-economy' ? '10 月 9 日—10 月 30 日' : '10 月 9 日—11 月 4 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
     const like = Live.LIKE || {};
     const wordgame = (Live.WORDGAME || {}).points || 10;
     const leave = (Live.LEAVE || {}).points || 20;
     return [
-      { title: '最新（10 月 28—30 日）', items: [
+      { title: config.course === 'political-economy' ? '最新（10 月 28—30 日）' : '最新（10 月 28 日—11 月 4 日）', items: [
+        ...(config.course === 'xjp-economy' ? [
+          ['经营沙盘', `案例 08（第十章）第二课时的圆桌会议改为“经营沙盘”：全班为一家虚拟车企“远航汽车”开经营会。先选一个角色组（整车企业、零部件供应商、购车消费者、产业主管部门）并递交，看本组的私密信息；再取昵称进本组聊天室商量、给好建议点赞，点赞最多的建议作者当本组代表；四位代表为定价、供应链、资金投向三项决策投票，中途还有一张突发事件卡。四项指标都守住红线就算经营合格：四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。`],
+        ] : []),
         ['修为榜隐名', '达到「结丹」境界后，可以在修为榜上隐匿自己的姓名：打开修为榜，点一下自己的名字（或下面的“隐匿我的姓名”），同学们看到的就是“***”，修为和名次照常显示；再点一下恢复。老师那里照常显示姓名。'],
         ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
         ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
@@ -3137,7 +3374,7 @@
       const item = group.dataset.liveItem;
       const heading = group.matches('li') ? `${textOf(group.querySelector('strong'))}：${textOf(group.querySelector('p'))}` : textOf(group.querySelector('h3, h4'));
       const NAMES = { pre: '课堂投票 · 前测', post: '课堂投票 · 后测', 'transfer-k': '迁移任务 · 选一选', 'debate-side': '辩论赛 · 我在哪一方',
-        'debate-pre': '辩论赛 · 辩前投票', 'debate-post': '辩论赛 · 辩后投票', 'rt-role': '圆桌会议 · 我代表的角色' };
+        'debate-pre': '辩论赛 · 辩前投票', 'debate-post': '辩论赛 · 辩后投票', 'rt-role': '圆桌会议 · 我代表的角色', 'biz-role': '经营沙盘 · 我加入的角色组' };
       const kind = NAMES[item] || `${group.closest('[data-roundtable]') ? '圆桌会议 · 议程' : '方案推演'} · ${textOf(group.querySelector('strong')) || item}`;
       const labelOf = (value) => { const button = options.find((b) => b.dataset.liveOption === value); return button ? `${textOf(button.querySelector('span'))} ${textOf(button.querySelector('strong') || button)}` : value; };
       list.push({

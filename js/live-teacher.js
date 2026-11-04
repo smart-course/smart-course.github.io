@@ -535,6 +535,7 @@
     try { await backend.removeAll('examscores', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('debateposts', where); await backend.removeAll('debatemembers', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('debatesays', where); await backend.removeAll('debatematches', where); } catch (error) { if (!missingTable(error)) throw error; }   // 辩论台（2026-10-29）
+    try { await backend.removeAll('bizvotes', where); await backend.removeAll('bizgames', where); } catch (error) { if (!missingTable(error)) throw error; }   // 经营沙盘（2026-11-03）
     try { await backend.removeAll('pollvotes', where); await backend.removeAll('polls', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
@@ -1997,7 +1998,14 @@
         }).join('')}
         </tbody></table>
       </article>`;
-      return P.groups.map(quizCard).join('') + debate + roundtable;
+      // 经营沙盘（2026-11-03）：各角色组选了多少人（代表、投票和结算在投屏页的经营台）
+      const bizVotes = votes('biz-role');
+      const biz = !P.biz ? '' : `
+      <article class="tw-card wide">
+        <h2>经营沙盘 · 各角色组人数 <small>${sum(bizVotes)} 人选了角色组；代表、投票和结算在投屏页的经营台</small></h2>
+        ${P.biz.roles.map((name, i) => `<div class="tw-option single"><div class="tw-option-label"><span>${L(i)}</span>${esc(name)}</div>${bar(bizVotes.get(`r${i + 1}`) || 0, sum(bizVotes))}</div>`).join('')}
+      </article>`;
+      return P.groups.map(quizCard).join('') + debate + roundtable + biz;
     })() : '';
     view.innerHTML = poll + match + sim + transfer + practice;
   }
@@ -2818,6 +2826,8 @@
     if (P.debate) ['debate-pre', 'debate-post', 'debate-cards'].forEach((key) => qs.push({ kind: 'part', items: [key] }));
     // 圆桌会议（2026-10-16 简化）：只计认领角色；三项议程的投票在上面 sim-1—3 里（参与即可）
     if (P.roundtable) qs.push({ kind: 'part', items: ['rt-role'] });
+    // 经营沙盘（2026-11-03，代替案例 08 的圆桌会议）：只计选角色；代表投票、聊天室发言不算题，修为另由结算发放
+    if (P.biz) qs.push({ kind: 'part', items: ['biz-role'] });
     return qs;
   }
   // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
@@ -2879,7 +2889,7 @@
     for (const kind of kinds) {
       docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)));
     }
-    // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、匿名建议 feedback）；后台还没有这张表时按 0 算
+    // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、经营沙盘 biz、匿名建议 feedback）；后台还没有这张表时按 0 算
     const gameBonus = new Map();
     try {
       (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))

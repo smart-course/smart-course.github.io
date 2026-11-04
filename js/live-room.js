@@ -235,6 +235,16 @@
     },
   };
 
+  // 经营沙盘（习经案例 08，见 #政治经济学/经营沙盘/biz_sim.js）：投屏页经营台读角色组看板、推进经营会、结算发修为，都经本页当前课堂
+  window.ClassLiveBiz = {
+    points: window.ClassLive.BIZ || { rep: 10, top: 5 },
+    async call(name, params) {
+      const current = await roomHere();
+      return backend.rpc(name, { p_classroom: Number(current.id) || current.id, ...params });   // 后台都返回 JSON 对象或数组，原样交回
+    },
+    hide(id) { return backend.rpc('ck_debate_hide', { p_post: Number(id) || id, p_hidden: true }); },
+  };
+
   // 情境猜谜抢答（投屏页“课堂工具 → 情境猜谜”调用，见 #政治经济学/情境猜谜/situation_puzzle.js）：出题时开一轮（谜底只交给后台），
   // 学生在自己页面的面板里抢答，后台核对，第一个猜中的自动加修为；投屏页每隔几秒读这一轮，有人猜中就显示恭喜；揭晓或关闭大屏时结束
   const winnerOf = (row) => (row && row.winner_sid ? { sid: row.winner_sid, name: row.winner_name, at: row.won_at } : null);

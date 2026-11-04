@@ -731,7 +731,7 @@
         list.forEach((row) => Object.entries(row.answers).forEach(([key, entry]) => {
           const [caseNo, item] = key.split(':');
           if (item === 'match' && Array.isArray(entry.v)) entry.v.forEach((value, i) => { if (value) add(`${caseNo}|match-${i + 1}`, `K${value}`); });
-          else if (/^(pre|post|sim-\d+|transfer-k|debate-(side|pre|post)|rt-role)$/.test(item) || (typeof entry.v === 'string' && /^[\w,]+$/.test(entry.v) && entry.v.length <= 40)) add(`${caseNo}|${item}`, entry.v);
+          else if (/^(pre|post|sim-\d+|transfer-k|debate-(side|pre|post)|rt-role|biz-role)$/.test(item) || (typeof entry.v === 'string' && /^[\w,]+$/.test(entry.v) && entry.v.length <= 40)) add(`${caseNo}|${item}`, entry.v);
         }));
         counts = next;
         latestDocs = list.flatMap((row, i) => Object.entries(row.answers).map(([key, entry]) => {
