@@ -174,7 +174,7 @@
     root.setAttribute('aria-label', mode === 'switch' ? '改投他宗' : '拜入宗门');
     const lead = mode === 'switch'
       ? `你是「${esc(home ? home.name : '')}」弟子。<b>改投机会只有一次</b>：改投以后修为随你转到新宗门，不能再换，也不能退为散修。`
-      : `${opts.welcome ? '恭喜你修成「筑基」！' : ''}四大宗门山门大开、广纳贤才。选一个最合你心意的宗门拜入，从此你的修为计入宗门，与历届同门一起为宗门争光；也可以暂做散修，想清楚再来。<b>拜入以后还有一次改投他宗的机会。</b>`;
+      : `${opts.welcome ? '恭喜你修成「筑基」！' : ''}四大宗门山门大开、广纳贤才。选一个最合你心意的宗门拜入，从此你的修为计入宗门，与历届同门一起为宗门争光；也可以暂做散修，想清楚再来。<b>拜入以后就不能再变回散修，只有一次改投他宗的机会。</b>`;
     const cards = sects.map((sect, i) => {
       const isHome = mode === 'switch' && sect.key === opts.current;
       return `<article class="sg-card${isHome ? ' is-home' : ''}" style="${vars(sect)};--i:${i}" data-sg-card="${esc(sect.key)}">
@@ -234,7 +234,7 @@
       card.classList.add('is-picked');
       const ask = mode === 'switch'
         ? `确定从「${esc(home ? home.name : '')}」改投「${esc(sect.name)}」吗？改投机会只有一次，改投以后不能再换，也不能退为散修。`
-        : `确定拜入「${esc(sect.name)}」吗？拜入以后还有一次改投他宗的机会（只有一次）。`;
+        : `确定拜入「${esc(sect.name)}」吗？拜入以后就不能再变回散修，只有一次改投他宗的机会。`;
       actOf(key).innerHTML = `<p>${ask}</p><button type="button" class="sg-btn" data-sg-cancel>再想想</button>
         <button type="button" class="sg-btn is-go" data-sg-confirm="${esc(key)}">${mode === 'switch' ? '确定改投' : '确定拜入'}</button>`;
       const go = actOf(key).querySelector('[data-sg-confirm]');

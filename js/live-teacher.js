@@ -3668,8 +3668,11 @@
     const people = new Map(core.map((person) => [sidKey(person.sid), person.name]));
     if (!core.length) acts.forEach((a) => { if (!people.has(a.sid)) people.set(a.sid, a.name); });
     const total = people.size || 1;
+    const keepY = window.scrollY;
+    root.style.minHeight = `${root.offsetHeight}px`;   // 先撑住原来的高度，重画时页面不变短、不跳
     root.textContent = '';
     root.style.opacity = '';
+    requestAnimationFrame(() => { root.style.minHeight = ''; if (Math.abs(window.scrollY - keepY) > 2) window.scrollTo(0, keepY); });
     const scopeText = room ? `课堂“${room.name}”` : `${state.klass.name}全部课堂`;
     const extraCount = L.roster.length - core.length;
     status.textContent = `${scopeText} · ${span ? `最近 ${span} 天` : '全部时间'} · 点名册 ${core.length} 人${core.length ? '' : '（还没上传点名册，按有记录的同学统计）'}${extraCount ? `（班外允许加入的 ${extraCount} 人不计入）` : ''}。数据读于 ${clock(Date.now())}。`;
@@ -4034,7 +4037,7 @@
       ['题目正确率', rightOf, 100, '%'], ['弹幕', (p) => p.danmaku, null, ' 条'], ['修炼场答题', (p) => p.practice, null, ' 道'],
       ['在线时长', (p) => Math.round(p.seconds / 60), null, ' 分钟'], ['修为（全学期）', pointsOf, null, ''],
     ];
-    insState.showPerson = (sid) => {
+    insState.showPerson = (sid, scroll) => {
       const p = per.get(sid);
       if (!p) return;
       hostK.textContent = '';
@@ -4047,10 +4050,10 @@
       head.append(strong, meta);
       hostK.appendChild(head);
       I.compare(hostK, cK, METRICS.map(([label, fn, max, unit]) => ({ label, me: fn(p), avg: avg(fn), max: max == null ? maxOf(fn) : max, unit, note: max == null ? `全班最高 ${maxOf(fn)}${unit}` : '' })), { aria: `${p.name} 的学情卡` });
-      cK.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+      if (scroll) cK.scrollIntoView({ block: 'nearest', behavior: 'smooth' });   // 只有点了姓名才滚过去；打开、刷新时不跳（2026-11-05 用户：“学情分析刷新后不要自动跳到下面”）
     };
     const firstPerson = Array.from(per.values()).sort((a, b) => b.acts - a.acts)[0];
-    if (firstPerson) insState.showPerson(firstPerson.sid);
+    if (firstPerson) insState.showPerson(firstPerson.sid, false);
 
     // 6 需要关注的同学（每人一行，先列没有学习行为、学习天数少的）
     const range7 = !span || span >= 7;
@@ -4070,7 +4073,7 @@
   $('[data-tab="insight"]').addEventListener('click', () => renderInsights(false));
   $('[data-ins-root]').addEventListener('click', (event) => {
     const who = event.target.closest('[data-ins-person]');
-    if (who && insState.showPerson) insState.showPerson(who.dataset.insPerson);
+    if (who && insState.showPerson) insState.showPerson(who.dataset.insPerson, true);
   });
   $('[data-ins-scope]').addEventListener('change', () => renderInsights(false));
   $('[data-ins-range]').addEventListener('change', () => renderInsights(false));

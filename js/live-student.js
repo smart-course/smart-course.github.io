@@ -3182,7 +3182,7 @@
     const gateBtn = (text) => `<button type="button" class="clp-sect-gate" data-sect-gate>${text}</button>`;
     const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>测试页：示意数据，可以看“山门大开”的画面，不会真的拜入宗门。</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : sect ? `<div class="clp-rank-mine clp-sect-mine"><span>你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</span>${mine.can_change ? gateBtn('改投他宗（仅一次）') : ''}</div>`
-      : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
+      : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（拜入以后就不能再变回散修）。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
     return `<p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
       <ol class="clp-sect-list">${rows}</ol>${mineHtml}
