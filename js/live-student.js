@@ -899,9 +899,7 @@
   .clp-fs-tools button { min-width: 38px; padding: 0 9px; }
   .clp-fs-nav { pointer-events: auto; position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); min-width: 112px; height: 50px; padding: 0 20px; border: 0; border-radius: 999px;
     color: #23655f; background: rgba(255,255,255,.96); box-shadow: 0 4px 16px rgba(0,0,0,.22), inset 0 0 0 1.5px rgba(35,101,95,.4); font: 800 16px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
-  /* 底部实底条（2026-11-06）：题目文字从它后面滑过，不会被左下、右下的按钮压住 */
-  .clp-fs-foot { pointer-events: auto; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--fs-bottom) - 2px + env(safe-area-inset-bottom));
-    background: #f4efe6; box-shadow: 0 -2px 10px rgba(70,51,34,.12); border-top: 1px solid rgba(70,51,34,.1); }
+  /* 上一题、下一题悬浮在左下、右下角（2026-11-06 用户：“还是悬浮显示吧，屏幕中要能够尽量多地显示题目”）；题目滑到最后时留出按钮的高度 */
   .clp-fs-prev { left: max(12px, env(safe-area-inset-left)); }
   .clp-fs-next { right: max(12px, env(safe-area-inset-right)); }
   .clp-fs-nav:disabled { opacity: .35; cursor: default; }
@@ -933,7 +931,6 @@
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-ui { inset: auto; top: 0; left: 0; width: var(--fs-h); height: var(--fs-w); transform-origin: 0 0; transform: translateX(var(--fs-w)) rotate(90deg); touch-action: none; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-top { min-height: 46px; padding-top: 0; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-nav { bottom: 9px; height: 42px; }
-  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-foot { height: 60px; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-badge, html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-tools [data-fs-size],
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-where span { display: revert; }
   /* ---- 手机横着拿（高度很小）：面板、弹窗、聊天室都矮一些，放不下就在框里滚动 ---- */
@@ -1567,7 +1564,6 @@
         <span class="clp-fs-badge" data-fs-badge></span>
         <div class="clp-fs-tools"><button type="button" data-fs-rot hidden></button><button type="button" data-fs-size="-1" aria-label="字小一点">A−</button><button type="button" data-fs-size="1" aria-label="字大一点">A+</button></div>
       </header>
-      <div class="clp-fs-foot" aria-hidden="true"></div>
       <button type="button" class="clp-fs-nav clp-fs-prev" data-fs-step="-1">‹ 上一题</button>
       <button type="button" class="clp-fs-nav clp-fs-next" data-fs-step="1">下一题 ›</button>
       <div class="clp-fs-hint" data-fs-hint hidden role="dialog" aria-label="横屏看题">
@@ -2741,6 +2737,17 @@
         return status;
       }
       loginNeeded = status === 'login';
+      // 刚从首页登录进来（3 分钟内）：上方提示一句登录结果（2026-11-06 用户：“学生登录课程的时候设置一个加载页面，可以让他们看到登录情况”）
+      const joinedAt = Number(identity.joined_at) || 0;
+      if ((status === 'ok' || status === 'audit') && joinedAt && Date.now() - joinedAt < 180000) {
+        const welcomeKey = `classlive-welcome:${identity.classroom}:${joinedAt}`;
+        try {
+          if (!sessionStorage.getItem(welcomeKey)) {
+            sessionStorage.setItem(welcomeKey, '1');
+            toast(`已进入课堂：${identity.name}（${identity.sid}）${identity.classroom_name ? ` · ${identity.classroom_name}` : ''}${AUDIT ? ' · 旁听' : ''}。登录已记录，可以开始作答了。`);
+          }
+        } catch (error) { /* 忽略 */ }
+      }
       // 隐藏彩蛋（2026-11-05 用户：“对于一个礼拜登陆3次以上的同学，也自动增加10点修为值”）：后台只在加上修为的这一次多返回 {bonus, days}
       const extra = Array.isArray(result) ? result[1] : null;
       if (status === 'ok' && !LOCAL_ONLY && extra && Number(extra.bonus) > 0) {
@@ -3448,9 +3455,17 @@
     sectButton.title = sect ? `你是${sect.name}弟子：点开看宗门榜` : mine && mine.sect === 'sanxiu' ? '你现在是散修，随时可以拜入宗门' : '宗门榜：达到「筑基」后可以拜入宗门';
   }
   async function loadSect() {
+    // 测试页（2026-11-06 用户：“学生测试版中的控制页面，要能够同步宗门的排行”）：宗门榜读后台的真实排行（ck_sect_board 对教师账号照常返回，
+    // 只是没有“本人”）；“本人”按测试身份王不凡显示，可以看“山门大开”，不会真的拜入。读不到时才用示意数据
     if (PREVIEW) {
-      const data = { status: 'ok', sects: SECTS.map((sect) => ({ key: sect.key, points: 0, members: 0, class_members: 0, class_points: 0 })), sanxiu: 0, class_sanxiu: 0, classes: 0,
-        mine: { sect: null, realm: Number(myRealm && myRealm.realm) || 0, points: null, can_join: true } };
+      const me = { sect: null, realm: Number(myRealm && myRealm.realm) || 0, points: null, can_join: true };
+      let data = null;
+      try {
+        const value = await backend.rpc('ck_sect_board', { p_classroom: Number(identity.classroom) || identity.classroom });
+        data = Array.isArray(value) ? value[0] : value;
+      } catch (problem) { data = null; }
+      data = data && data.status === 'ok' ? { ...data, mine: me, live: true }
+        : { status: 'ok', sects: SECTS.map((sect) => ({ key: sect.key, points: 0, members: 0, class_members: 0, class_points: 0 })), sanxiu: 0, class_sanxiu: 0, classes: 0, mine: me, live: false };
       sectCache = { at: Date.now(), data };
       return data;
     }
@@ -3482,7 +3497,7 @@
     }).join('');
     const sect = sectOf(mine.sect);
     const gateBtn = (text) => `<button type="button" class="clp-sect-gate" data-sect-gate>${text}</button>`;
-    const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>测试页：示意数据，可以看“山门大开”的画面，不会真的拜入宗门。</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
+    const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>${data.live ? '测试页：上面是本课程宗门的真实排行（和学生看到的一样）' : '测试页：后台没读到，上面是示意数据'}；可以看“山门大开”的画面，不会真的拜入宗门。</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : sect ? `<div class="clp-rank-mine clp-sect-mine"><span>你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</span>${mine.can_change ? gateBtn('改投他宗（仅一次）') : ''}</div>`
       : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（拜入以后就不能再变回散修）。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
@@ -3592,104 +3607,11 @@
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
   const NEWS_ID = config.course === 'political-economy' ? '20261105-debate' : '20261105-debate-xjp';   // 两门课各自有新内容时才改自己的
-  const NEWS_RANGE = '10 月 9 日—11 月 5 日';
+  const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
+  // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
   function newsSections() {
-    const like = Live.LIKE || {};
-    const wordgame = (Live.WORDGAME || {}).points || 10;
-    const leave = (Live.LEAVE || {}).points || 20;
-    return [
-      { title: '最新（10 月 28 日—11 月 5 日）', items: [
-        ['全屏答题（手机）', '用手机做题时，点题目下方“递交”旁边的“⤢ 全屏”，或面板里的“全屏答题”：一题一屏、字更大，左下角、右下角是“上一题”“下一题”，顺着做下去；右上角 A−、A+ 调字号。安卓手机会自动转成横屏；iPhone 可以把手机横过来（先在控制中心关掉“竖排方向锁定”），或点上方的“横屏”把画面转过来，写字时会自动转回竖屏。点左上角“退出”（或返回键）回到原来的页面，停在刚才那道题。'],
-        ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。`],
-        ['宗门', `达到「筑基」境界后，可以点面板学号一行右边的“宗门”拜入四大宗门之一：${(Live.SECTS || []).map((sect) => sect.name).join('、')}，也可以暂做散修（散修以后仍可拜入宗门）。拜入以后有一次改投他宗的机会，只有一次，也不能退为散修。宗门分是本课程历届弟子的修为之和，宗门榜按宗门分排名；弟子结课以后修为仍留在宗门里，一届一届传承下去。拜入后修为榜上你的名字旁会显示宗门标记。`],
-        ['情境猜谜抢答', `老师点“看玩法”或出题后，页面上方会弹出“情境猜谜抢答”对话框，大屏关掉前一直都在；每次出题（包括“下一题”）全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，大家的倒计时按老师的时钟同步，倒计时结束才能输入谜底抢答，网速慢的同学也来得及。`],
-        ['法宝', '祭出法宝时，除了投屏，你自己的页面上也会出现法宝的画面。'],
-        ['展开解答', '「筑基」以上展开解答时，单选题会逐项说明每个错误选项错在哪里；选择题的选项也改得更有迷惑性，正确答案不再总是最长的那一项。'],
-        ...(config.course === 'xjp-economy' ? [
-          ['经营沙盘', `案例 06（第九章）、08（第十章）、09（第十章）、19（第六章）第二课时的圆桌会议改为“经营沙盘”：全班为一家虚拟的企业、银行或城市片区开会做决策。先选一个角色组并递交，看本组的私密信息；再取昵称进本组聊天室商量、给好建议点赞，点赞最多的建议作者当本组代表；四位代表为三项决策投票，中途还有一张突发事件卡。各项指标都守住红线就算经营合格：四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。`],
-        ] : []),
-        ['修为榜隐名', '达到「结丹」境界后，可以在修为榜上隐匿自己的姓名：打开修为榜，点一下自己的名字（或下面的“隐匿我的姓名”），同学们看到的就是“***”，修为和名次照常显示；再点一下恢复。老师那里照常显示姓名。'],
-        ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
-        ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
-        ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
-        ...(config.course === 'political-economy' ? [
-          ['迁移任务', '案例页的辩论赛之前新增“迁移任务”：几个新的小案例（都不是本案例里的事），像猜谜一样想一想，每个小案例最能用本案例哪个概念来解释，给每个选一个概念，全部选好后一起递交，课上跟老师核对。'],
-          ['辩论赛', '案例页的“小组辨析”改为辩论赛，辩题只有正反两方（不再有“部分同意”），具体玩法见上面的“辩论赛简化”。'],
-          ['课后自修不给答案', '课后自修（出门测、主动回忆、温故、讲给别人听）不再显示答案、解析和对错，讲评在下一次课；答对的照常计入修为。主动回忆改为写好后点“写好了”。'],
-        ] : []),
-        ['登录', '学号不在本班点名册上时，登录页会提示核对姓名和学号（多半是填错了），不再自动向老师申请；确实不在本班名单上的同学（如重修、跨班旁听）点“申请加入本班”。换了手机或电脑又忘记口令，可以在输口令的地方点“忘记口令”向老师申请重设，老师同意后在这台设备上设新口令。'],
-      ] },
-      { title: '10 月 21—23 日', items: [
-        ['修炼场多攒修为', `修炼场每天最多 ${(Live.PRACTICE || {}).of ? Live.PRACTICE.of(config.course).cap : 10} 修为（原来${config.course === 'political-economy' ? ' 10' : ' 3'}）；答对过的题隔 ${(Live.PRACTICE || {}).gap || 3} 天以上再答对，还能再得一次（“回炉巩固”里会出现到期的题）。境界按全学期满分算，平时天天练的同学能更早冲上「化神」。`],
-        ['修炼场', `面板上学号那一行新增绿色的“修炼场”：平时做本课程的题攒修为，有四种练法——专攻一块（西蒙学习法）、回炉巩固（间隔重复）、混合乱炼（交错练习）、讲给别人听（费曼学习法，有专门的题）。${practiceRule()}`],
-        ['境界与修为榜', `境界比例调整为：筑基 15%、结丹 35%、元婴 80%、化神 90%（占全学期满分）。修为榜现在显示每位同学的修为；结丹以上的同学，发弹幕的输入框有按境界变化的流光环绕。`],
-        ['境界解锁', '达到「筑基」后，题目递交以后可以在题目下方点“展开解答”看参考答案和讲解；达到「结丹」解锁“资料与延伸阅读”里的学习方法小锦囊（每上一次课多解锁一种方法，由浅入深），还可以在修为榜上隐匿姓名。'],
-        ...(config.course === 'political-economy' ? [
-          ['课后自修', '出门测、课后思考（申论式大题）并入每个案例页的“课后自修”，下课后完成：出门测每题答对 +2 修为，课后思考写满 100 字递交 +5 修为（不评对错），照常逐题递交给老师；“本堂作业递交情况”移到课后自修的最后。'],
-          ['提问', '概念小结的“提问墙”弹幕取消：没想通的地方写进每个案例页最后的“匿名建议和提问箱”，老师看到后在下一堂课统一解答。'],
-          ['豁然开朗', '前七章每个案例新增一个“本课悬念”：学习路线页先抛出一个反常识的问题，出门测之后揭晓——先凭直觉选，再看讲解和教材原文。不计分。'],
-          ['课后自修', '前七章每个案例的出门测之后新增“课后自修”页，也积累修为：主动回忆（凭记忆写满 8 字再翻开对照 +1）、温故（前面案例的概念换个情境再考，答对 +2）、讲给没学过的人听（写满 30 字递交 +3），计入修炼场每日上限。'],
-        ] : []),
-        ...(config.course === 'xjp-economy' ? [
-          ['一章两个案例', '第三、四章这样有两个案例的章，老师可以一次只上一个案例：这次课的页面只显示这个案例，下次课再上另一个。'],
-          ['情境猜谜', '第二章第二课时在猜词游戏之后加了“情境猜谜 · 抢答”：看大屏上的小情境，在“情境猜谜抢答”里输入谜底，第一个猜中的加修为（11 月 5 日起改为页面上方弹出的对话框）。'],
-          ['递交情况', '“本堂作业递交情况”移到“本章知识点小结”的前面，做完本堂课的题就能看到还有哪些没交。'],
-        ] : []),
-        ...(config.course === 'xjp-economy' ? [['PK 对决', '部分案例第二课时的圆桌会议换成了 PK 对决：老师抽两位同学上台一对一，比擂台抢答、时间轴排排站、因果链拼图或数据猜猜猜，获胜的同学加修为；台下同学先自己作答，揭晓时对照。']] : []),
-        ['修为榜', '面板上学号那一行右边的金色“修为榜”：看本班修为前十名（前三名站领奖台），也能看到自己排第几；按老师最近一次结算排名，显示境界和修为。'],
-        ['情境猜谜抢答', `老师在大屏打开“情境猜谜”（看玩法或出题）时，页面上方会弹出“情境猜谜抢答”对话框，老师关掉大屏前一直都在；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒（按老师的时钟同步），倒计时结束才能输入谜底（本章或本案例的一个概念）点“抢答”，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为，投屏上会出现恭喜。`],
-        ['递交情况', '页面最下方新增“本堂作业递交情况”：以老师后台收到的为准，显示已递交几题、还有哪些没交（点一下就跳过去），和老师工作台看到的一样。'],
-        ['学习方法', '“资料与延伸阅读”里新增“学习方法小锦囊”：番茄工作法、西蒙学习法、记忆宫殿、费曼学习法、间隔重复、主动回忆，每种都有用在这门课的例子。'],
-        ['弹幕', `回答弹幕小问题、弹幕接龙最多可以写 50 字；老师每堂课最多点 ${like.limit || 20} 个赞。`],
-      ] },
-      { title: '10 月 15—16 日', items: [
-        ['请假', `不能来上课时，点面板上姓名旁边的“请假”（面板收起时先点“展开”），选好日期、写明原因提交，老师在加入名单里能看到；没过完的请假可以撤销。请假的那次课计 ${leave} 修为（相当于签到），没有登录也没有请假的课不得任何修为。`],
-        ...(config.course === 'political-economy' ? [['使用说明', '页面右下角新增“使用说明”：每个案例怎么学、怎么递交、怎么翻页，都在里面。']] : []),
-        ...(config.course === 'xjp-economy' ? [
-          ['先读案例再投票', '第一课时改为先读案例，再投“课堂投票 · 前测”。'],
-          ['圆桌会议', '改为四步：认领角色 → 以角色身份发弹幕表态（自动带上【角色名】）→ 三项议程各投一票 → 老师揭晓参考方案，看看各方的底线守住没有、提案写进去没有。'],
-          ['猜词游戏', '第二课时圆桌会议之后加一轮本章概念猜词游戏：被抽到就上台，一人描述、一人猜。'],
-        ] : []),
-      ] },
-      { course: 'xjp-economy', title: '10 月 14 日', items: [
-        ['理论知识点总结', '每章最后“资料与延伸阅读”新增“复习资料”一栏，按教材整理导论和第一至十五章的核心知识点，含教材原文、记忆口诀、易错判断和课后思考答题要点，点开直接定位到本章，可导出 PDF。'],
-      ] },
-      { course: 'xjp-economy', title: '案例课堂改版', items: [
-        ['新题型', '每个案例增加单选、多选、判断题和出门测，每题做完点“递交”，递交后不能修改。'],
-        ['辩论赛', '辩前投票投哪一方，就站在哪一方；质询弹幕会自动带上【正方】或【反方】。'],
-        ['圆桌协商', '先递交角色，再以角色身份发弹幕表态，然后为三项议程各投一票，最后对照老师揭晓的参考方案。'],
-        ['理论要点', '缩写的理论要点，点一下就能看到完整内容。'],
-        ['章节末尾', '依次是本章知识点小结、资料与延伸阅读（可下载《习近平经济思想学习纲要》《习近平经济思想的生动实践述评》）、匿名建议箱。'],
-      ] },
-      { course: 'political-economy', title: '资料与延伸阅读', items: [
-        ['知识点总结', '新增《政治经济学前七章理论知识点总结》，点开直接阅读，也可以导出 PDF，复习考试用。'],
-        ['参考书', '新增《政治经济学简明教程》（陈享光主编）、《现代政治经济学新编》（通用版，程恩富、冯艳主编）、《政治经济学》（谢地、宋冬林主编）。'],
-      ] },
-      { title: '登录更安全', items: [
-        ['个人口令', '登录改为“课堂码＋点名册＋4 位个人口令”。第一次登录时自己设口令，请记牢；忘了请老师在工作台重置。'],
-        ['防冒用', '口令输错太多次会暂时锁定，锁定时间一次比一次长；不在本班点名册上的同学，要老师允许后才能登录。'],
-        ['点名册编号', '面板上姓名前的“N号”是你在点名册上的编号，课堂抽人时用。'],
-      ] },
-      { title: '修为境界', items: [
-        ['积累修为', '每次课最多 100 修为（签到 20、作答完成 35、作答正确 35、弹幕最多 10），老师点赞、猜词游戏第一名、情境猜谜第一个猜中、匿名建议另外加。'],
-        ['五个境界', `炼气 → 筑基 → 结丹 → 元婴 → 化神，按全学期修为占满分的比例晋升（${REALMS.slice(1).map((realm) => `${realm.name} ${Math.round(realm.min * 100)}%`).join('、')}）。点面板上的境界或“修为说明”查看进度。`],
-        ['弹幕字色', '每升一境多两种（炼气霜白、月银，筑基加青冥、翠竹，结丹加金曦、大红，元婴加樱粉、紫霄，化神加流金、七彩）；投屏上你的名字颜色也与境界一致。'],
-        ['法宝', `${GIFTS.map((gift) => `${gift.name}（${REALMS[gift.level] ? REALMS[gift.level].name : ''}）`).join('、')}。突破时先在你自己的页面预览一次；之后每件法宝可以在课上祭出一次，投屏全班可见，你自己的页面上也会显示，每次课最多祭出一件。`],
-        ['突破恭喜', '有同学突破境界时，投屏最上方会显示一行恭喜。'],
-      ] },
-      { title: '弹幕与课堂', items: [
-        ['老师点赞', `说得好的弹幕会盖上「师赞」朱印，你的页面上也会出现盖章动画；每赞加 ${like.points || 5} 修为（每次课最多算 ${like.perStudent || 2} 个），老师每堂课最多点赞 ${like.limit || 10} 次。`],
-        ['我发过的弹幕', '在面板底部查看自己发过的弹幕，可以删除（投屏上撤下，老师的记录里仍保留）。'],
-        ['匿名弹幕', '老师打开“匿名”时，投屏只显示内容、不显示姓名，老师后台仍能看到是谁发的。'],
-        ['猜词游戏', `老师抽两位同学上台，一人背对屏幕猜、一人用自己的话描述；每次课得分第一的一组两人各加 ${wordgame} 修为。`],
-        ['停止递交', '老师可以让某道题停止递交，停止后这道题不能再递交、也不计修为，请跟上课堂节奏及时递交。'],
-        config.course === 'political-economy'
-          ? ['匿名建议和提问箱', '每次课最后可以匿名提问或提建议：没想通的地方写下来，老师下一堂课统一解答；老师的讲授、案例的呈现、希望增加的互动方式也都可以说。']
-          : ['匿名建议箱', '每次课最后可以匿名对这堂课提建议，老师的讲授、案例的呈现、希望增加的互动方式都可以说。'],
-        ['手机端', '面板收成一个境界小图标，点一下展开。'],
-      ] },
-    ].filter((section) => !section.course || section.course === config.course);
+    return Live.newsList ? Live.newsList(config.course, Live.NEWS_DAYS || 20) : [];
   }
   const newsModal = document.createElement('div');
   newsModal.className = 'clp-realm-modal';
@@ -3698,7 +3620,7 @@
   function openNews() {
     newsModal.innerHTML = `<div class="clp-realm-card clp-news-card" role="dialog" aria-modal="true" aria-label="版本更新说明">
       <h3><span>版本更新说明</span><button type="button" data-news-close aria-label="关闭">×</button></h3>
-      <p class="clp-hint">${esc(NEWS_RANGE)}，课程网站做了这些更新。以后点面板底部的“更新说明”可以再看。</p>
+      <p class="clp-hint">${esc(newsRangeText())}，课程网站做了这些更新（只列最近 ${Live.NEWS_DAYS || 20} 天的）。以后点面板底部的“更新说明”可以再看。</p>
       ${newsSections().map((section) => `<h4>${esc(section.title)}</h4><ul>${section.items.map(([label, text]) => `<li><b>${esc(label)}</b>：${esc(text)}</li>`).join('')}</ul>`).join('')}
       <div class="clp-news-ok"><button type="button" data-news-close>知道了</button></div></div>`;
     newsModal.hidden = false;

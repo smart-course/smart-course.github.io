@@ -261,16 +261,119 @@
     }
   });
 
+  // ---------- 登录加载页（2026-11-06 用户：“学生登录课程的时候设置一个加载页面，可以让他们看到登录情况”） ----------
+  //   点“登录”后整屏显示四步：连接课堂后台 → 核对课堂码、点名册和个人口令 → 记录本次登录 → 打开本周课堂，每步转圈、完成打勾、标出用时；
+  //   核对通过后显示登录结果（姓名、学号、班级、课堂、旁听），稍停一下再打开本周课堂。要设口令、输口令、核对没通过等情况收起加载页，
+  //   回到表单显示原来的提示；网络慢时提示“仍在核对，请不要重复点登录”
+  const loader = (() => {
+    const style = document.createElement('style');
+    style.textContent = `
+    .jl-load { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; padding: 16px; background: rgba(244,239,230,.92);
+      -webkit-backdrop-filter: blur(4px); backdrop-filter: blur(4px); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; animation: jl-in .2s ease-out; }
+    .jl-load[hidden] { display: none; }
+    @keyframes jl-in { from { opacity: 0; } }
+    .jl-card { box-sizing: border-box; width: min(440px, 100%); max-height: calc(100dvh - 32px); overflow-y: auto; padding: 22px 22px 18px; border-radius: 18px;
+      background: #fffdf8; border: 1px solid rgba(70,51,34,.14); box-shadow: 0 24px 60px rgba(32,28,24,.18); color: #201c18; }
+    .jl-card h2 { display: flex; align-items: center; gap: 10px; margin: 0 0 14px; font-size: 20px; letter-spacing: .04em; }
+    .jl-ring { flex: 0 0 auto; width: 22px; height: 22px; border-radius: 50%; border: 3px solid rgba(35,101,95,.2); border-top-color: #23655f; animation: jl-spin .8s linear infinite; }
+    .jl-card.is-ok .jl-ring { animation: none; border-color: #23655f; background: #23655f; position: relative; }
+    .jl-card.is-ok .jl-ring::after { content: '✓'; position: absolute; inset: 0; display: grid; place-items: center; color: #fff; font-size: 13px; font-weight: 900; }
+    @keyframes jl-spin { to { transform: rotate(360deg); } }
+    .jl-steps { margin: 0; padding: 0; list-style: none; display: grid; gap: 10px; }
+    .jl-steps li { display: grid; grid-template-columns: 24px minmax(0, 1fr) auto; align-items: center; gap: 10px; color: #8a7f74; font-size: 15px; line-height: 1.45; }
+    .jl-steps li i { position: relative; display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; border: 2px solid #d6cdbd; box-sizing: border-box; font-style: normal; font-size: 12px; font-weight: 900; }
+    .jl-steps li.is-now { color: #201c18; font-weight: 700; }
+    .jl-steps li.is-now i { border-color: rgba(35,101,95,.25); border-top-color: #23655f; animation: jl-spin .8s linear infinite; }
+    .jl-steps li.is-done { color: #23655f; }
+    .jl-steps li.is-done i { border-color: #23655f; background: #23655f; color: #fff; }
+    .jl-steps li.is-done i::after { content: '✓'; }
+    .jl-steps li.is-skip i::after { content: '–'; }
+    .jl-steps li em { font-style: normal; font-size: 12.5px; color: #8a7f74; font-variant-numeric: tabular-nums; }
+    .jl-steps li small { display: block; font-weight: 400; font-size: 12.5px; color: #6d6259; }
+    .jl-who { margin: 16px 0 0; padding: 12px 14px; border-radius: 12px; background: #eef6f3; border: 1px solid rgba(35,101,95,.25); color: #1f4f49; font-size: 14.5px; line-height: 1.7; }
+    .jl-who[hidden] { display: none; }
+    .jl-who b { font-size: 16px; color: #173f39; }
+    .jl-who span { display: block; }
+    .jl-who .is-audit { display: inline-block; margin-left: 6px; padding: 0 8px; border-radius: 999px; background: #f1ece4; color: #5b5047; font-size: 12.5px; font-weight: 800; }
+    .jl-tip { margin: 14px 0 0; color: #6d6259; font-size: 13px; line-height: 1.6; }
+    .jl-tip.is-slow { color: #a4492d; font-weight: 700; }
+    @media (prefers-reduced-motion: reduce) { .jl-load, .jl-ring, .jl-steps li.is-now i { animation: none; } }`;
+    document.head.appendChild(style);
+    const box = document.createElement('div');
+    box.className = 'jl-load';
+    box.hidden = true;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-modal', 'true');
+    box.setAttribute('aria-label', '登录情况');
+    box.innerHTML = `<div class="jl-card" aria-live="polite">
+        <h2><span class="jl-ring" aria-hidden="true"></span><span data-jl-title>正在登录</span></h2>
+        <ol class="jl-steps">
+          <li data-jl-step="net"><i aria-hidden="true"></i><span>连接课堂后台</span><em></em></li>
+          <li data-jl-step="check"><i aria-hidden="true"></i><span>核对课堂码、点名册和个人口令</span><em></em></li>
+          <li data-jl-step="record"><i aria-hidden="true"></i><span>记录本次登录</span><em></em></li>
+          <li data-jl-step="open"><i aria-hidden="true"></i><span>打开本周课堂</span><em></em></li>
+        </ol>
+        <div class="jl-who" data-jl-who hidden></div>
+        <p class="jl-tip" data-jl-tip>正在登录，请稍候；网络慢时可能要等几秒，请不要重复点“登录”。</p>
+      </div>`;
+    document.body.appendChild(box);
+    let started = 0;
+    let slowTimer = 0;
+    const step = (key) => box.querySelector(`[data-jl-step="${key}"]`);
+    const secs = () => `${((Date.now() - started) / 1000).toFixed(1)} 秒`;
+    return {
+      open() {
+        started = Date.now();
+        box.querySelector('.jl-card').classList.remove('is-ok');
+        box.querySelector('[data-jl-title]').textContent = '正在登录';
+        box.querySelectorAll('[data-jl-step]').forEach((li) => { li.className = ''; li.querySelector('em').textContent = ''; const note = li.querySelector('small'); if (note) note.remove(); });
+        box.querySelector('[data-jl-who]').hidden = true;
+        const tip = box.querySelector('[data-jl-tip]');
+        tip.className = 'jl-tip';
+        tip.textContent = '正在登录，请稍候；网络慢时可能要等几秒，请不要重复点“登录”。';
+        clearTimeout(slowTimer);
+        slowTimer = setTimeout(() => { tip.className = 'jl-tip is-slow'; tip.textContent = '网络有点慢，仍在核对……请不要关闭页面，也不要重复点“登录”。'; }, 6000);
+        box.hidden = false;
+        this.now('net');
+      },
+      now(key) { const li = step(key); if (li) li.className = 'is-now'; },
+      done(key, note, skip) {
+        const li = step(key);
+        if (!li) return;
+        li.className = skip ? 'is-done is-skip' : 'is-done';
+        li.querySelector('em').textContent = secs();
+        if (note) { const small = document.createElement('small'); small.textContent = note; li.querySelector('span').appendChild(small); }
+      },
+      success(room, request, view) {
+        clearTimeout(slowTimer);
+        box.querySelector('.jl-card').classList.add('is-ok');
+        box.querySelector('[data-jl-title]').textContent = view ? '核对通过：历史课堂（只能查看）' : '登录成功';
+        const who = box.querySelector('[data-jl-who]');
+        const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+        who.innerHTML = `<b>${esc(room.name || request.name)}</b>（${esc(room.sid || request.sid)}）${room.audit ? '<span class="is-audit">旁听</span>' : ''}
+          <span>班级：${esc(request.className)}${request.groupName ? ` · ${esc(request.groupName)}` : ''}</span>
+          <span>课堂：${esc(room.room_name || '')}</span>`;
+        who.hidden = false;
+        const tip = box.querySelector('[data-jl-tip]');
+        tip.className = 'jl-tip';
+        tip.textContent = view ? '这一课不是本周课堂：可以查看、写备注，不能递交，也不计修为。正在打开……' : '正在打开本周课堂，打开后就可以作答、发弹幕了。';
+      },
+      close() { clearTimeout(slowTimer); box.hidden = true; },
+    };
+  })();
+
   // ---------- 登录 ----------
   // quiet：true＝等老师允许加入时的自动重试；'forgot'＝等老师同意重设口令时的自动查询
   async function attempt(request, quiet) {
     if (!quiet) {
       button.disabled = true;
       button.textContent = '正在核对……';
+      loader.open();
     }
     let leaving = false;
     try {
       await backend.ensureAnonymous();
+      if (!quiet) { loader.done('net'); loader.now('check'); }
       let result = await backend.rpc('ck_join', {
         p_code: request.code, p_name: request.name, p_sid: request.sid, p_class: request.className, p_group: request.groupName || null,
         p_pin: request.pin, p_new_pin: request.newPin,
@@ -292,14 +395,23 @@
       }
       if (status !== 'pending') stopWaiting();
       if (status !== 'not_listed') applyBox.hidden = true;
+      if (!quiet && status !== 'ok' && status !== 'view') loader.close();   // 要设口令、输口令、核对没通过：回到表单看提示
       switch (status) {
         case 'ok':
           leaving = true;
-          enter(request, result);
+          loader.done('check', result.audit ? '你在本课堂是旁听' : '');
+          loader.done('record', '');
+          loader.now('open');
+          loader.success(result, request, false);
+          setTimeout(() => enter(request, result), 900);   // 停一下，让学生看清登录结果
           return;
         case 'view':
           leaving = true;
-          enterView(result);
+          loader.done('check', '');
+          loader.done('record', '历史课堂只查看，不记录登录', true);
+          loader.now('open');
+          loader.success(result, request, true);
+          setTimeout(() => enterView(result), 900);
           return;
         case 'pending':
           showError('');
@@ -360,6 +472,7 @@
       }
     } catch (problem) {
       console.error(problem);
+      if (!quiet) loader.close();
       if (quiet === 'forgot') { watchForgot(request); return; }   // 等老师同意时偶尔断网：继续等
       if (quiet) { startWaiting(request); return; }   // 等待中偶尔断网：继续等
       stopWaiting();
@@ -402,6 +515,14 @@
     button.textContent = '正在打开（只能查看）……';
     location.href = `/${room.course}/cases/${room.chapter}.html` + (room.pwd_hash ? `#staticrypt_pwd=${room.pwd_hash}&remember_me` : '');
   }
+
+  // 打开课堂后按“返回”回到首页（浏览器从缓存恢复本页）：收起加载页、恢复按钮
+  window.addEventListener('pageshow', (event) => {
+    if (!event.persisted) return;
+    loader.close();
+    button.disabled = false;
+    button.textContent = SUBMIT_TEXT;
+  });
 
   form.addEventListener('submit', async (event) => {
     event.preventDefault();

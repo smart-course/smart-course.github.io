@@ -4105,6 +4105,39 @@
     c6.appendChild(wrap);
   }
   $('[data-tab="insight"]').addEventListener('click', () => renderInsights(false));
+  // ---------------- 更新说明（2026-11-06 用户：“超过20天以上的更新状态不在学生端的‘更新说明’中显示。但是在教师控制台专门设置一个新的‘更新说明’板块记录所有更新情况。”） ----------------
+  //   上半部分：本课程学生页“更新说明”的全部条目（live-core 的 newsList），标出哪些已超过 20 天、学生页不再显示；
+  //   下半部分：全部更新记录（构建时从对话记录整理，TEACHER_DATA.updates：编号、日期、内容、上线提交），可搜索
+  function renderUpdates() {
+    const Live = window.ClassLive;
+    const days = Live.NEWS_DAYS || 20;
+    const cutoff = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(Date.now() - days * 86400000));
+    const sections = Live.newsList ? Live.newsList(course.slug, 0) : [];
+    const shown = sections.reduce((n, section) => n + section.items.filter((item) => item[2] >= cutoff).length, 0);
+    const total = sections.reduce((n, section) => n + section.items.length, 0);
+    $('[data-up-news-note]').textContent = `${course.title}：共 ${total} 条，学生页现在显示最近 ${days} 天的 ${shown} 条`;
+    $('[data-up-news]').innerHTML = sections.map((section) => `<section class="tw-up-sec"><h4>${esc(section.title)}</h4><ul>${section.items.map(([label, text, date]) => {
+      const off = date < cutoff;
+      return `<li class="${off ? 'is-off' : ''}"><span class="tw-up-date">${esc(date.slice(5).replace('-', '/'))}</span><div><b>${esc(label)}</b>${esc(text)}</div><em>${off ? '学生页已不显示' : '学生页显示中'}</em></li>`;
+    }).join('')}</ul></section>`).join('') || '<p class="tw-hint">（没有读到学生页的更新说明）</p>';
+    paintUpdateRows();
+  }
+  function paintUpdateRows() {
+    const rows = (DATA.updates || []).slice().reverse();
+    const query = $('[data-up-search]').value.trim();
+    const list = rows.filter((row) => !query || `${row.date} ${row.no} ${row.title} ${row.commit}`.includes(query));
+    $('[data-up-summary]').textContent = rows.length
+      ? `共 ${rows.length} 次更新（${rows[rows.length - 1].date.slice(5).replace('-', '/')}—${rows[0].date.slice(5).replace('-', '/')}）${query ? `，符合条件 ${list.length} 次` : ''}。“上线”是网站发布的提交号；空着的是和后面某次一起上线，或只改了本机文件（讲义、Word 等）。`
+      : '还没有整理出更新记录（网站构建时从对话记录整理）。';
+    let day = '';
+    $('[data-up-rows]').innerHTML = list.map((row) => {
+      const first = row.date !== day;
+      day = row.date;
+      return `<tr class="${first ? 'is-day' : ''}"><td>${first ? esc(row.date.slice(5).replace('-', '/')) : ''}</td><td>${esc(row.no)}</td><td class="tw-up-title">${esc(row.title)}</td><td>${row.commit ? `<code>${esc(row.commit)}</code>` : ''}</td></tr>`;
+    }).join('') || '<tr><td colspan="4" class="empty">没有符合条件的更新。</td></tr>';
+  }
+  $('[data-tab="updates"]').addEventListener('click', renderUpdates);
+  $('[data-up-search]').addEventListener('input', paintUpdateRows);
   $('[data-ins-root]').addEventListener('click', (event) => {
     const who = event.target.closest('[data-ins-person]');
     if (who && insState.showPerson) insState.showPerson(who.dataset.insPerson, true);

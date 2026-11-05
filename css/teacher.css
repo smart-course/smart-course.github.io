@@ -921,3 +921,29 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .ins-people td, .ins-people th { white-space: nowrap; }
 .ins-people .ins-name { padding: 0; border: 0; background: none; color: var(--teal); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
 .ins-people .ins-name:hover, .ins-people .ins-name:focus-visible { color: var(--rust); outline: none; }
+
+/* 弹幕设置（2026-11-06 从标签栏右边移到“弹幕”标签页里） */
+.tw-dm-mode { align-items: center; gap: 10px 18px; padding: 10px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.tw-dm-mode .tw-hint { margin: 0; }
+
+/* 更新说明（2026-11-06）：学生页更新说明的全部条目＋全部更新记录 */
+.tw-up-h { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; margin: 22px 0 10px; font-size: 18px; }
+.tw-up-h small { color: var(--muted); font-size: 13.5px; font-weight: 600; }
+.tw-up-news { display: grid; gap: 12px; }
+.tw-up-sec { padding: 12px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+.tw-up-sec h4 { margin: 0 0 8px; font-size: 15px; color: #a4492d; }
+.tw-up-sec ul { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+.tw-up-sec li { display: grid; grid-template-columns: 44px minmax(0, 1fr) auto; align-items: start; gap: 4px 12px; font-size: 14px; line-height: 1.65; }
+.tw-up-sec li b { margin-right: 6px; color: var(--ink); }
+.tw-up-sec li em { font-style: normal; font-size: 12px; font-weight: 700; color: #23655f; white-space: nowrap; padding: 1px 8px; border-radius: 999px; background: #e6f2ee; }
+.tw-up-sec li.is-off { color: var(--muted); }
+.tw-up-sec li.is-off em { color: #8a7f74; background: #f1ece4; }
+.tw-up-date { color: var(--muted); font-variant-numeric: tabular-nums; font-size: 13px; }
+.tw-up-table td { vertical-align: top; }
+.tw-up-table td:nth-child(1), .tw-up-table td:nth-child(2) { white-space: nowrap; font-variant-numeric: tabular-nums; color: var(--muted); }
+.tw-up-table tr.is-day td { border-top: 2px solid var(--line); }
+.tw-up-table .tw-up-title { min-width: 320px; line-height: 1.6; }
+.tw-up-table code { font-size: 12.5px; color: #23655f; }
+@media (max-width: 640px) { .tw-up-sec li { grid-template-columns: 40px minmax(0, 1fr); } .tw-up-sec li em { grid-column: 2; justify-self: start; } }
+/* 多了“更新说明”标签：窄一点的屏幕上标签左右留白收一点，保持一行 */
+@media (max-width: 1240px) { .tw-tabs > button { padding-left: 9px !important; padding-right: 9px !important; } }
