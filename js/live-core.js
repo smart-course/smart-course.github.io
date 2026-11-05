@@ -9,6 +9,7 @@
  *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为）、
  *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
+ *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
@@ -2056,6 +2057,74 @@
           write('danmaku', rows);
           return [{ liked: Boolean(row.liked_at), used: used(), lim: LIKE.limit }];
         }
+        // 2026-11-06 删除无效弹幕撤回修为并提醒（规则同后台 ck_delete_danmaku）
+        if (name === 'ck_delete_danmaku') {
+          teacherOnly();
+          const rows = read('danmaku');
+          const row = rows.find((item) => String(item.id) === String(params.p_id));
+          if (!row) return { status: 'gone', points: 0, notified: false };
+          const sid = sidKey(row.sid);
+          write('danmaku', rows.filter((item) => item !== row));
+          if (row.gift || row.withdrawn_at || sid === 'WBF0001') return { status: 'ok', points: 0, notified: false, sid, name: row.name };
+          const allRooms = read('classrooms');
+          const room = allRooms.find((item) => String(item.id) === String(row.classroom)) || {};
+          const classId = Number(room.class_id) || 0;
+          const klass = read('classes').find((item) => String(item.id) === String(room.class_id));
+          const inScope = !klass || !Array.isArray(klass.units) || !klass.units.length || klass.units.includes(room.chapter);
+          const realms = read('realms');
+          const realm = realms.find((item) => item.course === room.course && Number(item.class_id) === classId && item.sid === sid);
+          let cut = 0;
+          if (realm && inScope && !/^exam/.test(room.chapter || '')) {
+            const settled = Date.parse(realm.updated_at);
+            const m = Math.max(1, Number(params.p_meetings) || 1);
+            const unitRooms = new Map(allRooms.filter((item) => item.course === room.course && (Number(item.class_id) || 0) === classId && item.chapter === room.chapter).map((item) => [String(item.id), item]));
+            const count = (list) => {
+              const said = new Set();
+              let likes = 0;
+              list.forEach((doc) => {
+                const home = unitRooms.get(String(doc.classroom));
+                if (!home || sidKey(doc.sid) !== sid || doc.gift || doc.withdrawn_at || doc.status === 'hidden' || (Date.parse(doc.created_at) || doc.ts) > settled) return;
+                if (doc.liked_at && Date.parse(doc.liked_at) <= settled) likes += 1;
+                if (home.danmaku === 'review' && doc.status !== 'shown') return;
+                const text = String(doc.text || '').replace(/^(【[^】]{1,12}】\s*)+/, '').replace(/[\s\p{P}\p{S}＿_]/gu, '');
+                if (text.length >= 4) said.add(text);
+              });
+              return { said: said.size, likes };
+            };
+            const was = count(rows);
+            const now = count(rows.filter((item) => item !== row));
+            const detail = realm.detail || {};
+            const dmCut = Math.min(Math.min(10 * m, 2 * was.said) - Math.min(10 * m, 2 * now.said), Math.max(0, Number(detail.danmaku) || 0));
+            const likeCut = Math.min(5 * (Math.min(was.likes, 2 * m) - Math.min(now.likes, 2 * m)), Math.max(0, Number(detail.like) || 0));
+            cut = dmCut + likeCut;
+            if (cut > 0) {
+              realm.points = Math.max(0, Number(realm.points) - cut);
+              const level = realmOf(realm.points, Number(realm.max_points));
+              realm.realm = level.level;
+              realm.stage = level.stage;
+              realm.detail = { ...detail, danmaku: Math.max(0, (Number(detail.danmaku) || 0) - dmCut), like: Math.max(0, (Number(detail.like) || 0) - likeCut) };
+              write('realms', realms);
+              // 宗门（同后台触发器 ck_sect_sync）
+              const sects = read('sectmembers');
+              sects.forEach((item) => { if (item.course === realm.course && Number(item.class_id) === classId && item.sid === sid) { item.points = realm.points; item.realm = realm.realm; } });
+              write('sectmembers', sects);
+            }
+          }
+          const removed = read('dmremoved');
+          write('dmremoved', removed.concat([{ id: nextId(removed), course: room.course, class_id: classId, classroom: room.id, sid, name: row.name, text: row.text, points: cut, created_at: new Date().toISOString(), notified_at: null }]));
+          return { status: 'ok', points: cut, notified: true, sid, name: row.name };
+        }
+        if (name === 'ck_my_danmaku_removed') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login', removed: [], points: 0 };
+          const room = read('classrooms').find((item) => String(item.id) === String(params.p_classroom)) || {};
+          const rows = read('dmremoved');
+          const mine = rows.filter((item) => item.course === room.course && Number(item.class_id) === (Number(room.class_id) || 0) && item.sid === sidKey(me.sid) && !item.notified_at);
+          mine.forEach((item) => { item.notified_at = new Date().toISOString(); });
+          if (mine.length) write('dmremoved', rows);
+          return { status: 'ok', removed: mine.map((item) => ({ text: item.text, points: item.points })), points: mine.reduce((sum, item) => sum + (Number(item.points) || 0), 0) };
+        }
         if (name === 'ck_withdraw_my_danmaku') {
           const uid = await this.ensureAnonymous();
           const rows = read('danmaku');
@@ -2286,6 +2355,7 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['无效弹幕', '老师删除无效弹幕（比如只发“1”“111”）时，这条弹幕已经得到的修为会撤回，你的页面上会弹窗提醒。发有内容的弹幕才有修为，同一句只算一次。', '2026-11-06'],
         ['全屏答题（手机）', '用手机做题时，点题目下方“递交”旁边的“⤢ 全屏”，或面板里的“全屏答题”：一题一屏、字更大，左下角、右下角是“上一题”“下一题”，顺着做下去；右上角 A−、A+ 调字号。安卓手机会自动转成横屏；iPhone 可以把手机横过来（先在控制中心关掉“竖排方向锁定”），或点上方的“横屏”把画面转过来，写字时会自动转回竖屏。点左上角“退出”（或返回键）回到原来的页面，停在刚才那道题。', '2026-11-06'],
         ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。`, '2026-11-06'],
         ['宗门', `达到「筑基」境界后，可以点面板学号一行右边的“宗门”拜入四大宗门之一：${(Live.SECTS || []).map((sect) => sect.name).join('、')}，也可以暂做散修（散修以后仍可拜入宗门）。拜入以后有一次改投他宗的机会，只有一次，也不能退为散修。宗门分是本课程历届弟子的修为之和，宗门榜按宗门分排名；弟子结课以后修为仍留在宗门里，一届一届传承下去。拜入后修为榜上你的名字旁会显示宗门标记。`, '2026-11-05'],

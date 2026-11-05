@@ -188,6 +188,8 @@
   .clp-egg-card small { display: block; color: #7a6450; font-size: 12.5px; }
   .clp-egg-card button { margin-top: 14px; padding: 9px 26px; border: 0; border-radius: 999px; color: #fff; background: #a4492d; font-family: inherit; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
   .clp-egg-card button:focus-visible { outline: 3px solid rgba(164,73,45,.35); outline-offset: 2px; }
+  .clp-egg-card.is-warn { color: #4a1f14; background: linear-gradient(140deg, #fff4ee, #ffe8df); }
+  .clp-egg-card.is-warn .clp-egg-burst { display: grid; place-items: center; width: 42px; height: 42px; margin: 0 auto; border-radius: 50%; color: #fff; background: #b4472f; font-size: 26px; font-weight: 800; animation: none; }
   @keyframes clp-egg-in { from { opacity: 0; } }
   @keyframes clp-egg-pop { from { transform: scale(.3) rotate(-90deg); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .clp-egg, .clp-egg-burst { animation: none; } }
@@ -2233,7 +2235,34 @@
   }
   let likeTimer = 0;
   const scheduleLikes = (ms) => { if (AUDIT) return; clearTimeout(likeTimer); likeTimer = setTimeout(likeLoop, ms); };   // 旁听不发弹幕，不查点赞
-  async function likeLoop() { await checkLikes(); scheduleLikes(sentMine ? 12000 : 45000); }
+  async function likeLoop() { await checkLikes(); await checkRemoved(); scheduleLikes(sentMine ? 12000 : 45000); }
+  // 老师删除了本人的无效弹幕（2026-11-06）：弹窗提醒一次，说明撤回了多少修为（本班各课堂的都算，下次打开页面也能收到）；
+  // 跟着上面的轮询走，但至少隔 20 秒查一次，几条一起删时并成一个弹窗
+  let removedAt = 0;
+  async function checkRemoved() {
+    if (OFFLINE || LOCAL_ONLY || document.hidden || loginNeeded || Date.now() - removedAt < 20000) return;
+    removedAt = Date.now();
+    try {
+      const got = await backend.rpc('ck_my_danmaku_removed', { p_classroom: Number(identity.classroom) || identity.classroom });
+      const list = (got && got.removed) || [];
+      if (!list.length) return;
+      const quote = (row) => {
+        const text = splitTags(row.text).rest.trim() || String(row.text);
+        return `“${text.length > 18 ? `${text.slice(0, 18)}…` : text}”`;
+      };
+      const total = Number(got.points) || 0;
+      const before = Number((myRealm || {}).realm) || 0;
+      if (total > 0) await refreshRealm();
+      const after = Number((myRealm || {}).realm) || 0;
+      const many = `${list.slice(0, 3).map(quote).join('、')}${list.length > 3 ? ' 等' : ''}`;
+      let text = list.length === 1
+        ? `老师删除了你发的无效弹幕${quote(list[0])}${total > 0 ? `，撤回 ${total} 修为。` : '，这条弹幕不计修为。'}`
+        : `老师删除了你发的 ${list.length} 条无效弹幕（${many}）${total > 0 ? `，共撤回 ${total} 修为。` : '，这些弹幕不计修为。'}`;
+      if (after < before) text += `你的境界回落到「${REALMS[after].name}」。`;
+      egg(text, true, true);
+      if (mydm.open) loadMyDanmaku(true);
+    } catch (problem) { /* 后台还没有这个函数或网络中断：下次再查 */ }
+  }
   // 切回这个页面（手机解锁、从别的应用回来）时马上查一次
   document.addEventListener('visibilitychange', () => { if (!document.hidden && likesPrimed) scheduleLikes(300); });
   const dmLen = panel.querySelector('[data-cl-dm-len]');
@@ -3295,7 +3324,7 @@
         <li>签到：上课时进入本次课堂就算；课后再打开页面不算。</li>
         <li>作答完成：每道题点“递交”就算（投票、站队也算）；要写的题认真写满一句话，只填几个字或留着空格线不算。</li>
         <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
-        <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。</li>
+        <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。被老师删除的无效弹幕，已经得到的修为会撤回，页面上会提醒你。</li>
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
@@ -3606,7 +3635,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261105-debate' : '20261105-debate-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261106-danmaku' : '20261106-danmaku-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -3642,19 +3671,21 @@
     setTimeout(() => box.remove(), 6000);
   }
   // 隐藏彩蛋的弹出提示（2026-11-05，“更新说明”里不写，让学生自己发现）：建议被采纳（stay＝一直显示到点“收下”）、点笑脸、一周登录满 3 天；
-  // 几条同时到时一条一条显示
+  // 几条同时到时一条一条显示。warn：无效弹幕被老师删除的提醒（2026-11-06），不是彩蛋，样式和按钮不同
   const eggQueue = [];
-  function egg(text, stay) {
-    eggQueue.push([text, stay]);
+  function egg(text, stay, warn) {
+    eggQueue.push([text, stay, warn]);
     if (eggQueue.length === 1) showEgg();
   }
   function showEgg() {
-    const [text, stay] = eggQueue[0];
+    const [text, stay, warn] = eggQueue[0];
     const box = document.createElement('div');
     box.className = 'clp-egg';
     box.setAttribute('role', 'dialog');
-    box.setAttribute('aria-label', '修为提升');
-    box.innerHTML = '<div class="clp-egg-card"><span class="clp-egg-burst" aria-hidden="true">✦</span><p></p><small>老师结算修为后计入境界</small><button type="button">收下</button></div>';
+    box.setAttribute('aria-label', warn ? '弹幕提醒' : '修为提升');
+    box.innerHTML = warn
+      ? '<div class="clp-egg-card is-warn"><span class="clp-egg-burst" aria-hidden="true">!</span><p></p><small>发有内容的弹幕才有修为，同一句只算一次</small><button type="button">知道了</button></div>'
+      : '<div class="clp-egg-card"><span class="clp-egg-burst" aria-hidden="true">✦</span><p></p><small>老师结算修为后计入境界</small><button type="button">收下</button></div>';
     box.querySelector('p').textContent = text;
     shield(box);
     let timer = 0;

@@ -288,6 +288,7 @@
   setTimeout(() => { if (window.ClassLiveGifts) window.ClassLiveGifts.preload(); }, 4000);
   const stateEl = bar.querySelector('[data-dm-state]');
   const setState = (html) => { stateEl.innerHTML = html; };
+  let noteUntil = 0;   // 删除弹幕的结果多显示几秒，不被下一次刷新的条数盖掉
   const loopButton = bar.querySelector('[data-dm-loop]');
   const anonButton = bar.querySelector('[data-dm-anon]');
   const anonymous = () => Boolean(room && room.danmaku_anon);
@@ -321,7 +322,7 @@
     anonButton.textContent = anonymous() ? '匿名：开' : '匿名：关';
     anonButton.setAttribute('aria-pressed', String(anonymous()));
     if (room.danmaku === 'off') setState('学生暂时不能发送');
-    else setState(`${pool.length} 条${room.danmaku === 'review' ? '（在工作台审核）' : ''}`);
+    else if (Date.now() >= noteUntil) setState(`${pool.length} 条${room.danmaku === 'review' ? '（在工作台审核）' : ''}`);
   };
   const setLoop = (value) => {
     looping = value;
@@ -781,7 +782,14 @@
   }
   async function removeDoc(doc) {
     const id = String(doc.id);
-    await backend.removeAll('danmaku', { id: Number(doc.id) || doc.id });
+    // 2026-11-06：删除时撤回这条弹幕已结算的修为并提醒学生（后台 ck_delete_danmaku，同工作台）；一章两个案例的每次课上限翻倍
+    let result = null;
+    try {
+      result = await backend.rpc('ck_delete_danmaku', { p_id: Number(doc.id) || doc.id, p_meetings: (window.ChapterCases && window.ChapterCases.cases().length) || 1 });
+    } catch (error) {
+      if (!/PGRST202|42883|Could not find the function/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`)) throw error;
+      await backend.removeAll('danmaku', { id: Number(doc.id) || doc.id });   // 后台还没有执行 20261106 的 SQL：只删除
+    }
     deleted.add(id);
     seen.add(id);
     dropFromPool(id);
@@ -789,7 +797,9 @@
     wallRows = wallRows.filter((row) => String(row.id) !== id);
     renderWalls(wallRows);
     refreshState();
-    setState('已删除 1 条弹幕');
+    const points = Number(result && result.points) || 0;
+    setState(points > 0 ? `已删除 1 条弹幕，撤回 ${points} 修为` : '已删除 1 条弹幕');
+    noteUntil = Date.now() + 6000;
   }
   const WALL_MAX = 3;
   const walls = new Map();
