@@ -63,6 +63,23 @@
   .ins-pie li i { width: 12px; height: 12px; border-radius: 3px; }
   .ins-pie li b { color: ${C.ink}; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
   .ins-pie li small { min-width: 36px; color: ${C.muted}; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+  .ins-card.is-zoomable { cursor: zoom-in; }
+  .ins-card.is-zoomable > h3 { padding-right: 64px; }
+  .ins-zoom-btn { position: absolute; top: 12px; right: 12px; display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px; border: 1px solid rgba(70,51,34,.18); border-radius: 999px;
+    background: #fff; color: ${C.ink2}; font: 700 12.5px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; opacity: .7; transition: opacity .15s, box-shadow .15s; }
+  .ins-zoom-btn svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .ins-card:hover .ins-zoom-btn, .ins-zoom-btn:focus-visible { opacity: 1; box-shadow: 0 2px 8px rgba(70,51,34,.14); }
+  .ins-zoom { position: fixed; inset: 0; z-index: 2147482000; display: flex; overflow: auto; padding: 64px 24px 28px; box-sizing: border-box; background: rgba(24,20,16,.74);
+    -webkit-backdrop-filter: blur(3px); backdrop-filter: blur(3px); animation: ins-zoom-in .18s ease-out; }
+  @keyframes ins-zoom-in { from { opacity: 0; } }
+  .ins-zoom-stage { position: relative; flex: 0 0 auto; margin: auto; }
+  .ins-zoom-stage > .ins-card { position: absolute; left: 0; top: 0; transform-origin: 0 0; cursor: default; box-shadow: 0 30px 80px rgba(0,0,0,.35); }
+  .ins-zoom-x { position: fixed; top: 12px; right: 16px; z-index: 1; width: 44px; height: 44px; border: 0; border-radius: 50%; background: rgba(255,255,255,.94); color: ${C.ink};
+    font: 400 28px/1 -apple-system, BlinkMacSystemFont, sans-serif; cursor: pointer; box-shadow: 0 6px 18px rgba(0,0,0,.3); }
+  .ins-zoom-x:hover { background: #fff; }
+  .ins-zoom-hint { position: fixed; top: 22px; left: 50%; transform: translateX(-50%); color: rgba(255,255,255,.82); font: 600 14px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; pointer-events: none; }
+  @media (max-width: 640px) { .ins-zoom-hint { display: none; } .ins-zoom { padding: 60px 10px 16px; } }
+  @media (prefers-reduced-motion: reduce) { .ins-zoom { animation: none; } }
   `;
   let styled = false;
   function addStyle() {
@@ -111,11 +128,12 @@
         lines.forEach((line) => { const div = document.createElement('div'); div.textContent = line; tip.appendChild(div); });
         tip.hidden = false;
         const box = card.getBoundingClientRect();
+        const k = card.offsetWidth ? box.width / card.offsetWidth : 1;   // 放大看时卡片整体放大，提示框位置按比例换算
         const anchor = event && event.clientX != null ? { x: event.clientX, y: event.clientY } : (() => { const r = event.target.getBoundingClientRect(); return { x: r.left + r.width / 2, y: r.top }; })();
-        let left = anchor.x - box.left + 12;
-        let top = anchor.y - box.top + 12;
+        let left = (anchor.x - box.left) / k + 12;
+        const top = (anchor.y - box.top) / k + 12;
         const w = tip.offsetWidth;
-        if (left + w > box.width - 8) left = anchor.x - box.left - w - 12;
+        if (left + w > (card.offsetWidth || box.width) - 8) left = (anchor.x - box.left) / k - w - 12;
         tip.style.left = `${Math.max(4, left)}px`;
         tip.style.top = `${Math.max(4, top)}px`;
       },
@@ -547,5 +565,133 @@
     });
   }
 
-  window.ClassLiveInsights = { addStyle, card, tiles, columns, bars, heatmap, donut, diverging, dumbbell, scatter, compare, grouped, section, keys, tableView, empty, colors: C };
+
+  // ---------- 放大看（2026-11-05 用户：“点击每张图表，可以放大显示。‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”） ----------
+  // lightbox(内容, { label, onKey, onClose })：全屏深色遮罩，点空白处、右上角 ×、Esc 关闭；返回 { overlay, stage, close }。匿名建议的放大也用它（live-teacher.js）
+  function lightbox(content, opts = {}) {
+    addStyle();
+    hideActive();
+    const overlay = document.createElement('div');
+    overlay.className = 'ins-zoom';
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.setAttribute('aria-label', opts.label || '放大看');
+    overlay.innerHTML = `<button type="button" class="ins-zoom-x" aria-label="关闭">×</button><span class="ins-zoom-hint">${opts.hint || '点空白处或按 Esc 关闭'}</span>`;
+    const stage = document.createElement('div');
+    stage.className = 'ins-zoom-stage';
+    stage.appendChild(content);
+    overlay.appendChild(stage);
+    const back = document.activeElement;
+    const root = document.documentElement;
+    const overflow = root.style.overflow;
+    root.style.overflow = 'hidden';
+    document.body.appendChild(overlay);
+    const onKey = (event) => {
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); close(); return; }
+      if (opts.onKey) opts.onKey(event);
+    };
+    function close() {
+      if (!overlay.isConnected) return;
+      hideActive();
+      overlay.remove();
+      root.style.overflow = overflow;
+      document.removeEventListener('keydown', onKey, true);
+      if (opts.onClose) opts.onClose();
+      if (back && typeof back.focus === 'function' && back.isConnected) { try { back.focus({ preventScroll: true }); } catch (error) { /* 忽略 */ } }
+    }
+    document.addEventListener('keydown', onKey, true);
+    overlay.addEventListener('click', (event) => { if (event.target === overlay || event.target.closest('.ins-zoom-x')) close(); });
+    try { overlay.querySelector('.ins-zoom-x').focus({ preventScroll: true }); } catch (error) { /* 忽略 */ }
+    return { overlay, stage, close };
+  }
+  // 图表卡片：画图函数（columns、bars……）每画一次就登记在卡片上（画在哪个容器、哪几个节点、用什么数据）；
+  // 放大时复制整张卡片，按登记重新画一遍（悬停提示照常可用），再整体按比例放大到铺满屏幕，文字跟着变大
+  let seq = 0;
+  let replaying = false;
+  const ZOOM_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M15 3h6v6M9 21H3v-6M21 3l-7 7M3 21l7-7"/></svg>';
+  function zoomable(cardEl) {
+    if (cardEl.classList.contains('is-zoomable')) return;
+    cardEl.classList.add('is-zoomable');
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'ins-zoom-btn';
+    button.title = '放大看（投屏时学生看得清楚）';
+    button.innerHTML = `${ZOOM_ICON}放大`;
+    cardEl.appendChild(button);
+    cardEl.addEventListener('click', (event) => {
+      if (event.target.closest('.ins-zoom-btn')) { openZoom(cardEl); return; }
+      if (event.target.closest('a, button, summary, details, input, select, textarea, label')) return;
+      if (window.getSelection && String(window.getSelection())) return;   // 正在选文字
+      openZoom(cardEl);
+    });
+  }
+  const record = (fn) => function recorded(host, cardEl, ...rest) {
+    if (replaying || !host || !cardEl || !cardEl.classList || !cardEl.classList.contains('ins-card')) return fn(host, cardEl, ...rest);
+    if (!host.dataset.insHost) host.dataset.insHost = String(++seq);
+    const part = String(++seq);
+    const before = new Set(host.childNodes);
+    const out = fn(host, cardEl, ...rest);
+    Array.from(host.childNodes).forEach((node) => { if (!before.has(node) && node.nodeType === 1) node.setAttribute('data-ins-part', part); });
+    // 个人学情卡换人时会清空重画：只留还在卡片上的登记
+    cardEl.insRenders = (cardEl.insRenders || []).filter((r) => cardEl.querySelector(`[data-ins-part="${r.part}"]`)).concat({ fn, host: host.dataset.insHost, part, rest });
+    zoomable(cardEl);
+    return out;
+  };
+  function openZoom(cardEl) {
+    const clone = cardEl.cloneNode(true);
+    clone.classList.remove('is-zoomable');
+    clone.querySelectorAll('.ins-zoom-btn').forEach((node) => node.remove());
+    clone.querySelectorAll('.ins-tip').forEach((tip) => { tip.hidden = true; });
+    clone.removeAttribute('id');
+    // 宽卡片先按较窄的宽度重画，放大倍数才够；窄卡片按原宽度
+    const width = Math.min(cardEl.offsetWidth || 600, Math.max(560, Math.round(window.innerWidth * 0.56)));
+    clone.style.width = `${width}px`;
+    let observer = null;
+    let onResize = null;
+    const box = lightbox(clone, {
+      label: `放大看：${(cardEl.querySelector('h3') || {}).textContent || '图表'}`,
+      onClose: () => { if (observer) observer.disconnect(); if (onResize) window.removeEventListener('resize', onResize); },
+    });
+    replaying = true;
+    try {
+      (cardEl.insRenders || []).forEach(({ fn, host: key, part, rest }) => {
+        const host = clone.matches(`[data-ins-host="${key}"]`) ? clone : clone.querySelector(`[data-ins-host="${key}"]`);
+        if (!host) return;
+        const old = Array.from(host.querySelectorAll(`:scope > [data-ins-part="${part}"]`));
+        if (!old.length) return;
+        const mark = document.createComment('');
+        old[0].before(mark);
+        old.forEach((node) => node.remove());
+        const before = new Set(host.childNodes);
+        fn(host, clone, ...rest);
+        Array.from(host.childNodes).filter((node) => !before.has(node)).forEach((node) => mark.before(node));
+        mark.remove();
+      });
+    } catch (error) {
+      console.warn('[放大看]', error);
+    } finally {
+      replaying = false;
+    }
+    const fit = () => {
+      clone.style.transform = '';
+      const w = clone.offsetWidth;
+      const h = clone.offsetHeight;
+      const k = Math.max(1, Math.min((window.innerWidth - 48) / w, (window.innerHeight - 92) / h, 3));
+      clone.style.transform = `scale(${k})`;
+      box.stage.style.width = `${Math.round(w * k)}px`;
+      box.stage.style.height = `${Math.round(h * k)}px`;
+    };
+    fit();
+    // 展开“查看数据表”等高度变化、窗口大小变化时重新铺满（scale 不改变布局尺寸，不会反复触发）
+    if (window.ResizeObserver) { observer = new ResizeObserver(() => requestAnimationFrame(fit)); observer.observe(clone); }
+    onResize = () => fit();
+    window.addEventListener('resize', onResize);
+    return box;
+  }
+
+  window.ClassLiveInsights = {
+    addStyle, card, tiles, section, keys, tableView, empty, colors: C, lightbox, openZoom,
+    columns: record(columns), bars: record(bars), heatmap: record(heatmap), donut: record(donut), diverging: record(diverging),
+    dumbbell: record(dumbbell), scatter: record(scatter), compare: record(compare), grouped: record(grouped),
+  };
 })();

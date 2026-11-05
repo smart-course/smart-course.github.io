@@ -182,6 +182,22 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-dm-table td { vertical-align: middle; }
 .tw-fb-table td { vertical-align: top; }
 .tw-fb-table .tw-fb-text { min-width: 260px; font-size: 15px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+/* 放大看一条建议（2026-11-05）：点建议文字打开，全屏大字 */
+.tw-fb-table .tw-fb-text[data-fb-zoom] { cursor: zoom-in; border-radius: 6px; transition: background .15s; }
+.tw-fb-table .tw-fb-text[data-fb-zoom]:hover { background: #fbf3df; }
+.tw-fb-table .tw-fb-text[data-fb-zoom]:focus-visible { outline: 2px solid #b8862b; outline-offset: -2px; }
+.tw-fb-zoom { box-sizing: border-box; width: min(1100px, 90vw); max-height: calc(100vh - 110px); display: flex; flex-direction: column; gap: 18px; padding: 28px 40px 24px;
+  border-radius: 20px; background: #fffdf8; box-shadow: 0 30px 80px rgba(0,0,0,.35); color: #201c18; }
+.tw-fb-zoom-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; color: #6d6259; font-size: 16px; }
+.tw-fb-zoom-meta span { padding: 3px 12px; border-radius: 999px; background: #3b2a14; color: #f6dc98; font-size: 14px; font-weight: 800; letter-spacing: .1em; }
+.tw-fb-zoom-meta b { margin-left: auto; color: #8a7f74; font-weight: 700; font-variant-numeric: tabular-nums; }
+.tw-fb-zoom-text { flex: 1 1 auto; min-height: 0; overflow: auto; margin: 0; padding: 4px 2px; font-family: "Songti SC", STSong, SimSun, serif; font-size: min(var(--fz, 44px), 6.4vw); font-weight: 700;
+  line-height: 1.6; text-align: justify; white-space: pre-wrap; overflow-wrap: anywhere; }
+.tw-fb-zoom-nav { display: flex; justify-content: space-between; gap: 12px; }
+.tw-fb-zoom-nav button { padding: 10px 20px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 12px; background: #fff; color: #201c18; font-size: 16px; font-weight: 800; cursor: pointer; }
+.tw-fb-zoom-nav button:hover:not([disabled]) { border-color: #b8862b; background: #fff6df; }
+.tw-fb-zoom-nav button[disabled] { opacity: .35; cursor: default; }
+@media (max-width: 640px) { .tw-fb-zoom { padding: 20px 18px 16px; } }
 .tw-fb-table td:first-child, .tw-fb-table td:nth-child(3) { white-space: nowrap; }
 /* 匿名建议点赞采纳（2026-11-05） */
 .tw-fb-table .tw-fb-actions { width: auto; white-space: nowrap; }

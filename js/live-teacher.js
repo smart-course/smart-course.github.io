@@ -1074,10 +1074,43 @@
     const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${liked ? `（已点赞 ${liked} 条）` : ''}${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。${adoptNote}` : '');
     $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
-      <td class="tw-fb-text">${esc(doc.text)}</td><td class="tw-col-action tw-fb-actions">${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
+      <td class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}</td><td class="tw-col-action tw-fb-actions">${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
       || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</td></tr>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
+  // 放大看一条建议（2026-11-05 用户：“‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”）：
+  // 全屏大字显示，字号按字数自动调；← → 键或两边的箭头看上一条、下一条（按表格现在的顺序和搜索条件），Esc 或点空白处关闭。不显示点赞情况
+  function zoomFeedback(id) {
+    const I = window.ClassLiveInsights;
+    if (!I || !I.lightbox) return;
+    const query = $('[data-fb-search]').value.trim();
+    const list = feedbackRows.filter((doc) => !query || String(doc.text || '').includes(query)).sort((a, b) => Number(b.id) - Number(a.id));
+    let at = Math.max(0, list.findIndex((doc) => String(doc.id) === String(id)));
+    if (!list.length) return;
+    const panel = document.createElement('div');
+    panel.className = 'tw-fb-zoom';
+    const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
+    const size = (text) => { const n = Array.from(String(text || '')).length; return n <= 24 ? 64 : n <= 60 ? 52 : n <= 120 ? 44 : n <= 220 ? 36 : n <= 400 ? 30 : 26; };
+    const paint = () => {
+      const doc = list[at];
+      panel.innerHTML = `<div class="tw-fb-zoom-meta"><span>匿名建议</span>${esc(doc.created_on || '')}${roomName.get(String(doc.classroom)) ? ` · ${esc(roomName.get(String(doc.classroom)))}` : ''} · ${esc(sessionLabel(doc.case_no))}<b>${at + 1} / ${list.length}</b></div>
+        <p class="tw-fb-zoom-text" style="--fz:${size(doc.text)}px">${esc(doc.text)}</p>
+        <div class="tw-fb-zoom-nav"><button type="button" data-fbz="-1"${at === 0 ? ' disabled' : ''} aria-label="上一条">‹ 上一条</button><button type="button" data-fbz="1"${at === list.length - 1 ? ' disabled' : ''} aria-label="下一条">下一条 ›</button></div>`;
+    };
+    const step = (d) => { const next = at + d; if (next < 0 || next >= list.length) return; at = next; paint(); };
+    panel.addEventListener('click', (event) => { const b = event.target.closest('[data-fbz]'); if (b && !b.disabled) step(Number(b.dataset.fbz)); });
+    paint();
+    I.lightbox(panel, { label: '放大看匿名建议', hint: '← → 看上一条、下一条 · 点空白处或按 Esc 关闭',
+      onKey: (event) => { if (event.key === 'ArrowLeft') { event.preventDefault(); step(-1); } else if (event.key === 'ArrowRight') { event.preventDefault(); step(1); } } });
+  }
+  $('[data-fb-rows]').addEventListener('click', (event) => {
+    const cell = event.target.closest('[data-fb-zoom]');
+    if (cell && !(window.getSelection && String(window.getSelection()))) zoomFeedback(cell.dataset.fbZoom);
+  });
+  $('[data-fb-rows]').addEventListener('keydown', (event) => {
+    const cell = event.target.closest('[data-fb-zoom]');
+    if (cell && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); zoomFeedback(cell.dataset.fbZoom); }
+  });
   // 点赞采纳（2026-11-05 用户：“对于匿名建议，教师工作台老师也可以进行点赞(在删除按钮左边增加一个点赞按钮)，然后有一个弹出框可以选择加不同修为分（5、10、20），
   // 学生下次登陆的时候弹出一条信息”）：后台 ck_adopt_feedback 按另记的提交者给作者加修为（ck_bonus kind adopt，计入“额外加分”），
   // 老师仍看不到是谁写的；作者下次打开章节页时弹出“建议已被采纳”。可以改分或取消点赞；11-05 之前提交的建议没有记作者，不能加
@@ -3749,7 +3782,8 @@
     const ranked = realmRows.slice().sort((a, b) => (Number(b.points) || 0) - (Number(a.points) || 0) || String(a.sid).localeCompare(String(b.sid)));
     const top = ranked[0];
     const ties = top ? ranked.filter((r) => Number(r.points) === Number(top.points)).length : 0;
-    const c7 = I.card(grid, top ? `修为榜第一：${top.name || top.sid} 的修为构成` : '修为榜第一的修为构成',
+    // 2026-11-05 用户：“学情分析里面，修为榜第一，不要显示名字”（投屏时也不暴露是谁）
+    const c7 = I.card(grid, '修为榜第一的修为构成',
       top ? `按最近一次结算（${stamp(top.updated_at)}），共 ${Number(top.points) || 0} 修为，境界「${REALMS[Number(top.realm) || 0].name}」${ties > 1 ? `；并列第一 ${ties} 人，这里是学号最小的一位` : ''}。点赞、额外加分、修炼场是额外奖励。` : '');
     const host7 = document.createElement('div'); c7.appendChild(host7);
     if (top) {

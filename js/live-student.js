@@ -319,7 +319,12 @@
   .dbr-room.is-con .dbr-head { background: linear-gradient(180deg, #b55536, #a4492d); }
   .dbr-head > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
   .dbr-head b { font-size: 17px; letter-spacing: .06em; } .dbr-head span { font-size: 13px; opacity: .92; }
-  .dbr-stage { padding: 3px 10px; border-radius: 999px; background: #f6dc98; color: #3b2a07; font-size: 13px; font-weight: 800; opacity: 1 !important; }
+  .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 16px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; color: #6d6259; font-size: 13.5px; }
+  .dbr-top[hidden] { display: none; }
+  .dbr-top > b { color: #8a5a1a; letter-spacing: .04em; }
+  .dbr-top > span { display: inline-flex; align-items: baseline; gap: 5px; padding: 2px 10px; border-radius: 999px; border: 1px solid rgba(184,134,43,.35); background: #fff; color: #201c18; }
+  .dbr-top > span i { font-style: normal; font-weight: 800; color: #b8862b; } .dbr-top > span small { color: #23655f; } .dbr-top > span.is-con small { color: #a4492d; }
+  .dbr-top > span em { font-style: normal; font-weight: 800; color: #c0392b; } .dbr-top > span.is-me { border-color: #b8862b; background: #fff3cf; }
   .dbr-body { display: grid; grid-template-columns: 188px minmax(0, 1fr); min-height: 300px; }
   .dbr-people { border-right: 1px solid rgba(70,51,34,.1); background: rgba(70,51,34,.03); padding: 10px 8px; max-height: 452px; overflow-y: auto; }
   .dbr-people h5 { margin: 0 6px 8px; font-size: 13px; color: #6d6259; letter-spacing: .04em; }
@@ -358,44 +363,6 @@
     .dbr-people span > small { display: none; }
     .dbr-msg-body { max-width: 86%; }
   }
-  .dbs, .dbs-off { border-radius: 14px; border: 1.5px solid rgba(70,51,34,.18); background: #fffdf8; overflow: hidden; }
-  .dbs-off { padding: 14px 16px; } .dbs-off p { margin: 0 0 10px; color: #4a4038; font-size: 15px; }
-  .dbs-flow { display: flex; flex-wrap: wrap; gap: 6px; margin: 0; padding: 0; list-style: none; counter-reset: dbs; }
-  .dbs-flow li { counter-increment: dbs; display: inline-flex; align-items: baseline; gap: 4px; padding: 3px 10px; border-radius: 999px; background: #f2ece2; color: #6d6259; font-size: 13px; }
-  .dbs-flow li::before { content: counter(dbs); font-weight: 800; color: #b8862b; } .dbs-flow small { color: #8a7f74; }
-  .dbs-flow.is-small { padding: 8px 14px; border-bottom: 1px solid rgba(70,51,34,.08); }
-  .dbs-flow li.is-now { background: #3b2a07; color: #f6dc98; font-weight: 800; } .dbs-flow li.is-done { opacity: .55; }
-  .dbs-head { display: flex; align-items: center; justify-content: space-between; gap: 12px; padding: 10px 16px; background: #3b3530; color: #fff; }
-  .dbs.is-pro .dbs-head { background: linear-gradient(180deg, #2b7169, #23655f); } .dbs.is-con .dbs-head { background: linear-gradient(180deg, #b55536, #a4492d); }
-  .dbs.is-both .dbs-head { background: linear-gradient(90deg, #23655f, #6b4b2a 50%, #a4492d); }
-  .dbs-head > div { display: grid; } .dbs-head b { font-size: 18px; letter-spacing: .06em; } .dbs-head small { font-size: 13px; opacity: .9; }
-  .dbs-clock { font-size: 28px; font-weight: 800; font-variant-numeric: tabular-nums; letter-spacing: .04em; } .dbs-clock.is-low { color: #ffd38a; }
-  .dbs-cols { display: grid; grid-template-columns: 1fr 1fr; gap: 0; }
-  .dbs-cols > section { padding: 10px 14px 12px; } .dbs-cols > section + section { border-left: 1px solid rgba(70,51,34,.1); }
-  .dbs h5 { margin: 0 0 8px; font-size: 13.5px; color: #8a5a1a; letter-spacing: .04em; }
-  .dbs-args { margin: 0; padding: 0; list-style: none; display: grid; gap: 8px; }
-  .dbs-arg { padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(70,51,34,.12); background: #fff; }
-  .dbs-arg.is-topic { box-shadow: 0 0 0 2px rgba(232,196,106,.7); }
-  .dbs-arg-head { display: flex; align-items: baseline; gap: 6px; font-size: 13px; } .dbs-arg-head span { font-size: 16px; font-weight: 800; color: #23655f; }
-  .dbs-arg.is-con .dbs-arg-head span { color: #a4492d; } .dbs-arg-head small { color: #8a7f74; }
-  .dbs-arg > p { margin: 4px 0 0; font-size: 15px; line-height: 1.6; }
-  .dbs-thread { margin: 8px 0 0; padding: 0; list-style: none; display: grid; gap: 5px; }
-  .dbs-say { display: grid; gap: 1px; padding: 6px 9px; border-radius: 8px; border-left: 3px solid #23655f; background: #eef6f3; font-size: 14px; line-height: 1.55; }
-  .dbs-say.is-con { border-left-color: #a4492d; background: #fbeee6; }
-  .dbs-say b { font-size: 12.5px; color: #23655f; } .dbs-say.is-con b { color: #a4492d; } .dbs-say b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
-  .dbs-general { padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.1); }
-  .dbs-empty { color: #8a7f74; font-size: 13px; }
-  .dbs-say-form { margin: 0; padding: 12px 14px; border-top: 1px solid rgba(70,51,34,.12); background: #f2f8f6; }
-  .dbs-say-form.is-con { background: #fbf2ed; }
-  .dbs-say-form > p:first-child { margin: 0 0 8px; font-size: 14px; } .dbs-say-form b { color: #23655f; } .dbs-say-form.is-con b { color: #a4492d; }
-  .dbs-say-form > div { display: flex; flex-wrap: wrap; gap: 8px; }
-  .dbs-say-form select { flex: 0 0 auto; padding: 9px 10px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font-size: 14px; }
-  .dbs-say-form input { flex: 1 1 200px; min-width: 0; padding: 10px 12px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 9px; background: #fff; font-size: 16px; }
-  .dbs-say-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
-  .dbs-say-form.is-con button { background: #a4492d; } .dbs-say-form button[disabled] { opacity: .55; cursor: default; }
-  .dbs-state { margin: 6px 0 0; min-height: 1em; color: #a4492d; font-size: 13.5px; font-weight: 700; }
-  .dbs-note { margin: 0; padding: 10px 14px; border-top: 1px solid rgba(70,51,34,.1); background: #f6f1e7; color: #4a4038; font-size: 14px; } .dbs-note b { color: #8a5a1a; }
-  @media (max-width: 640px) { .dbs-cols { grid-template-columns: 1fr; } .dbs-cols > section + section { border-left: 0; border-top: 1px solid rgba(70,51,34,.1); } }
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
@@ -642,18 +609,25 @@
   .clp-rankbtn::after { content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.8) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat; animation: clp-sweep 3.6s ease-in-out 1.2s infinite; }
   @keyframes clp-sweep { to { background-position: 260% 0; } }
-  .clp-xlbtn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; padding: 2px 10px; border: 1px solid #1f5c52; border-radius: 999px;
-    color: #fff8e6; background: linear-gradient(180deg, #3a8a7b, #245e55); box-shadow: 0 0 8px rgba(47,111,99,.35), inset 0 1px 0 rgba(255,255,255,.25);
+  /* 2026-11-05 用户：“‘修炼场’和‘宗门’的按钮也要做和‘修为榜’类似的渐变特效”：上亮下深的渐变、外发光，再加一道斜光扫过（三个按钮依次扫过，像一道光从左到右） */
+  .clp-xlbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; padding: 2px 10px; border: 1px solid #1f5c52; border-radius: 999px;
+    color: #fff; background: linear-gradient(180deg, #8bd3bf, #3a8a7b 55%, #1f574d); box-shadow: 0 0 8px rgba(58,160,138,.5), inset 0 1px 0 rgba(255,255,255,.55);
+    text-shadow: 0 1px 1px rgba(0,40,30,.35);
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
   .clp-sub .clp-xlbtn { margin-left: 6px; }
+  .clp-xlbtn::after, .clp-sectbtn::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.7) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat; animation: clp-sweep 3.6s ease-in-out 1.6s infinite; }
+  .clp-sectbtn::after { animation-delay: 2s; }
   /* 宗门（2026-11-05）：面板头部的宗门按钮（拜入后显示宗门名和宗门色）＋宗门榜弹窗（沿用修为榜的星空卡片） */
   .clp-sectbtn[hidden] { display: none; }
-  .clp-sectbtn { flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 10px 2px 4px; border: 1px solid rgba(0,0,0,.22); border-radius: 999px;
-    color: #fff; background: var(--sc, #5b4a9e); box-shadow: 0 0 8px var(--sg, rgba(150,130,230,.45)), inset 0 1px 0 rgba(255,255,255,.3);
+  .clp-sectbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 10px 2px 4px; border: 1px solid rgba(0,0,0,.22); border-radius: 999px;
+    color: #fff; background: var(--sc, #5b4a9e);
+    background: linear-gradient(180deg, color-mix(in srgb, var(--sc, #5b4a9e) 50%, #fff), var(--sc, #5b4a9e) 55%, color-mix(in srgb, var(--sc, #5b4a9e) 72%, #000));
+    box-shadow: 0 0 9px var(--sg, rgba(150,130,230,.5)), inset 0 1px 0 rgba(255,255,255,.55); text-shadow: 0 1px 1px rgba(0,0,0,.3);
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
   .clp-sectbtn > span:first-child, .clp-sect-dot, .clp-sect-emb { display: inline-grid; place-items: center; border-radius: 50%; font-family: "Kaiti SC", STKaiti, KaiTi, serif; font-weight: 900; font-style: normal; }
-  .clp-sectbtn > span:first-child { width: 17px; height: 17px; background: rgba(255,255,255,.94); color: var(--sc, #5b4a9e); font-size: 11.5px; line-height: 1; }
-  .clp-sectbtn.is-sanxiu { background: #6f665c; box-shadow: inset 0 1px 0 rgba(255,255,255,.25); }
+  .clp-sectbtn > span:first-child { width: 17px; height: 17px; background: rgba(255,255,255,.94); color: var(--sc, #5b4a9e); font-size: 11.5px; line-height: 1; text-shadow: none; }
+  .clp-sectbtn.is-sanxiu { background: linear-gradient(180deg, #b1a79b, #6f665c 55%, #4d463f); box-shadow: 0 0 6px rgba(111,102,92,.4), inset 0 1px 0 rgba(255,255,255,.45); }
   .clp-sect-dot { flex: 0 0 auto; width: 17px; height: 17px; margin-left: 4px; background: var(--sc); color: #fff; font-size: 10.5px; line-height: 1; vertical-align: 1px; box-shadow: 0 0 6px var(--sg); }
   .clp-sect-welcome { margin: 4px 0 8px; padding: 9px 12px; border-radius: 12px; background: linear-gradient(100deg, rgba(255,211,107,.26), rgba(185,140,255,.14)); color: #ffe8a8; font-size: 13.5px; font-weight: 700; line-height: 1.6; }
   .clp-sect-list { display: grid; gap: 10px; margin: 6px 0 0; padding: 0; list-style: none; }
@@ -771,7 +745,7 @@
     .clp-pod.is-1 .clp-ava { width: 56px; height: 56px; font-size: 26px; }
     .clp-pod .clp-realm { font-size: 11px; padding: 0 5px; }
   }
-  @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after, .clp-xlbtn::after, .clp-sectbtn::after { animation: none !important; } }
   @media (max-width: 700px) {
     .clp-panel.clp-v2.is-folded { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
     .clp-panel.clp-v2.is-folded > :not(.clp-mini) { display: none; }
@@ -856,6 +830,128 @@
   }` : ''}
   `;
   document.head.appendChild(style);
+
+  // 全屏答题与手机横屏（2026-11-05）：单独一张样式表，不随“字号”档位缩放（data-readable=skip）
+  const fsStyle = document.createElement('style');
+  fsStyle.dataset.readable = 'skip';
+  fsStyle.textContent = `
+  .clp-q-fs { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1.5px solid rgba(35,101,95,.45); border-radius: 10px; background: #fff; color: #23655f;
+    font: 800 14px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  .clp-q-fs:active { transform: translateY(1px); }
+  /* 窄屏：递交按钮一行，状态文字和“⤢ 全屏”在第二行（右上角是“我的备注”） */
+  @media (max-width: 640px) {
+    .clp-q-row .clp-q-state { order: 2; flex: 1 1 55% !important; }
+    .clp-q-fs { order: 3; margin-left: auto; min-height: 38px; padding: 0 12px; font-size: 13.5px; }
+    .clp-q-send[hidden] ~ .clp-q-state { margin-right: 108px; }
+  }
+  .clp-v2 .clp-tools button.clp-fs-entry { border-color: #b8801a; color: #5a3a00; background: linear-gradient(180deg, #fff3c4, #f2c64f); }
+  /* 电脑上（鼠标、宽屏）不显示全屏答题的入口 */
+  @media (hover: hover) and (pointer: fine) and (min-width: 900px) { .clp-q-fs, .clp-fs-entry { display: none !important; } }
+  /* ---- 全屏答题：只显示当前这道题 ---- */
+  html.clp-fs { --fs-top: 52px; --fs-bottom: 74px; }
+  html.clp-fs, html.clp-fs body { background: #f4efe6 !important; }
+  html.clp-fs body { margin: 0 !important; min-height: 100vh; padding: calc(var(--fs-top) + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(var(--fs-bottom) + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important; box-sizing: border-box; }
+  html.clp-fs body > [data-fs-hide] { display: none !important; }
+  html.clp-fs [data-fs-path]:not(body) > :not([data-fs-path]):not([data-fs-on]) { display: none !important; }
+  html.clp-fs [data-fs-path]:not(body) { display: block !important; position: static !important; float: none !important; width: auto !important; max-width: none !important; min-width: 0 !important;
+    height: auto !important; min-height: 0 !important; margin: 0 !important; padding: 0 !important; border: 0 !important; border-radius: 0 !important; background: transparent !important;
+    box-shadow: none !important; transform: none !important; filter: none !important; overflow: visible !important; animation: none !important; opacity: 1 !important; columns: auto !important; }
+  html.clp-fs [data-fs-path]::before, html.clp-fs [data-fs-path]::after { display: none !important; }
+  html.clp-fs [data-fs-root][data-fs-path] { display: flex !important; flex-direction: column; justify-content: center;
+    min-height: calc(100vh - var(--fs-top) - var(--fs-bottom) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important;
+    min-height: calc(100dvh - var(--fs-top) - var(--fs-bottom) - env(safe-area-inset-top) - env(safe-area-inset-bottom)) !important; }
+  html.clp-fs [data-fs-on] { max-width: 1040px !important; margin-left: auto !important; margin-right: auto !important; zoom: var(--fs-zoom, 1); }
+  html.clp-fs [data-fs-on]:not(.clp-q) { margin-top: 0 !important; }
+  html.clp-fs .clp-q-fs, html.clp-fs .cl-zoom-btn { display: none !important; }
+  html.clp-fs .clp-q-row { padding-right: 0 !important; }
+  html.clp-fs .clp-q-row .clp-q-state { order: 2; flex: 1 1 100% !important; margin-right: 0 !important; }   /* 状态文字单独一行，不压在右上角的“我的备注”下面 */
+  .clp-fs-ui { position: fixed; inset: 0; z-index: 2147481000; pointer-events: none; color: #201c18; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-fs-ui[hidden] { display: none; }
+  .clp-fs-top { pointer-events: auto; position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; box-sizing: border-box; min-height: calc(46px + env(safe-area-inset-top));
+    padding: env(safe-area-inset-top) max(10px, env(safe-area-inset-right)) 0 max(10px, env(safe-area-inset-left)); color: #fff; background: linear-gradient(180deg, #2f7a72, #23655f); box-shadow: 0 2px 10px rgba(0,0,0,.18); }
+  .clp-fs-top button { flex: 0 0 auto; height: 34px; padding: 0 12px; border: 1px solid rgba(255,255,255,.45); border-radius: 999px; background: rgba(255,255,255,.12); color: #fff; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
+  .clp-fs-top button[hidden] { display: none; }
+  .clp-fs-top button[aria-pressed="true"] { background: #fff; color: #23655f; }
+  .clp-fs-where { flex: 1 1 auto; min-width: 0; display: grid; line-height: 1.25; }
+  .clp-fs-where b { font-size: 14.5px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clp-fs-where span { font-size: 12.5px; opacity: .88; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clp-fs-badge { flex: 0 0 auto; padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.18); font-size: 12.5px; font-weight: 800; white-space: nowrap; }
+  .clp-fs-badge[data-state="ok"] { background: #f2c64f; color: #3e2400; }
+  .clp-fs-badge[data-state="stop"] { background: #f3d4c6; color: #8a2f18; }
+  .clp-fs-tools { flex: 0 0 auto; display: flex; gap: 6px; }
+  .clp-fs-tools button { min-width: 38px; padding: 0 9px; }
+  .clp-fs-nav { pointer-events: auto; position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); min-width: 112px; height: 50px; padding: 0 20px; border: 0; border-radius: 999px;
+    color: #23655f; background: rgba(255,255,255,.96); box-shadow: 0 4px 16px rgba(0,0,0,.22), inset 0 0 0 1.5px rgba(35,101,95,.4); font: 800 16px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  .clp-fs-prev { left: max(12px, env(safe-area-inset-left)); }
+  .clp-fs-next { right: max(12px, env(safe-area-inset-right)); }
+  .clp-fs-nav:disabled { opacity: .35; cursor: default; }
+  .clp-fs-next.is-ready { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 55%, #d9a032); box-shadow: 0 0 0 3px rgba(242,198,79,.35), 0 6px 18px rgba(184,128,26,.35); animation: clp-fs-pulse 1.6s ease-in-out infinite; }
+  @keyframes clp-fs-pulse { 50% { box-shadow: 0 0 0 8px rgba(242,198,79,.12), 0 6px 18px rgba(184,128,26,.35); } }
+  .clp-fs-hint { pointer-events: auto; position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); box-sizing: border-box; width: min(420px, calc(100% - 32px)); padding: 18px 18px 16px;
+    border-radius: 16px; background: #fffdf8; box-shadow: 0 20px 60px rgba(0,0,0,.35); }
+  .clp-fs-hint[hidden] { display: none; }
+  .clp-fs-hint b { display: block; margin-bottom: 6px; color: #23655f; font-size: 17px; }
+  .clp-fs-hint p { margin: 0 0 12px; color: #4a4038; font-size: 14.5px; line-height: 1.65; }
+  .clp-fs-hint div { display: flex; gap: 8px; }
+  .clp-fs-hint button { flex: 1 1 0; height: 42px; border: 1.5px solid rgba(35,101,95,.4); border-radius: 12px; background: #fff; color: #23655f; font-family: inherit; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
+  .clp-fs-hint button.is-main { border-color: #23655f; background: #23655f; color: #fff; }
+  @media (max-width: 520px) { .clp-fs-badge { display: none; } .clp-fs-top { gap: 6px; } .clp-fs-top button { padding: 0 9px; } .clp-fs-tools { gap: 4px; } .clp-fs-tools button { min-width: 34px; padding: 0 6px; } }
+  @media (prefers-reduced-motion: reduce) { .clp-fs-next.is-ready { animation: none; } }
+  /* 横屏（或旋转画面）：选项排成两列，少翻页 */
+  @media (orientation: landscape) and (min-width: 640px) {
+    html.clp-fs [data-fs-on] .quiz-options, html.clp-fs [data-fs-on] .live-options, html.clp-fs [data-fs-on] .cl-options { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px 10px !important; }
+  }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .quiz-options, html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .live-options,
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .cl-options { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px 10px !important; }
+  @media (orientation: landscape) and (max-height: 520px) { html.clp-fs { --fs-top: 46px; --fs-bottom: 66px; } .clp-fs-nav { height: 44px; min-width: 100px; bottom: calc(8px + env(safe-area-inset-bottom)); } }
+  /* ---- 旋转画面：竖着拿时把题目和按钮一起转 90°，宽高对调 ---- */
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) body { overflow: hidden !important; height: 100vh; padding: 0 !important; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-root] { position: fixed !important; top: 0 !important; left: 0 !important; width: var(--fs-h) !important; height: var(--fs-w) !important; max-width: none !important;
+    transform-origin: 0 0 !important; transform: translateX(var(--fs-w)) rotate(90deg) !important; overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain;
+    -webkit-overflow-scrolling: touch; box-sizing: border-box !important; padding: 52px 14px 70px !important; background: #f4efe6 !important;
+    display: block !important; min-height: 0 !important; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-ui { inset: auto; top: 0; left: 0; width: var(--fs-h); height: var(--fs-w); transform-origin: 0 0; transform: translateX(var(--fs-w)) rotate(90deg); }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-top { min-height: 46px; padding-top: 0; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-nav { bottom: 10px; height: 44px; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-badge, html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-tools [data-fs-size],
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-where span { display: revert; }
+  /* ---- 手机横着拿（高度很小）：面板、弹窗、聊天室都矮一些，放不下就在框里滚动 ---- */
+  @media (orientation: landscape) and (max-height: 520px) {
+    .clp-panel { width: min(330px, 44vw); }
+    .clp-panel:not(.is-folded) { bottom: 8px !important; max-height: calc(100vh - 16px) !important; max-height: calc(100dvh - 16px) !important; }   /* 展开时用满整个高度，里面的内容照常在框里滚动 */
+    .clp-realm-modal, .clp-egg, .lp-modal, .cl-leave { padding: 8px !important; }
+    .clp-realm-card, .clp-rank-card { max-height: calc(100vh - 16px); max-height: calc(100dvh - 16px); padding: 12px 16px; }
+    .clp-egg-card { max-height: calc(100dvh - 16px); overflow-y: auto; padding: 14px 18px 12px; }
+    .clp-egg-burst { font-size: 26px; }
+    .lp-card { max-height: calc(100dvh - 16px) !important; }
+    .lp-head { padding: 8px 14px !important; }
+    .lp-head h3 { font-size: 20px !important; }
+    .cl-leave-card { max-height: calc(100dvh - 16px) !important; padding: 12px 16px !important; }
+    /* 情境猜谜抢答：放在左上，宽一点、矮一点；倒计时小一号 */
+    .clp-pzd { top: 6px; left: max(8px, env(safe-area-inset-left)); transform: none; width: min(600px, calc(100vw - 24px)); max-height: calc(100dvh - 12px); overflow-y: auto; padding: 8px 12px; }
+    .clp-pzd-head { margin-bottom: 2px; }
+    .clp-pzd-surface p { max-height: 30vh; overflow-y: auto; }
+    .clp-pzd-count { margin: 0 0 6px; }
+    .clp-pzd-num { width: 40px; height: 40px; font-size: 20px; }
+    .clp-pzd-form input, .clp-pzd-form button { height: 40px; }
+    /* 课堂投票：选项排成一行，按钮矮一些 */
+    .clp-poll { bottom: 6px; max-height: calc(100dvh - 12px); overflow-y: auto; padding-top: 10px; padding-bottom: 10px; width: min(640px, calc(100vw - 24px)); }
+    .clp-poll h3 { margin-bottom: 8px; }
+    .clp-poll-options { grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+    .clp-poll-options button { min-height: 46px; padding: 6px 8px; }
+    .clp-poll-note { margin-top: 6px; }
+    /* 辩论聊天室、经营沙盘聊天室：消息区矮一些，成员名单改成横排 */
+    .dbr-body { grid-template-columns: 1fr; min-height: 0; }
+    .dbr-people { border-right: 0; border-bottom: 1px solid rgba(70,51,34,.1); max-height: none; padding: 6px 10px; }
+    .dbr-people h5 { display: none; }
+    .dbr-people ul { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+    .dbr-people li { flex: 0 0 auto; padding: 3px 8px 3px 3px; border: 1px solid rgba(70,51,34,.1); border-radius: 999px; background: #fff; }
+    .dbr-people span > small { display: none; }
+    .dbr-list { max-height: max(120px, calc(100vh - 240px)); max-height: max(120px, calc(100dvh - 240px)); }
+    .clp-toast { top: 8px; }
+  }
+  `;
+  document.head.appendChild(fsStyle);
 
   // 弹幕小问题：政治经济学插在没有题目的页面（学习路线、线索页、概念小结）；习经章节页放在生成器留好的位置（data-dm-slot）。
   // 弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
@@ -965,7 +1061,7 @@
     const bar = document.createElement('div');
     bar.className = 'clp-q';
     bar.setAttribute('data-ix', '');
-    bar.innerHTML = `<div class="clp-q-row"${joined ? '' : ' hidden'}><button type="button" class="clp-q-send">递交</button><span class="clp-q-state" aria-live="polite"></span></div>
+    bar.innerHTML = `<div class="clp-q-row"${joined ? '' : ' hidden'}><button type="button" class="clp-q-send">递交</button><button type="button" class="clp-q-fs" title="全屏答题：从这一题开始，一题一屏，可以横屏">⤢ 全屏</button><span class="clp-q-state" aria-live="polite"></span></div>
       <details class="clp-note"><summary>我的备注</summary><textarea rows="3" maxlength="2000" placeholder="写下自己的理解、疑问或课堂讲评要点（只保存在这台设备上，可导出复习）"></textarea></details>`;
     shield(bar);
     q.anchor(bar);
@@ -977,6 +1073,7 @@
     if (note.value) $('details', bar).open = true;
     note.addEventListener('input', () => { try { localStorage.setItem(noteKey(q.key), note.value); } catch (error) { /* 忽略 */ } });
     q.button.addEventListener('click', () => submit(q));
+    $('.clp-q-fs', bar).addEventListener('click', () => openFullscreen(q));
   });
 
   const IDLE = OFFLINE ? '选好或写好后点“递交”锁定答案，递交后不能修改'
@@ -1228,7 +1325,7 @@
   const STOPPED = '老师已停止递交这道题，不能再递交（不计修为）；可以继续看题、写备注';
   let stops = [];
   const stoppedQ = (q) => Boolean(Live.isStopped) && Live.isStopped(stops, q.key);
-  // 暂时收起递交的题（2026-10-29：辩论台进行中的“辩后投票”），与老师“停止递交”共用下面的显示
+  // 暂时收起递交的题（2026-10-29 为 3v3 辩论台进行中的“辩后投票”而设；2026-11-05 取消 3v3 后暂无调用），与老师“停止递交”共用下面的显示
   const heldQuestions = new Map();
   function holdQuestion(key, text) {
     if ((heldQuestions.get(key) || '') === (text || '')) return;
@@ -1345,7 +1442,7 @@
     const mini = panel.querySelector('[data-cl-mini]');
     if (mini) mini.addEventListener('click', () => setFolded(false));
     const savedFold = load('classlive-panel-folded', null);
-    setFolded(savedFold === null ? window.innerWidth < 700 : Boolean(savedFold));
+    setFolded(savedFold === null ? window.innerWidth < 700 || window.innerHeight < 500 : Boolean(savedFold));
   }
 
   // ---------- 面板按钮：下一道未递交、导出 ----------
@@ -1357,6 +1454,8 @@
       reveal(q.bar);
     });
     panel.querySelectorAll('[data-cl-export]').forEach((button) => button.addEventListener('click', () => exportWork(button.dataset.clExport)));
+    const fs = panel.querySelector('[data-cl-fs]');
+    if (fs) fs.addEventListener('click', () => openFullscreen(null));
   }
   // 翻到题目所在的页（分页式页面），再滚动到题目
   function reveal(el) {
@@ -1368,6 +1467,236 @@
       if (button && !button.hidden) button.focus({ preventScroll: true });
     }, 250);
   }
+
+  // ---------- 全屏答题（2026-11-05 用户：“对于手机登录的同学，做一个可以全屏的答题模式，点击后可以横屏显示题目，然后每个题目都可以全屏显示方便阅读答题，
+  // 顺着答下去，左下角和右下角有‘上一题’‘下一题’的按钮可以选择题目。也可以退出全屏模式，然后自己划到某一题再进入该题的全屏模式。”） ----------
+  //   不搬动、不复制题目：给当前这道题（及它的各层父元素）做标记，页面上其它内容一律隐藏，父元素的边距、底色去掉，题目铺满屏幕；
+  //   选项、递交按钮、我的备注都还是原来那一份，作答、递交和平常一样。
+  //   安卓等支持的浏览器进入系统全屏并锁定横屏；不能锁定（iPhone、微信里打开等）又竖着拿时，可以“旋转画面”把题目转成横向显示（写字时自动转回竖屏，
+  //   有弹窗——投票、情境猜谜等——时也先转回竖屏）；手机本来就横着拿时直接是横屏排版。
+  //   入口：每道题递交按钮旁的“⤢ 全屏”（从这一题开始）、面板里的“全屏答题”（从第一道未递交的题开始）。返回键、Esc、左上角“退出”都能退出，退出后停在刚才那道题。
+  const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1 };
+  const FS_STOP = 'main, body, .section-inner, .inner, section.page, .page-section, .cl-unit, [data-nav]';
+  const FS_POPUP = '.clp-poll, .clp-pzd, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
+  const fsRoot = () => document.querySelector('main') || document.body;
+  // 这道题在页面上占哪一块：往上找“只含这一道题”的最大容器（不越过整页、整节的容器）；找不到就取递交条前面紧挨着的几个元素
+  function fsZone(q) {
+    const bar = q.bar;
+    let node = bar;
+    while (node.parentElement && !node.parentElement.matches(FS_STOP) && node.parentElement.querySelectorAll('.clp-q').length === 1) node = node.parentElement;
+    if (node !== bar) return [node];
+    const list = [bar];
+    let prev = bar.previousElementSibling;
+    while (prev && !prev.classList.contains('clp-q') && !prev.querySelector('.clp-q') && !prev.matches('header, h1, h2, .page-head')) { list.unshift(prev); prev = prev.previousElementSibling; }
+    return list;
+  }
+  function fsMark(zone) {
+    zone.forEach((el) => { el.setAttribute('data-fs-on', ''); FS.marked.push(el); });
+    let node = zone[0].parentElement;
+    while (node && node !== document.documentElement) {
+      node.setAttribute('data-fs-path', '');
+      FS.marked.push(node);
+      if (node.tagName === 'DETAILS' && !node.open) { node.open = true; FS.opened.push(node); }   // 收起的折叠块先展开
+      if (node === document.body) break;
+      node = node.parentElement;
+    }
+  }
+  function fsUnmark() {
+    FS.marked.forEach((el) => { el.removeAttribute('data-fs-on'); el.removeAttribute('data-fs-path'); });
+    FS.opened.forEach((el) => { el.open = false; });
+    FS.marked = [];
+    FS.opened = [];
+  }
+  const fsPortrait = () => window.innerHeight > window.innerWidth;
+  // 竖着拿、不能锁定横屏、选了“旋转画面”时才旋转；正在输入文字或有弹窗时暂时转回竖屏
+  function fsPopupOpen() {
+    if (document.querySelector('dialog[open]')) return true;
+    return Array.from(document.body.children).some((el) => {
+      if (el === FS.ui || el.hasAttribute('data-fs-path') || el.hasAttribute('data-fs-hide') || /^(SCRIPT|STYLE|LINK|TEMPLATE|NOSCRIPT)$/.test(el.tagName)) return false;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || cs.pointerEvents === 'none') return false;
+      const box = el.getBoundingClientRect();
+      return box.width * box.height > window.innerWidth * window.innerHeight * 0.06;
+    });
+  }
+  function fsApplyRot() {
+    const html = document.documentElement;
+    const want = FS.on && FS.rot === 'on' && !FS.locked && fsPortrait() && fsRoot() !== document.body;
+    html.style.setProperty('--fs-w', `${window.innerWidth}px`);
+    html.style.setProperty('--fs-h', `${window.innerHeight}px`);
+    html.classList.toggle('clp-fs-rot', want);
+    const typing = document.activeElement && document.activeElement.matches('textarea, input:not([type=radio]):not([type=checkbox]):not([type=button]), [contenteditable="true"]');
+    html.classList.toggle('clp-fs-pause', want && (typing || fsPopupOpen()));
+    const rotButton = FS.ui && FS.ui.querySelector('[data-fs-rot]');
+    if (rotButton) {
+      rotButton.hidden = FS.locked || !fsPortrait();
+      rotButton.textContent = FS.rot === 'on' ? '⟲ 竖屏' : '⟳ 横屏';
+      rotButton.setAttribute('aria-pressed', String(FS.rot === 'on'));
+    }
+  }
+  function fsBuildUi() {
+    if (FS.ui) return FS.ui;
+    const ui = document.createElement('div');
+    ui.className = 'clp-fs-ui';
+    ui.hidden = true;
+    ui.setAttribute('data-ix', '');
+    ui.innerHTML = `<header class="clp-fs-top">
+        <button type="button" class="clp-fs-exit" data-fs-exit aria-label="退出全屏答题">✕ 退出</button>
+        <div class="clp-fs-where"><b data-fs-pos></b><span data-fs-title></span></div>
+        <span class="clp-fs-badge" data-fs-badge></span>
+        <div class="clp-fs-tools"><button type="button" data-fs-rot hidden></button><button type="button" data-fs-size="-1" aria-label="字小一点">A−</button><button type="button" data-fs-size="1" aria-label="字大一点">A+</button></div>
+      </header>
+      <button type="button" class="clp-fs-nav clp-fs-prev" data-fs-step="-1">‹ 上一题</button>
+      <button type="button" class="clp-fs-nav clp-fs-next" data-fs-step="1">下一题 ›</button>
+      <div class="clp-fs-hint" data-fs-hint hidden role="dialog" aria-label="横屏看题">
+        <b>横过来看更清楚</b>
+        <p>这台手机的浏览器不能自动转成横屏。可以把手机横过来（iPhone 先在控制中心关掉“竖排方向锁定”），或者点“旋转画面”，把题目转成横向显示（写字时会自动转回竖屏）。</p>
+        <div><button type="button" class="is-main" data-fs-hint-rot>旋转画面</button><button type="button" data-fs-hint-keep>竖屏就好</button></div>
+      </div>`;
+    shield(ui);
+    document.body.appendChild(ui);
+    ui.addEventListener('click', (event) => {
+      const t = event.target;
+      if (t.closest('[data-fs-exit]')) fsExit(false);
+      else if (t.closest('[data-fs-step]')) {
+        const step = Number(t.closest('[data-fs-step]').dataset.fsStep);
+        if (step > 0 && FS.at >= FS.list.length - 1) fsExit(false); else fsShow(FS.at + step);
+      } else if (t.closest('[data-fs-size]')) {
+        FS.zoom = Math.max(0.85, Math.min(1.8, Math.round((FS.zoom + Number(t.closest('[data-fs-size]').dataset.fsSize) * 0.1) * 100) / 100));
+        save('classlive-fs-zoom', FS.zoom);
+        document.documentElement.style.setProperty('--fs-zoom', String(FS.zoom));
+      } else if (t.closest('[data-fs-rot]')) {
+        FS.rot = FS.rot === 'on' ? 'off' : 'on';
+        save('classlive-fs-rot', FS.rot);
+        fsApplyRot();
+        fsScrollTop();
+      } else if (t.closest('[data-fs-hint-rot]') || t.closest('[data-fs-hint-keep]')) {
+        FS.rot = t.closest('[data-fs-hint-rot]') ? 'on' : 'off';
+        save('classlive-fs-rot', FS.rot);
+        ui.querySelector('[data-fs-hint]').hidden = true;
+        fsApplyRot();
+        fsScrollTop();
+      }
+    });
+    FS.ui = ui;
+    return ui;
+  }
+  function fsScrollTop() {
+    const root = fsRoot();
+    if (document.documentElement.classList.contains('clp-fs-rot')) root.scrollTo({ top: 0, behavior: 'instant' });
+    window.scrollTo({ top: 0, behavior: 'instant' });
+  }
+  function fsPaint() {
+    if (!FS.on) return;
+    const q = FS.list[FS.at];
+    const ui = FS.ui;
+    const done = FS.list.filter((item) => locked[item.key]).length;
+    ui.querySelector('[data-fs-pos]').textContent = `第 ${FS.at + 1} / ${FS.list.length} 题`;
+    ui.querySelector('[data-fs-title]').textContent = [`已递交 ${done}`, q.section, q.title].filter(Boolean).join(' · ');
+    const entry = locked[q.key];
+    const badge = ui.querySelector('[data-fs-badge]');
+    badge.textContent = entry ? '已递交' : q.stopped ? '已停止递交' : '未递交';
+    badge.dataset.state = entry ? 'ok' : q.stopped ? 'stop' : '';
+    ui.querySelector('[data-fs-step="-1"]').disabled = FS.at === 0;
+    const next = ui.querySelector('[data-fs-step="1"]');
+    const last = FS.at >= FS.list.length - 1;
+    next.textContent = last ? '完成，退出 ✓' : '下一题 ›';
+    next.classList.toggle('is-ready', Boolean(entry || q.stopped));   // 这一题递交了：“下一题”亮起来，顺着答下去
+  }
+  function fsShow(index) {
+    FS.at = Math.max(0, Math.min(FS.list.length - 1, index));
+    fsUnmark();
+    fsMark(fsZone(FS.list[FS.at]));
+    fsPaint();
+    fsApplyRot();
+    requestAnimationFrame(fsScrollTop);
+  }
+  // 全屏、锁定横屏：必须在点击里直接调用（浏览器要求用户手势）
+  function fsLandscape() {
+    const el = document.documentElement;
+    const lock = () => {
+      if (!(screen.orientation && screen.orientation.lock)) return Promise.reject(new Error('no lock'));
+      return screen.orientation.lock('landscape');
+    };
+    let full = null;
+    try {
+      if (el.requestFullscreen && !document.fullscreenElement) full = el.requestFullscreen({ navigationUI: 'hide' });
+      else if (el.webkitRequestFullscreen && !document.webkitFullscreenElement) el.webkitRequestFullscreen();
+    } catch (error) { full = null; }
+    // 有的浏览器（内嵌页面、部分 WebView）全屏或锁定的承诺迟迟不返回：最多等 1.5 秒
+    const wait = (promise) => Promise.race([Promise.resolve(promise), new Promise((resolve, reject) => setTimeout(() => reject(new Error('timeout')), 1500))]);
+    return wait(full).catch(() => null).then(() => wait(lock())).then(() => true, () => false);
+  }
+  // 按页面上的先后排（questions 是按题型分组登记的），“下一题”顺着页面往下走
+  const fsOrder = () => questions.filter((item) => item.bar && item.bar.isConnected)
+    .sort((x, y) => (x.bar.compareDocumentPosition(y.bar) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
+  function openFullscreen(q) {
+    if (!questions.length) return;
+    if (!FS.on) FS.list = fsOrder();
+    const start = q ? FS.list.indexOf(q) : FS.list.findIndex((item) => !locked[item.key] && !item.stopped);
+    const ui = fsBuildUi();
+    const landing = fsLandscape();
+    if (!FS.on) {
+      FS.on = true;
+      document.documentElement.classList.add('clp-fs');
+      document.documentElement.style.setProperty('--fs-zoom', String(FS.zoom));
+      fsRoot().setAttribute('data-fs-root', '');
+      // 页面上其它固定显示的东西（导航、页码、面板、使用说明……）先藏起来；弹窗不动
+      Array.from(document.body.children).forEach((el) => {
+        if (el === ui || el === fsRoot() || el.matches(FS_POPUP) || /^(SCRIPT|STYLE|LINK|TEMPLATE|NOSCRIPT)$/.test(el.tagName)) return;
+        if (el.offsetWidth || el.offsetHeight || getComputedStyle(el).position === 'fixed') { el.setAttribute('data-fs-hide', ''); FS.hidden.push(el); }
+      });
+      ui.hidden = false;
+      // 返回键退出全屏；退出时浏览器不要把页面滚回进入前的位置（要停在刚才那道题）
+      try { FS.restore = history.scrollRestoration; history.scrollRestoration = 'manual'; } catch (error) { /* 忽略 */ }
+      if (!(history.state && history.state.clpFs)) { try { history.pushState({ ...(history.state || {}), clpFs: true }, ''); } catch (error) { /* 忽略 */ } }
+      clearInterval(FS.timer);
+      FS.timer = setInterval(() => { fsPaint(); fsApplyRot(); }, 700);
+    }
+    fsShow(start >= 0 ? start : 0);
+    landing.then((ok) => {
+      FS.locked = ok;
+      if (!FS.on) return;
+      if (!ok && fsPortrait() && !FS.rot) ui.querySelector('[data-fs-hint]').hidden = false;
+      fsApplyRot();
+    });
+  }
+  function fsExit(fromHistory) {
+    if (!FS.on) return;
+    const q = FS.list[FS.at];
+    FS.on = false;
+    clearInterval(FS.timer);
+    fsUnmark();
+    FS.hidden.forEach((el) => el.removeAttribute('data-fs-hide'));
+    FS.hidden = [];
+    fsRoot().removeAttribute('data-fs-root');
+    document.documentElement.classList.remove('clp-fs', 'clp-fs-rot', 'clp-fs-pause');
+    FS.ui.hidden = true;
+    FS.ui.querySelector('[data-fs-hint]').hidden = true;
+    try { if (screen.orientation && screen.orientation.unlock) screen.orientation.unlock(); } catch (error) { /* 忽略 */ }
+    try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch (error) { /* 忽略 */ }
+    FS.locked = false;
+    if (!fromHistory && history.state && history.state.clpFs) { try { history.back(); } catch (error) { /* 忽略 */ } }
+    // 退出后直接停在刚才那道题（不用平滑滚动：一下子回到原处）
+    if (q) setTimeout(() => {
+      const page = q.bar.closest('section.page[id], section[id^="case-"]');
+      if (page && !page.offsetParent && page.id) location.hash = page.id;
+      q.bar.scrollIntoView({ block: 'center', behavior: 'instant' });   // 页面样式里有 scroll-behavior: smooth，这里要立即跳过去
+      setTimeout(() => { try { if (FS.restore) history.scrollRestoration = FS.restore; } catch (error) { /* 忽略 */ } }, 1500);
+    }, 120);
+  }
+  window.addEventListener('popstate', () => { if (FS.on && !(history.state && history.state.clpFs)) fsExit(true); });
+  document.addEventListener('keydown', (event) => {
+    if (!FS.on || event.defaultPrevented) return;
+    if (event.key === 'Escape' && !fsPopupOpen()) { fsExit(false); return; }
+    if (event.target.closest && event.target.closest('textarea, input, select, [contenteditable="true"]')) return;
+    if (event.key === 'ArrowLeft' || event.key === 'PageUp') { event.preventDefault(); fsShow(FS.at - 1); }
+    else if (event.key === 'ArrowRight' || event.key === 'PageDown') { event.preventDefault(); if (FS.at < FS.list.length - 1) fsShow(FS.at + 1); }
+  });
+  window.addEventListener('resize', () => { if (FS.on) fsApplyRot(); });
+  document.addEventListener('focusin', () => { if (FS.on) fsApplyRot(); });
+  document.addEventListener('focusout', () => { if (FS.on) setTimeout(fsApplyRot, 250); });
+  // 手机横过来以后：页面本身也按横屏排版（弹窗、聊天室等矮一些）——见样式表里的 (orientation: landscape) and (max-height: 520px)
 
   // ---------- 导出 ----------
   function exportBody() {
@@ -1491,7 +1820,7 @@
   }
 
   // ---------- 面板 ----------
-  const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-export="html">导出 HTML</button><button type="button" data-cl-export="pdf">导出 PDF</button></div>
+  const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-fs class="clp-fs-entry"${joined ? '' : ' hidden'} title="一题一屏，可以横屏；从第一道未递交的题开始">⤢ 全屏答题</button><button type="button" data-cl-export="html">导出 HTML</button><button type="button" data-cl-export="pdf">导出 PDF</button></div>
     <p class="clp-hint" data-cl-export-state>导出内容：题目、我的作答、递交状态${questions.some((q) => q.extra) ? '、自检' : ''}和备注，方便课后复习。</p>`;
   if (!joined) {
     panel.classList.add('is-gate');
@@ -1821,19 +2150,17 @@
     }
   });
   if (AUDIT) {
-    // 旁听（2026-11-05）：弹幕接龙、匿名建议（含笑脸投票）、辩论聊天室、辩论台、经营会都不参加，页面里显示说明
+    // 旁听（2026-11-05）：弹幕接龙、匿名建议（含笑脸投票）、辩论聊天室、经营会都不参加，页面里显示说明
     setupMechDanmaku(false, '旁听同学不能发弹幕，可以看看大家怎么说。');
     setupFeedback(false, `旁听同学不能提交${FB.what}。`);
     setupExamExport();
     setupDebateRooms(false, '旁听同学不参加辩论聊天室，可以看大屏上的辩论。');
-    setupDebateStages(false);
     setupBizGames(false, '旁听同学不参加经营会，可以看大屏上的经营台。');
   } else {
     setupMechDanmaku(true);
     setupFeedback(true);
     setupExamExport();
     setupDebateRooms(true);
-    setupDebateStages(true);
     setupBizGames(true);
   }
 
@@ -1848,7 +2175,7 @@
     const boxes = $$('[data-debate-room]');
     if (!boxes.length || OFFLINE) return;
     if (!enabled) { boxes.forEach((box) => { box.innerHTML = `<p class="debate-room-off">${esc(note || '进入本周课堂后，递交辩前票就能进入本方聊天室。')}</p>`; }); return; }
-    const DB = Live.DEBATE || { points: 10, top: 3, nickMax: 10, textMax: 100, poll: 4000 };
+    const DB = Live.DEBATE || { likes: 5, win: 5, top: 3, nickMax: 10, textMax: 100, poll: 4000 };
     const SIDE = { pro: '正方', con: '反方' };
     const roomId = Number(identity.classroom) || identity.classroom;
     const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
@@ -1926,14 +2253,16 @@
           }
         });
       }
-      // 聊天室（2026-10-29 用户：“要能显示聊天室里面人的名字，你可以参照网上的一些聊天室来设计一下”）：仿群聊——左边成员名单（昵称、在线、点赞、辩手名次），
-      // 右边消息气泡（头像取昵称第一个字，自己的靠右），顶部显示辩论台进行到哪一步。同学之间仍只看到昵称
+      // 聊天室（2026-10-29 用户：“要能显示聊天室里面人的名字，你可以参照网上的一些聊天室来设计一下”）：仿群聊——左边成员名单（昵称、在线、点赞），
+      // 右边消息气泡（头像取昵称第一个字，自己的靠右）。同学之间仍只看到昵称。
+      // 2026-11-05 取消 3v3：顶部一行显示全场（两方合起来）点赞前三的昵称，他们各加修为；辩后投票票多一方聊天室里的同学也加修为
       function showRoom() {
         if (mode !== 'room') {
           mode = 'room';
           feedKey = '';
           box.innerHTML = `<div class="dbr-room">
-            <header class="dbr-head"><div><b data-dbr-title></b><span data-dbr-meta></span></div><span class="dbr-stage" data-dbr-stage hidden></span></header>
+            <header class="dbr-head"><div><b data-dbr-title></b><span data-dbr-meta></span></div></header>
+            <div class="dbr-top" data-dbr-top hidden></div>
             <div class="dbr-body">
               <aside class="dbr-people"><h5 data-dbr-people-title>成员</h5><ul data-dbr-people></ul></aside>
               <div class="dbr-main">
@@ -1982,7 +2311,8 @@
         try { feed = await call('ck_debate_feed', { p_classroom: roomId, p_case: no }); } catch (problem) { console.warn('[辩论聊天室]', problem); return; }
         if (feed.status !== 'ok') { mode = ''; refresh(); return; }
         const people = Array.isArray(feed.list) ? feed.list : [];
-        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), people, feed.members, feed.others, feed.stage]);
+        const leaders = Array.isArray(feed.leaders) ? feed.leaders : [];
+        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), people, feed.members, feed.others, leaders]);
         if (!force && key === feedKey) return;
         feedKey = key;
         const room = box.querySelector('.dbr-room');
@@ -1990,22 +2320,20 @@
         const online = people.filter((p) => p.online).length;
         box.querySelector('[data-dbr-title]').textContent = `${SIDE[feed.side]}聊天室`;
         box.querySelector('[data-dbr-meta]').textContent = `我是“${feed.nick}” · 本方 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 对方 ${feed.others} 人`;
-        const stageLabel = feed.stage ? debateStageLabel(feed.stage) : '';
-        const pill = box.querySelector('[data-dbr-stage]');
-        pill.hidden = !stageLabel;
-        pill.textContent = stageLabel ? `辩论台 · ${stageLabel}` : '';
-        const roles = new Map(people.filter((p) => p.role).map((p) => [p.nick, p.role]));
+        const top = box.querySelector('[data-dbr-top]');
+        top.hidden = !leaders.length;
+        top.innerHTML = leaders.length ? `<b>全场点赞前三 · 各加 ${DB.likes} 修为</b>${leaders.map((m, i) => `<span class="is-${esc(m.side)}${m.me ? ' is-me' : ''}"><i>${i + 1}</i>${esc(m.nick)}${m.me ? '（我）' : ''}<small>${SIDE[m.side] || ''}</small><em>♥ ${m.likes}</em></span>`).join('')}` : '';
         box.querySelector('[data-dbr-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
-        box.querySelector('[data-dbr-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${p.role ? ' is-debater' : ''}">
-            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${p.role ? `<em>${debateRole(p.role)}</em>` : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+        box.querySelector('[data-dbr-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}">
+            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
           || '<li class="dbr-people-empty">还没有人进来</li>';
         const list = box.querySelector('[data-dbr-list]');
         const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
         const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
         list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
-            <div class="dbr-who"><b>${esc(p.nick)}</b>${roles.get(p.nick) ? `<em>${debateRole(roles.get(p.nick))}</em>` : ''}<time>${esc(clock(p.at))}</time></div>
+            <div class="dbr-who"><b>${esc(p.nick)}</b><time>${esc(clock(p.at))}</time></div>
             <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
-          || '<p class="dbr-empty">还没有发言。说说你为什么支持本方：用上一条案例事实或本章的一个理论要点。点赞最多的三个论点会入选辩论台。</p>';
+          || `<p class="dbr-empty">还没有发言。说说你为什么支持本方：用上一条案例事实或本章的一个理论要点。全场点赞最多的三位同学各加 ${DB.likes} 修为。</p>`;
         if (atBottom || force) list.scrollTop = list.scrollHeight;
       }
       refresh();
@@ -2245,149 +2573,11 @@
     });
   }
 
-  // 辩论台（2026-10-29 用户：“辩论赛，双方在选出得票最高的三个论点后，正方先抛出这三条，请反方的三位辩友在弹幕上进行反驳。然后正方再回答反方的观点
-  // 或者问题。这里要再设置一个弹幕问答器只能由这6人来问答。同时要按照3v3辩论的标准设置相应的流程和计时器。”）：习经“辩论赛”卡片里的 [data-debate-stage]。
-  // 老师在投屏页“选定论点与辩手”后，这里显示当前阶段、倒计时、两方论点和辩手发言；本人是辩手且轮到本方时可以发言（质询、答辩可注明针对哪个论点）。
-  // 辩论台进行中先收起“⑤ 辩后投票”的递交，老师切到“辩后投票”后再放开
-  // 下面几个小工具写成函数声明：聊天室（setupDebateRooms）比它们先被调用
-  function debateRole(n) { return ({ 1: '一辩', 2: '二辩', 3: '三辩' })[n] || ''; }
-  function debateStageLabel(key) {
-    if (key === 'ready') return '已选定辩手，等老师开始';
-    if (key === 'done') return '已结束';
-    const stage = ((Live.DEBATE && Live.DEBATE.stages) || []).find((g) => g.key === key);
-    return stage ? stage.label : '';
-  }
   // 头像：昵称第一个字，底色按昵称算出（同一昵称颜色固定）；online 不传＝不显示在线点
   function avatar(nick, online) {
     const hue = Array.from(String(nick || '')).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17);
     return `<i class="dbr-av" style="--h:${hue}" aria-hidden="true">${esc(Array.from(String(nick || '?'))[0])}${online === undefined ? '' : `<s class="${online ? 'is-on' : ''}"></s>`}</i>`;
   }
-  function setupDebateStages(enabled) {
-    const boxes = $$('[data-debate-stage]');
-    if (!boxes.length || OFFLINE) return;
-    if (!enabled) return;
-    const DB = Live.DEBATE || { stages: [], sayMax: 120, poll: 4000 };
-    const SIDE = { pro: '正方', con: '反方' };
-    const CIRCLE = ['', '①', '②', '③'];
-    const roomId = Number(identity.classroom) || identity.classroom;
-    const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
-    const fmt = (s) => `${String(Math.floor(Math.max(0, s) / 60)).padStart(2, '0')}:${String(Math.max(0, s) % 60).padStart(2, '0')}`;
-    boxes.forEach((box) => {
-      const no = box.dataset.case;
-      shield(box);
-      let live = null;
-      let fetchedAt = 0;
-      let lastKey = '';
-      let draft = '';
-      let target = '';
-      const voteKey = debateKey(no, 'post');
-      const left = () => (live && live.status === 'ok' ? (live.paused ? live.left : Math.max(0, live.left - Math.floor((Date.now() - fetchedAt) / 1000))) : 0);
-      function tick() {
-        const el = box.querySelector('[data-dbs-clock]');
-        if (el && live && live.status === 'ok') {
-          const s = left();
-          el.textContent = live.paused ? `${fmt(s)} 暂停` : fmt(s);
-          el.classList.toggle('is-low', !live.paused && live.secs > 0 && s <= 10);
-        }
-      }
-      function render() {
-        // 发言框正在输入的内容、针对哪个论点，重画后保留
-        const input = box.querySelector('[data-dbs-text]');
-        if (input) draft = input.value;
-        const select = box.querySelector('[data-dbs-target]');
-        if (select) target = select.value;
-        if (!live || live.status === 'none') {
-          box.innerHTML = `<div class="dbs-off"><p>老师在投屏页“选定论点与辩手”后，这里显示 3v3 辩论台：每方点赞最多的三个论点入选，作者担任一、二、三辩。</p>
-            <ol class="dbs-flow">${(DB.stages || []).map((g) => `<li>${esc(g.label)}<small>${g.secs >= 60 ? `${g.secs / 60} 分钟` : `${g.secs} 秒`}${g.optional ? '·可跳过' : ''}</small></li>`).join('')}</ol></div>`;
-          holdQuestion(voteKey, '');
-          return;
-        }
-        if (live.status !== 'ok') { box.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再看辩论台。</p>'; return; }
-        const stage = (DB.stages || []).find((g) => g.key === live.stage);
-        const me = live.me;
-        const myTurn = Boolean(me && stage && (stage.turn === 'both' || stage.turn === me.side));
-        const sayRow = (s) => `<li class="dbs-say is-${esc(s.side)}"><b>${SIDE[s.side]}${debateRole(s.role)}<small>${esc(s.nick)}</small></b><span>${esc(s.text)}</span></li>`;
-        const argCard = (side, a) => {
-          const thread = (live.says || []).filter((s) => s.target === a.n && DB.stages.some((g) => g.key === s.stage && g.topic === side));
-          return `<li class="dbs-arg is-${side}${live.topic === side ? ' is-topic' : ''}"><div class="dbs-arg-head"><span>${CIRCLE[a.n]}</span><b>${SIDE[side]}${debateRole(a.n)}</b><small>${esc(a.nick)} · ♥ ${a.likes}</small></div>
-            <p>${esc(a.text)}</p>${thread.length ? `<ul class="dbs-thread">${thread.map(sayRow).join('')}</ul>` : ''}</li>`;
-        };
-        const general = (live.says || []).filter((s) => !s.target);
-        const flow = (DB.stages || []).map((g, i) => {
-          const at = (DB.stages || []).findIndex((x) => x.key === live.stage);
-          return `<li class="${g.key === live.stage ? 'is-now' : at > i || live.stage === 'done' ? 'is-done' : ''}">${esc(g.label)}</li>`;
-        }).join('');
-        const turnText = stage && stage.turn ? (stage.turn === 'both' ? '双方辩手都可以发言' : `轮到${SIDE[stage.turn]}辩手发言`) : live.stage === 'vote' ? '辩手发言已结束，请在下面投辩后票' : live.stage === 'done' ? '辩论结束' : '等老师开始';
-        let mine = '';
-        if (me && myTurn && !live.paused) {
-          const topic = stage.topic;
-          const options = topic ? (live.args[topic] || []).map((a) => `<option value="${a.n}">针对${SIDE[topic]}论点${CIRCLE[a.n]}</option>`).join('') : '';
-          mine = `<form class="dbs-say-form is-${me.side}" data-dbs-form>
-              <p>你是<b>${SIDE[me.side]}${debateRole(me.role)}</b>：${esc(stage.hint || '')}。可以先在本方聊天室和队友商量，再在这里发言（每条 ${DB.sayMax || 120} 字内）。</p>
-              <div>${topic ? `<select data-dbs-target aria-label="针对哪个论点"><option value="">不针对具体论点</option>${options}</select>` : ''}
-              <input type="text" data-dbs-text maxlength="${DB.sayMax || 120}" placeholder="${me.side === stage.topic ? '回应、补充本方论点' : '反驳或提问'}" autocomplete="off"><button type="submit">发言</button></div>
-              <p class="dbs-state" data-dbs-state role="status"></p></form>`;
-        } else if (me) {
-          mine = `<p class="dbs-note">你是<b>${SIDE[me.side]}${debateRole(me.role)}</b>${live.paused ? '：老师暂停了计时，稍等一下。' : '：轮到本方时这里会出现发言框。等的时候可以在本方聊天室和队友商量。'}</p>`;
-        } else if (live.stage !== 'vote' && live.stage !== 'done') {
-          mine = '<p class="dbs-note">辩论台只有六位辩手能发言。你可以在本方聊天室里给本方辩手出主意，最后根据六位辩手的发言投辩后票。</p>';
-        }
-        box.innerHTML = `<div class="dbs is-${stage ? stage.turn || 'none' : 'none'}">
-          <header class="dbs-head"><div><b>${esc(debateStageLabel(live.stage))}</b><small>${esc(turnText)}</small></div>${stage && stage.secs ? '<span class="dbs-clock" data-dbs-clock></span>' : ''}</header>
-          <ol class="dbs-flow is-small">${flow}</ol>
-          <div class="dbs-cols"><section><h5>正方论点</h5><ol class="dbs-args">${(live.args.pro || []).map((a) => argCard('pro', a)).join('') || '<li class="dbs-empty">正方没有入选的论点</li>'}</ol></section>
-            <section><h5>反方论点</h5><ol class="dbs-args">${(live.args.con || []).map((a) => argCard('con', a)).join('') || '<li class="dbs-empty">反方没有入选的论点</li>'}</ol></section></div>
-          ${general.length ? `<div class="dbs-general"><h5>自由辩论与总结陈词</h5><ul class="dbs-thread">${general.map(sayRow).join('')}</ul></div>` : ''}
-          ${mine}</div>`;
-        const form = box.querySelector('[data-dbs-form]');
-        if (form) {
-          const text = form.querySelector('[data-dbs-text]');
-          text.value = draft;
-          const sel = form.querySelector('[data-dbs-target]');
-          if (sel && [...sel.options].some((o) => o.value === target)) sel.value = target;
-          form.addEventListener('submit', async (event) => {
-            event.preventDefault();
-            const value = text.value.trim();
-            const state = form.querySelector('[data-dbs-state]');
-            if (value.length < 2) { state.textContent = '写两个字以上再发言。'; return; }
-            const button = form.querySelector('button');
-            button.disabled = true;
-            try {
-              const res = await call('ck_debate_say', { p_classroom: roomId, p_case: no, p_target: sel && sel.value ? Number(sel.value) : null, p_text: value });
-              const why = { not_turn: '还没轮到本方发言。', paused: '老师暂停了计时，稍等再发。', time_up: '这一阶段的时间到了。', wait: '发得太快了，等几秒再发。',
-                too_many: '这一阶段你已经发了 6 条，留点机会给队友。', short: `发言要 2—${DB.sayMax || 120} 个字。`, not_debater: '你不是这场的辩手。', none: '老师还没选定辩手。', login: '请回首页用课堂码重新登录。' };
-              if (res.status === 'ok') { draft = ''; text.value = ''; await load(true); } else state.textContent = why[res.status] || '没有发出去，请再试一次。';
-            } catch (problem) {
-              console.warn('[辩论台]', problem);
-              state.textContent = '网络不通，没有发出去，请稍后再试。';
-            } finally {
-              button.disabled = false;
-            }
-          });
-        }
-        holdQuestion(voteKey, ['vote', 'done'].includes(live.stage) ? '' : '辩论台还在进行：等老师切到“辩后投票”后再递交。');
-        tick();
-      }
-      async function load(force) {
-        try {
-          const data = await call('ck_debate_live', { p_classroom: roomId, p_case: no });
-          live = data;
-          fetchedAt = Date.now();
-        } catch (problem) {
-          if (!/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) console.warn('[辩论台]', problem);
-          live = { status: 'none' };
-        }
-        const key = JSON.stringify(live && { ...live, left: undefined });
-        // 正在输入时不重画（计时照走），免得打断；阶段或发言变了才重画
-        const typing = document.activeElement && box.contains(document.activeElement) && document.activeElement.matches('[data-dbs-text]');
-        if (force || (key !== lastKey && !typing) || (key !== lastKey && live && live.stage !== JSON.parse(lastKey || '{}').stage)) { lastKey = key; render(); }
-      }
-      load(true);
-      setInterval(tick, 1000);
-      setInterval(() => { if (!document.hidden && box.isConnected) load(false); }, DB.poll || 4000);
-    });
-  }
-
   // 期中考查作业（2026-10-28）：学生一键导出自己的作业（Word，含姓名、学号、班级、递交时间），草稿也能导出备份
   function setupExamExport() {
     const area = $('textarea[data-cl-text="exam"]');
@@ -2991,7 +3181,7 @@
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 06、08、09、19）：各项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
-        ${config.course === 'xjp-economy' ? `<li>辩论赛：本方聊天室里点赞最多的三位同学上台辩论，全班投票获胜的一方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。</li>` : ''}
+        <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
@@ -3289,7 +3479,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261105-sect' : '20261105-sect-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261105-debate' : '20261105-debate-xjp';   // 两门课各自有新内容时才改自己的
   const NEWS_RANGE = '10 月 9 日—11 月 5 日';
   const newsKey = `classlive-news:${config.course}`;
   function newsSections() {
@@ -3298,6 +3488,8 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新（10 月 28 日—11 月 5 日）', items: [
+        ['全屏答题（手机）', '用手机做题时，点题目下方“递交”旁边的“⤢ 全屏”，或面板里的“全屏答题”：一题一屏、字更大，左下角、右下角是“上一题”“下一题”，顺着做下去；右上角 A−、A+ 调字号。安卓手机会自动转成横屏；iPhone 可以把手机横过来（先在控制中心关掉“竖排方向锁定”），或点上方的“横屏”把画面转过来，写字时会自动转回竖屏。点左上角“退出”（或返回键）回到原来的页面，停在刚才那道题。'],
+        ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。`],
         ['宗门', `达到「筑基」境界后，可以点面板学号一行右边的“宗门”拜入四大宗门之一：${(Live.SECTS || []).map((sect) => sect.name).join('、')}，也可以暂做散修（散修以后仍可拜入宗门）。拜入以后有一次改投他宗的机会，只有一次，也不能退为散修。宗门分是本课程历届弟子的修为之和，宗门榜按宗门分排名；弟子结课以后修为仍留在宗门里，一届一届传承下去。拜入后修为榜上你的名字旁会显示宗门标记。`],
         ['情境猜谜抢答', `老师点“看玩法”或出题后，页面上方会弹出“情境猜谜抢答”对话框，大屏关掉前一直都在；每次出题（包括“下一题”）全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，大家的倒计时按老师的时钟同步，倒计时结束才能输入谜底抢答，网速慢的同学也来得及。`],
         ['法宝', '祭出法宝时，除了投屏，你自己的页面上也会出现法宝的画面。'],
@@ -3309,12 +3501,9 @@
         ['课堂投票', '老师在投屏页发起临时投票时，你的页面中间会弹出选项（如“是／否”“赞同／反对”），点一个就投好了，投票结束前可以改；老师公布结果后会显示各项人数。投票不计修为。'],
         ['这堂课感觉怎么样', `页面最后的“${FB.tag}”上方新增一行笑脸和不高兴的脸：上完课点一下，告诉老师这堂课感觉怎么样。每人每天一票、可以改；老师只看到各有多少人，看不到是谁选的。`],
         ['元婴', '境界「元婴」的门槛由全学期满分的 80% 调为 65%（筑基 15%、结丹 35%、化神 90% 不变），老师下一次结算修为后生效。'],
-        ...(config.course === 'xjp-economy' ? [
-          ['辩论台（3v3）', `辩论赛再次改版：投辩前票选好立场、选 2 张论据卡后，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。辩论结束、老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
-        ] : []),
         ...(config.course === 'political-economy' ? [
           ['迁移任务', '案例页的辩论赛之前新增“迁移任务”：几个新的小案例（都不是本案例里的事），像猜谜一样想一想，每个小案例最能用本案例哪个概念来解释，给每个选一个概念，全部选好后一起递交，课上跟老师核对。'],
-          ['辩论赛', `案例页的“小组辨析”改为辩论赛，辩题只有正反两方（不再有“部分同意”）：先投辩前票选好立场、选 2 张论据卡，取一个昵称进入本方聊天室提出论点、给好论点点赞（聊天室左边能看到本方成员的昵称和谁在线）；每方点赞最多的三个论点入选，作者担任一、二、三辩，在“④ 辩论台”上按“立论→质询→答辩→自由辩论→总结”的顺序发言，轮到本方时才出现发言框；没入选的同学在本方聊天室给辩手出主意。老师开启投票后，根据六位辩手的发言投辩后票，获胜方三位辩手各加 ${(Live.DEBATE || {}).points || 10} 修为。`],
+          ['辩论赛', '案例页的“小组辨析”改为辩论赛，辩题只有正反两方（不再有“部分同意”），具体玩法见上面的“辩论赛简化”。'],
           ['课后自修不给答案', '课后自修（出门测、主动回忆、温故、讲给别人听）不再显示答案、解析和对错，讲评在下一次课；答对的照常计入修为。主动回忆改为写好后点“写好了”。'],
         ] : []),
         ['登录', '学号不在本班点名册上时，登录页会提示核对姓名和学号（多半是填错了），不再自动向老师申请；确实不在本班名单上的同学（如重修、跨班旁听）点“申请加入本班”。换了手机或电脑又忘记口令，可以在输口令的地方点“忘记口令”向老师申请重设，老师同意后在这台设备上设新口令。'],
@@ -4131,7 +4320,7 @@
     }
     // 辩论赛（2026-10-29 起代替小组辨析，用户：“政经中的‘小组辨析’环节改成习经济思想的辩论赛形式，去掉部分同意这个选项，只保留正反方”）：
     // 辩前投票、论据卡（最多 2 张）、辩后投票各自递交，题号 debate.pre / debate.cards / debate.post（政经一个课堂一个案例；后台 ck_debate_side 按辩前票分边）；
-    // 辩后票在老师切到“辩后投票”之前不能递交（setupDebateStages 的 holdQuestion）
+    // 2026-11-05 取消 3v3：辩后票随时可以递交，老师在投屏页停止递交后公布结果
     const debate = $('.cl-debate[data-debate]');
     if (debate) {
       const no = debate.dataset.case;
