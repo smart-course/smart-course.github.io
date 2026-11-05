@@ -365,6 +365,8 @@
   }
   @media print { .clp-fb { display: none !important; } }
   .clp-panel.is-gate { border-color: rgba(164,73,45,.35); }
+  .clp-gate-head { display: flex; align-items: baseline; justify-content: space-between; gap: 12px; }
+  .clp-panel.is-gate.is-folded { width: auto; max-width: calc(100vw - 32px); padding: 8px 14px; }
   .clp-panel.is-gate a { display: inline-block; margin-top: 8px; padding: 8px 12px; border-radius: 7px; color: #fff; background: #a4492d; text-decoration: none; font-weight: 800; }
   .clp-panel.is-gate .clp-gate-leave { margin: 8px 0 0 6px; padding: 8px 12px; border: 0; border-radius: 7px; color: #a4492d; background: #f5e7df; font: inherit; font-weight: 800; cursor: pointer; }
   input[data-student-field][readonly] { background: #f1ece3; color: #4d443c; }
@@ -746,7 +748,8 @@
     .clp-pod .clp-realm { font-size: 11px; padding: 0 5px; }
   }
   @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after, .clp-xlbtn::after, .clp-sectbtn::after { animation: none !important; } }
-  @media (max-width: 700px) {
+  /* 2026-11-06：手机横着拿（高度很小）时，收起的面板也只剩小圆图标，不再是一长条压在正文上 */
+  @media (max-width: 700px), (orientation: landscape) and (max-height: 520px) {
     .clp-panel.clp-v2.is-folded { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
     .clp-panel.clp-v2.is-folded > :not(.clp-mini) { display: none; }
     .clp-panel.clp-v2.is-folded > .clp-mini { display: grid; }
@@ -838,11 +841,15 @@
   .clp-q-fs { flex: 0 0 auto; min-height: 44px; padding: 0 14px; border: 1.5px solid rgba(35,101,95,.45); border-radius: 10px; background: #fff; color: #23655f;
     font: 800 14px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
   .clp-q-fs:active { transform: translateY(1px); }
-  /* 窄屏：递交按钮一行，状态文字和“⤢ 全屏”在第二行（右上角是“我的备注”） */
+  /* 窄屏：第一行只有“递交”（右上角是“我的备注”），第二行状态文字＋“⤢ 全屏”。
+     2026-11-06 用户截图：状态文字（如旁听说明）挤到第一行，被“我的备注”盖住——用 .clp-q-br 强制换行 */
+  .clp-q-br { display: none; }
   @media (max-width: 640px) {
-    .clp-q-row .clp-q-state { order: 2; flex: 1 1 55% !important; }
-    .clp-q-fs { order: 3; margin-left: auto; min-height: 38px; padding: 0 12px; font-size: 13.5px; }
-    .clp-q-send[hidden] ~ .clp-q-state { margin-right: 108px; }
+    .clp-q-row .clp-q-br { display: block; flex: 0 0 100%; height: 0; order: 2; }
+    .clp-q-row .clp-q-state { order: 3; flex: 1 1 0 !important; min-width: 0; }
+    .clp-q-fs { order: 4; margin-left: auto; min-height: 38px; padding: 0 12px; font-size: 13.5px; }
+    .clp-q-send[hidden] ~ .clp-q-br { display: none; }
+    .clp-q-send[hidden] ~ .clp-q-state { flex-basis: calc(100% - 120px) !important; margin-right: 108px; }   /* 已递交：状态在第一行（让出“我的备注”的位置），“⤢ 全屏”换到下一行 */
   }
   .clp-v2 .clp-tools button.clp-fs-entry { border-color: #b8801a; color: #5a3a00; background: linear-gradient(180deg, #fff3c4, #f2c64f); }
   /* 电脑上（鼠标、宽屏）不显示全屏答题的入口 */
@@ -850,7 +857,7 @@
   /* ---- 全屏答题：只显示当前这道题 ---- */
   html.clp-fs { --fs-top: 52px; --fs-bottom: 74px; }
   html.clp-fs, html.clp-fs body { background: #f4efe6 !important; }
-  html.clp-fs body { margin: 0 !important; min-height: 100vh; padding: calc(var(--fs-top) + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(var(--fs-bottom) + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important; box-sizing: border-box; }
+  html.clp-fs body { margin: 0 !important; min-height: 100vh; padding: calc(var(--fs-top) + 8px + env(safe-area-inset-top)) max(14px, env(safe-area-inset-right)) calc(var(--fs-bottom) + env(safe-area-inset-bottom)) max(14px, env(safe-area-inset-left)) !important; box-sizing: border-box; }
   html.clp-fs body > [data-fs-hide] { display: none !important; }
   html.clp-fs [data-fs-path]:not(body) > :not([data-fs-path]):not([data-fs-on]) { display: none !important; }
   html.clp-fs [data-fs-path]:not(body) { display: block !important; position: static !important; float: none !important; width: auto !important; max-width: none !important; min-width: 0 !important;
@@ -863,8 +870,18 @@
   html.clp-fs [data-fs-on] { max-width: 1040px !important; margin-left: auto !important; margin-right: auto !important; zoom: var(--fs-zoom, 1); }
   html.clp-fs [data-fs-on]:not(.clp-q) { margin-top: 0 !important; }
   html.clp-fs .clp-q-fs, html.clp-fs .cl-zoom-btn { display: none !important; }
-  html.clp-fs .clp-q-row { padding-right: 0 !important; }
-  html.clp-fs .clp-q-row .clp-q-state { order: 2; flex: 1 1 100% !important; margin-right: 0 !important; }   /* 状态文字单独一行，不压在右上角的“我的备注”下面 */
+  /* 2026-11-06 用户：“横屏的时候，‘递交’和‘我的备注’按钮放在最下方的中间，不然有时候会被‘上一题’按钮挡住”：
+     全屏答题里递交条改成居中排布——递交、我的备注同一行居中，状态文字、展开的备注和解答在下面占满一行 */
+  html.clp-fs .clp-q { display: flex !important; flex-wrap: wrap; justify-content: center; align-items: center; gap: 8px 12px; }
+  html.clp-fs .clp-q > .clp-q-row:not([hidden]) { display: contents; }
+  html.clp-fs .clp-q-send { order: 1; }
+  html.clp-fs .clp-q-br { display: none !important; }
+  html.clp-fs .clp-q > .clp-note { order: 2; margin: 0 !important; }
+  html.clp-fs .clp-q > .clp-note > summary { position: static !important; }
+  html.clp-fs .clp-q > .clp-note[open] { flex: 1 1 100%; text-align: center; }
+  html.clp-fs .clp-q > .clp-note[open] textarea { text-align: left; }
+  html.clp-fs .clp-q-row .clp-q-state { order: 3; flex: 1 1 100% !important; margin: 0 !important; text-align: center; }
+  html.clp-fs .clp-q > :not(.clp-q-row):not(.clp-note) { order: 4; flex: 1 1 100%; }
   .clp-fs-ui { position: fixed; inset: 0; z-index: 2147481000; pointer-events: none; color: #201c18; font: 14px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-fs-ui[hidden] { display: none; }
   .clp-fs-top { pointer-events: auto; position: absolute; left: 0; right: 0; top: 0; display: flex; align-items: center; gap: 10px; box-sizing: border-box; min-height: calc(46px + env(safe-area-inset-top));
@@ -882,6 +899,9 @@
   .clp-fs-tools button { min-width: 38px; padding: 0 9px; }
   .clp-fs-nav { pointer-events: auto; position: absolute; bottom: calc(12px + env(safe-area-inset-bottom)); min-width: 112px; height: 50px; padding: 0 20px; border: 0; border-radius: 999px;
     color: #23655f; background: rgba(255,255,255,.96); box-shadow: 0 4px 16px rgba(0,0,0,.22), inset 0 0 0 1.5px rgba(35,101,95,.4); font: 800 16px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  /* 底部实底条（2026-11-06）：题目文字从它后面滑过，不会被左下、右下的按钮压住 */
+  .clp-fs-foot { pointer-events: auto; position: absolute; left: 0; right: 0; bottom: 0; height: calc(var(--fs-bottom) - 2px + env(safe-area-inset-bottom));
+    background: #f4efe6; box-shadow: 0 -2px 10px rgba(70,51,34,.12); border-top: 1px solid rgba(70,51,34,.1); }
   .clp-fs-prev { left: max(12px, env(safe-area-inset-left)); }
   .clp-fs-next { right: max(12px, env(safe-area-inset-right)); }
   .clp-fs-nav:disabled { opacity: .35; cursor: default; }
@@ -903,16 +923,17 @@
   }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .quiz-options, html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .live-options,
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-on] .cl-options { display: grid !important; grid-template-columns: repeat(2, minmax(0, 1fr)) !important; gap: 8px 10px !important; }
-  @media (orientation: landscape) and (max-height: 520px) { html.clp-fs { --fs-top: 46px; --fs-bottom: 66px; } .clp-fs-nav { height: 44px; min-width: 100px; bottom: calc(8px + env(safe-area-inset-bottom)); } }
+  @media (orientation: landscape) and (max-height: 520px) { html.clp-fs { --fs-top: 46px; --fs-bottom: 60px; } .clp-fs-nav { height: 42px; min-width: 100px; bottom: calc(8px + env(safe-area-inset-bottom)); } }
   /* ---- 旋转画面：竖着拿时把题目和按钮一起转 90°，宽高对调 ---- */
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) body { overflow: hidden !important; height: 100vh; padding: 0 !important; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) [data-fs-root] { position: fixed !important; top: 0 !important; left: 0 !important; width: var(--fs-h) !important; height: var(--fs-w) !important; max-width: none !important;
     transform-origin: 0 0 !important; transform: translateX(var(--fs-w)) rotate(90deg) !important; overflow-x: hidden !important; overflow-y: auto !important; overscroll-behavior: contain;
-    -webkit-overflow-scrolling: touch; box-sizing: border-box !important; padding: 52px 14px 70px !important; background: #f4efe6 !important;
-    display: block !important; min-height: 0 !important; }
-  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-ui { inset: auto; top: 0; left: 0; width: var(--fs-h); height: var(--fs-w); transform-origin: 0 0; transform: translateX(var(--fs-w)) rotate(90deg); }
+    -webkit-overflow-scrolling: touch; box-sizing: border-box !important; padding: 56px 14px 72px !important; background: #f4efe6 !important;
+    display: block !important; min-height: 0 !important; touch-action: none; scroll-behavior: auto !important; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-ui { inset: auto; top: 0; left: 0; width: var(--fs-h); height: var(--fs-w); transform-origin: 0 0; transform: translateX(var(--fs-w)) rotate(90deg); touch-action: none; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-top { min-height: 46px; padding-top: 0; }
-  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-nav { bottom: 10px; height: 44px; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-nav { bottom: 9px; height: 42px; }
+  html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-foot { height: 60px; }
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-badge, html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-tools [data-fs-size],
   html.clp-fs.clp-fs-rot:not(.clp-fs-pause) .clp-fs-where span { display: revert; }
   /* ---- 手机横着拿（高度很小）：面板、弹窗、聊天室都矮一些，放不下就在框里滚动 ---- */
@@ -1061,7 +1082,7 @@
     const bar = document.createElement('div');
     bar.className = 'clp-q';
     bar.setAttribute('data-ix', '');
-    bar.innerHTML = `<div class="clp-q-row"${joined ? '' : ' hidden'}><button type="button" class="clp-q-send">递交</button><button type="button" class="clp-q-fs" title="全屏答题：从这一题开始，一题一屏，可以横屏">⤢ 全屏</button><span class="clp-q-state" aria-live="polite"></span></div>
+    bar.innerHTML = `<div class="clp-q-row"${joined ? '' : ' hidden'}><button type="button" class="clp-q-send">递交</button><i class="clp-q-br" aria-hidden="true"></i><button type="button" class="clp-q-fs" title="全屏答题：从这一题开始，一题一屏，可以横屏">⤢ 全屏</button><span class="clp-q-state" aria-live="polite"></span></div>
       <details class="clp-note"><summary>我的备注</summary><textarea rows="3" maxlength="2000" placeholder="写下自己的理解、疑问或课堂讲评要点（只保存在这台设备上，可导出复习）"></textarea></details>`;
     shield(bar);
     q.anchor(bar);
@@ -1546,6 +1567,7 @@
         <span class="clp-fs-badge" data-fs-badge></span>
         <div class="clp-fs-tools"><button type="button" data-fs-rot hidden></button><button type="button" data-fs-size="-1" aria-label="字小一点">A−</button><button type="button" data-fs-size="1" aria-label="字大一点">A+</button></div>
       </header>
+      <div class="clp-fs-foot" aria-hidden="true"></div>
       <button type="button" class="clp-fs-nav clp-fs-prev" data-fs-step="-1">‹ 上一题</button>
       <button type="button" class="clp-fs-nav clp-fs-next" data-fs-step="1">下一题 ›</button>
       <div class="clp-fs-hint" data-fs-hint hidden role="dialog" aria-label="横屏看题">
@@ -1677,13 +1699,33 @@
     try { if (document.fullscreenElement && document.exitFullscreen) document.exitFullscreen().catch(() => {}); else if (document.webkitFullscreenElement && document.webkitExitFullscreen) document.webkitExitFullscreen(); } catch (error) { /* 忽略 */ }
     FS.locked = false;
     if (!fromHistory && history.state && history.state.clpFs) { try { history.back(); } catch (error) { /* 忽略 */ } }
-    // 退出后直接停在刚才那道题（不用平滑滚动：一下子回到原处）
-    if (q) setTimeout(() => {
-      const page = q.bar.closest('section.page[id], section[id^="case-"]');
-      if (page && !page.offsetParent && page.id) location.hash = page.id;
-      q.bar.scrollIntoView({ block: 'center', behavior: 'instant' });   // 页面样式里有 scroll-behavior: smooth，这里要立即跳过去
-      setTimeout(() => { try { if (FS.restore) history.scrollRestoration = FS.restore; } catch (error) { /* 忽略 */ } }, 1500);
-    }, 120);
+    // 退出后直接停在刚才那道题（2026-11-06 用户：“退出全屏模式的时候，要自动跳到退出时候题目的所在位置”）：
+    //   页面样式里有 scroll-behavior: smooth，先临时改成立即跳；退出系统全屏、手机转回竖屏后浏览器还可能恢复一次旧的滚动位置，
+    //   所以 0.1、0.45、0.9、1.6 秒各对齐一次；中途学生自己滑动了就不再拉回
+    if (q) {
+      const html = document.documentElement;
+      const zone = fsZone(q)[0] || q.bar;
+      // 学生自己动了（触屏、滚轮、按键）就不再拉回；浏览器自己恢复的滚动不算
+      let touched = false;
+      const mark = () => { touched = true; };
+      ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach((type) => window.addEventListener(type, mark, { once: true, passive: true, capture: true }));
+      setTimeout(() => ['touchstart', 'wheel', 'keydown', 'mousedown'].forEach((type) => window.removeEventListener(type, mark, { capture: true })), 1800);
+      const land = () => {
+        if (FS.on || touched) return;
+        const page = q.bar.closest('section.page[id], section[id^="case-"]');
+        if (page && !page.offsetParent && page.id) location.hash = page.id;
+        const old = html.style.scrollBehavior;
+        html.style.scrollBehavior = 'auto';
+        const box = zone.getBoundingClientRect();
+        const top = box.height < window.innerHeight * 0.8
+          ? window.scrollY + box.top - (window.innerHeight - box.height) / 2   // 整道题放得下：居中
+          : window.scrollY + q.bar.getBoundingClientRect().top - window.innerHeight * 0.45;   // 放不下：让递交条在屏幕中间
+        window.scrollTo(0, Math.max(0, Math.round(top)));
+        html.style.scrollBehavior = old;
+      };
+      [100, 450, 900, 1600].forEach((ms) => setTimeout(land, ms));
+      setTimeout(() => { try { if (FS.restore) history.scrollRestoration = FS.restore; } catch (error) { /* 忽略 */ } }, 2000);
+    }
   }
   window.addEventListener('popstate', () => { if (FS.on && !(history.state && history.state.clpFs)) fsExit(true); });
   document.addEventListener('keydown', (event) => {
@@ -1696,6 +1738,64 @@
   window.addEventListener('resize', () => { if (FS.on) fsApplyRot(); });
   document.addEventListener('focusin', () => { if (FS.on) fsApplyRot(); });
   document.addEventListener('focusout', () => { if (FS.on) setTimeout(fsApplyRot, 250); });
+  // 旋转画面时自己处理滑动（2026-11-06 用户：“有些较长的题目，在横屏的时候也要允许上下滑动，看到下面的内容”）：
+  //   画面转了 90°，手机自带的滑动方向对不上（iPhone 上滑不动），这里把手指沿题目“上下”方向（竖拿的手机上是左右方向）的移动换算成滚动，
+  //   松手后带一点惯性；题目里本身能滚动的小框（表格等）优先滚它。鼠标滚轮同样换算
+  const FSD = { touch: null, raf: 0 };
+  const fsRotActive = () => FS.on && document.documentElement.classList.contains('clp-fs-rot') && !document.documentElement.classList.contains('clp-fs-pause');
+  function fsScroller(target, delta) {
+    const root = fsRoot();
+    for (let el = target && target.nodeType === 1 ? target : null; el && el !== root && el !== document.body && el !== document.documentElement; el = el.parentElement) {
+      if (el.scrollHeight > el.clientHeight + 2 && /^(auto|scroll)$/.test(getComputedStyle(el).overflowY)) {
+        const atEnd = delta > 0 ? el.scrollTop + el.clientHeight >= el.scrollHeight - 1 : el.scrollTop <= 0;
+        if (!delta || !atEnd) return el;
+      }
+    }
+    return root;
+  }
+  document.addEventListener('touchstart', (event) => {
+    cancelAnimationFrame(FSD.raf);
+    if (!fsRotActive() || event.touches.length !== 1) { FSD.touch = null; return; }
+    const t = event.touches[0];
+    FSD.touch = { x: t.clientX, y: t.clientY, lastX: t.clientX, lastT: performance.now(), v: 0, moved: false, target: event.target, el: null };
+  }, { passive: true });
+  document.addEventListener('touchmove', (event) => {
+    const s = FSD.touch;
+    if (!s || !fsRotActive() || event.touches.length !== 1) return;
+    const t = event.touches[0];
+    if (!s.moved && Math.abs(t.clientX - s.x) < 6 && Math.abs(t.clientY - s.y) < 6) return;   // 还算点按
+    event.preventDefault();
+    s.moved = true;
+    const dx = t.clientX - s.lastX;   // 画面顺时针转了 90°：手指往屏幕右边移＝往题目上方推，内容跟着往上走
+    if (!s.el) s.el = fsScroller(s.target, dx);
+    s.el.scrollTop += dx;
+    const now = performance.now();
+    s.v = 0.8 * (dx / Math.max(1, now - s.lastT)) + 0.2 * s.v;
+    s.lastX = t.clientX;
+    s.lastT = now;
+  }, { passive: false });
+  const fsTouchEnd = () => {
+    const s = FSD.touch;
+    FSD.touch = null;
+    if (!s || !s.moved || !s.el || performance.now() - s.lastT > 90) return;   // 停住再松手就不再滑
+    let v = Math.max(-4, Math.min(4, s.v));
+    let last = performance.now();
+    const step = (now) => {
+      const dt = Math.min(40, now - last);
+      last = now;
+      s.el.scrollTop += v * dt;
+      v *= Math.pow(0.95, dt / 16);
+      if (Math.abs(v) > 0.03) FSD.raf = requestAnimationFrame(step);
+    };
+    FSD.raf = requestAnimationFrame(step);
+  };
+  document.addEventListener('touchend', fsTouchEnd, { passive: true });
+  document.addEventListener('touchcancel', () => { FSD.touch = null; }, { passive: true });
+  document.addEventListener('wheel', (event) => {
+    if (!fsRotActive()) return;
+    event.preventDefault();
+    fsScroller(event.target, event.deltaY).scrollTop += event.deltaY;
+  }, { passive: false });
   // 手机横过来以后：页面本身也按横屏排版（弹窗、聊天室等矮一些）——见样式表里的 (orientation: landscape) and (max-height: 520px)
 
   // ---------- 导出 ----------
@@ -1834,7 +1934,19 @@
       ? `<strong>本周课堂不在这一页</strong><div class="clp-room">你已进入“${esc(identity.classroom_name)}”。本页可以写备注、导出复习，但不能递交。</div><a href="${joinUrl()}">回到登录页</a>${window.ClassLeave ? '<button type="button" class="clp-gate-leave" data-cl-leave>请假</button>' : ''}`
       : '<strong>还没有进入课堂</strong><div class="clp-room">请在首页输入老师发布的课堂码并填写个人信息，才能递交作答。本页可以写备注、导出复习。</div><a href="/">去登录</a>')
       + (questions.length ? tools : '') + fontChoices('clp-gate-font');
+    // 2026-11-06（用户：“你再看下还有些地方会挡住字体”）：这张卡片在手机上很大、又不能收起，一直压着正文——
+    // 改成和课堂面板一样：标题一行带“收起／展开”，手机上默认收起
+    const gateTitle = panel.querySelector(':scope > strong');
+    const gateHead = document.createElement('div');
+    gateHead.className = 'clp-gate-head';
+    gateHead.innerHTML = '<button type="button" class="clp-link" data-cl-fold>收起</button>';
+    if (gateTitle) gateHead.prepend(gateTitle);
+    const gateBody = document.createElement('div');
+    gateBody.className = 'clp-body';
+    while (panel.firstChild) gateBody.appendChild(panel.firstChild);
+    panel.append(gateHead, gateBody);
     document.body.appendChild(panel);
+    setupFold();
     dodge();
     bindTools();
     bindFont();
