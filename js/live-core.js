@@ -33,7 +33,7 @@
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes',
-    sectmembers: 'ck_sect_members' };
+    sectmembers: 'ck_sect_members', visits: 'ck_visits' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
   const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
@@ -487,6 +487,23 @@
     const weakPin = (pin, sid) => /^(\d)\1{3}$/.test(pin) || '0123456789'.includes(pin) || '9876543210'.includes(pin) || pin === sidKey(sid).slice(-4);
     // 本人（这台设备）在某课堂最近一条核对通过、且设备仍绑定的加入记录
     // audit：旁听（2026-11-05，规则同 cloudbase-pg.sql 的 ck_my_checkin / ck_my_audit）——正式成员的写入只认非旁听记录
+    // 登录与在线记录（2026-11-05，规则同 cloudbase-pg.sql 的 ck_visit_touch）：这台设备在这个课堂 3 分钟内还有活动就并进上一段，否则另起一段
+    const visitTouch = (classroom, sid, name, owner, kind, auditor) => {
+      const rows = read('visits');
+      const last = rows.filter((v) => String(v.classroom) === String(classroom) && v.owner === owner && v.sid === sid)
+        .sort((a, b) => Date.parse(b.last_at) - Date.parse(a.last_at))[0];
+      const now = Date.now();
+      if (last && now - Date.parse(last.last_at) < 180000) {
+        last.seconds = (Number(last.seconds) || 0) + Math.min(90, Math.max(0, Math.round((now - Date.parse(last.last_at)) / 1000)));
+        last.last_at = new Date(now).toISOString();
+      } else {
+        const room = read('classrooms').find((r) => String(r.id) === String(classroom));
+        if (!room) return;
+        rows.push({ id: Math.max(0, ...rows.map((v) => Number(v.id) || 0)) + 1, course: room.course, class_id: room.class_id, classroom: room.id, unit: room.chapter,
+          sid, name: String(name || '').slice(0, 20), owner, kind: kind === 'ping' ? 'back' : kind, started_at: new Date(now).toISOString(), last_at: new Date(now).toISOString(), seconds: 0, auditor: Boolean(auditor) });
+      }
+      write('visits', rows);
+    };
     const myCheckin = (uid, classroom, audit = false) => {
       const room = read('classrooms').find((row) => String(row.id) === String(classroom));
       if (!room) return null;
@@ -655,6 +672,7 @@
             fresh.push({ class_id: room.class_id, sid, owner: uid, first_at: at, last_at: at });
             write('devices', fresh);
           }
+          visitTouch(room.id, sid, person.name, uid, room.is_current ? 'login' : 'view', audit);
           if (!room.is_current) {   // 历史课堂：只查看，不记登录
             secLog('view_past', ctx);
             return { status: 'view', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name, pwd_hash: '', name: person.name, sid: person.sid, audit };
@@ -1199,6 +1217,7 @@
             mine.last_at = new Date().toISOString();
             write('devices', devices);
           }
+          visitTouch(params.p_classroom, sidKey(me.sid), me.name, uid, 'open', me.auditor);
           // 隐藏彩蛋（2026-11-05，规则同 cloudbase-pg.sql）：每人每天记一次登录；同一周（周一至周日）满 EGG.days 天加 EGG.week 修为，每周一次。旁听不算
           if (!me.auditor && room && room.class_id != null) {
             const days = read('logindays');
@@ -1362,6 +1381,7 @@
           if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now });
           else if (Date.now() - Date.parse(row.last_seen) > 20000) Object.assign(row, { name: me.name, owner: uid, last_seen: now });
           write('presence', rows);
+          visitTouch(params.p_classroom, sid, me.name, uid, 'ping', false);
           return true;
         }
         // 请假（规则同 cloudbase-pg.sql 的 ck_request_leave / ck_my_leaves / ck_cancel_leave）
@@ -2281,7 +2301,27 @@
       ], 'application/vnd.openxmlformats-officedocument.wordprocessingml.document');
     }
     // Excel：rows 第一行为表头（加粗）；数字写成数值，其余写成文本；widths 为列宽（字符数）
-    function xlsx(sheetName, rows, widths = []) {
+    const XLSX_STYLES = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font><font><b/><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>';
+    // 多张工作表（2026-11-05 学习数据导出）：sheets＝[{ name, rows, widths }]
+    function xlsxBook(sheets) {
+      const one = (sheet) => xlsx(sheet.name, sheet.rows, sheet.widths, true);
+      const parts = sheets.map(one);
+      const safe = (name) => xml(String(name).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31));
+      const types = '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/>'
+        + parts.map((_, i) => `<Override PartName="/xl/worksheets/sheet${i + 1}.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/>`).join('')
+        + '<Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>';
+      const book = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets>${sheets.map((sheet, i) => `<sheet name="${safe(sheet.name)}" sheetId="${i + 1}" r:id="rId${i + 1}"/>`).join('')}</sheets></workbook>`;
+      const rels = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships">${parts.map((_, i) => `<Relationship Id="rId${i + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet${i + 1}.xml"/>`).join('')}<Relationship Id="rId${parts.length + 1}" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>`;
+      return zip([
+        ['[Content_Types].xml', types],
+        ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
+        ['xl/workbook.xml', book],
+        ['xl/_rels/workbook.xml.rels', rels],
+        ['xl/styles.xml', XLSX_STYLES],
+        ...parts.map((sheet, i) => [`xl/worksheets/sheet${i + 1}.xml`, sheet]),
+      ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
+    }
+    function xlsx(sheetName, rows, widths = [], sheetOnly = false) {
       const col = (index) => { let s = ''; let n = index + 1; while (n) { const m = (n - 1) % 26; s = String.fromCharCode(65 + m) + s; n = Math.floor((n - 1) / 26); } return s; };
       const cell = (value, r, c) => {
         const ref = `${col(c)}${r + 1}`;
@@ -2294,12 +2334,13 @@
         + '<sheetViews><sheetView workbookViewId="0"><pane ySplit="1" topLeftCell="A2" activePane="bottomLeft" state="frozen"/></sheetView></sheetViews>'
         + (widths.length ? `<cols>${widths.map((w, i) => `<col min="${i + 1}" max="${i + 1}" width="${w}" customWidth="1"/>`).join('')}</cols>` : '')
         + `<sheetData>${rows.map((row, r) => `<row r="${r + 1}">${row.map((value, c) => cell(value, r, c)).join('')}</row>`).join('')}</sheetData></worksheet>`;
+      if (sheetOnly) return sheet;
       return zip([
         ['[Content_Types].xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Types xmlns="http://schemas.openxmlformats.org/package/2006/content-types"><Default Extension="rels" ContentType="application/vnd.openxmlformats-package.relationships+xml"/><Default Extension="xml" ContentType="application/xml"/><Override PartName="/xl/workbook.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.sheet.main+xml"/><Override PartName="/xl/worksheets/sheet1.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.worksheet+xml"/><Override PartName="/xl/styles.xml" ContentType="application/vnd.openxmlformats-officedocument.spreadsheetml.styles+xml"/></Types>'],
         ['_rels/.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/officeDocument" Target="xl/workbook.xml"/></Relationships>'],
         ['xl/workbook.xml', `<?xml version="1.0" encoding="UTF-8" standalone="yes"?><workbook xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main" xmlns:r="http://schemas.openxmlformats.org/officeDocument/2006/relationships"><sheets><sheet name="${xml(String(sheetName).replace(/[\\/?*[\]:]/g, ' ').slice(0, 31))}" sheetId="1" r:id="rId1"/></sheets></workbook>`],
         ['xl/_rels/workbook.xml.rels', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><Relationships xmlns="http://schemas.openxmlformats.org/package/2006/relationships"><Relationship Id="rId1" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/worksheet" Target="worksheets/sheet1.xml"/><Relationship Id="rId2" Type="http://schemas.openxmlformats.org/officeDocument/2006/relationships/styles" Target="styles.xml"/></Relationships>'],
-        ['xl/styles.xml', '<?xml version="1.0" encoding="UTF-8" standalone="yes"?><styleSheet xmlns="http://schemas.openxmlformats.org/spreadsheetml/2006/main"><fonts count="2"><font><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font><font><b/><sz val="11"/><name val="宋体"/><family val="3"/><charset val="134"/></font></fonts><fills count="2"><fill><patternFill patternType="none"/></fill><fill><patternFill patternType="gray125"/></fill></fills><borders count="1"><border><left/><right/><top/><bottom/><diagonal/></border></borders><cellStyleXfs count="1"><xf numFmtId="0" fontId="0" fillId="0" borderId="0"/></cellStyleXfs><cellXfs count="2"><xf numFmtId="0" fontId="0" fillId="0" borderId="0" xfId="0"><alignment vertical="top" wrapText="1"/></xf><xf numFmtId="0" fontId="1" fillId="0" borderId="0" xfId="0" applyFont="1"><alignment horizontal="center" vertical="center"/></xf></cellXfs><cellStyles count="1"><cellStyle name="Normal" xfId="0" builtinId="0"/></cellStyles></styleSheet>'],
+        ['xl/styles.xml', XLSX_STYLES],
         ['xl/worksheets/sheet1.xml', sheet],
       ], 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet');
     }
@@ -2314,7 +2355,7 @@
       link.remove();
       setTimeout(() => URL.revokeObjectURL(url), 4000);
     }
-    return { docx, xlsx, para, table, save, curly, runs, xml, examHead, examNotes };
+    return { docx, xlsx, xlsxBook, para, table, save, curly, runs, xml, examHead, examNotes };
   })();
 
   window.ClassLive = window.ClassLive || {};

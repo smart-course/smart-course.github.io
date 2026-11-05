@@ -191,13 +191,29 @@
   @keyframes clp-egg-in { from { opacity: 0; } }
   @keyframes clp-egg-pop { from { transform: scale(.3) rotate(-90deg); opacity: 0; } }
   @media (prefers-reduced-motion: reduce) { .clp-egg, .clp-egg-burst { animation: none; } }
-  .clp-preview { position: fixed; z-index: 2147482990; left: 50%; top: 8px; transform: translateX(-50%); display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 6px 10px;
-    max-width: calc(100vw - 24px); padding: 6px 12px; border-radius: 10px; background: rgba(120,28,20,.92); color: #fff4e0; box-shadow: 0 6px 18px rgba(0,0,0,.25);
-    font: 700 13px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  .clp-preview span { text-wrap: pretty; }
-  @media (max-width: 700px) { .clp-preview span { display: none; } .clp-preview { padding: 4px 8px; } }   /* 手机上只留标签和按钮，不挡面板 */
-  .clp-preview b { padding: 1px 8px; border-radius: 6px; background: #fff4e0; color: #8c2018; }
-  .clp-preview button { padding: 3px 9px; border: 1px solid rgba(255,244,224,.6); border-radius: 6px; background: transparent; color: #fff4e0; font: inherit; cursor: pointer; }
+  /* 学生版测试页（2026-11-05 用户：“把这个缩小后放到右下角，做成类似于使用说明的按钮”）：右下角“测试页”按钮（叠在“使用说明”上方），点开小卡片 */
+  .clp-pv-btn { position: fixed; z-index: 79; right: 18px; bottom: 170px; display: inline-flex; align-items: center; gap: 7px; min-height: 40px; padding: 6px 13px 6px 9px;
+    border: 1px solid rgba(140,32,24,.38); border-radius: 999px; background: rgba(255,253,248,.96); color: #8c2018; box-shadow: 0 6px 18px rgba(34,26,20,.16);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
+  .clp-pv-btn:hover, .clp-pv-btn:focus-visible, .clp-pv-btn[aria-expanded="true"] { border-color: #8c2018; outline: none; }
+  .clp-pv-btn b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #8c2018; color: #fff4e0; font-size: 12.5px; }
+  .clp-pv-btn.is-warn::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #d4452c; box-shadow: 0 0 0 2px #fffdf8; }
+  @media (max-width: 900px) { .clp-pv-btn span { display: none; } .clp-pv-btn { padding: 6px 9px; } }
+  .clp-pv-pop { position: fixed; z-index: 2147482990; right: 18px; bottom: 220px; box-sizing: border-box; width: min(340px, calc(100vw - 24px)); padding: 14px 16px 14px;
+    border: 1px solid rgba(140,32,24,.25); border-radius: 14px; background: #fffdf8; color: #2a201a; box-shadow: 0 16px 40px rgba(34,26,20,.25);
+    font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-size: 13.5px; line-height: 1.65; }
+  .clp-pv-pop[hidden] { display: none; }
+  .clp-pv-pop header { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 6px; }
+  .clp-pv-pop header b { padding: 2px 10px; border-radius: 999px; background: #8c2018; color: #fff4e0; font-size: 13px; }
+  .clp-pv-pop header button { width: 28px; height: 28px; border: 0; border-radius: 50%; background: #f3ece2; color: #5b4a3e; font-size: 17px; line-height: 1; cursor: pointer; }
+  .clp-pv-pop p { margin: 0; color: #4a3d33; text-wrap: pretty; }
+  .clp-pv-pop p.is-warn { color: #a4321f; font-weight: 700; }
+  .clp-pv-pop div { display: flex; flex-wrap: wrap; gap: 8px; margin-top: 10px; }
+  .clp-pv-pop div button { flex: 1 1 auto; padding: 7px 12px; border: 1px solid rgba(140,32,24,.4); border-radius: 8px; background: #fff; color: #8c2018;
+    font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.3; cursor: pointer; }
+  .clp-pv-pop div button:hover:not(:disabled) { background: #fbefe9; }
+  .clp-pv-pop div button:disabled { opacity: .6; cursor: default; }
+  @media print { .clp-pv-btn, .clp-pv-pop { display: none !important; } }
   .clp-who small, .clp-room, .clp-hint { color: #6d6259; font-size: 12.5px; }
   .clp-hint { margin: 6px 0 0; line-height: 1.5; }
   .clp-hint[data-state=ok] { color: #23655f; }
@@ -1123,21 +1139,40 @@
     }
   }
 
-  // ---------- 学生版测试页：顶部提示条（清空测试作答）；同一把钥匙的附页链接带上解密值 ----------
+  // ---------- 学生版测试页：右下角“测试页”按钮（叠在“使用说明”上方，点开小卡片：说明、清空测试作答、清空修炼记录）；同一把钥匙的附页链接带上解密值 ----------
+  //   2026-11-05 用户：“把这个缩小后放到右下角，做成类似于使用说明的按钮”（原来是页面顶部一整条提示条）
   if (PREVIEW) {
-    const bar = document.createElement('div');
-    bar.className = 'clp-preview';
+    const bar = document.createElement('button');
+    bar.type = 'button';
+    bar.className = 'clp-pv-btn';
     bar.setAttribute('data-ix', '');
-    bar.innerHTML = `<b>学生版测试页</b><span>王不凡 · 化神 · 弹幕和法宝照常上投屏 · 课堂作答只在本机 · 修炼场${worksheet ? '和课后自修' : ''}以王不凡记在后台，不计入班级修为</span>
-      <button type="button" data-preview-clear>清空测试作答</button><button type="button" data-preview-practice>清空修炼记录</button>`;
+    bar.setAttribute('aria-haspopup', 'dialog');
+    bar.setAttribute('aria-expanded', 'false');
+    bar.title = '学生版测试页：说明与清空测试记录';
+    bar.innerHTML = '<b aria-hidden="true">测</b><span>测试页</span>';
+    const pop = document.createElement('div');
+    pop.className = 'clp-pv-pop';
+    pop.hidden = true;
+    pop.setAttribute('role', 'dialog');
+    pop.setAttribute('aria-label', '学生版测试页');
+    pop.setAttribute('data-ix', '');
+    pop.innerHTML = `<header><b>学生版测试页</b><button type="button" data-preview-close aria-label="关闭">×</button></header>
+      <p data-preview-note>王不凡 · 化神 · 弹幕和法宝照常上投屏 · 课堂作答只在本机 · 修炼场${worksheet ? '和课后自修' : ''}以王不凡记在后台，不计入班级修为</p>
+      <div><button type="button" data-preview-clear>清空测试作答</button><button type="button" data-preview-practice>清空修炼记录</button></div>`;
     shield(bar);
-    bar.querySelector('[data-preview-clear]').addEventListener('click', () => {
+    shield(pop);
+    const showPop = (open) => { pop.hidden = !open; bar.setAttribute('aria-expanded', String(open)); };
+    bar.addEventListener('click', () => showPop(pop.hidden));
+    pop.querySelector('[data-preview-close]').addEventListener('click', () => showPop(false));
+    document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !pop.hidden) showPop(false); });
+    document.addEventListener('click', (event) => { if (!pop.hidden && !pop.contains(event.target) && !bar.contains(event.target)) showPop(false); }, true);
+    pop.querySelector('[data-preview-clear]').addEventListener('click', () => {
       if (!window.confirm('清空这一页的测试作答和递交记录？（只影响这台电脑上的测试页）')) return;
       try { localStorage.removeItem(LOCK_KEY); if (config.stateKey) localStorage.removeItem(config.stateKey); } catch (error) { /* 忽略 */ }
       location.reload();
     });
     // 修炼场、课后自修的测试记录在后台（王不凡 WBF0001，本课程各班）：教师账号可以删除
-    bar.querySelector('[data-preview-practice]').addEventListener('click', async (event) => {
+    pop.querySelector('[data-preview-practice]').addEventListener('click', async (event) => {
       if (!window.confirm('清空王不凡在本课程修炼场和课后自修里的全部测试记录？（只删测试记录，不影响学生）')) return;
       const button = event.currentTarget;
       button.disabled = true;
@@ -1151,8 +1186,36 @@
       }
     });
     document.body.appendChild(bar);
+    document.body.appendChild(pop);
+    // 叠在页面右下角“使用说明”按钮的正上方（两门课、学生版各页位置不同，按实际位置算；没有使用说明按钮时放在右下角）
+    const place = () => {
+      const guide = document.querySelector('.guide-toggle, .peg-toggle');
+      const box = guide ? guide.getBoundingClientRect() : null;   // 使用说明按钮是 position: fixed，offsetParent 总是 null，按尺寸判断是否显示
+      const rect = box && box.width > 0 && box.height > 0 ? box : null;
+      const right = rect ? Math.max(8, Math.round(window.innerWidth - rect.right)) : 18;
+      const bottom = rect ? Math.round(window.innerHeight - rect.top + 10) : 20;
+      bar.style.right = `${right}px`;
+      bar.style.bottom = `${bottom}px`;
+      if (rect) {   // 外形跟使用说明按钮一致（习经圆角方形、政经胶囊形）
+        const look = getComputedStyle(guide);
+        bar.style.borderRadius = look.borderRadius;
+        bar.style.minHeight = `${Math.round(rect.height)}px`;
+      }
+      pop.style.right = `${right}px`;
+      pop.style.bottom = `${bottom + bar.offsetHeight + 8}px`;
+    };
+    place();
+    window.addEventListener('resize', place);
+    window.addEventListener('load', place);
+    setTimeout(place, 800);
     backend.session().then((session) => {
-      if (!session || session.anonymous) bar.querySelector('span').textContent = '请先在这台电脑的浏览器里登录教师工作台，测试页才能发弹幕和法宝';
+      if (!session || session.anonymous) {
+        const note = pop.querySelector('[data-preview-note]');
+        note.textContent = '请先在这台电脑的浏览器里登录教师工作台，测试页才能发弹幕和法宝。';
+        note.classList.add('is-warn');
+        bar.classList.add('is-warn');
+        showPop(true);
+      }
     }).catch(() => { /* 忽略 */ });
     const pagePwd = new URLSearchParams(location.search).get('staticrypt_pwd');
     if (pagePwd) $$('a[href*="-notes.html"]').forEach((link) => {   // 附页链接可能带 #章节 锚点：解密参数放在锚点之前

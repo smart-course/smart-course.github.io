@@ -896,3 +896,10 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-lock-set .tw-lock-pins input::placeholder { font-size: 15px; letter-spacing: .1em; }
 .tw-lock-set .tw-lock-pins { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
 .tw-lock-set .tw-lock-pins input { -webkit-text-security: disc; text-align: center; font-size: 20px; letter-spacing: .4em; }
+
+/* 学情分析（2026-11-05）：状态只用于“需要关注”，图形加文字，不只靠颜色 */
+.ins-flag { display: inline-flex; align-items: center; gap: 4px; white-space: nowrap; font-size: 13px; font-weight: 700; color: var(--ink); }
+.ins-flag i { font-style: normal; font-size: 12px; }
+.ins-flag.is-none i { color: #d03b3b; }
+.ins-flag.is-low i { color: #c98500; }
+.ins-people td, .ins-people th { white-space: nowrap; }

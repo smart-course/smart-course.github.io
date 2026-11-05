@@ -3333,7 +3333,7 @@
     view_past: '用历史课堂码进来查看', pin_forgot: '忘记口令，申请重设', pin_allow: '老师同意重设口令', pin_deny: '老师没有同意重设口令',
   };
   const SEC_BAD = new Set(['bad_sid', 'bad_name', 'bad_pin', 'locked', 'request', 'pin_forgot']);
-  const sec = { requests: [], pinreqs: [], pins: [], log: [], teacher: [], codeFails: 0, problem: '', loaded: false };
+  const sec = { requests: [], pinreqs: [], pins: [], log: [], teacher: [], visits: [], visitProblem: '', codeFails: 0, problem: '', loaded: false };
   // 忘记口令申请：待处理的，和 3 天内同意过的（等学生用申请的那台设备设新口令）；拒绝的不再显示（学生再次申请会重新出现）
   const pinreqShown = () => sec.pinreqs.filter((row) => row.status === 'pending' || (row.status === 'approved' && Date.now() - millis(row.decided_at) < 3 * 86400000));
   const stamp = (value) => (value ? `${isoDay(millis(value)).slice(5)} ${clock(millis(value))}` : '');
@@ -3351,6 +3351,15 @@
       if (full) {
         sec.log = await backend.fetchAll('seclog', { class_id: secClassId() }, { limit: 200 });
         sec.teacher = await backend.fetchAll('seclog', { kind: 'teacher_login' }, { limit: 20 });
+        // 登录与在线记录（2026-11-05）：本班最近 300 段；后台还没有这张表时提示执行 SQL
+        try {
+          sec.visits = await backend.fetchAll('visits', { class_id: secClassId() }, { limit: 300 });
+          sec.visitProblem = '';
+        } catch (error) {
+          if (!missingTable(error)) throw error;
+          sec.visits = [];
+          sec.visitProblem = '登录与在线记录还没有开通：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261105-学习记录.sql。';
+        }
       }
       sec.problem = '';
       sec.loaded = true;
@@ -3459,7 +3468,8 @@
     const recent = sec.log.filter((row) => millis(row.at) > day);
     const count = (kind) => recent.filter((row) => row.kind === kind).length;
     $('[data-sec-summary]').textContent = `最近 24 小时本班：口令错误 ${count('bad_pin')} 次、锁定 ${count('locked')} 次、学号不在点名册 ${count('bad_sid')} 次、姓名不符 ${count('bad_name')} 次、班外申请 ${count('request')} 次、忘记口令申请 ${count('pin_forgot')} 次、新设备登录 ${count('new_device')} 次；全站最近 10 分钟课堂码错误 ${sec.codeFails} 次。`
-      + '（这里只记安全相关的事件；每次正常登录记在“加入名单”的登录记录里。）';
+      + '（这里只记安全相关的事件：口令错误、锁定、新设备、设置口令、申请等；平常的登录和打开页面不记，见上面的“登录与在线记录”。）';
+    renderVisits();
     $('[data-sec-log]').innerHTML = sec.log.slice(0, 100).map((row) => `<tr><td>${esc(stamp(row.at))}</td>
       <td class="${SEC_BAD.has(row.kind) ? 'warn' : ''}">${esc(SEC_KIND[row.kind] || row.kind)}${row.kind === 'locked' && row.detail ? `（${esc(row.detail)}）` : ''}</td><td>${esc(row.sid || '')}</td><td>${esc(row.name || '')}</td></tr>`).join('')
       || '<tr><td colspan="4" class="empty">还没有记录。</td></tr>';
@@ -3469,6 +3479,274 @@
       return `<tr><td>${esc(stamp(row.at))}</td><td>${esc(how)}</td><td>${esc(browserOf(String(row.detail || '').replace(/^\[[^\]]+\]\s*/, '')))}</td></tr>`;
     }).join('') || '<tr><td colspan="3" class="empty">还没有记录（下次打开工作台时开始记录）。</td></tr>';
   }
+  // ---------------- 登录与在线记录（2026-11-05 用户：“‘最近登录’和‘最近安全记录’的数据为什么不同步啊？……我想掌握学生的登录和学习状态数据，
+  // 后续可以生成一些分析图片之类的。”）：ck_visits 每一段在线一行；“导出学习数据”生成多表 Excel 供分析 ----------------
+  const VISIT_KIND = { login: '口令登录', open: '直接打开', back: '回到页面', view: '查看历史课堂' };
+  const minutesOf = (seconds) => Math.round((Number(seconds) || 0) / 6) / 10;   // 保留一位小数
+  const durText = (seconds) => { const s = Number(seconds) || 0; return s < 60 ? (s ? `${s} 秒` : '—') : `${Math.round(s / 60)} 分钟`; };
+  function renderVisits() {
+    const box = $('[data-visit-rows]');
+    if (!box) return;
+    const query = ($('[data-visit-search]').value || '').trim().toUpperCase();
+    const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
+    const rows = sec.visits.slice().sort((a, b) => millis(b.started_at) - millis(a.started_at))
+      .filter((row) => !query || String(row.sid).toUpperCase().includes(query) || String(row.name || '').toUpperCase().includes(query));
+    const day = Date.now() - 24 * 3600 * 1000;
+    const recent = sec.visits.filter((row) => millis(row.last_at) > day && !row.auditor);
+    $('[data-visit-count]').textContent = sec.visitProblem ? '' : `（最近 24 小时 ${new Set(recent.map((row) => sidKey(row.sid))).size} 人、${recent.length} 段，在线合计约 ${Math.round(recent.reduce((t, row) => t + (Number(row.seconds) || 0), 0) / 60)} 分钟）`;
+    box.innerHTML = sec.visitProblem ? `<tr><td colspan="7" class="empty">${esc(sec.visitProblem)}</td></tr>`
+      : rows.slice(0, 80).map((row) => `<tr><td>${esc(stamp(row.started_at))}</td><td>${esc(clock(millis(row.last_at)))}</td><td>${esc(durText(row.seconds))}</td>
+        <td>${esc(row.sid)}</td><td>${esc(row.name || '')}${row.auditor ? ' <small>旁听</small>' : ''}</td><td>${esc(roomName.get(String(row.classroom)) || row.unit || '')}</td><td>${esc(VISIT_KIND[row.kind] || row.kind)}</td></tr>`).join('')
+        || `<tr><td colspan="7" class="empty">${query ? '没有符合条件的记录。' : '还没有记录：学生下次登录或打开章节页时开始记录。'}</td></tr>`;
+  }
+  $('[data-visit-search]').addEventListener('input', renderVisits);
+
+  // 导出学习数据：本班全部课堂（不含旁听），五张表
+  const WEEK = ['日', '一', '二', '三', '四', '五', '六'];
+  const timeParts = (ms) => {
+    const d = new Date(ms);
+    const day = isoDay(ms);
+    const hour = Number(new Intl.DateTimeFormat('en-GB', { timeZone: 'Asia/Shanghai', hour: '2-digit', hour12: false }).format(d)) % 24;
+    const week = `周${WEEK[new Date(`${day}T12:00:00+08:00`).getUTCDay()]}`;
+    return { day, hour, week, text: `${day} ${clock(ms)}` };
+  };
+  // 读取本班全部课堂的学习记录（导出学习数据、学情分析共用；60 秒内重复使用）：只含点名册上的同学，不含旁听
+  let learnCache = null;
+  async function loadLearning(force) {
+    const key = `${course.slug}:${state.klass.id}`;
+    if (!force && learnCache && learnCache.key === key && Date.now() - learnCache.at < 60000) return learnCache.data;
+    const rooms = state.rooms;
+    const roomOf = new Map(rooms.map((room) => [String(room.id), room]));
+    const inClass = (doc) => roomOf.has(String(doc.classroom));
+    const roster = rosterOf();
+    const rosterName = new Map(roster.map((person) => [sidKey(person.sid), person.name]));
+    const keep = (sid) => !roster.length || rosterName.has(sidKey(sid));   // 只算点名册上的同学
+    const nameOf = (sid, fallback) => rosterName.get(sidKey(sid)) || fallback || '';
+    const tsOf = (doc) => (doc.ts ? Number(doc.ts) : 0) || millis(doc.created_at) || millis(doc.at) || 0;
+    const fetchKind = async (kind, where) => { try { return await backend.fetchAll(kind, where); } catch (error) { if (missingTable(error)) return []; throw error; } };
+    const visits = (await fetchKind('visits', { class_id: Number(state.klass.id) || state.klass.id })).filter((row) => !row.auditor && keep(row.sid));
+    const pick = async (kind) => (await fetchKind(kind, { course: course.slug })).filter((doc) => inClass(doc) && !doc.auditor && keep(doc.sid));
+    const checkins = await pick('checkins');
+    const choices = CONCEPT ? [] : await pick('choices');
+    const answers = CONCEPT ? [] : await pick('answers');
+    const homework = CONCEPT ? await pick('homework') : [];
+    const danmaku = (await pick('danmaku')).filter((doc) => !doc.withdrawn_at);
+    const practice = (await fetchKind('practice', { course: course.slug })).filter((doc) => roster.length ? rosterName.has(sidKey(doc.sid)) : false);
+    const guesses = (await fetchKind('puzzleguesses', {})).filter((doc) => inClass(doc) && keep(doc.sid));
+    const posts = (await fetchKind('debateposts', {})).filter((doc) => inClass(doc) && keep(doc.sid));
+    const realms = (await fetchKind('realms', { course: course.slug })).filter((row) => String(row.class_id) === String(state.klass.id) && keep(row.sid));
+    // 学习行为明细：每个动作一行（ms 时间、学号、课堂、单元、行为、分组、题目）
+    const roomName = (id) => (roomOf.get(String(id)) || {}).name || '';
+    const roomUnit = (id) => (roomOf.get(String(id)) || {}).chapter || '';
+    const acts = [];
+    const add = (ms, sid, name, roomId, unit, kind, group, item) => {
+      if (ms) acts.push({ ms, sid: sidKey(sid), name: nameOf(sid, name), roomId: roomId == null ? '' : String(roomId), room: roomId == null ? '修炼场' : roomName(roomId), unit, kind, group, item: item || '' });
+    };
+    visits.forEach((v) => add(millis(v.started_at), v.sid, v.name, v.classroom, v.unit || roomUnit(v.classroom), VISIT_KIND[v.kind] || v.kind, '登录与打开页面', ''));
+    checkins.forEach((c) => add(tsOf(c), c.sid, c.name, c.classroom, roomUnit(c.classroom), '签到（当天第一次进入课堂）', '签到', ''));
+    choices.forEach((c) => add(tsOf(c), c.sid, c.name, c.classroom, roomUnit(c.classroom), '选择递交', '选择递交', `案例${c.case_no || c.case || ''} ${c.item}`));
+    answers.forEach((a) => add(tsOf(a), a.sid, a.name, a.classroom, roomUnit(a.classroom), '文字作答', '文字作答', `案例${a.case_no || a.case || ''} ${a.item}`));
+    homework.forEach((h) => add(tsOf(h), h.sid, h.name, h.classroom, h.unit || roomUnit(h.classroom), '作业递交', '作业递交', h.item || h.key || ''));
+    danmaku.forEach((d) => add(tsOf(d), d.sid, d.name, d.classroom, roomUnit(d.classroom), d.gift ? '祭出法宝' : '发弹幕', d.gift ? '祭出法宝' : '发弹幕', ''));
+    practice.forEach((r) => add(tsOf(r), r.sid, r.name, null, r.unit, r.correct ? '修炼场答题（对）' : '修炼场答题', '修炼场答题', r.item));
+    guesses.forEach((g) => add(tsOf(g), g.sid, g.name, g.classroom, roomUnit(g.classroom), '情境猜谜抢答', '情境猜谜抢答', ''));
+    posts.forEach((d) => add(tsOf(d), d.sid, d.name, d.classroom, roomUnit(d.classroom), '聊天室发言', '聊天室发言', `案例${d.case_no || ''}`));
+    acts.sort((x, y) => x.ms - y.ms);
+    const data = { rooms, roomOf, roster, rosterName, nameOf, tsOf, roomName, visits, checkins, choices, answers, homework, danmaku, practice, guesses, posts, realms, acts };
+    learnCache = { key, at: Date.now(), data };
+    return data;
+  }
+  async function exportLearning(button) {
+    if (!state.klass) return;
+    const status = (text) => $$('[data-learn-status]').forEach((el) => { el.textContent = text; });
+    const buttons = $$('[data-learn-export]');
+    buttons.forEach((b) => { b.disabled = true; });
+    status('正在读取本班全部课堂的记录……');
+    try {
+      const L = await loadLearning(true);
+      const { rooms, roster, nameOf, tsOf, roomName, visits, checkins, choices, answers, homework, danmaku, practice, guesses, posts, acts } = L;
+      const unitTitle = (unit) => { const info = chapterMap.get(unit); return info ? (info.title || unit) : unit || ''; };
+      status('正在整理……');
+      const head = (cols) => cols;
+      const actRows = [head(['时间', '日期', '星期', '小时', '学号', '姓名', '课堂', '单元', '行为', '题目或位置'])]
+        .concat(acts.map((a) => { const t = timeParts(a.ms); return [t.text, t.day, t.week, t.hour, a.sid, a.name, a.room, unitTitle(a.unit), a.kind, a.item]; }));
+      // 登录与在线（每一段一行）
+      const visitRows = [head(['日期', '星期', '开始', '最后活动', '在线（分钟）', '学号', '姓名', '课堂', '单元', '方式'])]
+        .concat(visits.slice().sort((a, b) => millis(a.started_at) - millis(b.started_at)).map((v) => {
+          const t = timeParts(millis(v.started_at));
+          return [t.day, t.week, t.text, timeParts(millis(v.last_at)).text, minutesOf(v.seconds), sidKey(v.sid), nameOf(v.sid, v.name), roomName(v.classroom), unitTitle(v.unit), VISIT_KIND[v.kind] || v.kind];
+        }));
+      // 每日概况（每人每天）
+      const daily = new Map();
+      const slot = (sid, day, name) => {
+        const key = `${sid}|${day}`;
+        if (!daily.has(key)) daily.set(key, { sid, day, name, sessions: 0, seconds: 0, checkin: 0, choice: 0, answer: 0, homework: 0, danmaku: 0, practice: 0, practicePts: 0, guess: 0, post: 0, first: Infinity, last: 0 });
+        return daily.get(key);
+      };
+      const touch = (row, ms) => { row.first = Math.min(row.first, ms); row.last = Math.max(row.last, ms); };
+      visits.forEach((v) => { const ms = millis(v.started_at); const r = slot(sidKey(v.sid), isoDay(ms), nameOf(v.sid, v.name)); r.sessions += 1; r.seconds += Number(v.seconds) || 0; touch(r, ms); touch(r, millis(v.last_at)); });
+      const bump = (list, field, extra) => list.forEach((doc) => { const ms = tsOf(doc); if (!ms) return; const r = slot(sidKey(doc.sid), isoDay(ms), nameOf(doc.sid, doc.name)); r[field] += 1; if (extra) extra(r, doc); touch(r, ms); });
+      bump(checkins, 'checkin'); bump(choices, 'choice'); bump(answers, 'answer'); bump(homework, 'homework'); bump(danmaku, 'danmaku');
+      bump(practice, 'practice', (r, doc) => { r.practicePts += Number(doc.points) || 0; }); bump(guesses, 'guess'); bump(posts, 'post');
+      const days = Array.from(daily.values()).sort((a, b) => a.day.localeCompare(b.day) || a.sid.localeCompare(b.sid));
+      const dailyRows = [head(['日期', '星期', '学号', '姓名', '在线段数', '在线（分钟）', '签到', '选择递交', '文字作答', '作业递交', '弹幕与法宝', '修炼场答题', '修炼场修为', '猜谜抢答', '聊天室发言', '最早活动', '最晚活动'])]
+        .concat(days.map((r) => [r.day, timeParts(Date.parse(`${r.day}T12:00:00+08:00`)).week, r.sid, r.name, r.sessions, minutesOf(r.seconds), r.checkin ? 1 : 0, r.choice, r.answer, r.homework, r.danmaku,
+          r.practice, r.practicePts, r.guess, r.post, Number.isFinite(r.first) ? clock(r.first) : '', r.last ? clock(r.last) : '']));
+      // 学生汇总（每人；点名册上没有活动的也列出）
+      const people = new Map(roster.map((person) => [sidKey(person.sid), { sid: sidKey(person.sid), name: person.name }]));
+      days.forEach((r) => { if (!people.has(r.sid)) people.set(r.sid, { sid: r.sid, name: r.name }); });
+      const sumRows = [head(['学号', '姓名', '活跃天数', '在线段数', '在线合计（分钟）', '签到天数', '选择递交', '文字作答', '作业递交', '弹幕与法宝', '修炼场答题', '修炼场修为', '猜谜抢答', '聊天室发言', '最近活动'])]
+        .concat(Array.from(people.values()).sort((a, b) => a.sid.localeCompare(b.sid)).map((p) => {
+          const mine = days.filter((r) => r.sid === p.sid);
+          const total = (field) => mine.reduce((t, r) => t + r[field], 0);
+          const last = mine.reduce((t, r) => Math.max(t, r.last), 0);
+          return [p.sid, p.name, mine.length, total('sessions'), minutesOf(total('seconds')), total('checkin') ? mine.filter((r) => r.checkin).length : 0, total('choice'), total('answer'), total('homework'),
+            total('danmaku'), total('practice'), total('practicePts'), total('guess'), total('post'), last ? timeParts(last).text : ''];
+        }));
+      const notes = [['项目', '说明'],
+        ['范围', `${course.title} · ${state.klass.name}：本班全部 ${rooms.length} 个课堂；只含点名册上的同学，不含旁听；导出时间 ${timeParts(Date.now()).text}`],
+        ['登录与在线', '每一段在线一行（2026-11-05 起记录）：口令登录、直接打开（已登录的设备打开章节页）、回到页面（离开 3 分钟以上又回来）、查看历史课堂。页面开着且在前台时每 45 秒报一次在线，“在线（分钟）”是这一段的大致时长（两次报到之间最多算 90 秒）；3 分钟内接着打开别的页面算同一段。'],
+        ['学习行为明细', '每个动作一行：登录方式、签到（每个课堂每天第一次进入）、选择递交、文字作答、作业递交（政治经济学）、发弹幕或祭出法宝（撤回的不算）、修炼场答题（含课后自修）、情境猜谜抢答、聊天室发言。时间都是北京时间；“小时”可用来看一天里什么时候在学。'],
+        ['每日概况', '每人每天一行，把上面的明细按天汇总；“签到”1＝当天进过课堂。'],
+        ['学生汇总', '每人一行；点名册上一直没有活动的同学也列出（全是 0）。'],
+        ['做图建议', '工作台“学情分析”已经画好常用的图；也可以用 Excel“插入 → 数据透视表”自己做：按日期统计在线分钟和人数看学习趋势；按星期和小时看学习时段分布；按学号看个人投入；按行为类型看各种活动的比例。']];
+      const O = window.ClassLive.office;
+      O.save(O.xlsxBook([
+        { name: '登录与在线', rows: visitRows, widths: [12, 7, 20, 20, 12, 14, 10, 22, 26, 12] },
+        { name: '学习行为明细', rows: actRows, widths: [20, 12, 7, 6, 14, 10, 22, 26, 22, 22] },
+        { name: '每日概况', rows: dailyRows, widths: [12, 7, 14, 10, 10, 12, 6, 10, 10, 10, 10, 12, 12, 10, 12, 10, 10] },
+        { name: '学生汇总', rows: sumRows, widths: [14, 10, 10, 10, 16, 10, 10, 10, 10, 12, 12, 12, 10, 12, 20] },
+        { name: '说明', rows: notes, widths: [14, 110] },
+      ]), `${course.title}_${safeName(state.klass.name)}_学习数据_${window.ClassLive.today()}.xlsx`);
+      status(`已导出：在线 ${visits.length} 段、学习行为 ${acts.length} 条、${days.length} 个“人·天”、${people.size} 位同学。`);
+    } catch (error) {
+      console.error(error);
+      status(`导出失败：${failReason(error)}`);
+    } finally {
+      buttons.forEach((b) => { b.disabled = false; });
+    }
+  }
+
+  // ---------------- 学情分析（2026-11-05 用户：“或者你能直接在教师控制台中增加一个板块，直接输出一些图表分析学生的行为吗？”）----------------
+  // 同一份学习记录（loadLearning），按上方“范围”“时间”筛选后画：统计卡片、每天在学人数、一周学习时段热力图、在做什么、境界分布、
+  // 需要关注的同学（每人一行的明细表）。图表在 live-insights.js；只含点名册上的同学，不含旁听
+  const INS_GROUPS = ['登录与打开页面', '签到', '选择递交', '文字作答', '作业递交', '发弹幕', '祭出法宝', '修炼场答题', '情境猜谜抢答', '聊天室发言'];
+  const insState = { problem: '' };
+  const dayStart = (day) => Date.parse(`${day}T00:00:00+08:00`);
+  async function renderInsights(force) {
+    const root = $('[data-ins-root]');
+    const I = window.ClassLiveInsights;
+    if (!root || !state.klass) return;
+    if (!I) { root.textContent = '图表脚本没有加载，请刷新页面再试。'; return; }
+    I.addStyle();
+    const status = $('[data-ins-status]');
+    status.textContent = '正在读取本班的学习记录……';
+    root.style.opacity = root.childElementCount ? '.45' : '';
+    let L;
+    try { L = await loadLearning(force); } catch (error) { console.error(error); status.textContent = `读取失败：${failReason(error)}`; root.style.opacity = ''; return; }
+    const scope = $('[data-ins-scope]').value;
+    const range = $('[data-ins-range]').value;
+    const room = scope === 'room' ? state.room : null;
+    const today = window.ClassLive.today();
+    const span = range === 'all' ? null : Number(range);
+    const fromMs = span ? dayStart(isoDay(Date.now() - (span - 1) * 86400000)) : 0;
+    const inScope = (a) => !room || a.roomId === String(room.id) || (a.roomId === '' && a.unit === room.chapter);
+    const acts = L.acts.filter((a) => a.ms >= fromMs && inScope(a));
+    const visits = L.visits.filter((v) => millis(v.started_at) >= fromMs && (!room || String(v.classroom) === String(room.id)));
+    const people = new Map(L.roster.map((person) => [sidKey(person.sid), person.name]));
+    acts.forEach((a) => { if (!people.has(a.sid)) people.set(a.sid, a.name); });
+    const total = people.size || 1;
+    root.textContent = '';
+    root.style.opacity = '';
+    const scopeText = room ? `课堂“${room.name}”` : `${state.klass.name}全部课堂`;
+    status.textContent = `${scopeText} · ${span ? `最近 ${span} 天` : '全部时间'} · 点名册 ${L.roster.length} 人${L.roster.length ? '' : '（还没上传点名册，按有记录的同学统计）'}。数据读于 ${clock(Date.now())}。`;
+    if (!acts.length) { I.empty(root, '这段时间还没有学习记录。'); return; }
+    // 按天
+    const firstDay = isoDay(span ? fromMs : acts[0].ms);
+    const dayList = [];
+    for (let ms = dayStart(firstDay); ms <= dayStart(today); ms += 86400000) dayList.push(isoDay(ms + 3600000));
+    const byDay = new Map(dayList.map((day) => [day, { active: new Set(), acts: 0, seconds: 0 }]));
+    acts.forEach((a) => { const d = byDay.get(isoDay(a.ms)); if (d) { d.active.add(a.sid); d.acts += 1; } });
+    visits.forEach((v) => { const d = byDay.get(isoDay(millis(v.started_at))); if (d) d.seconds += Number(v.seconds) || 0; });
+    // 每人
+    const per = new Map(Array.from(people.keys()).map((sid) => [sid, { sid, name: people.get(sid), days: new Set(), acts: 0, submit: 0, danmaku: 0, practice: 0, seconds: 0, last: 0 }]));
+    acts.forEach((a) => {
+      const p = per.get(a.sid);
+      if (!p) return;
+      p.days.add(isoDay(a.ms)); p.acts += 1; p.last = Math.max(p.last, a.ms);
+      if (['选择递交', '文字作答', '作业递交'].includes(a.group)) p.submit += 1;
+      if (a.group === '发弹幕') p.danmaku += 1;
+      if (a.group === '修炼场答题') p.practice += 1;
+    });
+    visits.forEach((v) => { const p = per.get(sidKey(v.sid)); if (p) p.seconds += Number(v.seconds) || 0; });
+    const activeCount = Array.from(per.values()).filter((p) => p.acts > 0).length;
+    const todayActive = (byDay.get(today) || { active: new Set() }).active.size;
+    const minutesAll = visits.reduce((t, v) => t + (Number(v.seconds) || 0), 0) / 60;
+    I.tiles(root, [
+      { label: '有学习行为的同学', value: `${activeCount} / ${total}`, note: `占 ${Math.round(activeCount * 100 / total)}%（这段时间里至少有一次登录、签到、递交、弹幕或修炼）` },
+      { label: '人均学习行为', value: (acts.length / total).toFixed(1), note: `共 ${acts.length} 次：登录与打开页面、签到、递交、弹幕、修炼场、抢答、聊天室` },
+      { label: '人均在线（分钟）', value: (minutesAll / total).toFixed(1), note: '页面开着且在前台的大致时长；2026-11-05 起记录' },
+      { label: '今天在学', value: `${todayActive} 人`, note: `${today} 有学习行为的同学` },
+    ]);
+    const grid = document.createElement('div');
+    grid.className = 'ins-grid';
+    root.appendChild(grid);
+    const weekOf = (day) => timeParts(Date.parse(`${day}T12:00:00+08:00`)).week;
+    // 1 每天在学人数
+    const c1 = I.card(grid, '每天有多少同学在学', '柱高＝当天至少有一次学习行为的同学人数；悬停或用 Tab 键看当天的行为次数和在线分钟。', true);
+    const host1 = document.createElement('div'); c1.appendChild(host1);
+    const dayRows = dayList.map((day) => { const d = byDay.get(day); return { key: day, label: day.slice(5), value: d.active.size, lines: [`${day.slice(5)} ${weekOf(day)}`, `学习行为 ${d.acts} 次`, `在线约 ${Math.round(d.seconds / 60)} 分钟`] }; });
+    I.columns(host1, c1, dayRows, { unit: ' 人', aria: '每天在学人数柱状图' });
+    I.tableView(c1, ['日期', '星期', '在学人数', '学习行为（次）', '在线（分钟）'], dayList.map((day) => { const d = byDay.get(day); return [day, weekOf(day), d.active.size, d.acts, Math.round(d.seconds / 60)]; }));
+    // 2 学习时段
+    const WEEKS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    const heat = WEEKS.map(() => Array(24).fill(0));
+    acts.forEach((a) => { const t = timeParts(a.ms); const row = WEEKS.indexOf(t.week); if (row >= 0) heat[row][t.hour] += 1; });
+    const c2 = I.card(grid, '一周里什么时候在学', '每格＝这一时段的学习行为次数（颜色越深越多，灰色是 0）；看得出课上、课后和晚上的学习习惯。', true);
+    const host2 = document.createElement('div'); c2.appendChild(host2);
+    I.heatmap(host2, c2, WEEKS, Array.from({ length: 24 }, (_, i) => i), heat, { unit: ' 次', aria: '学习时段热力图' });
+    I.tableView(c2, ['星期', ...Array.from({ length: 24 }, (_, i) => `${i}时`)], heat.map((row, i) => [WEEKS[i], ...row]));
+    // 3 在做什么
+    const mix = INS_GROUPS.map((group) => ({ label: group, value: acts.filter((a) => a.group === group).length })).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
+    const c3 = I.card(grid, '都在做什么', '各类学习行为的次数（同一位同学做几次算几次）。');
+    const host3 = document.createElement('div'); c3.appendChild(host3);
+    I.bars(host3, c3, mix.map((d) => ({ ...d, lines: [d.label, `占全部 ${Math.round(d.value * 100 / acts.length)}%`] })), { unit: ' 次', aria: '学习行为构成条形图' });
+    I.tableView(c3, ['行为', '次数', '占比'], mix.map((d) => [d.label, d.value, `${Math.round(d.value * 100 / acts.length)}%`]));
+    // 4 境界分布（最近一次结算）
+    const realmCount = REALMS.map((realm) => ({ label: realm.name, value: L.realms.filter((r) => Number(r.realm) === realm.level).length }));
+    const c4 = I.card(grid, '境界分布', `按最近一次结算，${L.realms.length ? `已结算 ${L.realms.length} 人` : '还没有结算'}；不受上面的时间范围影响。`);
+    const host4 = document.createElement('div'); c4.appendChild(host4);
+    I.bars(host4, c4, realmCount.map((d) => ({ ...d, lines: [d.label, `占已结算的 ${L.realms.length ? Math.round(d.value * 100 / L.realms.length) : 0}%`] })), { unit: ' 人', aria: '境界分布条形图', empty: '还没有结算修为：到“修为境界”点一次结算。' });
+    I.tableView(c4, ['境界', '人数'], realmCount.map((d) => [d.label, d.value]));
+    // 5 在线时长分布（每人）
+    const buckets = [['0', 0, 0], ['1—10 分钟', 1, 600], ['10—30 分钟', 601, 1800], ['30—60 分钟', 1801, 3600], ['1—2 小时', 3601, 7200], ['2 小时以上', 7201, Infinity]];
+    const onl = buckets.map(([label, lo, hi]) => ({ label, value: Array.from(per.values()).filter((p) => (lo === 0 && hi === 0 ? p.seconds === 0 : p.seconds >= lo && p.seconds <= hi)).length }));
+    const c5 = I.card(grid, '每人在线时长', '这段时间每位同学在线合计落在哪一档（2026-11-05 起记录，之前的都算 0）。');
+    const host5 = document.createElement('div'); c5.appendChild(host5);
+    I.bars(host5, c5, onl.map((d) => ({ ...d, lines: [d.label, `占 ${Math.round(d.value * 100 / total)}%`] })), { unit: ' 人', aria: '在线时长分布条形图' });
+    I.tableView(c5, ['在线合计', '人数'], onl.map((d) => [d.label, d.value]));
+    // 6 需要关注的同学（每人一行，先列没有学习行为、学习天数少的）
+    const range7 = !span || span >= 7;
+    const rows = Array.from(per.values()).map((p) => ({ ...p, status: p.acts === 0 ? 'none' : range7 && p.days.size <= 1 ? 'low' : '' }))
+      .sort((a, b) => (a.status === 'none' ? 0 : a.status === 'low' ? 1 : 2) - (b.status === 'none' ? 0 : b.status === 'low' ? 1 : 2) || a.acts - b.acts || a.sid.localeCompare(b.sid));
+    const c6 = I.card(grid, '每位同学', `先列这段时间没有任何学习行为的（${rows.filter((r) => r.status === 'none').length} 人）和只学了一天的（${rows.filter((r) => r.status === 'low').length} 人），再按学习行为从少到多。`, true);
+    const realmOfSid = new Map(L.realms.map((r) => [sidKey(r.sid), r]));
+    const wrap = document.createElement('div');
+    wrap.className = 'tw-scroll';
+    wrap.innerHTML = `<table class="tw-table compact ins-people"><thead><tr><th>学号</th><th>姓名</th><th>境界</th><th>状态</th><th>学习天数</th><th>学习行为</th><th>递交</th><th>弹幕</th><th>修炼场</th><th>在线（分钟）</th><th>最近一次</th></tr></thead><tbody>${rows.map((p) => {
+      const r = realmOfSid.get(p.sid);
+      const flag = p.status === 'none' ? '<span class="ins-flag is-none"><i aria-hidden="true">●</i>没有学习行为</span>' : p.status === 'low' ? '<span class="ins-flag is-low"><i aria-hidden="true">▲</i>只学了一天</span>' : '';
+      return `<tr><td>${esc(p.sid)}</td><td>${esc(p.name || '')}</td><td>${r ? realmChip(Number(r.realm) || 0, `${REALMS[Number(r.realm) || 0].name}`) : ''}</td><td>${flag}</td><td>${p.days.size}</td><td>${p.acts}</td><td>${p.submit}</td><td>${p.danmaku}</td><td>${p.practice}</td><td>${Math.round(p.seconds / 60)}</td><td>${p.last ? esc(timeParts(p.last).text.slice(5, 16)) : '—'}</td></tr>`;
+    }).join('')}</tbody></table>`;
+    c6.appendChild(wrap);
+  }
+  $('[data-tab="insight"]').addEventListener('click', () => renderInsights(false));
+  $('[data-ins-scope]').addEventListener('change', () => renderInsights(false));
+  $('[data-ins-range]').addEventListener('change', () => renderInsights(false));
+  $('[data-ins-refresh]').addEventListener('click', () => renderInsights(true));
+  let insResize = 0;
+  window.addEventListener('resize', () => { clearTimeout(insResize); insResize = setTimeout(() => { if (!$('[data-panel="insight"]').hidden) renderInsights(false); }, 300); });
+  $$('[data-learn-export]').forEach((button) => button.addEventListener('click', () => exportLearning(button)));
   // 浏览器信息只显示大概：系统＋浏览器
   const browserOf = (agent) => {
     const text = String(agent || '');
