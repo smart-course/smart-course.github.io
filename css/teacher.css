@@ -903,3 +903,5 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .ins-flag.is-none i { color: #d03b3b; }
 .ins-flag.is-low i { color: #c98500; }
 .ins-people td, .ins-people th { white-space: nowrap; }
+.ins-people .ins-name { padding: 0; border: 0; background: none; color: var(--teal); font: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.ins-people .ins-name:hover, .ins-people .ins-name:focus-visible { color: var(--rust); outline: none; }
