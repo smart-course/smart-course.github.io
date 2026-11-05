@@ -662,6 +662,10 @@
   .clp-sect-act button:disabled, .clp-sect-mine button:disabled { opacity: .55; cursor: default; }
   .clp-sect-mine { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .clp-sect-mine span { flex: 1 1 200px; }
+  .clp-sect-gate { position: relative; overflow: hidden; border-color: #ffd36b !important; background: linear-gradient(180deg, #fff3c4, #f2c64f 55%, #d9a032) !important; color: #3e2400 !important;
+    box-shadow: 0 0 12px rgba(242,198,79,.5); }
+  .clp-sect-gate::after { content: ''; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.75) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat;
+    animation: clp-sweep 3.6s ease-in-out 1s infinite; }
   @media (max-width: 420px) { .clp-sect-row { grid-template-columns: 22px 38px minmax(0, 1fr) auto; gap: 4px 8px; padding: 9px 10px; } .clp-sect-emb { width: 38px; height: 38px; font-size: 19px; } .clp-sect-main strong { font-size: 17px; } }
   .clp-rank-link { display: inline-flex; align-items: center; gap: 5px; margin: 6px 0 2px; padding: 4px 12px; border: 1px solid #b8801a; border-radius: 999px;
     color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f); font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.5; cursor: pointer; }
@@ -3047,7 +3051,10 @@
   //   加总宗门弟子的修为值就是宗门的分值，也会有排名。宗门是打通每门课程不同年份的……一年一年一直传承下去，允许新同学的加入。”）：
   //   面板“宗门”按钮打开宗门榜（ck_sect_board：四宗总修为＝本课程历届弟子修为之和，历届／本班弟子人数）；达到「筑基」（按老师最近一次结算）后
   //   可以拜入一个宗门或暂做散修（ck_sect_join）：拜入后可以改投他宗一次（2026-11-05 用户：“学生只有一次更改宗门的机会”），不能退为散修；
-  //   散修以后仍可拜入（不算改投）；老师可在工作台解除。第一次达到筑基时自动弹出一次。
+  //   散修以后仍可拜入（不算改投）；老师可在工作台解除。
+  //   2026-11-05 用户：“达到「筑基」境界的同学，如果还没有选择宗门的，下次登陆的时候会弹出选择宗门的选项，分别介绍一下四大宗门，介绍一下宗训和宗风，
+  //   尽量做得美观一些，可以加一些特效。”——选择与改投改在“山门大开”全屏画面里（live-sect.js：四宗简介、宗训释义、宗风说明、各宗特效、拜入庆贺）；
+  //   已达筑基、既没拜入宗门也没选散修的同学，每天第一次打开页面自动弹出（这台设备每天一次），选定宗门或散修后不再弹。
   //   拜入后面板按钮显示宗门名和宗门色，修为榜上名字旁有宗门标记。测试页用示意数据，不会真的拜入；旁听没有宗门 ----------
   const SECTS = Live.SECTS || [];
   const SECT_MIN = Live.SECT_MIN_REALM || 1;
@@ -3063,11 +3070,9 @@
   sectModal.className = 'clp-realm-modal clp-rank-modal';
   sectModal.hidden = true;
   document.body.appendChild(sectModal);
-  const sectAskKey = `classlive-sect-asked:${config.course}:${identity.class_name || ''}:${identity.sid || ''}`;
+  const sectGateKey = `classlive-sect-gate:${config.course}:${identity.class_name || ''}:${identity.sid || ''}`;   // 记下今天自动弹过“山门大开”
   let sectCache = null;     // { at, data }：30 秒内重复打开不再读后台
-  let sectPending = '';     // 正在确认拜入的宗门
-  let sectWelcome = false;  // 第一次达到筑基时自动弹出：顶部加一句恭喜
-  let sectBusy = false;
+  let gateOpen = false;
   function showSectButton(mine) {
     if (!sectButton) return;
     const sect = sectOf(mine && mine.sect);
@@ -3101,38 +3106,26 @@
     list.forEach((row) => { row.rank = 1 + list.filter((other) => (Number(other.points) || 0) > (Number(row.points) || 0)).length; });
     const mine = data.mine || {};
     const choosing = Boolean(mine.can_join) && (!mine.sect || mine.sect === 'sanxiu');
-    const switching = Boolean(mine.can_change) && !choosing;   // 已在宗门、还有一次改投机会
-    const from = sectOf(mine.sect);
     const rows = list.map((row, i) => {
       const isMine = mine.sect === row.key;
-      const ask = choosing ? `拜入以后还有一次改投他宗的机会（只有一次）。确定拜入「${esc(row.name)}」吗？`
-        : `改投机会只有一次：改投以后不能再换，也不能退为散修。确定从「${esc(from ? from.name : '')}」改投「${esc(row.name)}」吗？`;
-      const act = !(choosing || (switching && !isMine)) ? ''
-        : sectPending === row.key
-          ? `<div class="clp-sect-act"><p>${ask}</p><button type="button" data-sect-cancel>再想想</button><button type="button" class="is-go" data-sect-confirm="${row.key}"${sectBusy ? ' disabled' : ''}>${choosing ? '确定拜入' : '确定改投'}</button></div>`
-          : choosing ? `<div class="clp-sect-act"><button type="button" class="is-go" data-sect-pick="${row.key}">拜入${esc(row.name)}</button></div>`
-            : `<div class="clp-sect-act"><button type="button" data-sect-pick="${row.key}">改投${esc(row.name)}</button></div>`;
       return `<li class="clp-sect-row${isMine ? ' is-mine' : ''}" style="${sectVars(row)};--i:${i}">
         <span class="clp-rank-no">${row.rank}</span><span class="clp-sect-emb" aria-hidden="true">${esc(row.mark)}</span>
         <span class="clp-sect-main"><strong>${esc(row.name)}${isMine ? '<small>本门</small>' : ''}</strong>
           <span class="clp-sect-motto">“${esc(row.motto)}”——${esc(row.source)}</span><span class="clp-sect-way">宗风：${esc(row.way)}</span>
           <span class="clp-sect-meta">历届弟子 ${Number(row.members) || 0} 人 · 本班 ${Number(row.class_members) || 0} 人</span></span>
-        <span class="clp-sect-pts">${bigNum(row.points)}<small>宗门分</small></span>${act}</li>`;
+        <span class="clp-sect-pts">${bigNum(row.points)}<small>宗门分</small></span></li>`;
     }).join('');
     const sect = sectOf(mine.sect);
-    const mineHtml = PREVIEW ? '<p class="clp-rank-mine">测试页：示意数据，点“拜入”不会真的拜入宗门。</p>'
-      : sect ? `<p class="clp-rank-mine">你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</p>`
-      : mine.sect === 'sanxiu' && mine.can_join ? '<p class="clp-rank-mine">你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。</p>'
-      : mine.can_join ? `<div class="clp-rank-mine clp-sect-mine"><span>你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（散修以后仍可拜入宗门）。</span><button type="button" data-sect-sanxiu${sectBusy ? ' disabled' : ''}>暂做散修</button></div>`
+    const gateBtn = (text) => `<button type="button" class="clp-sect-gate" data-sect-gate>${text}</button>`;
+    const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>测试页：示意数据，可以看“山门大开”的画面，不会真的拜入宗门。</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
+      : sect ? `<div class="clp-rank-mine clp-sect-mine"><span>你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</span>${mine.can_change ? gateBtn('改投他宗（仅一次）') : ''}</div>`
+      : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
-    return `${sectWelcome && choosing && !mine.sect ? `<p class="clp-sect-welcome">恭喜筑基！从现在起你可以拜入四大宗门之一，与历届同门一起为宗门争光；也可以暂做散修，想清楚再拜入。</p>` : ''}
-      <p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
+    return `<p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
       <ol class="clp-sect-list">${rows}</ol>${mineHtml}
       <p class="clp-rank-note">宗门分＝本课程历届弟子的修为之和（按老师最近一次结算），分高者排名在前。弟子结课以后修为仍留在宗门里，一届一届传承下去，新同学随时可以加入；散修不计入任何宗门。拜入宗门以后有一次改投他宗的机会，改投时修为随你转到新宗门。</p>`;
   }
-  async function openSect(welcome) {
-    sectWelcome = Boolean(welcome);
-    sectPending = '';
+  async function openSect() {
     sectModal.innerHTML = sectShell('<p class="clp-rank-state">正在读取宗门榜……</p>');
     sectModal.hidden = false;
     sectModal.querySelector('[data-sect-close]').focus();
@@ -3149,46 +3142,57 @@
     if (close) close.focus({ preventScroll: true });
   }
   const redrawSect = () => { if (sectCache && !sectModal.hidden) sectModal.innerHTML = sectShell(sectBody(sectCache.data)); };
+  // 拜入／改投／做散修（山门画面的回调）：返回 { ok, message }；成功后刷新宗门榜、按钮和修为榜
   async function joinSect(key) {
-    if (PREVIEW) { toast('测试页：不会真的拜入宗门（学生页会记下你的选择）。'); sectPending = ''; redrawSect(); return; }
-    sectBusy = true;
-    redrawSect();
+    const sect = sectOf(key);
+    if (PREVIEW) {
+      toast(key === 'sanxiu' ? '测试页：不会真的做散修。' : `测试页：只演示画面，不会真的拜入「${sect.name}」。`);
+      return { ok: true };
+    }
+    let res;
     try {
       const value = await backend.rpc('ck_sect_join', { p_classroom: Number(identity.classroom) || identity.classroom, p_sect: key });
-      const res = (Array.isArray(value) ? value[0] : value) || {};
-      const sect = sectOf(res.sect || key);
-      if (res.status === 'ok') toast(key === 'sanxiu' ? '你选择了暂做散修，以后随时可以拜入宗门。'
-        : Number(res.changes) >= 1 ? `已改投「${sect.name}」！你的修为随你转入本门；改投机会已经用完。`
-          : `恭喜拜入「${sect.name}」！从此你的修为计入本门，与历届同门一起为宗门争光。`);
-      else if (res.status === 'locked' || res.status === 'already') toast(`你是「${sect ? sect.name : ''}」弟子：改投机会只有一次${Number(res.changes) >= 1 ? '，已经用过了' : ''}，也不能退为散修。`);
-      else if (res.status === 'realm') toast(`达到「${REALMS[SECT_MIN].name}」境界后才能拜入宗门（按老师最近一次结算的境界）。`);
-      else toast('请回首页用课堂码重新登录后再试。');
-      sectCache = null;
-      rankCache = null;
-      sectBusy = false;
-      sectPending = '';
-      const data = await loadSect();
-      if (!sectModal.hidden) sectModal.innerHTML = sectShell(sectBody(data));
+      res = (Array.isArray(value) ? value[0] : value) || {};
     } catch (problem) {
       console.error(problem);
-      toast('没有拜入成功，请检查网络后再试。');
-    } finally {
-      sectBusy = false;
-      redrawSect();
+      return { ok: false, message: '没有成功，请检查网络后再试。' };
     }
+    sectCache = null;
+    rankCache = null;
+    try { await loadSect(); redrawSect(); } catch (problem) { /* 下次打开再读 */ }
+    if (res.status === 'ok') {
+      if (key === 'sanxiu') toast('你选择了暂做散修，以后随时可以拜入宗门。');
+      return { ok: true };
+    }
+    const now = sectOf(res.sect);
+    return { ok: false, message: res.status === 'locked' || res.status === 'already' ? `你是「${now ? now.name : ''}」弟子：改投机会只有一次${Number(res.changes) >= 1 ? '，已经用过了' : ''}，也不能退为散修。`
+      : res.status === 'realm' ? `达到「${REALMS[SECT_MIN].name}」境界后才能拜入宗门（按老师最近一次结算的境界）。`
+        : '请回首页用课堂码重新登录后再试。' };
+  }
+  // “山门大开”：四宗简介、宗训与宗风、特效与拜入庆贺（live-sect.js）；没加载到时退回宗门榜
+  async function openGate(welcome) {
+    if (gateOpen) return;
+    let data = sectCache && Date.now() - sectCache.at < 30000 ? sectCache.data : null;
+    try { if (!data) data = await loadSect(); } catch (problem) { data = null; }
+    if (!data || data.status !== 'ok' || !window.ClassLiveSect) { openSect(); return; }
+    const mine = data.mine || {};
+    const switching = Boolean(mine.can_change) && mine.sect && mine.sect !== 'sanxiu';
+    if (!PREVIEW && !mine.can_join) { openSect(); return; }
+    const list = SECTS.map((sect) => ({ ...sect, ...((data.sects || []).find((row) => row.key === sect.key) || {}) }));
+    list.forEach((row) => { row.rank = 1 + list.filter((other) => (Number(other.points) || 0) > (Number(row.points) || 0)).length; });
+    sectModal.hidden = true;
+    gateOpen = true;
+    window.ClassLiveSect.open({ sects: list, mode: switching ? 'switch' : 'join', current: mine.sect, welcome, preview: PREVIEW,
+      onPick: joinSect, onClose: () => { gateOpen = false; } });
   }
   sectModal.addEventListener('click', (event) => {
     if (event.target === sectModal || event.target.closest('[data-sect-close]')) { sectModal.hidden = true; return; }
-    const pick = event.target.closest('[data-sect-pick]');
-    if (pick) { sectPending = pick.dataset.sectPick; redrawSect(); return; }
-    if (event.target.closest('[data-sect-cancel]')) { sectPending = ''; redrawSect(); return; }
-    const go = event.target.closest('[data-sect-confirm]');
-    if (go && !sectBusy) { joinSect(go.dataset.sectConfirm); return; }
-    if (event.target.closest('[data-sect-sanxiu]') && !sectBusy) joinSect('sanxiu');
+    if (event.target.closest('[data-sect-gate]')) openGate(false);
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !sectModal.hidden) sectModal.hidden = true; });
-  if (sectButton) sectButton.addEventListener('click', () => openSect(false));
-  // 打开页面（和每分钟刷新境界）时：已达筑基的同学读一次宗门榜，按钮显示所属宗门；还没选过的，第一次自动弹出宗门榜（等更新说明等弹窗关掉以后）
+  if (sectButton) sectButton.addEventListener('click', () => openSect());
+  // 打开页面（和每分钟刷新境界）时：已达筑基的同学读一次宗门榜，按钮显示所属宗门；既没拜入宗门也没选散修的，每天第一次自动弹出“山门大开”
+  // （这台设备每天一次，等更新说明、修为提升等弹窗关掉以后）
   let sectLoaded = false;
   async function sectInit() {
     if (sectLoaded || LOCAL_ONLY || OFFLINE || !joined || !sectButton) return;
@@ -3197,13 +3201,14 @@
     try {
       const data = await loadSect();
       const mine = data && data.mine;
-      if (!mine || !mine.can_join || mine.sect || load(sectAskKey, 0)) return;
+      const today = Live.today();
+      if (!mine || !mine.can_join || mine.sect || load(sectGateKey, '') === today) return;
       let waited = 0;
       const tryOpen = () => {
-        const busy = !newsModal.hidden || !realmModal.hidden || !rankModal.hidden || !sectModal.hidden || document.querySelector('.clp-egg');
-        if (busy && (waited += 1) < 120) { setTimeout(tryOpen, 1500); return; }
-        save(sectAskKey, 1);
-        if (sectModal.hidden) openSect(true);
+        const busy = gateOpen || !newsModal.hidden || !realmModal.hidden || !rankModal.hidden || !sectModal.hidden || document.querySelector('.clp-egg, .clp-pzd:not([hidden])');
+        if (busy) { if ((waited += 1) < 120) setTimeout(tryOpen, 1500); return; }   // 一直有弹窗（如课上的猜谜抢答）就不打扰，下次打开页面再弹
+        save(sectGateKey, today);
+        openGate(true);
       };
       setTimeout(tryOpen, 2500);
     } catch (problem) {
