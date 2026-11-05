@@ -122,15 +122,44 @@
       hide() { tip.hidden = true; },
     };
   }
+  // 2026-11-05 用户：“鼠标移到别处后，浮现的具体数据内容就自动消失”：同一时间只显示一个提示框；
+  // 指针移到别处（不在这一块上）、页面或表格滚动、切到别的窗口或标签页、点别处时都收起。
+  // 键盘（Tab）聚焦时显示；鼠标点了以后留下的焦点不再弹出提示（原来切回窗口时会重新弹出、移开也不消失）
+  let active = null;   // { node, tip, leave }
+  function hideActive() {
+    if (!active) return;
+    const { tip, leave } = active;
+    active = null;
+    tip.hide();
+    if (leave) leave();
+  }
+  let globalBound = false;
+  function bindGlobal() {
+    if (globalBound) return;
+    globalBound = true;
+    document.addEventListener('pointermove', (event) => { if (active && !active.node.contains(event.target)) hideActive(); }, { passive: true });
+    document.addEventListener('pointerdown', (event) => { if (active && !active.node.contains(event.target)) hideActive(); }, { passive: true });
+    window.addEventListener('scroll', hideActive, { capture: true, passive: true });
+    window.addEventListener('blur', hideActive);
+    document.addEventListener('visibilitychange', () => { if (document.hidden) hideActive(); });
+  }
   function bindHover(node, card, getContent, onEnter, onLeave) {
+    bindGlobal();
     const tip = tipFor(card);
-    const enter = (event) => { const [value, lines] = getContent(); tip.show(event, value, lines); if (onEnter) onEnter(); };
-    const leave = () => { tip.hide(); if (onLeave) onLeave(); };
+    const show = (event) => {
+      if (active && active.node !== node) hideActive();
+      const [value, lines] = getContent();
+      tip.show(event, value, lines);
+      if (!active && onEnter) onEnter();
+      active = { node, tip, leave: onLeave };
+    };
+    const leave = () => { if (active && active.node === node) hideActive(); };
     node.setAttribute('tabindex', '0');
-    node.addEventListener('pointermove', enter);
+    node.addEventListener('pointermove', show);
     node.addEventListener('pointerleave', leave);
-    node.addEventListener('focus', enter);
+    node.addEventListener('focus', (event) => { let keyboard = true; try { keyboard = node.matches(':focus-visible'); } catch (error) { /* 旧浏览器 */ } if (keyboard) show(event); });
     node.addEventListener('blur', leave);
+    node.addEventListener('keydown', (event) => { if (event.key === 'Escape') leave(); });
   }
   // 圆角只在数据端：竖柱顶部、横条右端各 4px，基线一端方角
   const colPath = (x, y, w, h) => {
