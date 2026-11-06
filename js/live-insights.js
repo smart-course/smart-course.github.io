@@ -5,27 +5,29 @@
  *   2026-11-07 起又有 lines 折线／面积图、treemap 矩形树图、waffle 方格图、segmented 分段条、calendar 日历热力图、radar 雷达图、meter 进度条；
  *   所有文字先量实际宽度再排版，不超出卡片；
  *   每张图都能悬停或用键盘聚焦看数值（提示框只增补，不是唯一途径），图下面“查看数据表”给出同样的数。
- * 配色（2026-11-07 用户：“多设置一些不同的颜色……尽量美观一些，要有色彩和视觉效果。可以学习一下专业数据可视化的配色”）：
- *   不同类别用校验过的八色（顺序经过色盲校验，TONE）；有高低、先后的用 ColorBrewer 的多色相渐变（亮度单调，RAMPS）；
- *   有固定含义的颜色跟着含义走：行为、境界、宗门、正确率（rateColor：红到绿）。文字一律用文字颜色，不用数据色，色块上的字按底色选白或深色。
+ * 配色（2026-11-07 用户：“配色可以更美观，更暖色系一些吗？最好能符合我们课件的风格”）：课件是中国红 #b4142e ＋ 金 #c9a24b，标题左边金色竖条，
+ *   内容框浅红、浅金、浅绿；网站是暖纸色、墨绿、赭红。所以主色用红和金，暖色为主，只留墨绿、黛蓝做少量对比。
+ *   金色按用户要求（“金再亮一点”）比课件的金亮一些：#eca30d，这是通过校验（亮度上限）的最亮一档。
+ *   不同类别用校验过的九色（TONE，顺序经过色盲校验，不要随意调换）；有高低、先后的用暖色多色相渐变（亮度单调，RAMPS）；
+ *   有固定含义的颜色跟着含义走：行为、境界、宗门、正确率（rateColor：红到墨绿）。文字一律用文字颜色，色块上的字按底色选白或深色。
  */
 (function () {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
   const C = {
-    series: '#2a78d6', seriesHover: '#1c5cab', surface: '#fffdf8', grid: '#e9e5dc', axis: '#c9c2b4',
-    ink: '#201c18', ink2: '#52514e', muted: '#7d746a', zero: '#f0ede6',
-    ramp: ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'],
+    series: '#b4142e', seriesHover: '#7a0c1e', surface: '#fffdf8', grid: '#efe6d6', axis: '#d3c4ab',
+    ink: '#201c18', ink2: '#5a4f45', muted: '#7d6f60', zero: '#f6f1e7',
   };
-  const TONE = { blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100', magenta: '#e87ba4', green: '#008300', violet: '#6250d6', red: '#e34948', teal: '#0e8fa3', jade: '#12a594', rose: '#d6336c', copper: '#b5763a', neutral: '#d6cfc2' };
+  const TONE = { crimson: '#b4142e', gold: '#eca30d', teal: '#00846e', apricot: '#e8743b', plum: '#6d3a8c', rose: '#d4688a', umber: '#a0601f', jade: '#2fa183', ink: '#1f6a9a',
+    goldLine: '#e39a10', copper: '#ab6c2c', neutral: '#ddd2bf' };
   const RAMPS = {
-    heat: ['#ffeda0', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#bd0026', '#800026'],   // ColorBrewer YlOrRd
-    green: ['#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'],   // ColorBrewer YlGn
-    ocean: ['#57c4ad', '#2a9fbc', '#2c7fb8', '#253494', '#1b1f6b'],                         // 由 ColorBrewer YlGnBu 取最浅一档也和底色分得开的五档
-    timing: ['#2a78d6', '#12a594', '#dba800', '#e8622f', '#a81e3a'],                        // 早 → 晚
+    heat: ['#f8e3a0', '#f2c558', '#e9a030', '#d0702f', '#b4412e', '#8e1c26', '#5e0917'],   // 浅金 → 赭 → 中国红 → 深红（课件封面的深红）
+    gold: ['#f7e3a3', '#f0c84a', '#e3a91e', '#b98a1a', '#85601a', '#553b10'],               // 浅金 → 金 → 檀棕
+    ember: ['#e9a92a', '#dc882e', '#c96a35', '#a83a2c', '#6e1420'],                         // 金 → 赭 → 深红，最浅一档也和底色分得开
+    timing: ['#00846e', '#eca30d', '#d9572a', '#a8182e', '#6d3a8c'],                        // 早 → 晚
   };
-  // 正确率、到课率这类“越高越好”的值：红 → 橙 → 黄 → 绿（数值都直接写在图上，颜色只是帮助一眼看出高低）
-  const RATE_STOPS = [[30, '#d64545'], [50, '#eb6834'], [65, '#eda100'], [80, '#6fb52c'], [95, '#12a594']];
+  // 正确率、到课率这类“越高越好”的值：中国红 → 赭 → 金 → 橄榄 → 墨绿（数值都直接写在图上，颜色只是帮助一眼看出高低）
+  const RATE_STOPS = [[30, '#b4142e'], [50, '#d9572a'], [65, '#eca30d'], [80, '#7f9a3c'], [95, '#00846e']];
   function mix(a, b, t) {
     const [x, y] = [a, b].map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
     return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
@@ -43,13 +45,13 @@
   .ins-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
   .ins-grid > .is-wide { grid-column: 1 / -1; }
   @media (max-width: 900px) { .ins-grid { grid-template-columns: 1fr; } }
-  .ins-card { position: relative; min-width: 0; padding: 18px 18px 14px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; box-shadow: 0 6px 18px rgba(70,51,34,.06); transition: opacity .2s, box-shadow .2s, transform .2s; }
-  .ins-card::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, var(--tone, transparent), transparent 85%); }
-  .ins-card:hover { box-shadow: 0 10px 26px rgba(70,51,34,.11); }
+  .ins-card { position: relative; min-width: 0; padding: 18px 18px 14px; border: 1px solid rgba(122,12,30,.12); border-radius: 14px; background: ${C.surface}; box-shadow: 0 6px 18px rgba(94,9,23,.06); transition: opacity .2s, box-shadow .2s, transform .2s; }
+  .ins-card::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, #b4142e, #e8ad28 45%, transparent 90%); }
+  .ins-card:hover { box-shadow: 0 10px 26px rgba(94,9,23,.11); }
   .ins-card h3 { margin: 0; color: ${C.ink}; font-size: 16px; font-weight: 800; }
   .ins-card .ins-sub { margin: 2px 0 10px; color: ${C.ink2}; font-size: 13px; line-height: 1.55; }
   .ins-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .ins-tile { position: relative; overflow: hidden; padding: 14px 16px 14px 20px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; background: linear-gradient(135deg, color-mix(in srgb, var(--tone, transparent) 14%, ${C.surface}), ${C.surface} 72%); box-shadow: 0 6px 18px rgba(70,51,34,.06); }
+  .ins-tile { position: relative; overflow: hidden; padding: 14px 16px 14px 20px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; background: linear-gradient(135deg, color-mix(in srgb, var(--tone, transparent) 13%, ${C.surface}), ${C.surface} 72%); box-shadow: 0 6px 18px rgba(94,9,23,.06); }
   .ins-tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--tone, transparent); }
   .ins-tile span { display: block; color: ${C.ink2}; font-size: 13px; font-weight: 700; }
   .ins-tile b { display: block; margin-top: 4px; color: ${C.ink}; font-size: 28px; font-weight: 700; line-height: 1.2; }
@@ -78,7 +80,7 @@
   .ins-tip strong { display: block; color: ${C.ink}; font-size: 15px; font-weight: 800; }
   .ins-tip i { display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: middle; background: ${C.series}; }
   .ins-legend { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: ${C.muted}; font-size: 12px; }
-  .ins-legend i { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, ${C.ramp[0]}, ${C.ramp[6]}, ${C.ramp[12]}); }
+  .ins-legend i { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #f8e3a0, #d0702f, #5e0917); }
   .ins-legend em { display: inline-block; width: 12px; height: 8px; border-radius: 2px; background: ${C.zero}; font-style: normal; }
   .ins-table { margin-top: 8px; color: ${C.ink2}; font-size: 13px; }
   .ins-table summary { cursor: pointer; color: ${C.muted}; font-weight: 700; }
@@ -86,8 +88,8 @@
   .ins-table th, .ins-table td { padding: 4px 8px; border-bottom: 1px solid ${C.grid}; text-align: left; white-space: nowrap; }
   .ins-table .ins-scroll { max-height: 260px; overflow: auto; }
   .ins-empty { margin: 18px 0; color: ${C.muted}; font-size: 14px; text-align: center; }
-  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
-  .ins-sec::before { content: ""; display: inline-block; width: 7px; height: 18px; margin-right: 9px; border-radius: 4px; background: var(--tone, ${C.axis}); vertical-align: -3px; }
+  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(122,12,30,.14); color: #7a0c1e; font-size: 18px; font-weight: 800; }
+  .ins-sec::before { content: ""; display: inline-block; width: 6px; height: 20px; margin-right: 10px; border-radius: 2px; background: #e8ad28; vertical-align: -4px; }   /* 课件标题左边的金色竖条 */
   .ins-sec small { margin-left: 8px; color: ${C.muted}; font-size: 13px; font-weight: 600; }
   .ins-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; color: ${C.ink2}; font-size: 12.5px; }
   .ins-keys span { display: inline-flex; align-items: center; gap: 6px; }
@@ -323,11 +325,9 @@
     box.appendChild(scroll);
     card.appendChild(box);
   }
-  let sectionTone = '';   // 卡片顶部的色条跟着所在分组的颜色
   function card(parent, title, sub, wide) {
     const box = document.createElement('section');
     box.className = `ins-card${wide ? ' is-wide' : ''}`;
-    if (sectionTone) box.style.setProperty('--tone', sectionTone);
     const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
     if (sub) { const p = document.createElement('p'); p.className = 'ins-sub'; p.textContent = sub; box.appendChild(p); }
     parent.appendChild(box);
@@ -339,7 +339,7 @@
   function tiles(parent, list) {
     const box = document.createElement('div');
     box.className = 'ins-tiles';
-    const tones = [TONE.jade, TONE.violet, TONE.orange, TONE.rose];
+    const tones = [TONE.crimson, TONE.gold, TONE.teal, TONE.apricot];   // 课件内容框：浅红、浅金、浅绿，再加赭橙
     list.forEach((item, i) => {
       const tile = document.createElement('div');
       tile.className = 'ins-tile';
@@ -359,7 +359,7 @@
     if (!data.length || !data.some((d) => d.value > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const W = widthOf(host);
     const H = opts.height || 220;
-    const color = opts.color || TONE.jade;
+    const color = opts.color || TONE.crimson;
     const ticks = niceTicks(Math.max(...data.map((d) => d.value)));
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 18, b: 26 };
     const pw = W - m.l - m.r;
@@ -406,7 +406,7 @@
       const y = i * row + (row - bh) / 2;
       const w = (d.value / max) * pw;
       text(svg, label - 8, y + bh / 2 + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
-      const color = d.color || opts.color || TONE.jade;
+      const color = d.color || opts.color || TONE.crimson;
       const bar = w > 0 ? el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg) : null;
       const shown = shownOf(d);
       text(svg, label + w + 6, y + bh / 2 + 4, shown, { class: 'is-value' });
@@ -428,7 +428,7 @@
     const max = opts.max || Math.max(...data.map((d) => d.value)) || 1;
     data.forEach((d, i) => {
       const y = i * row;
-      const color = d.color || opts.color || TONE.jade;
+      const color = d.color || opts.color || TONE.crimson;
       const shown = shownOf(d);
       text(svg, 0, y + 15, fit(d.label, W), { class: 'is-label' });
       const w = (d.value / max) * pw;
@@ -462,7 +462,7 @@
     const H = m.t + rows.length * (cell + gap) + m.b;
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     const scale = opts.ramp || RAMPS.heat;
-    const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor(Math.sqrt(v / max) * (scale.length - 1) + 0.0001))]);   // 开方：次数少的格子也看得出颜色
+    const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor(((v / max) ** 0.4) * (scale.length - 1) + 0.0001))]);   // 课上那一小时往往特别高，压缩一下：次数少的格子也看得出深浅
     cols.forEach((c, j) => { if (j % 3 === 0) text(svg, m.l + j * (cellW + gap) + cellW / 2, m.t - 6, String(c), { 'text-anchor': 'middle' }); });
     rows.forEach((r, i) => {
       text(svg, m.l - 8, m.t + i * (cell + gap) + cell / 2 + 4, r, { 'text-anchor': 'end', class: 'is-label' });
@@ -536,11 +536,9 @@
   }
 
   // 分组标题（占满一行）
-  function section(parent, title, note, tone) {
+  function section(parent, title, note) {
     const h = document.createElement('h3');
     h.className = 'ins-sec';
-    sectionTone = tone || '';
-    if (tone) h.style.setProperty('--tone', tone);
     h.textContent = title;
     if (note) { const small = document.createElement('small'); small.textContent = note; h.appendChild(small); }
     parent.appendChild(h);
@@ -646,7 +644,7 @@
       (opts.quadrants || []).forEach(([qx, qy, label]) => text(svg, qx ? W - m.r - 4 : m.l + 6, qy ? m.t + 26 : H - m.b - 18, label, { 'text-anchor': qx ? 'end' : 'start' }));
     }
     points.forEach((p) => {
-      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || TONE.violet, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
+      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || TONE.crimson, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
       const hit = el('circle', { cx: X(p.x), cy: Y(p.y), r: 12, class: 'ins-hit', 'aria-label': `${p.label}：${opts.xName} ${p.x}，${opts.yName} ${p.y}` }, svg);
       bindHover(hit, cardEl, () => [p.label, p.lines || []], () => dot.setAttribute('r', '7'), () => dot.setAttribute('r', '5'));
     });
@@ -654,8 +652,8 @@
 
   // 个人与全班对比：rows＝[{ label, me, avg, max, unit }]，每行各自的刻度（不同单位不混一个轴），数值写在条末端
   function compare(host, cardEl, rows, opts = {}) {
-    const meColor = opts.meColor || TONE.violet;
-    const avgColor = opts.avgColor || TONE.yellow;
+    const meColor = opts.meColor || TONE.crimson;
+    const avgColor = opts.avgColor || TONE.gold;
     if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const row = 40; const bh = 10;
@@ -806,7 +804,7 @@
     const list = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
     const total = list.reduce((t, d) => t + d.value, 0);
     if (!(total > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
-    if (list.length > 1) keys(host, list.map((d) => ({ name: d.label, color: d.color || TONE.blue })));   // 图例：放不下名字的小方块也能对上颜色
+    if (list.length > 1) keys(host, list.map((d) => ({ name: d.label, color: d.color || TONE.crimson })));   // 图例：放不下名字的小方块也能对上颜色
     const W = widthOf(host);
     const H = opts.height || 250;
     const worst = (row, side) => {
@@ -837,7 +835,7 @@
     }
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     boxes.forEach(({ d, x, y, w, h }) => {
-      const base = d.color || TONE.blue;
+      const base = d.color || TONE.crimson;
       const ink = inkOn(base);
       const rect = el('rect', { x: x + 1, y: y + 1, width: Math.max(1, w - 2), height: Math.max(1, h - 2), rx: 6, class: 'ins-rise', fill: gradient(svg, [[0, mix(base, '#ffffff', 0.14)], [1, base]], { x1: 0, y1: 0, x2: 1, y2: 1 }) }, svg);
       const amount = `${fmt(d.value)}${opts.unit || ''} · ${Math.round((d.value / total) * 100)}%`;
@@ -925,7 +923,7 @@
     const H = m.t + 7 * (cell + gap) - gap + 2;
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     ['周一', '', '周三', '', '周五', '', '周日'].forEach((label, r) => { if (label) text(svg, 0, m.t + r * (cell + gap) + cell / 2 + 4, label); });
-    const scale = opts.ramp || RAMPS.green;
+    const scale = opts.ramp || RAMPS.gold;
     const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor((v / max) * (scale.length - 1) + 0.0001))]);
     let monthEnd = -99;
     days.forEach((d, i) => {
@@ -951,8 +949,8 @@
 
   // 雷达图（一个人和全班平均的整体轮廓）：rows＝[{ label, short, me, avg, max, unit, note }]，每个方向各自的刻度（外圈＝这一项的满分或全班最高）
   function radar(host, cardEl, rows, opts = {}) {
-    const meColor = opts.meColor || TONE.violet;
-    const avgColor = opts.avgColor || TONE.yellow;
+    const meColor = opts.meColor || TONE.crimson;
+    const avgColor = opts.avgColor || TONE.gold;
     if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const nameOf = (d) => d.short || d.label;
@@ -990,7 +988,7 @@
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     text(svg, 0, 34, item.big, { style: `fill:${C.ink};font-size:30px;font-weight:700;font-variant-numeric:normal` });
     if (item.note) text(svg, W, 34, item.note, { 'text-anchor': 'end', class: 'is-label' });
-    const color = item.color || TONE.violet;
+    const color = item.color || TONE.goldLine;
     el('rect', { x: 0, y: 50, width: W, height: 12, rx: 6, fill: mix(color, '#ffffff', 0.82) }, svg);
     const w = Math.max(0, Math.min(1, item.value / (item.max || 1))) * W;
     if (w > 0) el('rect', { x: 0, y: 50, width: Math.max(12, w), height: 12, rx: 6, fill: fillOf(svg, color), class: 'ins-grow' }, svg);
