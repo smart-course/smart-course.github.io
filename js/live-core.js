@@ -761,6 +761,7 @@
                   top: ranked(role).slice(0, 5).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
                   hot: mine.map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => same(m) && m.case_no === roomNo && m.sid === p.sid) || {}).name, text: p.text, likes: likeCount(p.id) }))
                     .sort((a, b) => b.likes - a.likes || Number(b.id) - Number(a.id)).slice(0, 4),
+                  all: mine.slice().sort((a, b) => Number(a.id) - Number(b.id)).map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => same(m) && m.case_no === roomNo && m.sid === p.sid) || {}).name, text: p.text, at: p.created_at, likes: likeCount(p.id) })),
                 };
               });
               const awarded = read('bonus').filter((b) => same(b) && b.day === today() && b.kind === 'biz').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
@@ -943,6 +944,7 @@
                 top: ranked(room.id, no, side).slice(0, 10).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
                 hot: mine.map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => m.sid === p.sid && String(m.classroom) === String(room.id) && m.case_no === no) || {}).name, text: p.text, likes: likeCount(p.id) }))
                   .sort((a, b) => b.likes - a.likes || Number(b.id) - Number(a.id)).slice(0, 6),
+                all: mine.slice().sort((a, b) => Number(a.id) - Number(b.id)).map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => m.sid === p.sid && String(m.classroom) === String(room.id) && m.case_no === no) || {}).name, text: p.text, at: p.created_at, likes: likeCount(p.id) })),
                 votes: votes(side),
               };
             });
@@ -2469,8 +2471,33 @@
     }).filter(Boolean).sort((x, y) => (y.last > x.last ? 1 : y.last < x.last ? -1 : 0));   // 新的分组在前
   }
 
+  // 聊天室看板的发言列表（2026-11-07 用户：“课堂完整版正文中聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”）：
+  // rows 按发布先后传入；已有的行留在原处（只更新点赞数等，不因点赞变换位置），新的接在最下面；
+  // 正看着最下面时跟着新消息滚动，往上翻看时不打扰。行内容变了才动 DOM，翻看时不会被刷新打断
+  function syncFeed(box, rows, rowHtml) {
+    const follow = box.scrollHeight - box.scrollTop - box.clientHeight < 28;
+    const top = box.scrollTop;
+    const old = new Map(Array.from(box.children).map((el) => [el.dataset.feedId, el]));
+    let cursor = box.firstElementChild;
+    rows.forEach((row) => {
+      const id = String(row.id);
+      const html = rowHtml(row);
+      let el = old.get(id);
+      if (!el) { el = document.createElement('li'); el.dataset.feedId = id; }
+      old.delete(id);
+      if (el.dataset.feedHtml !== html) { el.innerHTML = html; el.dataset.feedHtml = html; }
+      if (el === cursor) cursor = cursor.nextElementSibling; else box.insertBefore(el, cursor);
+    });
+    old.forEach((el) => el.remove());
+    box.scrollTop = follow ? box.scrollHeight : top;
+  }
+  const feedClockFormat = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false });
+  const feedClock = (at) => { const ms = Date.parse(at); return Number.isNaN(ms) ? '' : feedClockFormat.format(new Date(ms)); };
+
   window.ClassLive = window.ClassLive || {};
   Object.assign(window.ClassLive, {
+    syncFeed,
+    feedClock,
     news,
     newsList,
     newsRange,

@@ -5,7 +5,9 @@
  *   2026-11-07 起又有 lines 折线／面积图、treemap 矩形树图、waffle 方格图、segmented 分段条、calendar 日历热力图、radar 雷达图、meter 进度条；
  *   所有文字先量实际宽度再排版，不超出卡片；
  *   每张图都能悬停或用键盘聚焦看数值（提示框只增补，不是唯一途径），图下面“查看数据表”给出同样的数。
- * 配色：单一系列用蓝色（#2a78d6），热力图用同一色相由浅到深，零值为中性灰；文字一律用文字颜色，不用数据色。
+ * 配色（2026-11-07 用户：“多设置一些不同的颜色……尽量美观一些，要有色彩和视觉效果。可以学习一下专业数据可视化的配色”）：
+ *   不同类别用校验过的八色（顺序经过色盲校验，TONE）；有高低、先后的用 ColorBrewer 的多色相渐变（亮度单调，RAMPS）；
+ *   有固定含义的颜色跟着含义走：行为、境界、宗门、正确率（rateColor：红到绿）。文字一律用文字颜色，不用数据色，色块上的字按底色选白或深色。
  */
 (function () {
   'use strict';
@@ -15,19 +17,56 @@
     ink: '#201c18', ink2: '#52514e', muted: '#7d746a', zero: '#f0ede6',
     ramp: ['#cde2fb', '#b7d3f6', '#9ec5f4', '#86b6ef', '#6da7ec', '#5598e7', '#3987e5', '#2a78d6', '#256abf', '#1c5cab', '#184f95', '#104281', '#0d366b'],
   };
+  const TONE = { blue: '#2a78d6', orange: '#eb6834', aqua: '#1baf7a', yellow: '#eda100', magenta: '#e87ba4', green: '#008300', violet: '#6250d6', red: '#e34948', teal: '#0e8fa3', jade: '#12a594', rose: '#d6336c', copper: '#b5763a', neutral: '#d6cfc2' };
+  const RAMPS = {
+    heat: ['#ffeda0', '#feb24c', '#fd8d3c', '#fc4e2a', '#e31a1c', '#bd0026', '#800026'],   // ColorBrewer YlOrRd
+    green: ['#d9f0a3', '#addd8e', '#78c679', '#41ab5d', '#238443', '#006837', '#004529'],   // ColorBrewer YlGn
+    ocean: ['#57c4ad', '#2a9fbc', '#2c7fb8', '#253494', '#1b1f6b'],                         // 由 ColorBrewer YlGnBu 取最浅一档也和底色分得开的五档
+    timing: ['#2a78d6', '#12a594', '#dba800', '#e8622f', '#a81e3a'],                        // 早 → 晚
+  };
+  // 正确率、到课率这类“越高越好”的值：红 → 橙 → 黄 → 绿（数值都直接写在图上，颜色只是帮助一眼看出高低）
+  const RATE_STOPS = [[30, '#d64545'], [50, '#eb6834'], [65, '#eda100'], [80, '#6fb52c'], [95, '#12a594']];
+  function mix(a, b, t) {
+    const [x, y] = [a, b].map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
+    return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
+  }
+  function rateColor(value) {
+    const v = Number(value) || 0;
+    if (v <= RATE_STOPS[0][0]) return RATE_STOPS[0][1];
+    for (let i = 1; i < RATE_STOPS.length; i += 1) {
+      if (v <= RATE_STOPS[i][0]) return mix(RATE_STOPS[i - 1][1], RATE_STOPS[i][1], (v - RATE_STOPS[i - 1][0]) / (RATE_STOPS[i][0] - RATE_STOPS[i - 1][0]));
+    }
+    return RATE_STOPS[RATE_STOPS.length - 1][1];
+  }
+  const rampCss = (ramp) => `linear-gradient(90deg, ${ramp.join(', ')})`;
   const CSS = `
   .ins-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
   .ins-grid > .is-wide { grid-column: 1 / -1; }
   @media (max-width: 900px) { .ins-grid { grid-template-columns: 1fr; } }
-  .ins-card { position: relative; min-width: 0; padding: 16px 18px 14px; border: 1px solid rgba(70,51,34,.12); border-radius: 12px; background: ${C.surface}; transition: opacity .2s; }
+  .ins-card { position: relative; min-width: 0; padding: 18px 18px 14px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; box-shadow: 0 6px 18px rgba(70,51,34,.06); transition: opacity .2s, box-shadow .2s, transform .2s; }
+  .ins-card::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, var(--tone, transparent), transparent 85%); }
+  .ins-card:hover { box-shadow: 0 10px 26px rgba(70,51,34,.11); }
   .ins-card h3 { margin: 0; color: ${C.ink}; font-size: 16px; font-weight: 800; }
   .ins-card .ins-sub { margin: 2px 0 10px; color: ${C.ink2}; font-size: 13px; line-height: 1.55; }
   .ins-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .ins-tile { padding: 14px 16px; border: 1px solid rgba(70,51,34,.12); border-radius: 12px; background: ${C.surface}; }
+  .ins-tile { position: relative; overflow: hidden; padding: 14px 16px 14px 20px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; background: linear-gradient(135deg, color-mix(in srgb, var(--tone, transparent) 14%, ${C.surface}), ${C.surface} 72%); box-shadow: 0 6px 18px rgba(70,51,34,.06); }
+  .ins-tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--tone, transparent); }
   .ins-tile span { display: block; color: ${C.ink2}; font-size: 13px; font-weight: 700; }
   .ins-tile b { display: block; margin-top: 4px; color: ${C.ink}; font-size: 28px; font-weight: 700; line-height: 1.2; }
   .ins-tile small { display: block; margin-top: 2px; color: ${C.muted}; font-size: 12px; line-height: 1.5; }
   .ins-svg { display: block; width: 100%; height: auto; overflow: visible; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  /* 出场动画：线条画出来、条形长出来、方格一个个亮起来（只在画图时播一次） */
+  .ins-draw { animation: ins-draw .9s cubic-bezier(.4, 0, .2, 1) both; }
+  @keyframes ins-draw { from { stroke-dasharray: 0 1; } to { stroke-dasharray: 1 0; } }
+  .ins-rise { animation: ins-rise .7s ease-out both; }
+  @keyframes ins-rise { from { opacity: 0; } }
+  .ins-grow, .ins-grow-l, .ins-grow-v { transform-box: fill-box; animation: ins-grow .65s cubic-bezier(.2, .8, .2, 1) both; }
+  .ins-grow { transform-origin: 0 50%; } .ins-grow-l { transform-origin: 100% 50%; } .ins-grow-v { transform-origin: 50% 100%; animation-name: ins-grow-v; }
+  @keyframes ins-grow { from { transform: scaleX(.02); } }
+  @keyframes ins-grow-v { from { transform: scaleY(.02); } }
+  .ins-pop { transform-box: fill-box; transform-origin: center; animation: ins-pop .35s ease-out both; animation-delay: calc(var(--i, 0) * 8ms); }
+  @keyframes ins-pop { from { opacity: 0; transform: scale(.4); } }
+  @media (prefers-reduced-motion: reduce) { .ins-draw, .ins-rise, .ins-grow, .ins-grow-l, .ins-grow-v, .ins-pop { animation: none; } }
   .ins-svg text { fill: ${C.muted}; font-size: 11.5px; font-variant-numeric: tabular-nums; }
   .ins-svg text.is-label { fill: ${C.ink2}; font-size: 12.5px; font-variant-numeric: normal; }
   .ins-svg text.is-value { fill: ${C.ink}; font-size: 12px; font-weight: 700; }
@@ -47,7 +86,8 @@
   .ins-table th, .ins-table td { padding: 4px 8px; border-bottom: 1px solid ${C.grid}; text-align: left; white-space: nowrap; }
   .ins-table .ins-scroll { max-height: 260px; overflow: auto; }
   .ins-empty { margin: 18px 0; color: ${C.muted}; font-size: 14px; text-align: center; }
-  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 10px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
+  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
+  .ins-sec::before { content: ""; display: inline-block; width: 7px; height: 18px; margin-right: 9px; border-radius: 4px; background: var(--tone, ${C.axis}); vertical-align: -3px; }
   .ins-sec small { margin-left: 8px; color: ${C.muted}; font-size: 13px; font-weight: 600; }
   .ins-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; color: ${C.ink2}; font-size: 12.5px; }
   .ins-keys span { display: inline-flex; align-items: center; gap: 6px; }
@@ -155,11 +195,27 @@
   function inkOn(hex) {
     const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16) / 255).map((v) => (v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4));
     const lum = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-    return 1.05 / (lum + 0.05) >= (lum + 0.05) / 0.05 ? '#ffffff' : '#201c18';
+    return 1.05 / (lum + 0.05) >= 3 ? '#ffffff' : '#201c18';   // 白字对比度够 3:1 就用白字（中等深度的色块上白字更好看）
   }
-  // 有先后、高低顺序的几档：同一色相由浅到深（最浅一档也要和底色分得开）
-  const ORDINAL = ['#86b6ef', '#5598e7', '#2a78d6', '#1c5cab', '#0d366b'];
-  const ordinal = (n) => (n <= 1 ? [ORDINAL[2]] : Array.from({ length: n }, (_, i) => ORDINAL[Math.round((i * (ORDINAL.length - 1)) / (n - 1))]));
+  // 渐变：条形从基线到数据端由浅到深，面积从线到底渐隐。同一张图里相同的颜色共用一个定义
+  let paintSeq = 0;
+  function gradient(svg, stops, coords) {
+    const id = `ins-g${++paintSeq}`;
+    const defs = svg.querySelector(':scope > defs') || el('defs', {}, svg);
+    const g = el('linearGradient', { id, ...coords }, defs);
+    stops.forEach(([offset, color, opacity]) => el('stop', { offset, 'stop-color': color, ...(opacity == null ? {} : { 'stop-opacity': opacity }) }, g));
+    return `url(#${id})`;
+  }
+  function fillOf(svg, color, way = 'right') {
+    if (!svg.insFills) svg.insFills = new Map();
+    const key = `${color}|${way}`;
+    if (!svg.insFills.has(key)) {
+      const soft = mix(color, '#ffffff', 0.3);
+      const coords = way === 'left' ? { x1: 1, y1: 0, x2: 0, y2: 0 } : way === 'up' ? { x1: 0, y1: 1, x2: 0, y2: 0 } : { x1: 0, y1: 0, x2: 1, y2: 0 };
+      svg.insFills.set(key, gradient(svg, [[0, soft], [1, color]], coords));
+    }
+    return svg.insFills.get(key);
+  }
 
   // 提示框：每张卡片一个；数值在前（粗），说明在后
   function tipFor(card) {
@@ -267,9 +323,11 @@
     box.appendChild(scroll);
     card.appendChild(box);
   }
+  let sectionTone = '';   // 卡片顶部的色条跟着所在分组的颜色
   function card(parent, title, sub, wide) {
     const box = document.createElement('section');
     box.className = `ins-card${wide ? ' is-wide' : ''}`;
+    if (sectionTone) box.style.setProperty('--tone', sectionTone);
     const h = document.createElement('h3'); h.textContent = title; box.appendChild(h);
     if (sub) { const p = document.createElement('p'); p.className = 'ins-sub'; p.textContent = sub; box.appendChild(p); }
     parent.appendChild(box);
@@ -281,9 +339,11 @@
   function tiles(parent, list) {
     const box = document.createElement('div');
     box.className = 'ins-tiles';
-    list.forEach((item) => {
+    const tones = [TONE.jade, TONE.violet, TONE.orange, TONE.rose];
+    list.forEach((item, i) => {
       const tile = document.createElement('div');
       tile.className = 'ins-tile';
+      tile.style.setProperty('--tone', item.tone || tones[i % tones.length]);
       const span = document.createElement('span'); span.textContent = item.label;
       const b = document.createElement('b'); b.textContent = item.value;
       tile.append(span, b);
@@ -299,6 +359,7 @@
     if (!data.length || !data.some((d) => d.value > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const W = widthOf(host);
     const H = opts.height || 220;
+    const color = opts.color || TONE.jade;
     const ticks = niceTicks(Math.max(...data.map((d) => d.value)));
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 18, b: 26 };
     const pw = W - m.l - m.r;
@@ -317,12 +378,12 @@
     data.forEach((d, i) => {
       const cx = m.l + band * i + band / 2;
       const h = Math.max(0, (d.value / top) * ph);
-      const bar = h > 0 ? el('path', { d: colPath(cx - bw / 2, m.t + ph - h, bw, h), fill: C.series }, svg) : null;
+      const bar = h > 0 ? el('path', { d: colPath(cx - bw / 2, m.t + ph - h, bw, h), fill: fillOf(svg, color, 'up'), class: 'ins-grow-v' }, svg) : null;
       if ((data.length - 1 - i) % every === 0) edgeText(svg, cx, H - 8, d.label, W);   // 从最后一天往前等距标注，最后一天总有标签、不会挤在一起
       if (i === maxIdx && d.value > 0) edgeText(svg, cx, m.t + ph - h - 5, fmt(d.value), W, { class: 'is-value' }, valueW);
       const hit = el('rect', { x: m.l + band * i, y: m.t, width: band, height: ph, class: 'ins-hit', 'aria-label': `${d.label}：${fmt(d.value)}${opts.unit || ''}` }, svg);
       bindHover(hit, cardEl, () => [`${fmt(d.value)}${opts.unit || ''}`, d.lines || [d.label]],
-        () => { if (bar) bar.setAttribute('fill', C.seriesHover); }, () => { if (bar) bar.setAttribute('fill', C.series); });
+        () => { if (bar) bar.style.opacity = '.75'; }, () => { if (bar) bar.style.opacity = ''; });
     });
   }
 
@@ -345,8 +406,8 @@
       const y = i * row + (row - bh) / 2;
       const w = (d.value / max) * pw;
       text(svg, label - 8, y + bh / 2 + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
-      const color = d.color || C.series;
-      const bar = w > 0 ? el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: color }, svg) : null;
+      const color = d.color || opts.color || TONE.jade;
+      const bar = w > 0 ? el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg) : null;
       const shown = shownOf(d);
       text(svg, label + w + 6, y + bh / 2 + 4, shown, { class: 'is-value' });
       const hit = el('rect', { x: 0, y: i * row, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：${shown}` }, svg);
@@ -367,7 +428,7 @@
     const max = opts.max || Math.max(...data.map((d) => d.value)) || 1;
     data.forEach((d, i) => {
       const y = i * row;
-      const color = d.color || C.series;
+      const color = d.color || opts.color || TONE.jade;
       const shown = shownOf(d);
       text(svg, 0, y + 15, fit(d.label, W), { class: 'is-label' });
       const w = (d.value / max) * pw;
@@ -376,12 +437,12 @@
         const cy = y + 28;
         const at = Math.max(5, Math.min(pw - 5, w));
         el('line', { x1: 0, x2: pw, y1: cy, y2: cy, stroke: C.grid, 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
-        if (w > 0) el('line', { x1: 0, x2: at, y1: cy, y2: cy, stroke: color, 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
-        bar = el('circle', { cx: at, cy, r: 5, fill: color, stroke: C.surface, 'stroke-width': 2 }, svg);
+        if (w > 0) el('path', { d: `M0,${cy}H${at}`, pathLength: 1, fill: 'none', stroke: color, 'stroke-width': 3, 'stroke-linecap': 'round', class: 'ins-draw' }, svg);
+        bar = el('circle', { cx: at, cy, r: 6, fill: color, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
         text(svg, pw + 8, cy + 4, shown, { class: 'is-value' });
       } else {
         el('rect', { x: 0, y: y + 22, width: pw, height: bh, rx: 4, fill: C.zero }, svg);
-        bar = w > 0 ? el('path', { d: barPath(0, y + 22, Math.max(1, w), bh), fill: color }, svg) : null;
+        bar = w > 0 ? el('path', { d: barPath(0, y + 22, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg) : null;
         text(svg, pw + 8, y + 22 + bh - 1, shown, { class: 'is-value' });
       }
       const hit = el('rect', { x: 0, y, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：${shown}` }, svg);
@@ -400,7 +461,8 @@
     const cell = Math.max(8, Math.min(26, cellW));
     const H = m.t + rows.length * (cell + gap) + m.b;
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
-    const colorOf = (v) => (v <= 0 ? C.zero : C.ramp[Math.min(C.ramp.length - 1, Math.floor((v / max) * (C.ramp.length - 1) + 0.0001))]);
+    const scale = opts.ramp || RAMPS.heat;
+    const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor(Math.sqrt(v / max) * (scale.length - 1) + 0.0001))]);   // 开方：次数少的格子也看得出颜色
     cols.forEach((c, j) => { if (j % 3 === 0) text(svg, m.l + j * (cellW + gap) + cellW / 2, m.t - 6, String(c), { 'text-anchor': 'middle' }); });
     rows.forEach((r, i) => {
       text(svg, m.l - 8, m.t + i * (cell + gap) + cell / 2 + 4, r, { 'text-anchor': 'end', class: 'is-label' });
@@ -419,6 +481,7 @@
     const zero = document.createElement('em'); zero.title = '0';
     const s0 = document.createElement('span'); s0.textContent = '0';
     const ramp = document.createElement('i');
+    ramp.style.background = rampCss(scale);
     const s1 = document.createElement('span'); s1.textContent = `少 → 多（最多 ${fmt(max)}${opts.unit || ''}）`;
     legend.append(zero, s0, ramp, s1);
     host.appendChild(legend);
@@ -433,7 +496,7 @@
     const wrap = document.createElement('div');
     wrap.className = 'ins-pie';
     host.appendChild(wrap);
-    const svg = el('svg', { viewBox: '0 0 200 200', role: 'img', 'aria-label': opts.aria || '' }, wrap);
+    const svg = el('svg', { viewBox: '0 0 200 200', role: 'img', 'aria-label': opts.aria || '', class: 'ins-rise' }, wrap);
     const cx = 100; const cy = 100; const R = 90; const r = 58;
     const pt = (rad, ang) => [cx + rad * Math.cos(ang), cy + rad * Math.sin(ang)];
     const arc = (a0, a1) => {
@@ -462,7 +525,7 @@
     if (cls) ul.className = cls;
     list.forEach((d) => {
       const li = document.createElement('li');
-      const sw = document.createElement('i'); sw.style.background = d.color;
+      const sw = document.createElement('i'); sw.style.background = d.swatch || d.color;
       const name = document.createElement('span'); name.textContent = d.label;
       const val = document.createElement('b'); val.textContent = `${fmt(d.value)}${unit || ''}`;
       const share = document.createElement('small'); share.textContent = `${Math.round((d.value / total) * 1000) / 10}%`;
@@ -473,9 +536,11 @@
   }
 
   // 分组标题（占满一行）
-  function section(parent, title, note) {
+  function section(parent, title, note, tone) {
     const h = document.createElement('h3');
     h.className = 'ins-sec';
+    sectionTone = tone || '';
+    if (tone) h.style.setProperty('--tone', tone);
     h.textContent = title;
     if (note) { const small = document.createElement('small'); small.textContent = note; h.appendChild(small); }
     parent.appendChild(h);
@@ -513,8 +578,8 @@
       const y = i * row + (row - bh) / 2;
       text(svg, label - 8, y + bh / 2 + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
       const wr = (d.right / max) * half; const wl = (d.left / max) * half;
-      if (wr > 0) el('path', { d: barPath(mid + 1, y, wr, bh), fill: opts.rightColor }, svg);
-      if (wl > 0) el('path', { d: barLeft(mid - 1, y, wl, bh), fill: opts.leftColor }, svg);
+      if (wr > 0) el('path', { d: barPath(mid + 1, y, wr, bh), fill: fillOf(svg, opts.rightColor), class: 'ins-grow' }, svg);
+      if (wl > 0) el('path', { d: barLeft(mid - 1, y, wl, bh), fill: fillOf(svg, opts.leftColor, 'left'), class: 'ins-grow-l' }, svg);
       text(svg, mid + wr + 6, y + bh / 2 + 4, fmt(d.right), { class: 'is-value' });
       text(svg, mid - wl - 6, y + bh / 2 + 4, fmt(d.left), { class: 'is-value', 'text-anchor': 'end' });
       const hit = el('rect', { x: 0, y: i * row, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：${opts.rightName} ${d.right}，${opts.leftName} ${d.left}` }, svg);
@@ -541,7 +606,11 @@
     rows.forEach((d, i) => {
       const cy = i * row + row / 2;
       text(svg, label - 8, cy + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
-      if (d.a != null && d.b != null) el('line', { x1: x(d.a), x2: x(d.b), y1: cy, y2: cy, stroke: C.axis, 'stroke-width': 2, 'stroke-linecap': 'round' }, svg);
+      if (d.a != null && d.b != null) {
+        // 连线从前测的颜色渐变到后测的颜色（用坐标定渐变：水平线没有高度，按包围盒算不出来）
+        const link = Math.abs(x(d.b) - x(d.a)) > 1 ? gradient(svg, [[0, opts.aColor], [1, opts.bColor]], { gradientUnits: 'userSpaceOnUse', x1: x(d.a), y1: cy, x2: x(d.b), y2: cy }) : C.axis;
+        el('path', { d: `M${x(d.a)},${cy}H${Math.abs(x(d.b) - x(d.a)) > 1 ? x(d.b) : x(d.a) + 1}`, fill: 'none', stroke: link, 'stroke-width': 3, 'stroke-linecap': 'round', class: 'ins-rise' }, svg);
+      }
       if (d.a != null) el('circle', { cx: x(d.a), cy, r: 5, fill: opts.aColor, stroke: C.surface, 'stroke-width': 2 }, svg);
       if (d.b != null) {
         el('circle', { cx: x(d.b), cy, r: 5, fill: opts.bColor, stroke: C.surface, 'stroke-width': 2 }, svg);
@@ -577,7 +646,7 @@
       (opts.quadrants || []).forEach(([qx, qy, label]) => text(svg, qx ? W - m.r - 4 : m.l + 6, qy ? m.t + 26 : H - m.b - 18, label, { 'text-anchor': qx ? 'end' : 'start' }));
     }
     points.forEach((p) => {
-      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || C.series, stroke: C.surface, 'stroke-width': 2 }, svg);
+      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || TONE.violet, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
       const hit = el('circle', { cx: X(p.x), cy: Y(p.y), r: 12, class: 'ins-hit', 'aria-label': `${p.label}：${opts.xName} ${p.x}，${opts.yName} ${p.y}` }, svg);
       bindHover(hit, cardEl, () => [p.label, p.lines || []], () => dot.setAttribute('r', '7'), () => dot.setAttribute('r', '5'));
     });
@@ -585,7 +654,9 @@
 
   // 个人与全班对比：rows＝[{ label, me, avg, max, unit }]，每行各自的刻度（不同单位不混一个轴），数值写在条末端
   function compare(host, cardEl, rows, opts = {}) {
-    if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: C.series }, { name: opts.avgName || '全班平均', color: '#b3aca0' }]);
+    const meColor = opts.meColor || TONE.violet;
+    const avgColor = opts.avgColor || TONE.yellow;
+    if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const row = 40; const bh = 10;
     const label = labelColumn(rows, W, 120);
@@ -598,9 +669,9 @@
       const y0 = i * row + 8;
       const max = Math.max(d.max || 0, d.me, d.avg) || 1;
       text(svg, label - 8, y0 + bh + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
-      [[d.me, C.series, y0], [d.avg, '#b3aca0', y0 + bh + 2]].forEach(([v, color, y]) => {
+      [[d.me, meColor, y0], [d.avg, avgColor, y0 + bh + 2]].forEach(([v, color, y]) => {
         const w = (v / max) * pw;
-        if (w > 0) el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: color }, svg);
+        if (w > 0) el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg);
         text(svg, label + w + 6, y + bh - 1, `${fmt(v)}${d.unit || ''}`, { class: 'is-value' });
       });
       const hit = el('rect', { x: 0, y: i * row, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：本人 ${d.me}，全班平均 ${d.avg}` }, svg);
@@ -627,7 +698,7 @@
       d.values.forEach((v, k) => {
         const w = (v / max) * pw;
         const y = top + k * (bh + gap);
-        if (w > 0) el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: series[k].color }, svg);
+        if (w > 0) el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, series[k].color), class: 'ins-grow' }, svg);
         if (v > 0) text(svg, label + w + 4, y + bh, fmt(v), { class: 'is-value', style: 'font-size:10.5px' });
       });
       const hit = el('rect', { x: 0, y: i * row, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：${series.map((s, k) => `${s.name} ${d.values[k]}`).join('，')}` }, svg);
@@ -671,15 +742,20 @@
       if (Array.isArray(d.tick) && d.tick[1]) edgeText(svg, X(i), H - m.b + 30, fit(d.tick[1], band * every - 6, tickW), W);
     });
     const dots = opts.dots !== false;
+    // opts.valueColor：折线和圆点按数值变色（如正确率：低的红、高的绿）
+    const pointColor = (item, v) => (opts.valueColor ? opts.valueColor(v) : item.color);
     series.forEach((item, k) => {
+      const stroke = opts.valueColor
+        ? gradient(svg, Array.from({ length: 11 }, (_, i) => [i / 10, opts.valueColor(top * (1 - i / 10))]), { gradientUnits: 'userSpaceOnUse', x1: 0, y1: Y(top), x2: 0, y2: Y(0) })
+        : item.color;
       const pts = rows.map((d, i) => (d.values[k] == null ? null : [X(i), Y(d.values[k])]));
       const runs = [];
       pts.forEach((pt) => { if (!pt) { runs.push([]); return; } if (!runs.length) runs.push([]); runs[runs.length - 1].push(pt); });
       runs.filter((run) => run.length).forEach((run) => {
-        if (opts.area && run.length > 1) el('path', { d: `M${run[0][0]},${m.t + ph}L${run.map((pt) => pt.join(',')).join('L')}L${run[run.length - 1][0]},${m.t + ph}Z`, fill: item.color, 'fill-opacity': 0.1 }, svg);
-        if (run.length > 1) el('path', { d: `M${run.map((pt) => pt.join(',')).join('L')}`, fill: 'none', stroke: item.color, 'stroke-width': 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
+        if (opts.area && run.length > 1) el('path', { d: `M${run[0][0]},${m.t + ph}L${run.map((pt) => pt.join(',')).join('L')}L${run[run.length - 1][0]},${m.t + ph}Z`, class: 'ins-rise', fill: gradient(svg, [[0, item.color, 0.34], [1, item.color, 0.02]], { x1: 0, y1: 0, x2: 0, y2: 1 }) }, svg);
+        if (run.length > 1) el('path', { d: `M${run.map((pt) => pt.join(',')).join('L')}`, pathLength: 1, class: 'ins-draw', fill: 'none', stroke, 'stroke-width': opts.area || opts.valueColor ? 2.5 : 2, 'stroke-linejoin': 'round', 'stroke-linecap': 'round' }, svg);
       });
-      if (dots) pts.forEach((pt) => { if (pt) el('circle', { cx: pt[0], cy: pt[1], r: 4, fill: item.color, stroke: C.surface, 'stroke-width': 2 }, svg); });
+      if (dots) pts.forEach((pt, i) => { if (pt) el('circle', { cx: pt[0], cy: pt[1], r: 4.5, fill: pointColor(item, rows[i].values[k]), stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg); });
     });
     // 数值只标重点
     if (series.length === 1) {
@@ -694,7 +770,7 @@
         const v = d.values[0];
         const say = d.short != null ? d.short : shownOf(v);
         const y = below && Y(v) + 18 < m.t + ph ? Y(v) + 18 : Y(v) - 9;
-        if (!dots) el('circle', { cx: X(i), cy: Y(v), r: 4, fill: series[0].color, stroke: C.surface, 'stroke-width': 2 }, svg);
+        if (!dots) el('circle', { cx: X(i), cy: Y(v), r: 4.5, fill: pointColor(series[0], v), stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
         edgeText(svg, X(i), Math.max(11, y), say, W, { class: 'is-value' }, valueW);
       });
     } else {
@@ -719,7 +795,7 @@
           : [d.label, series.map((item, k) => ({ key: item.color, text: `${item.name} ${d.values[k] == null ? '—' : shownOf(d.values[k])}` })).concat(d.lines || [])]),
         () => {
           cross.setAttribute('x1', X(i)); cross.setAttribute('x2', X(i)); cross.setAttribute('visibility', 'visible');
-          hoverDots.forEach((dot, k) => { if (d.values[k] == null) return; dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(d.values[k])); dot.setAttribute('visibility', 'visible'); });
+          hoverDots.forEach((dot, k) => { if (d.values[k] == null) return; dot.setAttribute('cx', X(i)); dot.setAttribute('cy', Y(d.values[k])); dot.setAttribute('fill', pointColor(series[k], d.values[k])); dot.setAttribute('visibility', 'visible'); });
         },
         () => { cross.setAttribute('visibility', 'hidden'); hoverDots.forEach((dot) => dot.setAttribute('visibility', 'hidden')); });
     });
@@ -730,6 +806,7 @@
     const list = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
     const total = list.reduce((t, d) => t + d.value, 0);
     if (!(total > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    if (list.length > 1) keys(host, list.map((d) => ({ name: d.label, color: d.color || TONE.blue })));   // 图例：放不下名字的小方块也能对上颜色
     const W = widthOf(host);
     const H = opts.height || 250;
     const worst = (row, side) => {
@@ -759,12 +836,10 @@
       }
     }
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
-    const steps = C.ramp.slice(3);   // 最浅一档也要和底色分得开
-    const max = list[0].value;
     boxes.forEach(({ d, x, y, w, h }) => {
-      const fill = steps[Math.round(Math.sqrt(d.value / max) * (steps.length - 1))];
-      const ink = inkOn(fill);
-      const rect = el('rect', { x: x + 1, y: y + 1, width: Math.max(1, w - 2), height: Math.max(1, h - 2), rx: 4, fill }, svg);
+      const base = d.color || TONE.blue;
+      const ink = inkOn(base);
+      const rect = el('rect', { x: x + 1, y: y + 1, width: Math.max(1, w - 2), height: Math.max(1, h - 2), rx: 6, class: 'ins-rise', fill: gradient(svg, [[0, mix(base, '#ffffff', 0.14)], [1, base]], { x1: 0, y1: 0, x2: 1, y2: 1 }) }, svg);
       const amount = `${fmt(d.value)}${opts.unit || ''} · ${Math.round((d.value / total) * 100)}%`;
       if (h >= 26 && textW(d.label, 13, 700) + 16 <= w) {
         text(svg, x + 9, y + 20, d.label, { style: `fill:${ink};font-size:13px;font-weight:700;font-variant-numeric:normal` });
@@ -798,8 +873,9 @@
       const share = `${Math.round((d.value / total) * 1000) / 10}%`;
       const g = el('g', { 'aria-label': `${d.label}：${fmt(d.value)}${opts.unit || ''}，${share}` }, svg);
       groups.push(g);
+      const fill = d.gradient ? gradient(svg, d.gradient.map((color, i) => [i / (d.gradient.length - 1), color]), { x1: 0, y1: 0, x2: 1, y2: 1 }) : fillOf(svg, d.color);
       for (let i = 0; i < d.value; i += 1) {
-        el('rect', { x: (n % perRow) * (cell + gap), y: Math.floor(n / perRow) * (cell + gap), width: cell, height: cell, rx: Math.min(3, cell / 4), fill: d.color }, g);
+        el('rect', { x: (n % perRow) * (cell + gap), y: Math.floor(n / perRow) * (cell + gap), width: cell, height: cell, rx: Math.min(4, cell / 4), fill, class: 'ins-pop', style: `--i:${n}` }, g);
         n += 1;
       }
       bindHover(g, cardEl, () => [`${fmt(d.value)}${opts.unit || ''}（${share}）`, d.lines || [d.label]],
@@ -826,7 +902,7 @@
     parts.forEach((d, i) => {
       const w = raw[i] * k;
       const share = `${Math.round((d.value / total) * 100)}%`;
-      const rect = el('rect', { x, y: 0, width: w, height: bh, rx: Math.min(4, w / 2), fill: d.color }, svg);
+      const rect = el('rect', { x, y: 0, width: w, height: bh, rx: Math.min(6, w / 2), fill: d.color, class: 'ins-rise' }, svg);
       if (textW(share, 12, 700) + 14 <= w) text(svg, x + 7, bh / 2 + 4, share, { style: `fill:${inkOn(d.color)};font-size:12px;font-weight:700` });
       const hit = el('rect', { x: x - 1, y: 0, width: w + 2, height: bh, class: 'ins-hit', 'aria-label': `${d.label}：${fmt(d.value)}${opts.unit || ''}，${share}` }, svg);
       bindHover(hit, cardEl, () => [`${fmt(d.value)}${opts.unit || ''}（${Math.round((d.value / total) * 1000) / 10}%）`, d.lines || [d.label]], () => { rect.style.opacity = '.8'; }, () => { rect.style.opacity = ''; });
@@ -849,7 +925,8 @@
     const H = m.t + 7 * (cell + gap) - gap + 2;
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     ['周一', '', '周三', '', '周五', '', '周日'].forEach((label, r) => { if (label) text(svg, 0, m.t + r * (cell + gap) + cell / 2 + 4, label); });
-    const colorOf = (v) => (v <= 0 ? C.zero : C.ramp[Math.min(C.ramp.length - 1, Math.floor((v / max) * (C.ramp.length - 1) + 0.0001))]);
+    const scale = opts.ramp || RAMPS.green;
+    const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor((v / max) * (scale.length - 1) + 0.0001))]);
     let monthEnd = -99;
     days.forEach((d, i) => {
       const k = firstDow + i;
@@ -866,6 +943,7 @@
     const zero = document.createElement('em'); zero.title = '0';
     const s0 = document.createElement('span'); s0.textContent = '0';
     const ramp = document.createElement('i');
+    ramp.style.background = rampCss(scale);
     const s1 = document.createElement('span'); s1.textContent = `少 → 多（最多 ${fmt(max)}${opts.unit || ''}）`;
     legend.append(zero, s0, ramp, s1);
     host.appendChild(legend);
@@ -873,7 +951,9 @@
 
   // 雷达图（一个人和全班平均的整体轮廓）：rows＝[{ label, short, me, avg, max, unit, note }]，每个方向各自的刻度（外圈＝这一项的满分或全班最高）
   function radar(host, cardEl, rows, opts = {}) {
-    if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: C.series }, { name: opts.avgName || '全班平均', color: '#a39c90' }]);
+    const meColor = opts.meColor || TONE.violet;
+    const avgColor = opts.avgColor || TONE.yellow;
+    if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const nameOf = (d) => d.short || d.label;
     const side = Math.max(...rows.map((d) => labelW(nameOf(d))));
@@ -892,8 +972,8 @@
       text(svg, lx, ly + 4 + Math.sin(angle(i)) * 4, nameOf(d), { class: 'is-label', 'text-anchor': c > 0.2 ? 'start' : c < -0.2 ? 'end' : 'middle' });
     });
     const ratioOf = (d, v) => { const top = Math.max(d.max || 0, d.me, d.avg) || 1; return Math.max(0, Math.min(1, v / top)); };
-    [['avg', '#a39c90'], ['me', C.series]].forEach(([key, color]) => {
-      el('polygon', { points: rows.map((d, i) => at(i, ratioOf(d, d[key])).join(',')).join(' '), fill: color, 'fill-opacity': 0.1, stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round' }, svg);
+    [['avg', avgColor], ['me', meColor]].forEach(([key, color]) => {
+      el('polygon', { points: rows.map((d, i) => at(i, ratioOf(d, d[key])).join(',')).join(' '), fill: color, 'fill-opacity': 0.2, stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', class: 'ins-rise' }, svg);
       rows.forEach((d, i) => { const [x, y] = at(i, ratioOf(d, d[key])); el('circle', { cx: x, cy: y, r: 4, fill: color, stroke: C.surface, 'stroke-width': 2 }, svg); });
     });
     rows.forEach((d, i) => {
@@ -910,9 +990,10 @@
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     text(svg, 0, 34, item.big, { style: `fill:${C.ink};font-size:30px;font-weight:700;font-variant-numeric:normal` });
     if (item.note) text(svg, W, 34, item.note, { 'text-anchor': 'end', class: 'is-label' });
-    el('rect', { x: 0, y: 50, width: W, height: 12, rx: 6, fill: C.ramp[0] }, svg);
+    const color = item.color || TONE.violet;
+    el('rect', { x: 0, y: 50, width: W, height: 12, rx: 6, fill: mix(color, '#ffffff', 0.82) }, svg);
     const w = Math.max(0, Math.min(1, item.value / (item.max || 1))) * W;
-    if (w > 0) el('rect', { x: 0, y: 50, width: Math.max(12, w), height: 12, rx: 6, fill: C.series }, svg);
+    if (w > 0) el('rect', { x: 0, y: 50, width: Math.max(12, w), height: 12, rx: 6, fill: fillOf(svg, color), class: 'ins-grow' }, svg);
     const hit = el('rect', { x: 0, y: 0, width: W, height: H, class: 'ins-hit', 'aria-label': `${item.big} ${item.note || ''}` }, svg);
     bindHover(hit, cardEl, () => [item.big, item.lines || []]);
   }
@@ -1041,7 +1122,7 @@
   }
 
   window.ClassLiveInsights = {
-    addStyle, card, tiles, section, keys, tableView, empty, colors: C, ordinal, lightbox, openZoom,
+    addStyle, card, tiles, section, keys, tableView, empty, colors: C, tones: TONE, ramps: RAMPS, rateColor, lightbox, openZoom,
     lines: record(lines), treemap: record(treemap), waffle: record(waffle), segmented: record(segmented), calendar: record(calendar), radar: record(radar), meter: record(meter),
     columns: record(columns), bars: record(bars), heatmap: record(heatmap), donut: record(donut), diverging: record(diverging),
     dumbbell: record(dumbbell), scatter: record(scatter), compare: record(compare), grouped: record(grouped),

@@ -4,7 +4,7 @@
  * 然后3.辩后投票，看大家支持哪一方，票数高的一方再加5修为分。”
  *   辩论流程图（放在卡片正文“辩论流程”的位置，投屏页上原来的静态流程隐藏）：① 选立场 · 论据卡（1 分钟）→ ② 聊天室发言点赞（3 分钟）→ ③ 辩后投票（1 分钟）
  *     → 停止递交 · 公布结果。当前一步高亮、倒计时（只在本机计时，存在本机，刷新不丢；可暂停、加 30 秒），点“下一步”或点流程图里的任一步推进。
- *   聊天室看板：全场点赞前三（“揭晓姓名”后显示姓名）、两方人数和发言数、两方热门发言（可隐藏不合适的发言）、辩后票数。
+ *   聊天室看板：全场点赞前三（“揭晓姓名”后显示姓名）、两方人数和发言数、两方全部发言（按发布时间固定排列，旧的在上、新的接在下面，在列表里上下滑动；可隐藏不合适的发言）、辩后票数。
  *   辩后投票停止递交（流程图最后一步、辩后投票里的按钮，或投屏统计里的“停止递交”）后按票数判定胜负并加修为（ck_set_debate_winners）：
  *     全场点赞前三各加 5，票多一方聊天室里的同学各加 5（同一人相加）；平票由老师裁定（也可以判平局，只给点赞前三）；可改判、撤销。
  *     结果显示在“辩后投票”那一块的最后。
@@ -49,7 +49,11 @@
   .dbb-side.is-con header { background: #a4492d; }
   .dbb-side header b { font-size: 18px; letter-spacing: .08em; } .dbb-side header span { font-size: 14px; opacity: .9; }
   .dbb-side h5 { margin: 12px 0 6px; font-size: 14px; color: #8a5a1a; letter-spacing: .04em; }
-  .dbb-hot { margin: 0; padding: 0; list-style: none; display: grid; gap: 6px; }
+  .dbb-hot { margin: 0; padding: 0 4px 0 0; list-style: none; display: grid; gap: 6px; grid-auto-rows: max-content; max-height: 460px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+  .dbb-hot::-webkit-scrollbar { width: 8px; } .dbb-hot::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(70,51,34,.28); }
+  @supports not selector(::-webkit-scrollbar) { .dbb-hot { scrollbar-width: thin; } }
+  .dbb-hot[hidden], .dbb-empty[hidden] { display: none; }
+  .dbb-hot li time { flex: 0 0 auto; color: #8a7f74; font-size: 13px; line-height: 1.8; font-variant-numeric: tabular-nums; }
   .dbb-hot li { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; border-radius: 9px; background: #fff; border: 1px solid rgba(70,51,34,.1); font-size: 15.5px; line-height: 1.55; }
   .dbb-hot li b { flex: 0 0 auto; color: #23655f; } .dbb-side.is-con .dbb-hot li b { color: #a4492d; } .dbb-hot li b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
   .dbb-hot li span { flex: 1 1 auto; word-break: break-word; } .dbb-hot em { font-style: normal; color: #c0392b; font-weight: 800; white-space: nowrap; }
@@ -197,11 +201,22 @@
       lead.innerHTML = `<h5>全场点赞前三 · 各加 ${DB.likes} 修为</h5>${leaders.length
         ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(m.nick)}</b><small><i>${SIDE[m.side] || ''}</i>${reveal && m.name ? ` · ${esc(m.name)}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
         : '<p class="dbb-empty">还没有人被点赞。两方聊天室里的发言被点赞后，这里按点赞数排出前三（正反两方合起来算）。</p>'}`;
-      cols.innerHTML = ['pro', 'con'].map((side) => {
-        const d = (data && data[side]) || { members: 0, posts: 0, hot: [] };
-        return `<section class="dbb-side is-${side}"><header><b>${SIDE[side]}聊天室</b><span>${d.members} 人 · ${d.posts} 条发言</span></header>
-          <h5>热门发言</h5>${(d.hot || []).length ? `<ul class="dbb-hot">${d.hot.map((h) => `<li><b>${esc(h.nick)}${reveal && h.name ? `<small>${esc(h.name)}</small>` : ''}</b><span>${esc(h.text)}</span><em>♥ ${h.likes}</em><button type="button" data-dbb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button></li>`).join('')}</ul>` : '<p class="dbb-empty">还没有发言</p>'}</section>`;
-      }).join('');
+      // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”：
+      // 两方的列表只建一次，刷新时只更新变化的行（ClassLive.syncFeed），滑动位置不会被 4 秒一次的刷新打断
+      if (!cols.querySelector('[data-dbb-feed]')) {
+        cols.innerHTML = ['pro', 'con'].map((side) => `<section class="dbb-side is-${side}"><header><b>${SIDE[side]}聊天室</b><span data-dbb-count></span></header>
+          <h5>全部发言 · 按发布时间，可上下滑动</h5><ul class="dbb-hot" data-dbb-feed="${side}"></ul><p class="dbb-empty" data-dbb-none>还没有发言</p></section>`).join('');
+      }
+      ['pro', 'con'].forEach((side) => {
+        const d = (data && data[side]) || { members: 0, posts: 0 };
+        const box = cols.querySelector(`[data-dbb-feed="${side}"]`);
+        const rows = d.all || (d.hot || []).slice().sort((a, b) => Number(a.id) - Number(b.id));   // 后台还没更新时只有 hot
+        box.parentElement.querySelector('[data-dbb-count]').textContent = `${d.members} 人 · ${d.posts} 条发言`;
+        box.parentElement.querySelector('[data-dbb-none]').hidden = rows.length > 0;
+        box.hidden = !rows.length;
+        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${reveal && h.name ? `<small>${esc(h.name)}</small>` : ''}</b><span>${esc(h.text)}</span>`
+          + `<time>${esc(window.ClassLive.feedClock(h.at))}</time>${h.likes ? `<em>♥ ${h.likes}</em>` : ''}<button type="button" data-dbb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button>`);
+      });
       board.querySelector('[data-dbb-reveal]').textContent = reveal ? '收起姓名' : '揭晓姓名';
       const t = tally();
       board.querySelector('[data-dbb-votes]').textContent = `辩后投票：正方 ${t.pro} 票 · 反方 ${t.con} 票`;

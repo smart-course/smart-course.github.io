@@ -3784,43 +3784,46 @@
     grid.className = 'ins-grid';
     root.appendChild(grid);
     const weekOf = (day) => timeParts(Date.parse(`${day}T12:00:00+08:00`)).week;
-    I.section(grid, '总览', '按上面选的范围和时间');
+    const T = I.tones;
+    I.section(grid, '总览', '按上面选的范围和时间', T.jade);
     // 1 每天在学人数
     const c1 = I.card(grid, '每天有多少同学在学', '当天至少有一次学习行为的同学人数；悬停或用 Tab 键看当天的行为次数和在线分钟。', true);
     const host1 = document.createElement('div'); c1.appendChild(host1);
     const dayRows = dayList.map((day) => { const d = byDay.get(day); return { key: day, label: day.slice(5), value: d.active.size, lines: [`${day.slice(5)} ${weekOf(day)}`, `学习行为 ${d.acts} 次`, `在线约 ${Math.round(d.seconds / 60)} 分钟`] }; });
     // 2026-11-07 用户：“学情分析是否可以丰富一下图表类型，不要总是柱状图”：随时间的走势用面积折线；只有一两天时柱状图更清楚
-    if (dayRows.length < 3) I.columns(host1, c1, dayRows, { unit: ' 人', aria: '每天在学人数柱状图' });
-    else I.lines(host1, c1, dayRows.map((d) => ({ label: d.label, values: [d.value], lines: d.lines })), [{ name: '在学人数', color: I.colors.series }], { unit: ' 人', area: true, dots: false, noLow: true, aria: '每天在学人数面积折线图' });
+    if (dayRows.length < 3) I.columns(host1, c1, dayRows, { unit: ' 人', color: T.jade, aria: '每天在学人数柱状图' });
+    else I.lines(host1, c1, dayRows.map((d) => ({ label: d.label, values: [d.value], lines: d.lines })), [{ name: '在学人数', color: T.jade }], { unit: ' 人', area: true, dots: false, noLow: true, aria: '每天在学人数面积折线图' });
     I.tableView(c1, ['日期', '星期', '在学人数', '学习行为（次）', '在线（分钟）'], dayList.map((day) => { const d = byDay.get(day); return [day, weekOf(day), d.active.size, d.acts, Math.round(d.seconds / 60)]; }));
     // 2 学习时段
     const WEEKS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
     const heat = WEEKS.map(() => Array(24).fill(0));
     acts.forEach((a) => { const t = timeParts(a.ms); const row = WEEKS.indexOf(t.week); if (row >= 0) heat[row][t.hour] += 1; });
-    const c2 = I.card(grid, '一周里什么时候在学', '每格＝这一时段的学习行为次数（颜色越深越多，灰色是 0）；看得出课上、课后和晚上的学习习惯。', true);
+    const c2 = I.card(grid, '一周里什么时候在学', '每格＝这一时段的学习行为次数（从浅黄到深红越来越多，灰色是 0）；看得出课上、课后和晚上的学习习惯。', true);
     const host2 = document.createElement('div'); c2.appendChild(host2);
-    I.heatmap(host2, c2, WEEKS, Array.from({ length: 24 }, (_, i) => i), heat, { unit: ' 次', aria: '学习时段热力图' });
+    I.heatmap(host2, c2, WEEKS, Array.from({ length: 24 }, (_, i) => i), heat, { unit: ' 次', ramp: I.ramps.heat, aria: '学习时段热力图' });
     I.tableView(c2, ['星期', ...Array.from({ length: 24 }, (_, i) => `${i}时`)], heat.map((row, i) => [WEEKS[i], ...row]));
     // 3 在做什么
     const mix = INS_GROUPS.map((group) => ({ label: group, value: acts.filter((a) => a.group === group).length })).filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
-    const c3 = I.card(grid, '都在做什么', '方块越大、颜色越深，这类学习行为的次数越多（同一位同学做几次算几次）；小方块悬停看名称，也可以展开数据表。');
+    const c3 = I.card(grid, '都在做什么', '方块越大，这类学习行为的次数越多（同一位同学做几次算几次），每类行为一种颜色；小方块悬停看名称，也可以展开数据表。');
     const host3 = document.createElement('div'); c3.appendChild(host3);
-    I.treemap(host3, c3, mix.map((d) => ({ ...d, lines: [d.label, `占全部 ${Math.round(d.value * 100 / acts.length)}%`] })), { unit: ' 次', aria: '学习行为构成矩形树图' });
+    const GROUP_TONE = { 登录与打开页面: T.blue, 选择递交: T.orange, 作业递交: T.orange, 文字作答: T.aqua, 签到: T.yellow, 发弹幕: T.magenta, 修炼场答题: T.violet, 情境猜谜抢答: T.red, 聊天室发言: T.green, 祭出法宝: T.teal };
+    I.treemap(host3, c3, mix.map((d) => ({ ...d, color: GROUP_TONE[d.label], lines: [d.label, `占全部 ${Math.round(d.value * 100 / acts.length)}%`] })), { unit: ' 次', aria: '学习行为构成矩形树图' });
     I.tableView(c3, ['行为', '次数', '占比'], mix.map((d) => [d.label, d.value, `${Math.round(d.value * 100 / acts.length)}%`]));
     // 4 境界分布（最近一次结算）
     const realmCount = REALMS.map((realm) => ({ label: realm.name, value: realmRows.filter((r) => Number(r.realm) === realm.level).length }));
-    const c4 = I.card(grid, '境界分布', `每一格是一位同学，颜色越深境界越高；按最近一次结算，${realmRows.length ? `已结算 ${realmRows.length} 人` : '还没有结算'}，不受上面的时间范围影响。`);
+    const c4 = I.card(grid, '境界分布', `每一格是一位同学，每个境界一种颜色；按最近一次结算，${realmRows.length ? `已结算 ${realmRows.length} 人` : '还没有结算'}，不受上面的时间范围影响。`);
     const host4 = document.createElement('div'); c4.appendChild(host4);
-    const realmColors = I.ordinal(realmCount.length);
-    I.waffle(host4, c4, realmCount.map((d, i) => ({ ...d, color: realmColors[i], lines: [d.label, `占已结算的 ${realmRows.length ? Math.round(d.value * 100 / realmRows.length) : 0}%`] })), { unit: ' 人', aria: '境界分布方格图', empty: '还没有结算修为：到“修为境界”点一次结算。' });
+    // 境界的颜色跟称号的材质走：铜色、青玉、金丹、紫霄，化神是流光渐变
+    const REALM_TONE = [T.copper, T.aqua, T.yellow, T.violet, T.rose];
+    const GOD_LIGHT = [T.yellow, T.rose, T.violet];
+    I.waffle(host4, c4, realmCount.map((d, i) => ({ ...d, color: REALM_TONE[i], gradient: i === 4 ? GOD_LIGHT : null, swatch: i === 4 ? `linear-gradient(135deg, ${GOD_LIGHT.join(', ')})` : null, lines: [d.label, `占已结算的 ${realmRows.length ? Math.round(d.value * 100 / realmRows.length) : 0}%`] })), { unit: ' 人', aria: '境界分布方格图', empty: '还没有结算修为：到“修为境界”点一次结算。' });
     I.tableView(c4, ['境界', '人数'], realmCount.map((d) => [d.label, d.value]));
     // 5 在线时长分布（每人）
     const buckets = [['没有在线记录', 0, 0], ['1—10 分钟', 1, 600], ['10—30 分钟', 601, 1800], ['30—60 分钟', 1801, 3600], ['1—2 小时', 3601, 7200], ['2 小时以上', 7201, Infinity]];
     const onl = buckets.map(([label, lo, hi]) => ({ label, value: Array.from(per.values()).filter((p) => (lo === 0 && hi === 0 ? p.seconds === 0 : p.seconds >= lo && p.seconds <= hi)).length }));
-    const c5 = I.card(grid, '每人在线时长', '全班同学按这段时间的在线合计分成几档，颜色越深在线越久（2026-11-05 起记录，之前的都算 0）。');
+    const c5 = I.card(grid, '每人在线时长', '全班同学按这段时间的在线合计分成几档，从青绿到深蓝在线越来越久（2026-11-05 起记录，之前的都算 0）。');
     const host5 = document.createElement('div'); c5.appendChild(host5);
-    const onlineColors = I.ordinal(onl.length - 1);
-    I.segmented(host5, c5, onl.map((d, i) => ({ ...d, color: i ? onlineColors[i - 1] : '#b3aca0', lines: [d.label, `占 ${Math.round(d.value * 100 / total)}%`] })), { unit: ' 人', aria: '在线时长分段条' });
+    I.segmented(host5, c5, onl.map((d, i) => ({ ...d, color: i ? I.ramps.ocean[i - 1] : T.neutral, lines: [d.label, `占 ${Math.round(d.value * 100 / total)}%`] })), { unit: ' 人', aria: '在线时长分段条' });
     I.tableView(c5, ['在线合计', '人数'], onl.map((d) => [d.label, d.value]));
     // 5b 修为榜第一的修为构成（2026-11-05 用户：“可以在第二张截图右边空白的地方放个饼状图，看看修为榜排名第一的同学，修为值的构成”）：
     //   按最近一次结算的 detail；颜色按组成项固定（同一项在任何同学的图里同一个颜色）；超过 6 项时最小的几项并成“其他”
@@ -3872,7 +3875,7 @@
       .filter((l) => l.sids.size > 0 && (!span || dayStart(l.day) >= fromMs));
     const lessonLabel = (l) => `${l.day.slice(5)} ${l.room.name}`;
 
-    I.section(grid, '课堂', '每次课（课堂）一行，按上课先后排列');
+    I.section(grid, '课堂', '每次课（课堂）一个点，按上课先后排列', T.violet);
     // 1 到课
     const cA = I.card(grid, '每次课到课', `每次课到课率的走势（进过课堂的同学占点名册 ${core.length || '—'} 人的比例）；悬停看人数和请假情况。`);
     const hostA = document.createElement('div'); cA.appendChild(hostA);
@@ -3884,11 +3887,11 @@
     });
     if (attendRows.length === 1) {
       const only = attendRows[0];
-      I.meter(hostA, cA, { value: only.n, max: total, big: `${only.n} / ${total} 人`, note: `到课率 ${only.rate}%`, lines: [lessonLabel(only.l), `请假 ${only.leave} 人，没来也没请假 ${Math.max(0, total - only.n - only.leave)} 人`] }, { aria: '这次课的到课率' });
+      I.meter(hostA, cA, { value: only.n, max: total, color: T.violet, big: `${only.n} / ${total} 人`, note: `到课率 ${only.rate}%`, lines: [lessonLabel(only.l), `请假 ${only.leave} 人，没来也没请假 ${Math.max(0, total - only.n - only.leave)} 人`] }, { aria: '这次课的到课率' });
     } else {
       I.lines(hostA, cA, attendRows.map((r) => ({ label: lessonLabel(r.l), tick: [r.l.day.slice(5), r.l.room.name], values: [r.rate], short: `${Math.round(r.rate)}%`,
-        lines: [lessonLabel(r.l), `到课 ${r.n} 人`, `请假 ${r.leave} 人，没来也没请假 ${Math.max(0, total - r.n - r.leave)} 人`] })), [{ name: '到课率', color: I.colors.series }],
-      { unit: '%', ticks: [0, 25, 50, 75, 100], tickUnit: '%', aria: '每次课到课率折线图', empty: '这段时间还没有上过课。' });
+        lines: [lessonLabel(r.l), `到课 ${r.n} 人`, `请假 ${r.leave} 人，没来也没请假 ${Math.max(0, total - r.n - r.leave)} 人`] })), [{ name: '到课率', color: T.violet }],
+      { unit: '%', area: true, ticks: [0, 25, 50, 75, 100], tickUnit: '%', aria: '每次课到课率折线图', empty: '这段时间还没有上过课。' });
     }
     I.tableView(cA, ['日期', '课堂', '到课', '到课率', '请假', '没来也没请假'], attendRows.map((r) => [r.l.day, r.l.room.name, r.n, `${r.rate}%`, r.leave, Math.max(0, total - r.n - r.leave)]));
     // 1b 课堂感受（笑脸）
@@ -3900,7 +3903,7 @@
       return { l, up, down };
     });
     I.diverging(hostB, cB, moodRows.map((r) => ({ label: lessonLabel(r.l), right: r.up, left: r.down, lines: [lessonLabel(r.l), `开心占 ${pctOf(r.up, r.up + r.down)}%`] })),
-      { rightName: '开心', leftName: '不开心', rightColor: '#2a78d6', leftColor: '#e34948', aria: '每次课的课堂感受', empty: '还没有同学点过笑脸或不高兴的脸。' });
+      { rightName: '开心', leftName: '不开心', rightColor: T.aqua, leftColor: T.orange, aria: '每次课的课堂感受', empty: '还没有同学点过笑脸或不高兴的脸。' });
     I.tableView(cB, ['日期', '课堂', '开心', '不开心', '开心占比'], moodRows.map((r) => [r.l.day, r.l.room.name, r.up, r.down, `${pctOf(r.up, r.up + r.down)}%`]));
     // 7 课堂互动
     const cG = I.card(grid, '课堂互动', '每次课参与各种互动的人数：发弹幕、情境猜谜抢答、聊天室发言（辩论赛、经营沙盘）；悬停看条数和老师点赞。', true);
@@ -3977,13 +3980,13 @@
         });
       });
     }
-    I.section(grid, '题目', '客观题，每位同学每题只认第一次递交');
+    I.section(grid, '题目', '客观题，每位同学每题只认第一次递交；颜色从红到绿，正确率越来越高', T.orange);
     const minAnswered = Math.max(2, Math.ceil(total * 0.15));
     const qList = Array.from(qStats.values()).filter((q) => q.answered >= minAnswered).map((q) => ({ ...q, rate: pctOf(q.score, q.answered) }));
     const cQ = I.card(grid, '错得最多的 10 道题', `正确率最低的题（至少 ${minAnswered} 人作答才列入）；值得下次课讲一讲。`);
     const hostQ = document.createElement('div'); cQ.appendChild(hostQ);
     const hardest = qList.slice().sort((a, b) => a.rate - b.rate || b.answered - a.answered).slice(0, 10);
-    I.bars(hostQ, cQ, hardest.map((q) => ({ label: q.label, value: q.rate, text: `${q.rate}%`, lines: [q.label, `作答 ${q.answered} 人`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '正确率最低的题', empty: '这段时间还没有足够的作答。' });
+    I.bars(hostQ, cQ, hardest.map((q) => ({ label: q.label, value: q.rate, text: `${q.rate}%`, color: I.rateColor(q.rate), lines: [q.label, `作答 ${q.answered} 人`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '正确率最低的题', empty: '这段时间还没有足够的作答。' });
     I.tableView(cQ, ['题目', '作答人数', '正确率'], qList.slice().sort((a, b) => a.rate - b.rate).map((q) => [q.label, q.answered, `${q.rate}%`]));
     const byUnit = new Map();
     qStats.forEach((q) => { const u = byUnit.get(q.unit) || { answered: 0, score: 0, n: 0 }; u.answered += q.answered; u.score += q.score; u.n += 1; byUnit.set(q.unit, u); });
@@ -3995,29 +3998,29 @@
     });
     const cU = I.card(grid, '各次课平均正确率', '按课程顺序，每次课全部客观题的平均正确率；悬停看课名和作答人次。');
     const hostU = document.createElement('div'); cU.appendChild(hostU);
-    if (unitRows.length < 3) I.bars(hostU, cU, unitRows.map((u) => ({ label: u.label, value: u.rate, text: `${u.rate}%`, lines: [u.label, `${u.n} 道题，共 ${u.answered} 人次作答`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '各次课平均正确率', empty: '这段时间还没有作答。' });
-    else I.lines(hostU, cU, unitRows.map((u) => ({ label: u.label, tick: u.tick, values: [u.rate], lines: [u.label, `${u.n} 道题，共 ${u.answered} 人次作答`] })), [{ name: '平均正确率', color: I.colors.series }], { unit: '%', ticks: [0, 25, 50, 75, 100], tickUnit: '%', aria: '各次课平均正确率折线图' });
+    if (unitRows.length < 3) I.bars(hostU, cU, unitRows.map((u) => ({ label: u.label, value: u.rate, text: `${u.rate}%`, color: I.rateColor(u.rate), lines: [u.label, `${u.n} 道题，共 ${u.answered} 人次作答`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '各次课平均正确率', empty: '这段时间还没有作答。' });
+    else I.lines(hostU, cU, unitRows.map((u) => ({ label: u.label, tick: u.tick, values: [u.rate], lines: [u.label, `${u.n} 道题，共 ${u.answered} 人次作答`] })), [{ name: '平均正确率', color: T.jade }], { unit: '%', valueColor: I.rateColor, ticks: [0, 25, 50, 75, 100], tickUnit: '%', aria: '各次课平均正确率折线图' });
     I.tableView(cU, ['课', '题数', '作答人次', '平均正确率'], unitRows.map((u) => [u.label, u.n, u.answered, `${u.rate}%`]));
     if (!CONCEPT) {
       const ppRows = Array.from(caseMap.keys()).filter((k) => prePost.has(k)).map((k) => {
         const pp = prePost.get(k); const info = caseMap.get(k);
         return { label: `案例${k} ${(info && info.title) || ''}`, a: pp.pre[0] ? pctOf(pp.pre[1], pp.pre[0]) : null, b: pp.post[0] ? pctOf(pp.post[1], pp.post[0]) : null, pp };
       }).filter((r) => r.a != null || r.b != null);
-      const cP = I.card(grid, '前测 → 后测：讲完以后理解变好了吗', '同一道题课前（前测）和课后（后测）选中参考答案的比例；蓝点在灰点右边说明讲完以后更多同学理解了。', true);
+      const cP = I.card(grid, '前测 → 后测：讲完以后理解变好了吗', '同一道题课前（前测）和课后（后测）选中参考答案的比例；绿点在黄点右边说明讲完以后更多同学理解了。', true);
       const hostP = document.createElement('div'); cP.appendChild(hostP);
       I.dumbbell(hostP, cP, ppRows.map((r) => ({ label: r.label, a: r.a, b: r.b, lines: [r.label, `前测 ${r.pp.pre[0]} 人作答，后测 ${r.pp.post[0]} 人作答`] })),
-        { aName: '前测', bName: '后测', aColor: '#a39c90', bColor: '#2a78d6', unit: '%', aria: '前测与后测正确率', empty: '这段时间还没有前测和后测的作答。' });
+        { aName: '前测', bName: '后测', aColor: T.yellow, bColor: T.jade, unit: '%', aria: '前测与后测正确率', empty: '这段时间还没有前测和后测的作答。' });
       I.tableView(cP, ['案例', '前测作答', '前测正确率', '后测作答', '后测正确率', '提升'], ppRows.map((r) => [r.label, r.pp.pre[0], r.a == null ? '—' : `${r.a}%`, r.pp.post[0], r.b == null ? '—' : `${r.b}%`, r.a != null && r.b != null ? `${Math.round((r.b - r.a) * 10) / 10}` : '—']));
     }
 
     // 6 修炼场
-    I.section(grid, '修炼场', '平时做题攒修为（含课后自修）');
+    I.section(grid, '修炼场', '平时做题攒修为（含课后自修）', '#2f9e44');
     const prac = L.practice.filter((r) => inRoster(r.sid) && L.tsOf(r) >= fromMs && (!room || r.unit === room.chapter));
     const pDay = new Map(dayList.map((day) => [day, { sids: new Set(), n: 0, right: 0 }]));
     prac.forEach((r) => { const d = pDay.get(isoDay(L.tsOf(r))); if (d) { d.sids.add(sidKey(r.sid)); d.n += 1; if (r.correct) d.right += 1; } });
-    const cR = I.card(grid, '每天有多少同学在练', '一列是一周，一格是一天，颜色越深当天在修炼场答题的同学越多（灰色是没有人练）；悬停看答题数和正确率。');
+    const cR = I.card(grid, '每天有多少同学在练', '一列是一周，一格是一天，绿色越深当天在修炼场答题的同学越多（灰色是没有人练）；悬停看答题数和正确率。');
     const hostR = document.createElement('div'); cR.appendChild(hostR);
-    I.calendar(hostR, cR, dayList.map((day) => { const d = pDay.get(day); return { day, value: d.sids.size, lines: [`${day.slice(5)} ${weekOf(day)}`, `答题 ${d.n} 道`, `正确率 ${pctOf(d.right, d.n)}%`] }; }), { unit: ' 人', aria: '每天修炼人数日历热力图', empty: '这段时间还没有人在修炼场答题。' });
+    I.calendar(hostR, cR, dayList.map((day) => { const d = pDay.get(day); return { day, value: d.sids.size, lines: [`${day.slice(5)} ${weekOf(day)}`, `答题 ${d.n} 道`, `正确率 ${pctOf(d.right, d.n)}%`] }; }), { unit: ' 人', ramp: I.ramps.green, aria: '每天修炼人数日历热力图', empty: '这段时间还没有人在修炼场答题。' });
     I.tableView(cR, ['日期', '练习人数', '答题数', '正确率'], dayList.map((day) => { const d = pDay.get(day); return [day, d.sids.size, d.n, `${pctOf(d.right, d.n)}%`]; }));
     const pUnit = new Map();
     prac.forEach((r) => { const u = pUnit.get(r.unit) || { n: 0, right: 0, sids: new Set() }; u.n += 1; if (r.correct) u.right += 1; u.sids.add(sidKey(r.sid)); pUnit.set(r.unit, u); });
@@ -4025,18 +4028,18 @@
     const pRows = order.filter((k) => pUnit.has(k)).concat(Array.from(pUnit.keys()).filter((k) => !order.includes(k))).map((k) => ({ k, label: unitTitle(k), ...pUnit.get(k) }));
     const cS = I.card(grid, '修炼场各单元正确率', '哪个单元的题最难；悬停看答题数和人数。');
     const hostS = document.createElement('div'); cS.appendChild(hostS);
-    I.bars(hostS, cS, pRows.map((u) => ({ label: u.label, value: pctOf(u.right, u.n), text: `${pctOf(u.right, u.n)}%`, lines: [u.label, `答题 ${u.n} 道（${u.sids.size} 人）`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '修炼场各单元正确率', empty: '这段时间还没有人在修炼场答题。' });
+    I.bars(hostS, cS, pRows.map((u) => ({ label: u.label, value: pctOf(u.right, u.n), text: `${pctOf(u.right, u.n)}%`, color: I.rateColor(pctOf(u.right, u.n)), lines: [u.label, `答题 ${u.n} 道（${u.sids.size} 人）`] })), { unit: '%', stacked: true, dot: true, max: 100, aria: '修炼场各单元正确率', empty: '这段时间还没有人在修炼场答题。' });
     I.tableView(cS, ['单元', '答题数', '人数', '正确率'], pRows.map((u) => [u.label, u.n, u.sids.size, `${pctOf(u.right, u.n)}%`]));
 
     // 8 宗门
     const SECTS = window.ClassLive.SECTS || [];
     if (SECTS.length) {
-      I.section(grid, '宗门', '本班弟子人数与历届宗门分');
+      I.section(grid, '宗门', '本班弟子人数与历届宗门分', '#b8462a');
       const mine = L.sects.filter((m) => String(m.class_id) === String(state.klass.id) && inRoster(m.sid));
       const cT = I.card(grid, '本班弟子', '本班点名册上的同学拜入了哪个宗门（散修不属于任何宗门）。');
       const hostT = document.createElement('div'); cT.appendChild(hostT);
       const sectRows = SECTS.map((sect) => ({ label: sect.name, value: mine.filter((m) => m.sect === sect.key).length, color: sect.color }))
-        .concat([{ label: '散修', value: mine.filter((m) => m.sect === 'sanxiu').length, color: '#8a7f74' }, { label: '还没选', value: Math.max(0, total - mine.length), color: '#c9c2b4' }]);
+        .concat([{ label: '散修', value: mine.filter((m) => m.sect === 'sanxiu').length, color: '#c08a3e' }, { label: '还没选', value: Math.max(0, total - mine.length), color: T.neutral }]);
       I.donut(hostT, cT, sectRows, { unit: ' 人', center: `${mine.length}/${total}`, centerSub: '已选择', aria: '本班宗门人数环形图', empty: '还没有同学拜入宗门。' });
       I.tableView(cT, ['宗门', '本班人数'], sectRows.map((d) => [d.label, d.value]));
       const cV = I.card(grid, '宗门分（历届）', '本课程历届弟子修为之和，宗门之间比的就是这个。');
@@ -4050,14 +4053,15 @@
     }
 
     // 3 投入与修为、5 递交时间、4 个人学情卡
-    I.section(grid, '学生', '找出需要关注和值得表扬的同学');
-    const cX = I.card(grid, '学习投入和修为', '每个点是一位同学：横轴是这段时间的学习行为次数，纵轴是全学期修为（最近一次结算）；细线是两者的中位数。右下角是投入多、修为却偏低的同学，可能学得吃力。', true);
+    I.section(grid, '学生', '找出需要关注和值得表扬的同学', T.rose);
+    const cX = I.card(grid, '学习投入和修为', '每个点是一位同学，颜色是 TA 的境界：横轴是这段时间的学习行为次数，纵轴是全学期修为（最近一次结算）；细线是两者的中位数。右下角是投入多、修为却偏低的同学，可能学得吃力。', true);
     const hostX = document.createElement('div'); cX.appendChild(hostX);
     const realmBySid = new Map(realmRows.map((r) => [sidKey(r.sid), r]));
     const pts = Array.from(per.values()).filter((p) => realmBySid.has(p.sid)).map((p) => {
       const r = realmBySid.get(p.sid);
-      return { x: p.acts, y: Number(r.points) || 0, label: `${p.name}（${p.sid}）`, lines: [`学习行为 ${p.acts} 次`, `修为 ${Number(r.points) || 0}（${REALMS[Number(r.realm) || 0].name}）`, `学习天数 ${p.days.size}`] };
+      return { x: p.acts, y: Number(r.points) || 0, color: REALM_TONE[Number(r.realm) || 0], label: `${p.name}（${p.sid}）`, lines: [`学习行为 ${p.acts} 次`, `修为 ${Number(r.points) || 0}（${REALMS[Number(r.realm) || 0].name}）`, `学习天数 ${p.days.size}`] };
     });
+    if (pts.length) I.keys(hostX, REALMS.map((realm, i) => ({ name: realm.name, color: REALM_TONE[i], dot: true })));
     I.scatter(hostX, cX, pts, { xName: '学习行为（次）', yName: '修为', aria: '学习投入与修为散点图', empty: '还没有结算修为：到“修为境界”点一次结算。',
       quadrants: [[1, 1, '投入多 · 修为高'], [0, 1, '投入少 · 修为高'], [1, 0, '投入多 · 修为偏低'], [0, 0, '投入少 · 修为低']] });
     I.tableView(cX, ['学号', '姓名', '学习行为', '修为'], pts.map((pt) => [pt.label.replace(/^.*（(.*)）$/, '$1'), pt.label.replace(/（.*$/, ''), pt.x, pt.y]));
@@ -4090,10 +4094,9 @@
       subCount[k] += 1;
     });
     const subTotal = subCount.reduce((t, n) => t + n, 0);
-    const cW = I.card(grid, '什么时候递交', '每位同学每题第一次递交，离这次课的上课日几天：上课当天是课上或当天课后，之后的是补交；颜色越深交得越晚。', !(CONCEPT && L.rooms.some((r) => isExamRoom(r) && r.deadline && (!room || String(r.id) === String(room.id)))));
+    const cW = I.card(grid, '什么时候递交', '每位同学每题第一次递交，离这次课的上课日几天：上课当天是课上或当天课后，之后的是补交；从蓝绿到红交得越来越晚。', !(CONCEPT && L.rooms.some((r) => isExamRoom(r) && r.deadline && (!room || String(r.id) === String(room.id)))));
     const hostW = document.createElement('div'); cW.appendChild(hostW);
-    const subColors = I.ordinal(SUB_BUCKETS.length);
-    I.segmented(hostW, cW, SUB_BUCKETS.map((label, k) => ({ label, value: subCount[k], color: subColors[k], lines: [label] })), { unit: ' 题', aria: '递交时间分段条', empty: '这段时间还没有递交。' });
+    I.segmented(hostW, cW, SUB_BUCKETS.map((label, k) => ({ label, value: subCount[k], color: I.ramps.timing[k], lines: [label] })), { unit: ' 题', aria: '递交时间分段条', empty: '这段时间还没有递交。' });
     I.tableView(cW, ['离上课日', '递交题数', '占比'], SUB_BUCKETS.map((label, k) => [label, subCount[k], `${pctOf(subCount[k], subTotal)}%`]));
     // 政经期中考查：离截止多久交
     const examRooms = CONCEPT ? L.rooms.filter((r) => isExamRoom(r) && r.deadline && (!room || String(r.id) === String(room.id))) : [];
@@ -4112,8 +4115,8 @@
       });
       const cE = I.card(grid, '期中考查作业：离截止多久交', `${examRooms.map((r) => r.name).join('、')}；按每位同学第一次递交的时间。`);
       const hostE = document.createElement('div'); cE.appendChild(hostE);
-      const exColors = I.ordinal(EX.length - 1);
-      I.segmented(hostE, cE, EX.map((label, k) => ({ label, value: exCount[k], color: k < EX.length - 1 ? exColors[k] : '#b3aca0', lines: [label] })), { unit: ' 人', aria: '期中考查递交时间分段条' });
+      const exColors = I.ramps.timing.slice(1);
+      I.segmented(hostE, cE, EX.map((label, k) => ({ label, value: exCount[k], color: k < EX.length - 1 ? exColors[k] : T.neutral, lines: [label] })), { unit: ' 人', aria: '期中考查递交时间分段条' });
       I.tableView(cE, ['离截止', '人数'], EX.map((label, k) => [label, exCount[k]]));
     }
     // 4 个人学情卡：点下表里的姓名
@@ -4143,7 +4146,7 @@
       head.append(strong, meta);
       hostK.appendChild(head);
       const personRows = METRICS.map(([label, fn, max, unit, short]) => ({ label, short, me: fn(p), avg: avg(fn), max: max == null ? maxOf(fn) : max, unit, note: max == null ? `全班最高 ${maxOf(fn)}${unit}` : '' }));
-      I.keys(hostK, [{ name: '本人', color: I.colors.series }, { name: '全班平均', color: '#a39c90' }]);
+      I.keys(hostK, [{ name: '本人', color: T.violet }, { name: '全班平均', color: T.yellow }]);
       const pair = document.createElement('div');
       pair.className = 'ins-person-grid';
       const hostRadar = document.createElement('div');

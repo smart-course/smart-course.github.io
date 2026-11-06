@@ -20,7 +20,7 @@
  *   [data-mech-wall]（新来的弹入并让节点闪一下）。
  * 只显示本页的课堂：当前课堂不是本案例／本章时（如打开还没上的案例讲解版），不上屏、弹幕墙留空，控件上说明当前课堂是哪一个——
  *   弹幕墙按“【问N】”编号放弹幕，否则别的案例同号问题的弹幕会串进来（与课堂控件、投屏统计的处理一致）。试用特效不受影响。
- * 正文里的弹幕墙（弹幕小问题卡片、辩论/圆桌分栏、机制图节点）：显示本堂课这一题的全部弹幕，最新的在最上面，多了在墙内用滚轮上下翻看；
+ * 正文里的弹幕墙（弹幕小问题卡片、辩论/圆桌分栏、机制图节点）：显示本堂课这一题的全部弹幕，按发布时间固定排列（旧的在上、新的接在下面），多了在墙内上下滑动翻看；
  *   墙上的弹幕整堂课一直保留（重新打开页面也在），“清屏”只撤下屏幕上流动的弹幕；弹幕设为“关闭”时墙上照样显示。
  *   审核模式下只显示已通过的；工作台隐藏、删除的和学生撤回的不显示。
  */
@@ -132,9 +132,12 @@
   .dm-bubble b.is-r4 { background: linear-gradient(90deg, #b8801a, #c2408a, #7a3fe0, #1f86b8, #b8801a) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
     animation: dm-flowtext 4s linear infinite; }
   .dm-bubble.is-pop { animation: dm-pop .6s cubic-bezier(.2, 1.4, .4, 1) both; }
-  .dm-wall-count { justify-self: end; color: #23655f; font: 800 12px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  /* 弹幕墙：全部显示、最新在上，超出高度在墙内滚动（滚到头不带动整页） */
-  .dmq-wall, .dmq-side-wall, [data-mech-wall] { overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; }
+  .dm-wall-count { position: sticky; top: 0; z-index: 1; justify-self: end; padding: 3px 8px; border-radius: 999px; background: rgba(255, 255, 255, .94); color: #23655f; font: 800 12px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  /* 弹幕墙：全部显示，按发布时间固定排列（旧的在上、新的接在下面），超出高度在墙内上下滑动（滚到头不带动整页）；滚动条一直看得见，提示还有内容 */
+  .dmq-wall, .dmq-side-wall, [data-mech-wall] { overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+  .dmq-wall::-webkit-scrollbar, .dmq-side-wall::-webkit-scrollbar, [data-mech-wall]::-webkit-scrollbar { width: 8px; }
+  .dmq-wall::-webkit-scrollbar-thumb, .dmq-side-wall::-webkit-scrollbar-thumb, [data-mech-wall]::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(70, 51, 34, .28); }
+  @supports not selector(::-webkit-scrollbar) { .dmq-wall, .dmq-side-wall, [data-mech-wall] { scrollbar-width: thin; } }
   .dmq-wall { max-height: 340px; align-content: start; padding-right: 4px; }
   .dmq-side-wall { max-height: 380px; padding-right: 4px; }
   .dmq-side-wall .dm-bubble { flex: none; }
@@ -155,7 +158,7 @@
   .dmq-wall { display: grid; grid-template-columns: repeat(auto-fill, minmax(260px, 1fr)); gap: 10px; }
   .dmq-wall > em { color: #6d6259; font-style: normal; font-size: 15px; }
   .dmq-wall .dm-bubble { font-size: 17px; }
-  /* 辩论质询：正方、反方两栏，各自按时间倒序（最新的在最上面），栏头显示条数 */
+  /* 辩论质询：正方、反方两栏，各自按发布时间排列（新的接在下面），栏头显示条数 */
   .dmq-debate { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; margin-top: 6px; }
   .dmq-side { min-width: 0; border-radius: 12px; padding: 10px 12px 12px; }
   .dmq-side.is-pro { background: rgba(35, 101, 95, .08); border: 1.5px solid rgba(35, 101, 95, .35); }
@@ -167,7 +170,7 @@
   .dmq-side-wall { display: flex; flex-direction: column; gap: 8px; min-height: 64px; }
   .dmq-side-wall .dm-bubble { font-size: 17px; }
   @media (max-width: 760px) { .dmq-debate { grid-template-columns: 1fr; } }
-  /* 圆桌表态：四方分栏（按学生递交的角色），各栏最新的在最上面 */
+  /* 圆桌表态：四方分栏（按学生递交的角色），各栏按发布时间排列 */
   .dmq-roles { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; margin-top: 6px; }
   .dmq-side.is-role { background: rgba(176, 132, 52, .08); border: 1.5px solid rgba(176, 132, 52, .38); }
   .dmq-side.is-role .dmq-side-head b { color: #8a6424; }
@@ -617,18 +620,18 @@
       const box = slot || page.querySelector('.inner') || page;
       const card = document.createElement('section');
       card.className = 'dmq-card';
-      // 习经辩论质询：弹幕带【正方】/【反方】，分两栏即时显示（各栏最新的在最上面）
+      // 习经辩论质询：弹幕带【正方】/【反方】，分两栏即时显示（各栏按发布时间排列，新的接在下面）
       const debate = /-debate$/.test(item.slot || '');
       const sideCol = (side, cls) => `<div class="dmq-side ${cls}"><div class="dmq-side-head"><span class="dm-side ${cls}">${side}</span><b data-side-count>0 条</b></div>
-        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${side}" data-max="8"><em>还没有${side}的质询</em></div></div>`;
+        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${side}"><em>还没有${side}的质询</em></div></div>`;
       const roles = ROLES_OF.get(String(index + 1));
       const roleCol = (role) => `<div class="dmq-side is-role"><div class="dmq-side-head"><span class="dm-side is-role">${esc(role)}</span><b data-side-count>0 条</b></div>
-        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${esc(role)}" data-max="6"><em>还没有表态</em></div></div>`;
+        <div class="dmq-side-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-side="${esc(role)}"><em>还没有表态</em></div></div>`;
       if (debate || roles) card.classList.add('is-debate');
       card.innerHTML = `<div class="dmq-head"><span class="dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="dmq-label"></span><span class="dmq-count"></span></div>
         <h4></h4><p class="dmq-hint"></p>${debate ? `<div class="dmq-debate">${sideCol('正方', 'is-pro')}${sideCol('反方', 'is-con')}</div>`
           : roles ? `<div class="dmq-roles">${roles.map(roleCol).join('')}</div>`
-          : `<div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}" data-max="12"></div>`}`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
+          : `<div class="dmq-wall" data-mech-wall data-case="q" data-link="${index + 1}"></div>`}`;  // 投屏学生也看得到：不放给老师看的提示语，墙在收到弹幕前留空
       card.querySelector('.dmq-label').textContent = item.label || '';
       card.querySelector('h4').textContent = item.prompt;
       const hint = card.querySelector('.dmq-hint');
@@ -820,20 +823,23 @@
     walls.forEach((wall, key) => {
       const list = groups.get(key) || [];
       const sideWall = Boolean(wall.dataset.side);
-      const latest = list.slice().reverse();   // 全部显示，最新的在最上面（多了在墙内滚动翻看）
+      // 2026-11-07 用户：“其它被要求显示在正文中的弹幕内容也做同样的处理”：全部显示，按发布时间固定排列（以后台写入时间为准），多了在墙内上下滑动
+      const publishedAt = ({ doc }) => Date.parse(doc.created_at) || Number(doc.ts) || 0;
+      const inOrder = list.slice().sort((a, b) => publishedAt(a) - publishedAt(b) || (Number(a.doc.id) || 0) - (Number(b.doc.id) || 0));
       const counter = sideWall ? wall.parentElement.querySelector('[data-side-count]') : wall.closest('.dmq-card') && wall.closest('.dmq-card').querySelector('.dmq-count');
       if (counter) counter.textContent = sideWall ? `${list.length} 条` : list.length ? `${list.length} 条` : '';
       const before = wallShown.get(key) || [];
-      const ids = latest.map(({ doc }) => String(doc.id));
+      const ids = inOrder.map(({ doc }) => String(doc.id));
       const placeholder = wall.querySelector('em');
       if (placeholder) placeholder.hidden = list.length > 0;
       let count = wall.querySelector('.dm-wall-count');
       if (ids.join() !== before.join()) {
-        // 老师正在往下翻看时，新弹幕加在最上面不把正在看的内容顶走
-        const keep = wall.scrollTop > 4 ? wall.scrollHeight - wall.scrollTop : null;
+        // 正看着最下面时跟着新弹幕滚动；往上翻看时不动
+        const follow = wall.scrollHeight - wall.scrollTop - wall.clientHeight < 28;
+        const top = wall.scrollTop;
         wall.querySelectorAll('.dm-bubble').forEach((el) => el.remove());
         let fresh = false;
-        latest.forEach(({ doc, tag }) => {
+        inOrder.forEach(({ doc, tag }) => {
           const bubble = document.createElement('div');
           const isNew = wallsPrimed && !before.includes(String(doc.id));
           fresh = fresh || isNew;
@@ -852,7 +858,7 @@
           bubble.append(document.createTextNode(tag.text), badge, hoverTools(doc, bubble));
           wall.appendChild(bubble);
         });
-        if (keep != null) wall.scrollTop = wall.scrollHeight - keep;
+        wall.scrollTop = follow ? wall.scrollHeight : top;
         wallShown.set(key, ids);
         const node = wall.closest('.mechanism-node') || wall.closest('.dmq-card');
         if (fresh && node) {
@@ -967,9 +973,10 @@
     } else {
       const recent = await backend.fetchAll('danmaku', where, { limit: RECENT });
       const ids = new Set(recent.map((doc) => String(doc.id)));
-      const oldest = Math.min(...recent.map((doc) => Number(doc.ts) || 0));
-      // 最新这一段里没有了的＝工作台删掉的
-      if (recent.length) Array.from(allDocs.values()).filter((doc) => (Number(doc.ts) || 0) >= oldest && !ids.has(String(doc.id))).forEach((doc) => allDocs.delete(String(doc.id)));
+      // 最新这一段（按 id 取的）里没有了的＝工作台删掉的。2026-11-07 改为按 id 判断：原来按 ts（学生设备的时间）判断，
+      // 只要有一台设备时间不准、弹幕又超过 120 条，更早的弹幕就会被误撤下，墙上显示不全
+      const oldest = Math.min(...recent.map((doc) => Number(doc.id)));
+      if (recent.length && Number.isFinite(oldest)) Array.from(allDocs.values()).filter((doc) => Number(doc.id) >= oldest && !ids.has(String(doc.id))).forEach((doc) => allDocs.delete(String(doc.id)));
       recent.forEach((doc) => allDocs.set(String(doc.id), doc));
     }
     return Array.from(allDocs.values()).sort(order);
