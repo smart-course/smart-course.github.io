@@ -236,6 +236,14 @@
     },
   };
 
+  // 时间轴排排站·全班分队（2026-11-11，见 #政治经济学/PK游戏/pk_games.js 的 teamTimeline）：分组、出题、揭晓、结束、报到都经本页当前课堂（ck_tl_*）
+  window.ClassLiveTimeline = {
+    async call(name, params) {
+      const current = await roomHere();
+      return backend.rpc(name, { p_classroom: Number(current.id) || current.id, ...params });   // 后台都返回 JSON 对象，原样交回
+    },
+  };
+
   // 经营沙盘（习经案例 08，见 #政治经济学/经营沙盘/biz_sim.js）：投屏页经营台读角色组看板、推进经营会、结算发修为，都经本页当前课堂
   window.ClassLiveBiz = {
     points: window.ClassLive.BIZ || { rep: 10, top: 5 },

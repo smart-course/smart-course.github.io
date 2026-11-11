@@ -357,6 +357,22 @@
   .dbr-like em { font-style: normal; } .dbr-like[aria-pressed="true"] { background: #c0392b; color: #fff; border-color: #c0392b; }
   .dbr-like[disabled] { opacity: .45; cursor: default; }
   .dbr-room .dbr-form { padding: 10px 16px 0; border-top: 1px solid rgba(70,51,34,.08); } .dbr-room .dbr-state { padding: 0 16px 10px; }
+  /* 分组讨论（2026-11-11）：四个角色组聊天室，组色按 r1—r4；顶上是讨论题和本组任务 */
+  .dsc-room.is-r1 { border-color: rgba(35,101,95,.4); } .dsc-room.is-r1 .dbr-head { background: linear-gradient(180deg, #2b7169, #23655f); }
+  .dsc-room.is-r2 { border-color: rgba(164,73,45,.45); background: #fffbf8; } .dsc-room.is-r2 .dbr-head { background: linear-gradient(180deg, #b55536, #a4492d); }
+  .dsc-room.is-r3 { border-color: rgba(61,90,153,.45); background: #f8faff; } .dsc-room.is-r3 .dbr-head { background: linear-gradient(180deg, #4a68a8, #3d5a99); }
+  .dsc-room.is-r4 { border-color: rgba(138,90,26,.45); background: #fffcf4; } .dsc-room.is-r4 .dbr-head { background: linear-gradient(180deg, #9b6a25, #8a5a1a); }
+  .dsc-room.is-r2 .dbr-form button { background: #a4492d; } .dsc-room.is-r3 .dbr-form button { background: #3d5a99; } .dsc-room.is-r4 .dbr-form button { background: #8a5a1a; }
+  .dsc-room.is-r2 .dbr-msg.is-mine .dbr-bubble { background: #f9e5da; border-color: rgba(164,73,45,.2); }
+  .dsc-room.is-r3 .dbr-msg.is-mine .dbr-bubble { background: #e3eaf8; border-color: rgba(61,90,153,.2); }
+  .dsc-room.is-r4 .dbr-msg.is-mine .dbr-bubble { background: #f6ead2; border-color: rgba(138,90,26,.2); }
+  .dsc-join.is-r2 { border-color: rgba(164,73,45,.4); background: #fbf2ed; } .dsc-join.is-r2 .dbr-lead b { color: #a4492d; } .dsc-join.is-r2 .dbr-nick button { background: #a4492d; }
+  .dsc-join.is-r3 { border-color: rgba(61,90,153,.4); background: #eff3fb; } .dsc-join.is-r3 .dbr-lead b { color: #3d5a99; } .dsc-join.is-r3 .dbr-nick button { background: #3d5a99; }
+  .dsc-join.is-r4 { border-color: rgba(138,90,26,.4); background: #fbf5e8; } .dsc-join.is-r4 .dbr-lead b { color: #8a5a1a; } .dsc-join.is-r4 .dbr-nick button { background: #8a5a1a; }
+  .dsc-task { display: grid; gap: 4px; padding: 10px 16px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; font-size: 14.5px; line-height: 1.6; color: #3b3129; }
+  .dsc-task p { margin: 0; } .dsc-task p:empty { display: none; }
+  .dsc-task b { display: inline-block; margin-right: 8px; padding: 0 8px; border-radius: 999px; background: #b8862b; color: #fff; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; }
+  .dsc-room .dbr-stage { padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.18); font-size: 13px; font-weight: 700; }
   @media (max-width: 640px) {
     .dbr-body { grid-template-columns: 1fr; }
     .dbr-people { border-right: 0; border-bottom: 1px solid rgba(70,51,34,.1); max-height: none; padding: 8px 10px; }
@@ -481,6 +497,60 @@
   .clp-pzd.is-won { animation: clp-pz-pop .7s ease; }
   @keyframes clp-pz-pop { 0% { transform: translateX(-50%) scale(.96); } 50% { transform: translateX(-50%) scale(1.03); } 100% { transform: translateX(-50%); } }
   @media (max-width: 560px) { .clp-pzd { top: 8px; width: calc(100vw - 16px); padding: 10px 12px; } .clp-pzd-num { width: 50px; height: 50px; font-size: 26px; } }
+  /* 时间轴排排站·全班分队（2026-11-11）：老师分组后弹出的答题对话框（同情境猜谜的位置和配色）；红蓝队标、倒计时、可点的时间轴位置、揭晓结果 */
+  .clp-tl { position: fixed; z-index: 2147482900; top: 12px; left: 50%; transform: translateX(-50%); width: min(560px, calc(100vw - 24px)); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px);
+    box-sizing: border-box; display: flex; flex-direction: column; padding: 12px 16px; border: 1.5px solid #dcae57; border-radius: 16px; background: linear-gradient(180deg, #fff3d6, #fffaf0); color: #2b2118;
+    box-shadow: 0 14px 34px rgba(80,50,10,.24); font: 15px/1.55 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-tl[hidden] { display: none; }
+  .clp-tl.is-red { border-color: #e08a74; box-shadow: 0 14px 34px rgba(80,50,10,.24), inset 0 4px 0 #c8452d; }
+  .clp-tl.is-blue { border-color: #8fb2dc; box-shadow: 0 14px 34px rgba(80,50,10,.24), inset 0 4px 0 #2f6fb3; }
+  .clp-tl-head { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  .clp-tl-head > b { color: #a4492d; font-size: 17px; font-weight: 900; letter-spacing: .04em; }
+  .clp-tl-team { padding: 1px 10px; border-radius: 999px; color: #fff; font-size: 13.5px; font-weight: 800; }
+  .clp-tl-team:empty { display: none; }
+  .clp-tl-team.is-red { background: #c8452d; } .clp-tl-team.is-blue { background: #2f6fb3; }
+  .clp-tl-q { margin-left: auto; color: #6d5a44; font-size: 13.5px; font-weight: 700; }
+  .clp-tl-fold { padding: 2px 10px; border: 1px solid #dcae57; border-radius: 999px; color: #7a4a10; background: #fff; font: 700 12.5px/1.5 inherit; font-family: inherit; cursor: pointer; }
+  .clp-tl.is-folded .clp-tl-body { display: none; }
+  .clp-tl-body { min-height: 0; overflow-y: auto; margin-top: 6px; }
+  .clp-tl-score { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 8px; font-weight: 900; font-size: 15px; }
+  .clp-tl-score:empty { display: none; }
+  .clp-tl-score .is-red { color: #c8452d; } .clp-tl-score .is-blue { color: #2f6fb3; }
+  .clp-tl-score b { font: 900 22px/1 Georgia, "Times New Roman", serif; }
+  .clp-tl-card { margin: 0 0 8px; padding: 9px 12px; border: 1.5px solid #e0a12a; border-radius: 12px; background: #fffaf0; text-align: center; }
+  .clp-tl-card small { display: block; color: #7a4a10; font-size: 12.5px; font-weight: 700; }
+  .clp-tl-card b { display: block; font-size: 16.5px; line-height: 1.5; }
+  .clp-tl-count { display: flex; align-items: center; justify-content: center; gap: 10px; margin: 0 0 8px; color: #7a4a10; font-weight: 800; font-size: 14.5px; }
+  .clp-tl-count[hidden] { display: none; }
+  .clp-tl-num { display: grid; place-items: center; width: 48px; height: 48px; border-radius: 50%; background: radial-gradient(circle at 35% 30%, #ffe08a, #e0a12a); color: #4a2b00;
+    font: 900 24px/1 Georgia, "Times New Roman", serif; box-shadow: 0 4px 12px rgba(160,100,10,.3); }
+  .clp-tl-count.is-hurry .clp-tl-num { background: radial-gradient(circle at 35% 30%, #ffc2b2, #d0553a); color: #fff; }
+  .clp-tl-count.is-tick .clp-tl-num { animation: clp-pzd-tick .35s ease; }
+  .clp-tl-line { display: grid; gap: 4px; margin: 0; padding: 0; list-style: none; }
+  .clp-tl-ev { padding: 6px 10px; border-left: 4px solid #c9a24a; border-radius: 6px; background: rgba(201,162,74,.12); font-size: 14px; line-height: 1.5; }
+  .clp-tl-ev span { display: block; color: #8a5a06; font: 800 13px/1.4 Georgia, "Times New Roman", serif; }
+  .clp-tl-slot { display: flex; align-items: center; gap: 10px; width: 100%; min-height: 40px; padding: 4px 10px; border: 1.5px dashed #dcae57; border-radius: 10px; color: #7a4a10; background: #fff;
+    font: 700 14.5px/1.4 inherit; font-family: inherit; text-align: left; cursor: pointer; }
+  .clp-tl-slot i { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; border: 2px solid #e0a12a; font: 900 14px/1 inherit; font-style: normal; }
+  .clp-tl-slot:disabled { cursor: default; }
+  .clp-tl-slot:not(:disabled):hover { background: #fff3d6; }
+  .clp-tl-slot.is-picked { border-style: solid; border-color: #a4492d; color: #fff; background: #a4492d; }
+  .clp-tl-slot.is-picked i { border-color: #fff; }
+  .clp-tl-slot.is-right { border-style: solid; border-color: #23855f; color: #fff; background: #23855f; }
+  .clp-tl-slot.is-wrong { border-style: solid; border-color: #d0553a; color: #a4492d; background: #ffe7df; text-decoration: line-through; }
+  .clp-tl-wait { margin: 2px 0 6px; line-height: 1.7; }
+  .clp-tl-wait b.is-red { color: #c8452d; } .clp-tl-wait b.is-blue { color: #2f6fb3; }
+  .clp-tl-tally { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 0 0 8px; }
+  .clp-tl-tally div { padding: 6px 10px; border-radius: 10px; color: #fff; font-size: 13px; font-weight: 700; }
+  .clp-tl-tally div b { display: block; font: 900 22px/1.1 Georgia, "Times New Roman", serif; }
+  .clp-tl-tally .is-red { background: #c8452d; } .clp-tl-tally .is-blue { background: #2f6fb3; text-align: right; }
+  .clp-tl-tally .is-win { box-shadow: 0 0 0 3px #ffd36b; }
+  .clp-tl-over { margin: 4px 0 8px; text-align: center; font-size: 16px; font-weight: 800; line-height: 1.6; }
+  .clp-tl-over big { display: block; font-size: 40px; line-height: 1.2; }
+  .clp-tl-state { margin: 7px 0 0; color: #5b4a3a; font-size: 13.5px; }
+  .clp-tl-state[data-state=ok] { color: #23655f; font-weight: 800; }
+  .clp-tl-state[data-state=bad] { color: #a4492d; font-weight: 700; }
+  @media (max-width: 560px) { .clp-tl { top: 8px; width: calc(100vw - 16px); padding: 10px 12px; } }
   .clp-v2 .clp-danmaku { gap: 8px; margin: 0; padding: 0; border: 0; }
   .clp-v2 .clp-dm-field { display: flex; flex: 1 1 auto; min-width: 0; border-radius: 12px; }
   .clp-v2 .clp-danmaku input { flex: 1 1 auto; height: 40px; padding: 0 12px; border: 1.5px solid var(--clp-input-border); border-radius: 12px; background: #fff; font-size: 16px; }
@@ -1000,6 +1070,8 @@
     .lp-head { padding: 8px 14px !important; }
     .lp-head h3 { font-size: 20px !important; }
     .cl-leave-card { max-height: calc(100dvh - 16px) !important; padding: 12px 16px !important; }
+    /* 时间轴排排站（2026-11-11）：同情境猜谜，放在左上、高度不超过屏幕 */
+    .clp-tl { top: 6px; left: max(8px, env(safe-area-inset-left)); transform: none; width: min(600px, calc(100vw - 24px)); max-height: calc(100dvh - 12px); padding: 8px 12px; }
     /* 情境猜谜抢答：放在左上，宽一点、矮一点；倒计时小一号 */
     .clp-pzd { top: 6px; left: max(8px, env(safe-area-inset-left)); transform: none; width: min(600px, calc(100vw - 24px)); max-height: calc(100dvh - 12px); overflow-y: auto; padding: 8px 12px; }
     .clp-pzd-head { margin-bottom: 2px; }
@@ -1550,7 +1622,7 @@
   //   入口：每道题递交按钮旁的“⤢ 全屏”（从这一题开始）、面板里的“全屏答题”（从第一道未递交的题开始）。返回键、Esc、左上角“退出”都能退出，退出后停在刚才那道题。
   const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1 };
   const FS_STOP = 'main, body, .section-inner, .inner, section.page, .page-section, .cl-unit, [data-nav]';
-  const FS_POPUP = '.cl-ascend-layer, .clp-poll, .clp-pzd, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
+  const FS_POPUP = '.cl-ascend-layer, .clp-poll, .clp-pzd, .clp-tl, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
   const fsRoot = () => document.querySelector('main') || document.body;
   // 这道题在页面上占哪一块：往上找“只含这一道题”的最大容器（不越过整页、整节的容器）；找不到就取递交条前面紧挨着的几个元素
   function fsZone(q) {
@@ -2006,6 +2078,7 @@
     setupFeedback(false, viewed ? `${pastNote}这里不能提交${FB.what}。` : elsewhere ? `本周课堂不在这一页，这里不能提交${FB.what}。` : `进入课堂后才能提交${FB.what}：请先在首页输入老师发布的课堂码。`);
     setupDebateRooms(false, viewed ? `${pastNote}聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，聊天室不能进入。' : '进入本周课堂后，递交辩前票就能进入本方聊天室。');
     setupBizGames(false, viewed ? `${pastNote}经营会不能参加。` : elsewhere ? '本周课堂不在这一页，经营会不能参加。' : '进入本周课堂后，递交角色就能进入本组聊天室。');
+    setupDiscuss(false, viewed ? `${pastNote}讨论聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，讨论聊天室不能进入。' : '进入本周课堂后，递交角色就能进入本组聊天室。');
     return;
   }
 
@@ -2349,12 +2422,14 @@
     setupExamExport();
     setupDebateRooms(false, '旁听同学不参加辩论聊天室，可以看大屏上的辩论。');
     setupBizGames(false, '旁听同学不参加经营会，可以看大屏上的经营台。');
+    setupDiscuss(false, '旁听同学不参加分组讨论的聊天室，可以看大屏上各组的观点。');
   } else {
     setupMechDanmaku(true);
     setupFeedback(true);
     setupExamExport();
     setupDebateRooms(true);
     setupBizGames(true);
+    setupDiscuss(true);
   }
 
   // 辩论聊天室（2026-10-28 用户：“设置辩论赛聊天室，正方反方都有各自的聊天室，选择立场后自动进入聊天室（进入聊天室之前可以自己取一个昵称，聊天室中
@@ -2766,6 +2841,177 @@
     });
   }
 
+  // 分组讨论（2026-11-11 用户：“你看下能否把‘机制图 · 弹幕接龙’和‘圆桌会议’改为讨论课，比如让学生进行分组讨论？比如可以按照角色的不同分成四组……
+  // 讨论的形式可以让同学们在聊天室中进行，然后点赞”）：习经有圆桌会议的案例里的 [data-disc-room]。
+  // 角色取递交的“rt-role”（值是角色名，后台按页面传来的四个角色名排第几算 r1—r4）；取昵称后进本组聊天室（房间＝案例号＋d，沿用 ck_debate_post / feed / like），
+  // 只看得到本组的发言；顶上显示讨论题、本组任务和本组点赞最多的发言人。测试页（王不凡）按本机递交的角色进入。后台还没有这组函数时显示说明
+  function setupDiscuss(enabled, note) {
+    const boxes = $$('[data-disc-room]');
+    if (!boxes.length || OFFLINE) return;
+    if (!enabled) {
+      boxes.forEach((box) => { box.innerHTML = `<p class="debate-room-off">${esc(note || '进入本周课堂后，递交角色就能进入本组聊天室。')}</p>`; });
+      return;
+    }
+    const DS = Live.DISCUSS || { leader: 5, win: 5, poll: 3000 };
+    const DB = Live.DEBATE || { nickMax: 10, textMax: 100 };
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    const call = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
+    boxes.forEach((roomBox) => {
+      const section = roomBox.closest('[data-discuss]') || roomBox.parentElement;
+      const no = roomBox.dataset.case;
+      const chatNo = `${no}d`;
+      let roles = [];
+      let asks = [];
+      try { roles = JSON.parse(roomBox.dataset.roles || '[]'); asks = JSON.parse(roomBox.dataset.asks || '[]'); } catch (error) { /* 页面数据不全时只显示说明 */ }
+      const question = textOf(section.querySelector('.disc-question p'));
+      const roleName = (key) => roles[Number(String(key || '').slice(1)) - 1] || '';
+      const askOf = (key) => asks[Number(String(key || '').slice(1)) - 1] || '';
+      shield(roomBox);
+      let mode = '';
+      let feedKey = '';
+      const say = (text, kind) => { const el = roomBox.querySelector('[data-ds-state]'); if (el) { el.textContent = text || ''; el.dataset.state = kind || ''; } };
+      // 测试页：本机递交的角色（角色名）→ r1—r4
+      const localRole = () => {
+        const key = `${no}:rt-role`;
+        const group = section.querySelector('[data-live-item="rt-role"]');
+        const pressedButton = group && group.querySelector('[data-live-option][aria-pressed="true"]');
+        const value = (locked[key] && locked[key].v) || (pressedButton && pressedButton.dataset.liveOption);
+        const at = roles.indexOf(value);
+        return at >= 0 ? `r${at + 1}` : '';
+      };
+      async function tick(force) {
+        if (document.hidden && !force) return;
+        let state;
+        try { state = await call('ck_disc_state', { p_classroom: roomId, p_case: no, p_roles: roles }); } catch (problem) {
+          console.warn('[分组讨论]', problem);
+          roomBox.innerHTML = `<p class="debate-room-off">${missing(problem) ? '分组讨论的聊天室还没有开通（老师后台尚未更新）。' : '暂时连不上，请稍后刷新页面。'}</p>`;
+          mode = 'error';
+          return;
+        }
+        if (state.status === 'login') { roomBox.innerHTML = '<p class="debate-room-off">请回首页用课堂码重新登录后再进聊天室。</p>'; mode = 'login'; return; }
+        if (state.status === 'pick') showPick();
+        else if (state.status === 'nick') { const role = state.role || (state.test ? localRole() : ''); if (role) showNick(role, state.test); else showPick(); }
+        else showRoom(force);
+      }
+      function showPick() {
+        if (mode === 'pick') return;
+        mode = 'pick';
+        roomBox.innerHTML = '<p class="dbr-note">先在上面“① 选角色 · 进组”选好你代表的一方并点“递交”：递交后在这里取昵称，进入本组聊天室。</p>';
+      }
+      function showNick(role, test) {
+        if (mode === 'nick') return;
+        mode = 'nick';
+        roomBox.innerHTML = `<div class="dbr-join dsc-join is-${esc(role)}">
+          <p class="dbr-lead">你在<b>${esc(roleName(role))}组</b>：取一个昵称，进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
+          <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-ds-state role="status"></p></div>`;
+        roomBox.querySelector('form').addEventListener('submit', async (event) => {
+          event.preventDefault();
+          const nick = roomBox.querySelector('input').value.replace(/\s+/g, '');
+          if (nick.length < 2) { say('昵称至少 2 个字。', 'error'); return; }
+          const button = roomBox.querySelector('form button');
+          button.disabled = true;
+          try {
+            const res = await call('ck_disc_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_roles: roles, p_role: role });
+            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+              closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交角色，才能进入本组聊天室。', login: '请回首页用课堂码重新登录。' };
+            if (res.status === 'ok') { mode = ''; await tick(true); return; }
+            say(why[res.status] || '没有进去，请再试一次。', 'error');
+          } catch (problem) {
+            console.warn('[分组讨论]', problem);
+            say(missing(problem) ? '分组讨论的聊天室还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
+          } finally {
+            button.disabled = false;
+          }
+        });
+      }
+      function showRoom(force) {
+        if (mode !== 'room') {
+          mode = 'room';
+          feedKey = '';
+          roomBox.innerHTML = `<div class="dbr-room dsc-room">
+            <header class="dbr-head"><div><b data-ds-title></b><span data-ds-meta></span></div><span class="dbr-stage" data-ds-lead hidden></span></header>
+            <div class="dsc-task"><p><b>讨论题</b>${esc(question)}</p><p data-ds-ask></p></div>
+            <div class="dbr-body">
+              <aside class="dbr-people"><h5 data-ds-people-title>成员</h5><ul data-ds-people></ul></aside>
+              <div class="dbr-main">
+                <div class="dbr-list" data-ds-list aria-live="polite"></div>
+                <form class="dbr-form"><input type="text" maxlength="${DB.textMax}" placeholder="本方主张什么、为什么、怎样说服另外三组？（最多 ${DB.textMax} 字）" aria-label="聊天室发言" autocomplete="off"><button type="submit">发送</button></form>
+                <p class="dbr-state" data-ds-state role="status"></p>
+              </div>
+            </div></div>`;
+          roomBox.querySelector('form').addEventListener('submit', async (event) => {
+            event.preventDefault();
+            const input = roomBox.querySelector('.dbr-form input');
+            const text = input.value.trim();
+            if (text.length < 2) { say('写两个字以上再发送。', 'error'); return; }
+            const button = roomBox.querySelector('.dbr-form button');
+            button.disabled = true;
+            try {
+              const res = await call('ck_debate_post', { p_classroom: roomId, p_case: chatNo, p_text: text });
+              const why = { wait: '发得太快了，等几秒再发。', too_many: '每人最多发 30 条，把机会留给别人吧。', closed: '老师已结束提交，聊天室不能再发言。', short: `发言要 2—${DB.textMax} 个字。`, join: '请先取昵称进入聊天室。' };
+              if (res.status === 'ok') { input.value = ''; say(''); await loadFeed(true); } else say(why[res.status] || '没有发出去，请再试一次。', 'error');
+            } catch (problem) {
+              console.warn('[分组讨论]', problem);
+              say('网络不通，没有发出去，请稍后再试。', 'error');
+            } finally {
+              button.disabled = false;
+            }
+          });
+          roomBox.querySelector('[data-ds-list]').addEventListener('click', async (event) => {
+            const like = event.target.closest('[data-dbr-like]');
+            if (!like || like.disabled) return;
+            const on = like.getAttribute('aria-pressed') !== 'true';
+            like.disabled = true;
+            try {
+              const res = await call('ck_debate_like', { p_post: Number(like.dataset.dbrLike) || like.dataset.dbrLike, p_like: on });
+              if (res.status === 'mine') say('不能给自己的发言点赞。');
+              await loadFeed(true);
+            } catch (problem) { console.warn('[分组讨论]', problem); } finally { like.disabled = false; }
+          });
+        }
+        loadFeed(force);
+      }
+      async function loadFeed(force) {
+        let feed;
+        try { feed = await call('ck_debate_feed', { p_classroom: roomId, p_case: chatNo }); } catch (problem) { console.warn('[分组讨论]', problem); return; }
+        if (feed.status !== 'ok') { mode = ''; return; }
+        const people = Array.isArray(feed.list) ? feed.list : [];
+        const top = (Array.isArray(feed.top) ? feed.top : []).filter((t) => t.likes > 0);
+        const lead = top[0] || null;
+        const key = JSON.stringify([feed.posts.map((p) => [p.id, p.likes, p.liked]), people, feed.members, feed.others, top]);
+        if (!force && key === feedKey) return;
+        feedKey = key;
+        const room = roomBox.querySelector('.dbr-room');
+        room.className = `dbr-room dsc-room is-${feed.side}`;
+        const online = people.filter((p) => p.online).length;
+        roomBox.querySelector('[data-ds-title]').textContent = `${roleName(feed.side)}组聊天室`;
+        roomBox.querySelector('[data-ds-meta]').textContent = `我是“${feed.nick}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
+        roomBox.querySelector('[data-ds-ask]').innerHTML = askOf(feed.side) ? `<b>本组任务</b>${esc(askOf(feed.side))}` : '';
+        const pill = roomBox.querySelector('[data-ds-lead]');
+        pill.hidden = !lead;
+        pill.textContent = lead ? `本组发言人：${lead.nick}${lead.me ? '（就是你）' : ''} · ♥ ${lead.likes}` : '';
+        roomBox.querySelector('[data-ds-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
+        roomBox.querySelector('[data-ds-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${lead && lead.nick === p.nick ? ' is-debater' : ''}">
+            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+          || '<li class="dbr-people-empty">还没有人进来</li>';
+        const list = roomBox.querySelector('[data-ds-list]');
+        const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
+        const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
+            <div class="dbr-who"><b>${esc(p.nick)}</b>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}<time>${esc(clock(p.at))}</time></div>
+            <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
+          || `<p class="dbr-empty">还没有发言。先说说本组的主张：本方最想要什么、为什么、怎样说服另外三组。看到说得好的就点赞——点赞最多的就是本组发言人（加 ${DS.leader} 修为）。</p>`;
+        if (atBottom || force) list.scrollTop = list.scrollHeight;
+      }
+      tick(true);
+      setInterval(() => { if (roomBox.isConnected && !roomBox.closest('[hidden]')) tick(false); }, DS.poll);
+      document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; tick(true); } });
+    });
+  }
+
   // 头像：昵称第一个字，底色按昵称算出（同一昵称颜色固定）；online 不传＝不显示在线点
   function avatar(nick, online) {
     const hue = Array.from(String(nick || '')).reduce((h, ch) => (h * 31 + ch.charCodeAt(0)) % 360, 17);
@@ -2878,6 +3124,254 @@
     checkedIn.then(ping);
     setInterval(ping, 45000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+  }
+
+  // ---------- 时间轴排排站·全班分队（2026-11-11 用户：“PK 对决 · 时间轴排排站，改一下玩法，将已加入班级的同学随机平均分成两组，而不是抽两名同学上台。
+  //   然后在固定时间内（比如10秒）让所有学生可以在自己的设备上选择这件事该放在时间轴的哪个位置，倒计时结束看哪一方正确的数量更多，类似于情景猜谜的抢答。
+  //   一题结束后揭示正确答案，另外一个按钮可以开始下一题。最终得分最高一方的修为值集体+1。”）----------
+  //   · 只在有“时间轴排排站”的案例页上问后台（页面里有 [data-pk-type="timeline"]）；老师在投屏页大屏点“分组”后 ck_tl_live 返回 open，弹出对话框；
+  //   · 倒计时按后台时钟（同情境猜谜：按请求往返估计时差），倒计时内点位置就交（可以改选，以最后一次为准）；正确位置只在后台，揭晓后才返回；
+  //   · 揭晓后显示正确位置、自己对不对、两队答对人数和比分；结束显示胜方和修为。旁听、测试页不参加；后台没有这组函数（未执行 SQL）时安静停止
+  if (!LOCAL_ONLY && document.querySelector('[data-pk-type="timeline"]')) setupTimeline();
+  function setupTimeline() {
+    const T = Live.TIMELINE || { points: 1 };
+    const SIDE = { red: '红方', blue: '蓝方' };
+    const box = document.createElement('div');
+    box.className = 'clp-tl';
+    box.hidden = true;
+    box.setAttribute('role', 'dialog');
+    box.setAttribute('aria-label', '时间轴排排站');
+    box.innerHTML = `<div class="clp-tl-head"><b>时间轴排排站</b><span class="clp-tl-team" data-tl-team></span><span class="clp-tl-q" data-tl-q></span>
+        <button type="button" class="clp-tl-fold" data-tl-fold aria-expanded="true">收起</button></div>
+      <div class="clp-tl-body">
+        <div class="clp-tl-score" data-tl-score></div>
+        <div data-tl-main></div>
+        <div class="clp-tl-count" data-tl-count hidden><span class="clp-tl-num" data-tl-num></span><span data-tl-count-text></span></div>
+        <ol class="clp-tl-line" data-tl-line></ol>
+        <p class="clp-tl-state" data-tl-state role="status" aria-live="polite"></p>
+      </div>`;
+    document.body.appendChild(box);
+    const $tl = (key) => box.querySelector(`[data-tl-${key}]`);
+    const room = Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    let game = null;
+    let offset = null;
+    let off = false;
+    let noLogin = false;
+    let busy = false;
+    let picked = null;       // 本机刚点的位置（后台确认前先显示）
+    let stamp = '';
+    let shownNum = null;
+    let tick = 0;
+    let poll = 0;
+    let lineKey = '';
+    let holdUntil = 0;
+    const say = (text, state) => { const el = $tl('state'); el.textContent = text; el.dataset.state = state || ''; };
+    const serverNow = () => Date.now() + (offset || 0);
+    const leftMs = () => (game && game.end_at ? Number(game.end_at) - serverNow() : 0);
+    function measure(t0, t1, now) {
+      const value = Number(now);
+      if (!value) return;
+      const estimate = value - (t0 + t1) / 2;
+      if (offset === null || Math.abs(estimate - offset) > 250) offset = estimate;
+    }
+    const mineSlot = () => (picked !== null ? picked : game && game.mine != null ? Number(game.mine) : null);
+    function paintLine(mode) {
+      // mode：pick 可以选 / locked 时间到 / reveal 揭晓 / none 不显示
+      const slots = (game && game.slots) || [];
+      const mine = mineSlot();
+      const answer = game && game.answer != null ? Number(game.answer) : null;
+      const key = `${mode}|${game && game.q_no}|${mine}|${answer}|${slots.length}`;
+      if (key === lineKey) return;
+      lineKey = key;
+      const line = $tl('line');
+      if (mode === 'none' || !slots.length) { line.innerHTML = ''; line.hidden = true; return; }
+      line.hidden = false;
+      const parts = [];
+      for (let i = 0; i <= slots.length; i += 1) {
+        let cls = '';
+        let text = '放在这里';
+        if (mode === 'reveal') {
+          if (i === answer) { cls = ' is-right'; text = i === mine ? '正确位置 · 你选对了' : '正确位置'; }
+          else if (i === mine) { cls = ' is-wrong'; text = '你选的位置'; }
+        } else if (i === mine) { cls = ' is-picked'; text = mode === 'locked' ? '你选的位置' : '已选（可以改选）'; }
+        parts.push(`<li><button type="button" class="clp-tl-slot${cls}" data-tl-slot="${i}"${mode === 'pick' ? '' : ' disabled'}><i>${i + 1}</i>${esc(text)}</button></li>`);
+        if (i < slots.length) parts.push(`<li class="clp-tl-ev"><span>${esc(slots[i].date)}</span>${esc(slots[i].label)}</li>`);
+      }
+      line.innerHTML = parts.join('');
+    }
+    function paintScore() {
+      const el = $tl('score');
+      if (!game || !(Number(game.q_no) > 0)) { el.innerHTML = ''; return; }
+      el.innerHTML = `<span class="is-red">红方 <b>${Number(game.score_red) || 0}</b></span><span>：</span><span class="is-blue"><b>${Number(game.score_blue) || 0}</b> 蓝方</span>`;
+    }
+    function paint() {
+      if (!game) { box.hidden = true; return; }
+      box.hidden = false;
+      const team = game.team;
+      box.classList.toggle('is-red', team === 'red');
+      box.classList.toggle('is-blue', team === 'blue');
+      const teamEl = $tl('team');
+      teamEl.className = `clp-tl-team${team ? ` is-${team}` : ''}`;
+      teamEl.textContent = team ? `你在${SIDE[team]}` : '';
+      $tl('q').textContent = Number(game.q_no) > 0 ? `第 ${game.q_no}${game.q_total ? ` / ${game.q_total}` : ''} 题` : '等待出题';
+      paintScore();
+      const main = $tl('main');
+      const count = $tl('count');
+      const sizes = game.sizes || {};
+      const phase = game.phase;
+      if (phase === 'rules') {
+        count.hidden = true;
+        main.innerHTML = `<p class="clp-tl-wait">全班已随机分成两队：你在<b class="is-${esc(team || 'red')}">${esc(SIDE[team] || '')}</b>（${Number(sizes[team]) || 0} 人），
+          对手${esc(SIDE[team === 'red' ? 'blue' : 'red'])} ${Number(sizes[team === 'red' ? 'blue' : 'red']) || 0} 人。</p>`;
+        paintLine('none');
+        say('老师出题后，在这里选大屏上那张事件卡该放在时间轴的第几个位置；倒计时内可以改选。每题答对人数多的一队得 1 分，最后得分高的一队每人修为 +' + (T.points || 1) + '。');
+        return;
+      }
+      if (phase === 'over') {
+        count.hidden = true;
+        const win = game.winner;
+        const mineWon = win === 'tie' || (team && win === team);
+        main.innerHTML = `<div class="clp-tl-over">${win === 'red' || win === 'blue' ? `<big>🏆</big>${esc(SIDE[win])}获胜！` : win === 'tie' ? '<big>🤝</big>平局！两队并列第一' : '比赛结束'}</div>`;
+        paintLine('none');
+        say(win === 'none' ? '这一局没有揭晓过题目，不加修为。' : mineWon ? `你所在的${esc(SIDE[team] || '队伍')}每人修为 +${T.points || 1}（老师结算修为时计入）。` : `这一局${esc(SIDE[win])}赢了，下次加油！`, mineWon && win !== 'none' ? 'ok' : '');
+        return;
+      }
+      const cardHtml = `<div class="clp-tl-card"><small>这件事该放在时间轴的哪个位置？</small><b>${esc(game.card || '')}</b></div>`;
+      if (phase === 'reveal') {
+        count.hidden = true;
+        const red = Number(game.red_ok) || 0;
+        const blue = Number(game.blue_ok) || 0;
+        const win = red > blue ? 'red' : blue > red ? 'blue' : 'tie';
+        main.innerHTML = `${cardHtml}<div class="clp-tl-tally"><div class="is-red${win === 'red' ? ' is-win' : ''}">红方答对<b>${red}</b></div><div class="is-blue${win === 'blue' ? ' is-win' : ''}">蓝方答对<b>${blue}</b></div></div>`;
+        paintLine('reveal');
+        const mine = mineSlot();
+        const mineLine = mine === null ? '这题你没有作答。' : game.ok ? '你放对了！' : `你选的是第 ${mine + 1} 个位置，正确的是第 ${Number(game.answer) + 1} 个。`;
+        say(`${mineLine}${win === 'tie' ? '两队答对人数相同，本题不计分。' : `${SIDE[win]}答对的人多，得 1 分。`}等老师出下一题。`, game.ok ? 'ok' : mine === null ? '' : 'bad');
+        return;
+      }
+      // ask：倒计时内可以选；到 0 锁住等揭晓
+      const left = leftMs();
+      if (!main.querySelector('.clp-tl-card') || main.dataset.q !== String(game.q_no)) { main.innerHTML = cardHtml; main.dataset.q = String(game.q_no); }
+      if (left > 0) {
+        const n = Math.ceil(left / 1000);
+        count.hidden = false;
+        count.classList.toggle('is-hurry', n <= 3);
+        if (n !== shownNum) {
+          shownNum = n;
+          $tl('num').textContent = String(n);
+          count.classList.remove('is-tick'); void count.offsetWidth; count.classList.add('is-tick');
+        }
+        $tl('count-text').textContent = '秒内选好位置（全班同步倒计时）';
+        paintLine('pick');
+        if (Date.now() >= holdUntil && !busy) say(mineSlot() === null ? '点下面的位置作答；倒计时结束前可以改选。' : `已选第 ${mineSlot() + 1} 个位置，倒计时结束前可以改选。`, mineSlot() === null ? '' : 'ok');
+      } else {
+        count.hidden = false;
+        count.classList.remove('is-hurry');
+        $tl('num').textContent = '0';
+        $tl('count-text').textContent = '时间到，等老师揭晓';
+        paintLine('locked');
+        if (Date.now() >= holdUntil) say(mineSlot() === null ? '这题没来得及作答。' : `你选的是第 ${mineSlot() + 1} 个位置，等老师揭晓。`);
+      }
+    }
+    function startTick() {
+      clearInterval(tick);
+      tick = 0;
+      if (game && game.phase === 'ask' && leftMs() > 0) {
+        tick = setInterval(() => { paint(); if (leftMs() <= 0) { clearInterval(tick); tick = 0; paint(); } }, 100);
+      }
+    }
+    function apply(data, t0, t1) {
+      if (data) measure(t0, t1, data.now);
+      if (!data || data.status !== 'open') {
+        game = null; stamp = ''; picked = null; lineKey = '';
+        clearInterval(tick); tick = 0;
+        box.hidden = true;
+        return;
+      }
+      const key = `${data.phase}:${data.q_no}:${data.end_at || ''}`;
+      if (key !== stamp) {
+        const fresh = data.phase === 'ask' && !stamp.startsWith(`ask:${data.q_no}:`);
+        stamp = key;
+        picked = null;
+        shownNum = null;
+        lineKey = '';
+        if (fresh) { box.classList.remove('is-folded'); $tl('fold').textContent = '收起'; $tl('fold').setAttribute('aria-expanded', 'true'); }
+      }
+      if (data.mine != null && picked !== null && Number(data.mine) === picked) picked = null;
+      game = data;
+      paint();
+      startTick();
+    }
+    function schedule() {
+      clearTimeout(poll);
+      // 游戏进行中：出题时每 1.5 秒、其余每 2.5 秒；没有游戏每 4 秒；这台设备没登录本课堂时 30 秒
+      poll = setTimeout(check, game ? (game.phase === 'ask' ? 1500 : 2500) : (noLogin || loginNeeded) ? 30000 : 4000);
+    }
+    async function check() {
+      clearTimeout(poll);
+      if (off) return;
+      if (document.hidden || loginNeeded) { schedule(); return; }
+      const t0 = Date.now();
+      try {
+        const result = await backend.rpc('ck_tl_live', { p_classroom: room });
+        const data = Array.isArray(result) ? result[0] : result;
+        noLogin = Boolean(data && data.status === 'login');
+        apply(noLogin ? null : data, t0, Date.now());
+      } catch (problem) {
+        if (missing(problem)) { off = true; box.hidden = true; return; }
+      }
+      schedule();
+    }
+    box.addEventListener('click', async (event) => {
+      if (event.target.closest('[data-tl-fold]')) {
+        const folded = box.classList.toggle('is-folded');
+        $tl('fold').textContent = folded ? '展开' : '收起';
+        $tl('fold').setAttribute('aria-expanded', String(!folded));
+        return;
+      }
+      const button = event.target.closest('[data-tl-slot]');
+      if (!button || button.disabled || !game || game.phase !== 'ask') return;
+      if (leftMs() <= 0) { say('时间到了，不能再改。', 'bad'); return; }
+      const slot = Number(button.dataset.tlSlot);
+      const before = picked;
+      picked = slot;
+      busy = true;
+      paint();
+      const t0 = Date.now();
+      try {
+        const result = await backend.rpc('ck_tl_answer', { p_classroom: room, p_q_no: Number(game.q_no), p_slot: slot });
+        const data = (Array.isArray(result) ? result[0] : result) || {};
+        busy = false;
+        holdUntil = Date.now() + 2500;
+        if (data.status === 'ok') {
+          game.mine = slot;
+          if (data.team && !game.team) game.team = data.team;
+          picked = null;
+          paint();
+          say(`已选第 ${slot + 1} 个位置，倒计时结束前可以改选。`, 'ok');
+        } else if (data.status === 'late') {
+          measure(t0, Date.now(), data.now);
+          picked = before;
+          paint();
+          say('时间到了，这次没有记上。', 'bad');
+        } else if (data.status === 'login') {
+          picked = before;
+          say('这台设备还没有登录本堂课：请回首页用课堂码重新登录。', 'bad');
+        } else {
+          picked = before;
+          say('这一题已经结束了。', 'bad');
+          check();
+        }
+      } catch (problem) {
+        busy = false;
+        picked = before;
+        paint();
+        say('没有交上，请检查网络后再点一次。', 'bad');
+      }
+    });
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) check(); });
+    checkedIn.then(check);
   }
 
   // 情境猜谜抢答（2026-11-05 改为对话框）：用户：“老师点击‘看玩法’或者‘开始第一题’后，学生端立马出现情景猜谜抢答对话框。该对话框在未关闭游戏期间一直存在。
@@ -3327,7 +3821,7 @@
     .catch(() => { /* 后台还没有 ck_my_roster_no 时不显示编号 */ });
 
   // ---------- 修为境界：老师在工作台按后台记录结算（签到、作答、弹幕），这里只显示本人的境界称号；分数不在页面上显示 ----------
-  const REALMS = Live.REALMS || [];
+  const REALMS = Live.realmsFor ? Live.realmsFor(config.course) : (Live.REALMS || []);   // 门槛按课程（2026-11-11 习经化神 140%）
   const GIFTS = Live.GIFTS || [];
   const realmEl = panel.querySelector('[data-cl-realm]');
   const giftBox = panel.querySelector('[data-cl-gifts]');
@@ -3383,8 +3877,9 @@
         <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。被老师删除的无效弹幕，已经得到的修为会撤回，页面上会提醒你。</li>
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
-        ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、时间轴排排站、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为。</li>` : ''}
+        ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为；时间轴排排站是全班随机分成红、蓝两队，每人在自己页面弹出的对话框里选位置，每题答对人数多的一队得 1 分，最后得分高的一队每人加 ${(Live.TIMELINE || {}).points || 1} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 06、08、09、19）：各项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
+        ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
         <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
@@ -3393,7 +3888,7 @@
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
-      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p>
+      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期${(REALMS[REALMS.length - 1] || {}).min > 1 ? `；修炼场和额外奖励也计入修为，所以可以超过 100%，「${esc(REALMS[REALMS.length - 1].name)}」要到 ${Math.round(REALMS[REALMS.length - 1].min * 100)}%` : ''}。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p>
       <p class="clp-hint">突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面（每台设备各一次）。修为榜隐匿姓名只在「结丹」：到「元婴」以后照常显示姓名。面板上的“灵根”可以看自己八个方向的所长和待补。</p>
       ${PREVIEW && window.ClassLiveAscend ? '<p class="clp-hint">测试页预览突破画面：<button type="button" class="clp-rank-link" data-realm-ascend="3">突破元婴</button> <button type="button" class="clp-rank-link" data-realm-ascend="4">突破化神</button></p>' : ''}</div>`;
     realmModal.hidden = false;
@@ -3814,7 +4309,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261111-lingen' : '20261111-lingen-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261111-ch8-pe' : '20261111-timeline-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部

@@ -556,6 +556,7 @@
     try { await backend.removeAll('debateposts', where); await backend.removeAll('debatemembers', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('debatesays', where); await backend.removeAll('debatematches', where); } catch (error) { if (!missingTable(error)) throw error; }   // 辩论台（2026-10-29）
     try { await backend.removeAll('bizvotes', where); await backend.removeAll('bizgames', where); } catch (error) { if (!missingTable(error)) throw error; }   // 经营沙盘（2026-11-03）
+    try { await backend.removeAll('tlanswers', where); await backend.removeAll('tlgames', where); } catch (error) { if (!missingTable(error)) throw error; }   // 时间轴排排站·全班分队（2026-11-11）
     try { await backend.removeAll('pollvotes', where); await backend.removeAll('polls', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('bonus', where); } catch (error) { if (!missingTable(error)) throw error; }
     try { await backend.removeAll('stops', where); } catch (error) { if (!missingTable(error)) throw error; }
@@ -1278,6 +1279,11 @@
       return { ...person, class_name: person.class_name || (sub && sub.class_name) || '', sub, mark: exam.marks.get(sidKey(person.sid)) || null };
     });
   }
+  // 点名册人数、点名册里未递交的人数、点名册外递交的人数（未递交不算点名册外的人）
+  function examTally(list) {
+    const inRoster = list.filter((person) => !person.outside);
+    return { roster: inRoster.length, missing: inRoster.filter((person) => !person.sub).length, outside: list.filter((person) => person.outside && person.sub).length };
+  }
   function renderExam() {
     if (!CONCEPT) return;
     const body = $('[data-exam-rows]');
@@ -1295,12 +1301,28 @@
     const scored = list.filter((person) => examScore(person.mark) != null);
     const avg = scored.length ? (scored.reduce((sum, person) => sum + examScore(person.mark), 0) / scored.length).toFixed(1) : '—';
     const info = examInfo();
+    const tally = examTally(list);
+    const over = exam.room.deadline && Date.now() > millis(exam.room.deadline);
     summary.textContent = (exam.problem ? `${exam.problem} ` : '')
-      + `${info.case || ''} · ${info.title || ''}：${rosterOf().length ? `点名册 ${rosterOf().length} 人，` : ''}已递交 ${done.length} 人，已打分 ${scored.length} 人，平均分 ${avg}。`;
+      + `${info.case || ''} · ${info.title || ''}：${tally.roster ? `点名册 ${tally.roster} 人，` : ''}已递交 ${done.length} 人${tally.roster ? `，未递交 ${tally.missing} 人` : ''}，已打分 ${scored.length} 人，平均分 ${avg}。`
+      + (exam.room.deadline ? `递交截止 ${deadlineText(exam.room.deadline)}${over ? '（已截止）' : ''}。` : '');
+    // 2026-11-11 用户：“期中考查”里面要统计未递交的人数——统计卡片（未递交只算点名册里的同学，点一下只看未递交的），筛选菜单也带人数
+    const stat = (value, label, key, cls = '') => `<button type="button" class="tw-stat tw-exam-stat ${cls}" data-exam-stat="${key}" aria-pressed="${$('[data-exam-filter]').value === key}"><b>${value}</b><span>${label}</span></button>`;
+    $('[data-exam-stats]').innerHTML = (tally.roster ? stat(tally.roster, '点名册人数', 'all') : '')
+      + stat(done.length, tally.outside ? `已递交（含点名册外 ${tally.outside}）` : '已递交', 'submitted')
+      + (tally.roster ? stat(tally.missing, over ? '未递交（已截止）' : '未递交', 'none', tally.missing ? 'is-missing' : 'is-clear') : '')
+      + stat(done.length - scored.filter((person) => person.sub).length, '待批阅', 'todo')
+      + stat(scored.length, `已打分 · 平均 ${avg}`, 'done');
+    const filterBox = $('[data-exam-filter]');
+    const counts = { all: list.length, submitted: done.length, todo: done.length - scored.filter((person) => person.sub).length, done: scored.length, none: list.filter((person) => !person.sub).length };
+    Array.from(filterBox.options).forEach((option) => {
+      option.textContent = `${option.dataset.label || (option.dataset.label = option.textContent)}（${counts[option.value] != null ? counts[option.value] : 0}）`;
+    });
     const query = $('[data-exam-search]').value.trim();
     const filter = $('[data-exam-filter]').value;
     const shown = list.map((person, index) => ({ person, index })).filter(({ person }) => (!query || [person.sid, person.name].some((v) => String(v || '').includes(query)))
-      && (filter === 'all' || (filter === 'todo' ? person.sub && examScore(person.mark) == null : filter === 'done' ? examScore(person.mark) != null : !person.sub)));
+      && (filter === 'all' || (filter === 'todo' ? person.sub && examScore(person.mark) == null : filter === 'done' ? examScore(person.mark) != null
+        : filter === 'submitted' ? Boolean(person.sub) : !person.sub)));
     body.innerHTML = shown.map(({ person, index }) => {
       const score = examScore(person.mark);
       return `<tr class="${person.sub ? '' : 'tw-absent'}"><td>${person.no || '外'}</td><td>${esc(person.sid)}</td><td class="tw-nowrap">${esc(person.name)}</td><td>${esc(person.class_name)}</td>
@@ -1375,6 +1397,13 @@
   $('[data-exam-refresh]').addEventListener('click', loadExam);
   $('[data-exam-search]').addEventListener('input', renderExam);
   $('[data-exam-filter]').addEventListener('change', renderExam);
+  $('[data-exam-stats]').addEventListener('click', (event) => {
+    const button = event.target.closest('[data-exam-stat]');
+    if (!button) return;
+    const box = $('[data-exam-filter]');
+    box.value = box.value === button.dataset.examStat ? 'all' : button.dataset.examStat;
+    renderExam();
+  });
   $('[data-tab="exam"]').addEventListener('click', loadExam);
 
   // 导出：Excel 成绩单（按点名册顺序）与 Word 作业（每位同学一页，可打印归档）
@@ -1415,7 +1444,7 @@
     const scored = done.filter((person) => examScore(person.mark) != null);
     let body = O.para(`${course.title} · 期中考查作业`, 'title')
       + O.para(`${state.klass.name} · ${exam.room.name}（课堂码 ${exam.room.code}）`, 'subtitle')
-      + O.table([['题目', `${info.title || ''}（${info.case || ''}）`], ['题型 / 总分', `${info.type || ''}题 / 100 分`], ['统计', `${rosterOf().length ? `点名册 ${rosterOf().length} 人，` : ''}已递交 ${done.length} 人，已打分 ${scored.length} 人`],
+      + O.table([['题目', `${info.title || ''}（${info.case || ''}）`], ['题型 / 总分', `${info.type || ''}题 / 100 分`], ['统计', `${rosterOf().length ? `点名册 ${rosterOf().length} 人，` : ''}已递交 ${done.length} 人${rosterOf().length ? `，未递交 ${examTally(exam.order).missing} 人` : ''}，已打分 ${scored.length} 人`],
         ['导出时间', `${window.ClassLive.today()} ${clock(Date.now()).slice(0, 5)}`]], [1800, 7226], { head: false })
       + O.para('成绩一览（按点名册顺序）', 'h')
       + O.table([['序号', '学号', '姓名', '班级', '递交', '得分']].concat(exam.order.map((person) => [String(person.no || '外'), String(person.sid), person.name, person.class_name,
@@ -2928,7 +2957,7 @@
   //   · 签到只认“上课日”（当天本单元有足够多同学登录），课后自己打开页面不算；
   //   · 境界只由教师账号写入（ck_save_realms），点名册里没有的学号不结算。
   // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
-  const REALMS = window.ClassLive.REALMS;
+  const REALMS = window.ClassLive.realmsFor ? window.ClassLive.realmsFor(course.slug) : window.ClassLive.REALMS;   // 门槛按课程（2026-11-11 习经化神 140%）
   // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
   const LIKE = window.ClassLive.LIKE || { limit: 20, points: 5, perStudent: 2 };
@@ -3181,7 +3210,7 @@
         total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
       });
       const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game + total.practice) * 10) / 10;
-      const realm = window.ClassLive.realmOf(points, max);
+      const realm = window.ClassLive.realmOf(points, max, course.slug);
       const round1 = (v) => Math.round(v * 10) / 10;
       return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
         title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,

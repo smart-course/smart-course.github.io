@@ -19,6 +19,8 @@
  *       ck_puzzle_open / ck_puzzle_close（教师在投屏页“情境猜谜”开始、结束一轮抢答；教师读、删 ck_puzzle_rounds、ck_puzzle_guesses）
  *       ck_puzzle_live / ck_puzzle_guess（学生面板看正在进行的一轮、抢答；后台核对谜底，第一个猜中的自动加修为）
  *       ck_set_pk_winners（教师在 PK 大屏给今天各局的胜者加修为）
+ *       ck_tl_start / ck_tl_ask / ck_tl_board / ck_tl_reveal / ck_tl_finish / ck_tl_game（教师在 PK 大屏“时间轴排排站·全班分队”分组、出题、揭晓、结束）、
+ *       ck_tl_live / ck_tl_answer（学生在自己页面的对话框里看题、选位置）
  *       ck_join_apply（不在点名册上的同学自己点“申请加入”）、ck_pin_forgot / ck_decide_pin_request（忘记口令申请、教师同意或拒绝；教师读 ck_pin_requests）
  *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸；点笑脸每天 +5 一次）、ck_mood_stats（教师只看人数）
  *       ck_set_deadline / ck_room_deadline（期中考查作业的递交截止时间：教师设置，学生页读取；过了截止时间 ck_submit_answer 不再收）
@@ -34,7 +36,7 @@
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes',
-    sectmembers: 'ck_sect_members', visits: 'ck_visits' };
+    sectmembers: 'ck_sect_members', visits: 'ck_visits', tlgames: 'ck_tl_games', tlanswers: 'ck_tl_answers' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
   const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
@@ -50,6 +52,14 @@
     { level: 4, name: '化神', look: '神光', min: 0.90 },   // 2026-10-22 用户要求化神 90%；2026-10-28 用户：“修为分到65%可以进阶元婴吧”
   ];
   const STAGES = ['初期', '中期', '后期'];
+  // 按课程改门槛（2026-11-11 习经用户：“按照现在两个班第一名的修为境界，达到化神好像有点容易了，你看下后面还有7周，是不是把化神需要的分数再往上调一调，
+  //   尽量在倒数第二周的时候有1-2名同学达到化神境界。”——按线上数据外推（修炼场每天约 7—8、额外奖励），第 15 周末前几名约 1300—1450／满分 1000，
+  //   化神定为 140%；政经不变）。比例可以超过 100%：修炼场和额外奖励不计入满分。与 cloudbase-pg.sql 的 ck_realm_level(points, max, course) 一致
+  const REALM_MIN = { 'xjp-economy': { 4: 1.40 } };
+  function realmsFor(course) {
+    const over = REALM_MIN[course] || {};
+    return REALMS.map((realm) => (over[realm.level] != null ? { ...realm, min: over[realm.level] } : realm));
+  }
   // 宗门（2026-11-05 用户：“设置四个不同的宗门，名称你来定，不要跟凡人里面的相同……达到筑基期的同学可以让他们选择加入不同的宗门，也可以选择做散修，
   // 然后宗门也有分数和排名，加总宗门弟子的修为值就是宗门的分值……宗门是打通每门课程不同年份的……一年一年一直传承下去，允许新同学的加入。”）：
   // 键名与后台 ck_sect_members.sect 一致（sanxiu＝散修，不计入任何宗门）；宗训取自典籍原文；每门课各自一张宗门榜，历届弟子的修为一直留在宗门里
@@ -114,6 +124,8 @@
   const PUZZLE = { points: 5, tries: 3, cap: 20, delay: 10 };   // delay：出题后统一倒计时几秒才能抢答（2026-11-05，与 cloudbase-pg.sql 的 ck_puzzle_open 一致）
   // PK 对决（替换部分案例的圆桌会议）：老师在 PK 大屏结束后给今天各局的胜者每人加 points 修为（额外奖励，不计入满分）
   const PK = { points: 5 };
+  // 时间轴排排站·全班分队（2026-11-11）：得分高的一队每人加 points 修为（额外奖励，与 cloudbase-pg.sql 的 ck_tl_finish 一致）；seconds＝每题默认作答秒数
+  const TIMELINE = { points: 1, seconds: 10 };
   // 辩论赛（2026-10-28 起聊天室；2026-11-05 两门课简化、取消 3v3）：① 选立场、论据卡 → ② 取昵称进本方聊天室发言、点赞 → ③ 辩后投票。
   // 昵称 2—nickMax 字，每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；学生页每 poll 毫秒刷新。
   // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes，辩后投票票多一方聊天室里的同学各加 win（同一人相加）
@@ -121,6 +133,9 @@
   // 经营沙盘（2026-11-03，习经案例 08 第二课时）：四个角色组聊天室沿用辩论聊天室（房间＝案例号＋b，side＝r1—r4）；
   // 经营合格时四位代表各 rep、本方指标最高的角色组里发过言的同学各 top（同一人相加，不超过 20；后台 ck_set_biz_awards 发放）；学生页每 poll 毫秒刷新
   const BIZ = { rep: 10, top: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
+  // 分组讨论（2026-11-11，习经有圆桌会议的案例：代替弹幕表态和机制图弹幕接龙）：按四方角色分四组，各组聊天室沿用辩论聊天室（房间＝案例号＋d，side＝r1—r4）；
+  // 每组点赞最多的一位（本组发言人）加 leader，本方提案被全班表决采纳的角色组里发过言的同学各加 win（同一人相加；后台 ck_set_disc_awards 发放）；学生页每 poll 毫秒刷新
+  const DISCUSS = { leader: 5, win: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
   // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
   const FEEDBACK = { points: 5, min: 10 };
@@ -212,16 +227,18 @@
   };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
   const LEAVE = { points: 20 };
-  // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）
-  function realmOf(points, max) {
-    const ratio = max > 0 ? Math.max(0, Math.min(1, points / max)) : 0;
+  // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）；course 不同门槛可能不同（REALM_MIN）。
+  // 比例不再封顶 100%（2026-11-11），最高一境的初期／中期／后期按“门槛到 max(100%, 门槛＋10%)”三等分（政经化神 90%—100% 与原来一样）
+  function realmOf(points, max, course) {
+    const list = realmsFor(course);
+    const ratio = max > 0 ? Math.max(0, Math.min(5, points / max)) : 0;
     let level = 0;
-    REALMS.forEach((realm) => { if (ratio >= realm.min - 1e-9) level = realm.level; });
-    const lo = REALMS[level].min;
-    const hi = level < REALMS.length - 1 ? REALMS[level + 1].min : 1;
+    list.forEach((realm) => { if (ratio >= realm.min - 1e-9) level = realm.level; });
+    const lo = list[level].min;
+    const hi = level < list.length - 1 ? list[level + 1].min : Math.max(1, lo + 0.1);
     const within = hi > lo ? Math.min(1, (ratio - lo) / (hi - lo)) : 1;
     const stage = Math.min(2, Math.floor(within * 3));
-    return { level, stage, ratio, within, name: REALMS[level].name, title: REALMS[level].name + STAGES[stage] };
+    return { level, stage, ratio, within, name: list[level].name, title: list[level].name + STAGES[stage] };
   }
 
   // 以北京时间的日期作为“这节课”的标识，例如 2026-09-30
@@ -716,6 +733,109 @@
           write('pinreqs', asks);
           secLog('pin_forgot', { ...ctx, name: person.name });
           return { status: 'pending' };
+        }
+        // 分组讨论（规则同 cloudbase-pg.sql 的 ck_disc_state / join / board 与 ck_set_disc_awards）
+        if (/^ck_disc_|^ck_set_disc_awards$/.test(name)) {
+          const uid = await this.ensureAnonymous();
+          const teacher = Boolean(localStorage.getItem(prefix + 'teacher'));
+          const classroom = params.p_classroom;
+          const no = String(params.p_case);
+          const roomNo = `${no}d`;
+          const room = read('classrooms').find((row) => String(row.id) === String(classroom));
+          const members = read('debatemembers');
+          const posts = read('debateposts');
+          const likes = read('debatelikes');
+          const same = (row) => String(row.classroom) === String(classroom);
+          const likeCount = (id) => likes.filter((l) => String(l.post_id) === String(id)).length;
+          const klass = room && read('classes').find((row) => String(row.id) === String(room.class_id));
+          const roster = new Set(((klass && klass.roster) || []).map((x) => sidKey(x.sid)));
+          const ranked = (caseRoom, role) => members.filter((m) => same(m) && m.case_no === caseRoom && m.side === role).map((m) => {
+            const mine = posts.filter((p) => same(p) && p.case_no === caseRoom && p.sid === m.sid && !p.hidden);
+            return { ...m, likes: mine.reduce((n, p) => n + likeCount(p.id), 0), posts: mine.length, first: mine.length ? Math.min(...mine.map((p) => Date.parse(p.created_at))) : Infinity };
+          }).filter((m) => m.posts).sort((a, b) => b.likes - a.likes || a.first - b.first);
+          const leadersOf = (caseRoom) => DISCUSS.roles.map((role) => ranked(caseRoom, role).filter((m) => m.likes > 0 && roster.has(m.sid))[0])
+            .filter(Boolean).map((m) => ({ side: m.side, sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts }));
+          if (name === 'ck_disc_board' || name === 'ck_set_disc_awards') {
+            teacherOnly();
+            if (!room) throw new Error('课堂不存在');
+            const matches = read('debatematches');
+            if (name === 'ck_set_disc_awards') {
+              const rest = matches.filter((d) => !(same(d) && d.case_no === roomNo));
+              if (params.p_won != null) {
+                if ((params.p_won || []).some((w) => !DISCUSS.roles.includes(w))) throw new Error('角色组只能是 r1—r4');
+                rest.push({ classroom: Number(classroom) || classroom, case_no: roomNo, stage: 'done', args: { won: params.p_won, leader: Number(params.p_leader), win: Number(params.p_win), at: new Date().toISOString() } });
+              }
+              write('debatematches', rest);
+              const rows = [];
+              rest.filter((d) => same(d) && /d$/.test(d.case_no) && d.args && d.args.won).forEach((d) => {
+                leadersOf(d.case_no).forEach((m) => rows.push({ case_no: d.case_no, sid: m.sid, name: m.name, side: m.side, points: d.args.leader, leader: true, win: false }));
+                members.filter((m) => same(m) && m.case_no === d.case_no && d.args.won.includes(m.side)
+                  && posts.some((p) => same(p) && p.case_no === d.case_no && p.sid === m.sid && !p.hidden))
+                  .forEach((m) => rows.push({ case_no: d.case_no, sid: m.sid, name: m.name, side: m.side, points: d.args.win, leader: false, win: true }));
+              });
+              const sum = (list) => {
+                const map = new Map();
+                list.filter((r) => r.points > 0 && roster.has(r.sid)).forEach((r) => {
+                  const old = map.get(r.sid) || { sid: r.sid, name: r.name, side: r.side, points: 0, leader: false, win: false };
+                  map.set(r.sid, { ...old, points: old.points + r.points, leader: old.leader || r.leader, win: old.win || r.win });
+                });
+                return Array.from(map.values()).map((r) => ({ ...r, points: Math.min(20, r.points) }));
+              };
+              const day = today();
+              const bonus = read('bonus').filter((b) => !(same(b) && b.kind === 'discuss'));
+              sum(rows).forEach((r) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'discuss', sid: r.sid, name: String(r.name || '').slice(0, 20), points: r.points, created_at: new Date().toISOString() }));
+              write('bonus', bonus);
+              return { list: sum(rows.filter((r) => r.case_no === roomNo)).sort((a, b) => b.points - a.points), total: bonus.filter((b) => same(b) && b.kind === 'discuss').length };
+            }
+            const out = {};
+            DISCUSS.roles.forEach((role) => {
+              const mine = posts.filter((p) => same(p) && p.case_no === roomNo && p.side === role && !p.hidden);
+              out[role] = {
+                members: members.filter((m) => same(m) && m.case_no === roomNo && m.side === role).length,
+                posts: mine.length,
+                top: ranked(roomNo, role).slice(0, 3).map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, likes: m.likes, posts: m.posts })),
+                all: mine.slice().sort((a, b) => Number(a.id) - Number(b.id)).map((p) => ({ id: p.id, nick: p.nick, name: (members.find((m) => same(m) && m.case_no === roomNo && m.sid === p.sid) || {}).name, text: p.text, at: p.created_at, likes: likeCount(p.id) })),
+              };
+            });
+            const votes = {};
+            const latest = new Map();
+            read('choices').filter((row) => same(row) && row.case === no && /^sim-[1-3]$/.test(row.item))
+              .sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((row) => latest.set(`${row.item}|${sidKey(row.sid)}`, row));
+            latest.forEach((row) => { const v = votes[row.item] || (votes[row.item] = {}); v[row.choice] = (v[row.choice] || 0) + 1; });
+            const result = matches.find((d) => same(d) && d.case_no === roomNo && d.args && d.args.won);
+            const awarded = read('bonus').filter((b) => same(b) && b.kind === 'discuss').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
+            return { ...out, votes, leaders: leadersOf(roomNo), result: result ? result.args : null, awarded };
+          }
+          const me = myCheckin(uid, classroom) || (teacher && room ? { sid: 'WBF0001', name: '王不凡', test: true } : null);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          const mem = members.find((m) => same(m) && m.case_no === roomNo && m.sid === sid);
+          const roles = Array.isArray(params.p_roles) ? params.p_roles : [];
+          const chosen = () => {
+            const c = read('choices').filter((row) => same(row) && row.case === no && row.item === 'rt-role' && sidKey(row.sid) === sid)
+              .sort((a, b) => (a.ts || 0) - (b.ts || 0))[0];
+            const at = c ? roles.indexOf(c.choice) : -1;
+            return roles.length >= 2 && roles.length <= 4 && at >= 0 ? `r${at + 1}` : null;
+          };
+          if (name === 'ck_disc_state') {
+            if (mem) return { status: 'joined', role: mem.side, nick: mem.nick, test: Boolean(me.test) };
+            const role = me.test ? null : chosen();
+            return { status: !role && !me.test ? 'pick' : 'nick', role, test: Boolean(me.test) };
+          }
+          if (name === 'ck_disc_join') {
+            if (!room || !room.is_current) return { status: 'closed' };
+            if (mem) return { status: 'ok', role: mem.side, nick: mem.nick };
+            const role = me.test ? (DISCUSS.roles.includes(params.p_role) ? params.p_role : null) : chosen();
+            if (!role) return { status: 'pick' };
+            const nick = String(params.p_nick || '').replace(/\s+/g, '');
+            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
+            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
+            if (members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            members.push({ id: nextId(members), classroom: Number(classroom), case_no: roomNo, side: role, sid, name: me.name, nick, joined_at: new Date().toISOString() });
+            write('debatemembers', members);
+            return { status: 'ok', role, nick };
+          }
+          throw new Error(`未知的后台函数：${name}`);
         }
         // 经营沙盘（规则同 cloudbase-pg.sql 的 ck_biz_state / join / vote / board / control 与 ck_set_biz_awards）
         if (/^ck_biz_|^ck_set_biz_awards$/.test(name)) {
@@ -1496,6 +1616,148 @@
           write('rankhidden', list);
           return { status: 'ok', hidden: Boolean(params.p_hidden) };
         }
+        // 时间轴排排站·全班分队（规则同 cloudbase-pg.sql 的 ck_tl_*，2026-11-11）：教师分组、出题、看进度、揭晓、结束、报到；学生看题、选位置
+        if (/^ck_tl_/.test(name)) {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const games = read('tlgames');
+          const game = games.find((g) => String(g.classroom) === String(params.p_classroom)) || null;
+          const saveGame = (g) => write('tlgames', games.filter((x) => String(x.classroom) !== String(params.p_classroom)).concat(g ? [g] : []));
+          const answers = read('tlanswers');
+          const ms = (iso) => (iso ? Date.parse(iso) : null);
+          const nowIso = () => new Date().toISOString();
+          const sizes = (teams) => Object.values(teams || {}).reduce((t, v) => { t[v] = (t[v] || 0) + 1; return t; }, { red: 0, blue: 0 });
+          const qAnswers = (g) => answers.filter((a) => String(a.classroom) === String(params.p_classroom) && Number(a.q_no) === Number(g.q_no));
+          const joinTeam = (g, sid, nm) => {
+            if (!g) return null;
+            if (g.teams[sid] || g.phase === 'over') return g.teams[sid] || null;
+            const z = sizes(g.teams);
+            const team = z.red < z.blue ? 'red' : z.blue < z.red ? 'blue' : (Math.random() < 0.5 ? 'red' : 'blue');
+            g.teams[sid] = team;
+            g.names[sid] = String(nm || '').slice(0, 20);
+            saveGame(g);
+            return team;
+          };
+          if (name === 'ck_tl_start') {
+            teacherOnly();
+            if (!room) throw new Error('课堂不存在');
+            const day = today();
+            const devices = read('devices');
+            const present = new Map();
+            read('checkins').filter((c) => String(c.classroom) === String(room.id) && c.verified && !c.auditor && c.session === day
+              && devices.some((d) => String(d.class_id) === String(room.class_id) && d.sid === sidKey(c.sid) && d.owner === c.owner))
+              .forEach((c) => present.set(sidKey(c.sid), c.name));
+            if (present.size < 2) return { status: 'few', n: present.size };
+            const order = [...present.keys()].map((sid) => [Math.random(), sid]).sort((a, b) => a[0] - b[0]).map((x) => x[1]);
+            const flip = Math.random() < 0.5 ? 0 : 1;
+            const teams = {};
+            const names = {};
+            order.forEach((sid, i) => { teams[sid] = (i + 1 + flip) % 2 === 1 ? 'red' : 'blue'; names[sid] = String(present.get(sid) || '').slice(0, 20); });
+            write('tlanswers', answers.filter((a) => String(a.classroom) !== String(room.id)));
+            saveGame({ classroom: room.id, course: room.course, gkey: String(params.p_key || '').slice(0, 60), title: String(params.p_title || '').slice(0, 80), teams, names,
+              phase: 'rules', q_no: 0, q_total: Math.max(0, Math.min(Number(params.p_total) || 0, 30)), card: '', slots: [], answer: null, end_at: null,
+              scored: 0, q_red: 0, q_blue: 0, score_red: 0, score_blue: 0, winner: null, awarded: 0, seen_at: nowIso(), updated_at: nowIso() });
+            const list = (side) => order.filter((sid) => teams[sid] === side).map((sid) => ({ sid, name: names[sid] })).sort((a, b) => a.name.localeCompare(b.name, 'zh'));
+            return { status: 'ok', n: order.length, now: Date.now(), red: list('red'), blue: list('blue') };
+          }
+          if (name === 'ck_tl_ask') {
+            teacherOnly();
+            if (!game || game.phase === 'over') throw new Error('还没有分组，或这一局已经结束');
+            const seconds = Number(params.p_seconds);
+            if (!(seconds >= 5 && seconds <= 60)) throw new Error('作答时间应为 5—60 秒');
+            const slots = Array.isArray(params.p_slots) ? params.p_slots : [];
+            const answer = Number(params.p_answer);
+            if (!String(params.p_card || '').trim() || !(Number(params.p_q_no) >= 1)) throw new Error('题目不正确');
+            if (!slots.length || slots.length > 12 || !(answer >= 0 && answer <= slots.length)) throw new Error('时间轴或正确位置不正确');
+            write('tlanswers', answers.filter((a) => !(String(a.classroom) === String(params.p_classroom) && Number(a.q_no) === Number(params.p_q_no))));
+            const endAt = Date.now() + seconds * 1000;
+            Object.assign(game, { phase: 'ask', q_no: Number(params.p_q_no), card: String(params.p_card).trim().slice(0, 120),
+              slots: slots.map((x) => ({ date: String(x.date || '').slice(0, 20), label: String(x.label || '').slice(0, 60) })), answer, end_at: new Date(endAt).toISOString(),
+              q_red: 0, q_blue: 0, seen_at: nowIso(), updated_at: nowIso() });
+            saveGame(game);
+            return { q_no: game.q_no, end_at: endAt, now: Date.now() };
+          }
+          if (name === 'ck_tl_board') {
+            teacherOnly();
+            if (!game) return { status: 'none' };
+            const list = qAnswers(game);
+            const shown = game.phase === 'reveal' || game.phase === 'over';
+            return { status: 'ok', phase: game.phase, q_no: game.q_no, sizes: sizes(game.teams), end_at: ms(game.end_at), now: Date.now(),
+              red_n: list.filter((a) => a.team === 'red').length, blue_n: list.filter((a) => a.team === 'blue').length,
+              red_ok: shown ? list.filter((a) => a.team === 'red' && a.ok).length : null, blue_ok: shown ? list.filter((a) => a.team === 'blue' && a.ok).length : null,
+              score_red: game.score_red, score_blue: game.score_blue };
+          }
+          if (name === 'ck_tl_reveal') {
+            teacherOnly();
+            if (!game || game.q_no < 1) throw new Error('还没有出题');
+            const list = qAnswers(game);
+            const red = list.filter((a) => a.team === 'red' && a.ok).length;
+            const blue = list.filter((a) => a.team === 'blue' && a.ok).length;
+            if (game.phase === 'ask') {
+              if (game.scored < game.q_no) { game.score_red += red > blue ? 1 : 0; game.score_blue += blue > red ? 1 : 0; game.scored = game.q_no; }
+              Object.assign(game, { phase: 'reveal', q_red: red, q_blue: blue, end_at: new Date(Math.min(Date.now(), ms(game.end_at) || Date.now())).toISOString(), seen_at: nowIso(), updated_at: nowIso() });
+              saveGame(game);
+            }
+            return { q_no: game.q_no, answer: game.answer, red_ok: game.q_red, blue_ok: game.q_blue, red_n: list.filter((a) => a.team === 'red').length,
+              blue_n: list.filter((a) => a.team === 'blue').length, sizes: sizes(game.teams),
+              win: game.q_red > game.q_blue ? 'red' : game.q_blue > game.q_red ? 'blue' : 'tie', score_red: game.score_red, score_blue: game.score_blue };
+          }
+          if (name === 'ck_tl_finish') {
+            teacherOnly();
+            if (!game) throw new Error('还没有分组');
+            if (game.phase !== 'over') {
+              const win = game.scored < 1 ? 'none' : game.score_red > game.score_blue ? 'red' : game.score_blue > game.score_red ? 'blue' : 'tie';
+              let n = 0;
+              if (win !== 'none') {
+                const klass = read('classes').find((row) => String(row.id) === String(room && room.class_id));
+                const roster = new Set(((klass && klass.roster) || []).map((person) => sidKey(person.sid)));
+                const day = today();
+                const bonus = read('bonus');
+                Object.entries(game.teams).filter(([sid, side]) => (win === 'tie' || side === win) && roster.has(sid)).forEach(([sid]) => {
+                  const old = bonus.find((row) => String(row.classroom) === String(game.classroom) && row.day === day && row.kind === 'timeline' && row.sid === sid);
+                  if (old) old.points = Math.min(old.points + TIMELINE.points, 5);
+                  else bonus.push({ id: `${Date.now()}-tl${n}`, course: game.course, classroom: game.classroom, day, kind: 'timeline', sid, name: game.names[sid] || '', points: TIMELINE.points, created_at: nowIso() });
+                  n += 1;
+                });
+                write('bonus', bonus);
+              }
+              Object.assign(game, { phase: 'over', winner: win, awarded: n, end_at: null, seen_at: nowIso(), updated_at: nowIso() });
+              saveGame(game);
+            }
+            return { winner: game.winner, awarded: game.awarded, score_red: game.score_red, score_blue: game.score_blue, sizes: sizes(game.teams) };
+          }
+          if (name === 'ck_tl_game') {
+            teacherOnly();
+            if (params.p_action === 'beat') { if (game) { game.seen_at = nowIso(); saveGame(game); } }
+            else if (params.p_action === 'end') { write('tlanswers', answers.filter((a) => String(a.classroom) !== String(params.p_classroom))); saveGame(null); }
+            else throw new Error(`不认识的操作：${params.p_action}`);
+            return { status: 'ok', now: Date.now() };
+          }
+          const me = myCheckin(await this.ensureAnonymous(), params.p_classroom);
+          if (!me) return { status: 'login' };
+          const sid = sidKey(me.sid);
+          if (name === 'ck_tl_live') {
+            if (!game || Date.now() - ms(game.seen_at) > 150000) return { status: 'none', now: Date.now() };
+            const team = joinTeam(game, sid, me.name);
+            const mine = game.q_no > 0 ? qAnswers(game).find((a) => a.sid === sid) : null;
+            const shown = game.phase === 'reveal' || game.phase === 'over';
+            return { status: 'open', phase: game.phase, title: game.title, team, sizes: sizes(game.teams), q_no: game.q_no, q_total: game.q_total, card: game.card, slots: game.slots,
+              end_at: ms(game.end_at), now: Date.now(), mine: mine ? mine.slot : null, ok: shown && mine ? mine.ok : null,
+              answer: shown ? game.answer : null, red_ok: shown ? game.q_red : null, blue_ok: shown ? game.q_blue : null,
+              score_red: game.score_red, score_blue: game.score_blue, winner: game.winner, awarded: game.phase === 'over' ? game.awarded : null };
+          }
+          if (name === 'ck_tl_answer') {
+            if (!game || game.phase !== 'ask' || Number(game.q_no) !== Number(params.p_q_no)) return { status: 'closed' };
+            if (Date.now() > ms(game.end_at) + 600) return { status: 'late', end_at: ms(game.end_at), now: Date.now() };
+            const slot = Number(params.p_slot);
+            if (!(slot >= 0 && slot <= game.slots.length)) return { status: 'bad' };
+            const team = game.teams[sid] || joinTeam(game, sid, me.name);
+            if (!team) return { status: 'closed' };
+            const rest = read('tlanswers').filter((a) => !(String(a.classroom) === String(params.p_classroom) && Number(a.q_no) === Number(game.q_no) && a.sid === sid));
+            write('tlanswers', rest.concat({ classroom: game.classroom, q_no: game.q_no, sid, team, slot, ok: slot === Number(game.answer), created_at: nowIso() }));
+            return { status: 'ok', slot, team };
+          }
+          throw new Error(`未知的后台函数：${name}`);
+        }
         // 本人境界、祭出法宝（学生调用，须放在 teacherOnly 之前）
         if (name === 'ck_my_realm' || name === 'ck_send_gift' || name === 'ck_my_gifts') {
           const uid = await this.ensureAnonymous();
@@ -2157,7 +2419,7 @@
             cut = dmCut + likeCut;
             if (cut > 0) {
               realm.points = Math.max(0, Number(realm.points) - cut);
-              const level = realmOf(realm.points, Number(realm.max_points));
+              const level = realmOf(realm.points, Number(realm.max_points), realm.course);
               realm.realm = level.level;
               realm.stage = level.stage;
               realm.detail = { ...detail, danmaku: Math.max(0, (Number(detail.danmaku) || 0) - dmCut), like: Math.max(0, (Number(detail.like) || 0) - likeCut) };
@@ -2400,7 +2662,7 @@
     const Live = window.ClassLive || {};
     const config = { course };
     const FB = Live.feedbackBox ? Live.feedbackBox.texts(course === 'political-economy') : { tag: '匿名建议箱' };
-    const REALMS = Live.REALMS || [];
+    const REALMS = Live.realmsFor ? Live.realmsFor(course) : (Live.REALMS || []);   // 门槛按课程（习经化神 140%）
     const GIFTS = Live.GIFTS || [];
     // 修炼场规则说明（与学生页 practiceRule 相同）
     const practiceRule = () => {
@@ -2413,6 +2675,9 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ...(config.course === 'political-economy' ? [['第八章新题', '第八章两个案例（案例 13、14）补上了“豁然开朗”（学习路线页先抛出的悬念，辩论赛之后揭晓）和完整的“课后自修”（闭卷默写、温故、讲给别人听，做了就积累修为）；修炼场也新增了这两个案例的情境辨析、易错判断和“讲给别人听”练习题。', '2026-11-11']] : []),
+        ...(config.course === 'xjp-economy' ? [['分组讨论', `有圆桌会议的案例（案例 02、03、04、05、10、11、13、14）第二课时改为“分组讨论”：按四方角色分成四组，选好角色递交后取一个昵称进入本组聊天室，围绕讨论题和本组任务发言、给本组的好发言点赞；点赞最多的就是本组发言人，到大屏前亮观点；最后全班为三项议程表决。每组发言人加 ${DISCUSS.leader} 修为，本方提案被全班表决采纳的组里在聊天室发过言的同学各加 ${DISCUSS.win} 修为。机制图改由老师逐步演示，不再弹幕接龙。`, '2026-11-11']] : []),
+        ...(config.course === 'xjp-economy' ? [['时间轴排排站', `PK 对决里的“时间轴排排站”改为全班一起玩：老师点“分组”后全班随机分成红、蓝两队，你的页面上会弹出答题对话框，显示你在哪一队；每题倒计时内在对话框里选大屏上那张事件卡该放在时间轴的第几个位置（可以改选），倒计时结束揭晓，答对人数多的一队得 1 分；最后得分高的一队每人修为 +${TIMELINE.points}。`, '2026-11-11']] : []),
         ['灵根八相', '面板上新增粉色的“灵根”按钮：用一张八边形图看你本学期在八个方向上的修炼——勤勉（到课）、恒心（学习天数）、精进（学习行为）、悟性（正确率）、论道（弹幕）、历练（修炼场）、定力（在线时长）、根基（修为），和全班平均比一比，看清自己的所长和待补。“修为榜”“灵根”“修炼场”“宗门”四个按钮现在排在学号下面一行。', '2026-11-11'],
         ['突破元婴', '突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面和祝福语（每台设备各放一次；已经突破的同学，下次打开页面时补放一次）。到「元婴」以后，修为榜上照常显示姓名，不能再隐匿。', '2026-11-11'],
         ['无效弹幕', '老师删除无效弹幕（比如只发“1”“111”）时，这条弹幕已经得到的修为会撤回，你的页面上会弹窗提醒。发有内容的弹幕才有修为，同一句只算一次。', '2026-11-06'],
@@ -2574,8 +2839,10 @@
     WORDGAME,
     PUZZLE,
     PK,
+    TIMELINE,
     DEBATE,
     BIZ,
+    DISCUSS,
     POLL,
     FEEDBACK,
     EGG,
@@ -2584,6 +2851,7 @@
     LEAVE,
     office,
     realmOf,
+    realmsFor,
     isClosedError,
     isDuplicateError,
     isStopped,

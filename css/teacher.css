@@ -497,6 +497,14 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-scope-grid label { display: flex; align-items: center; gap: 6px; font-size: 14px; }
 /* 期中考查批阅（2026-10-28） */
 .tw-exam-table td.score { font-weight: 800; color: var(--teal); }
+/* 2026-11-11 期中考查统计卡片：点一下按这一项筛选，再点取消；未递交红色 */
+.tw-exam-stats { margin: 4px 0 8px; gap: 12px; }
+.tw-exam-stat { min-width: 132px; padding: 10px 16px; border: 1px solid rgba(70, 51, 34, .1); font: inherit; text-align: left; cursor: pointer; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.tw-exam-stat:hover { transform: translateY(-1px); border-color: rgba(31, 107, 106, .45); }
+.tw-exam-stat[aria-pressed="true"] { border-color: var(--teal); box-shadow: 0 0 0 3px rgba(31, 107, 106, .16); }
+.tw-exam-stat span { display: block; font-size: 13px; }
+.tw-exam-stat.is-missing b { color: #b4442f; }
+.tw-exam-stat.is-clear b { color: #1f8a4f; }
 .tw-exam-table td.tw-exam-comment { max-width: 280px; color: var(--muted); font-size: 13px; }
 .tw-exam-dialog { width: min(880px, calc(100% - 32px)); }
 .tw-exam-dialog h2 { margin: 2px 0 2px; }
