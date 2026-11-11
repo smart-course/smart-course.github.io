@@ -10,7 +10,7 @@
  *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
- *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
+ *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_my_lingen（学生面板“灵根八相”：本人八项与全班平均）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
  *       ck_ping（学生页在前台时每 45 秒报一次在线；教师读 ck_presence，工作台加入名单显示小绿灯）
@@ -1372,12 +1372,13 @@
           const rows = read('realms').filter((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && Number(row.points) > 0)
             .sort((a, b) => Number(b.points) - Number(a.points) || String(a.sid).localeCompare(String(b.sid)));
           const sectOf = new Map(read('sectmembers').filter((m) => m.course === room.course && Number(m.class_id) === (Number(room.class_id) || 0) && m.sect !== 'sanxiu').map((m) => [m.sid, m.sect]));
-          const ranked = rows.map((row) => ({ ...row, hidden: hidden.has(row.sid), sect: sectOf.get(row.sid) || null, rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
+          // 2026-11-11：元婴（3）以上照常显示姓名
+          const ranked = rows.map((row) => ({ ...row, hidden: Number(row.realm) < 3 && hidden.has(row.sid), sect: sectOf.get(row.sid) || null, rank: 1 + rows.filter((other) => Number(other.points) > Number(row.points)).length }));
           const mine = ranked.find((row) => row.sid === sid);
           return { status: 'ok', total: ranked.length, updated_at: ranked.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
             top: ranked.filter((row, i) => row.rank <= 10 && i < 15).map((row) => ({ rank: row.rank, name: row.hidden && sid !== null && row.sid !== sid ? '***' : row.name,
               hidden: row.hidden, sect: row.sect, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
-            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) >= 2, sect: mine.sect } : null };
+            mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) === 2, locked: Number(mine.realm) >= 3, sect: mine.sect } : null };
         }
         // 宗门榜与拜入宗门（规则同 cloudbase-pg.sql 的 ck_sect_board / ck_sect_join）
         if (name === 'ck_sect_board' || name === 'ck_sect_join') {
@@ -1425,6 +1426,60 @@
               can_join: Boolean(realm && Number(realm.realm) >= SECT_MIN_REALM), changes: old ? Number(old.changes) || 0 : 0,
               can_change: Boolean(realm && Number(realm.realm) >= SECT_MIN_REALM && old && old.sect !== 'sanxiu' && !(Number(old.changes) >= 1)) } };
         }
+        // 灵根八相（规则同 cloudbase-pg.sql 的 ck_my_lingen：本班全学期、不含期中考查作业；本人八项＋全班平均＋刻度上限；教师调用时 me 为空）
+        if (name === 'ck_my_lingen') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room) return { status: 'login' };
+          const me = myCheckin(await this.ensureAnonymous(), params.p_classroom);
+          const teacher = !me && Boolean(localStorage.getItem(prefix + 'teacher'));
+          if (!me && !teacher) return { status: 'login' };
+          const mySid = me ? sidKey(me.sid) : null;
+          const classId = Number(room.class_id) || 0;
+          const rooms = new Set(read('classrooms').filter((r) => r.course === room.course && (Number(r.class_id) || 0) === classId && !/^exam/.test(String(r.chapter || ''))).map((r) => String(r.id)));
+          const inRooms = (row) => rooms.has(String(row.classroom));
+          const klass = read('classes').find((row) => Number(row.id) === classId);
+          const people = new Set(((klass && klass.roster) || []).filter((p) => p && p.sid && !p.extra).map((p) => sidKey(p.sid)));
+          if (mySid) people.add(mySid);
+          const checks = read('checkins').filter((row) => inRooms(row) && row.verified && !row.auditor);
+          const ts = (row) => row.created_at || row.started_at || row.at || '';
+          const acts = [
+            ...checks, ...read('choices').filter(inRooms), ...read('answers').filter(inRooms), ...read('homework').filter(inRooms),
+            ...read('danmaku').filter((row) => inRooms(row) && !row.withdrawn_at),
+            ...read('practice').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId),
+            ...read('visits').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && !row.auditor),
+            ...read('puzzleguesses').filter(inRooms), ...read('debateposts').filter(inRooms),
+          ];
+          const dayOf = (at) => (at ? new Date(new Date(at).getTime() + 8 * 3600000).toISOString().slice(0, 10) : '');
+          const realms = read('realms').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId);
+          const per = Array.from(people).map((sid) => {
+            const mineActs = acts.filter((row) => sidKey(row.sid) === sid);
+            const realm = realms.find((row) => row.sid === sid);
+            const d = (realm && realm.detail) || {};
+            return {
+              sid,
+              attend: new Set(checks.filter((row) => sidKey(row.sid) === sid).map((row) => String(row.classroom))).size,
+              days: new Set(mineActs.map((row) => dayOf(ts(row))).filter(Boolean)).size,
+              acts: mineActs.length,
+              rate: Number(d.attend) > 0 ? Math.min(100, Math.round(100 * (Number(d.right || 0) / 35) / (Number(d.attend) / 20))) : 0,
+              danmaku: read('danmaku').filter((row) => inRooms(row) && sidKey(row.sid) === sid && !row.gift && !row.withdrawn_at && row.status !== 'hidden').length,
+              practice: read('practice').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && sidKey(row.sid) === sid).length,
+              online: Math.round(read('visits').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && !row.auditor && sidKey(row.sid) === sid)
+                .reduce((t, row) => t + (Number(row.seconds) || 0), 0) / 60),
+              points: realm ? Number(realm.points) || 0 : 0,
+            };
+          });
+          const held = new Set(checks.map((row) => String(row.classroom))).size;
+          const first = checks.map((row) => dayOf(row.created_at)).filter(Boolean).sort()[0];
+          const today = dayOf(new Date().toISOString());
+          const span = Math.max(1, first ? Math.round((Date.parse(today) - Date.parse(first)) / 86400000) + 1 : 1);
+          const mineRow = mySid ? per.find((row) => row.sid === mySid) : null;
+          const avg = (key) => (per.length ? Math.round((per.reduce((t, row) => t + row[key], 0) / per.length) * 10) / 10 : 0);
+          const top = (key) => Math.max(0, ...per.map((row) => row[key]));
+          const maxOf = { attend: held, days: span, rate: 100 };
+          return { status: 'ok', teacher, people: per.length, held, span,
+            updated_at: realms.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
+            rows: ['attend', 'days', 'acts', 'rate', 'danmaku', 'practice', 'online', 'points'].map((key) => ({ key, me: mineRow ? mineRow[key] : null, avg: avg(key), max: key in maxOf ? maxOf[key] : top(key) })) };
+        }
         if (name === 'ck_set_rank_hidden') {
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const me = room && myCheckin(await this.ensureAnonymous(), params.p_classroom);
@@ -1435,6 +1490,7 @@
           if (params.p_hidden) {
             const realm = read('realms').find((row) => row.course === room.course && Number(row.class_id) === classId && row.sid === sid);
             if (!realm || Number(realm.realm) < 2) return { status: 'realm', hidden: false };
+            if (Number(realm.realm) >= 3) return { status: 'locked', hidden: false };   // 2026-11-11：元婴以上不能隐匿
             list.push({ course: room.course, class_id: classId, sid, hidden_at: new Date().toISOString() });
           }
           write('rankhidden', list);
@@ -2357,6 +2413,8 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['灵根八相', '面板上新增粉色的“灵根”按钮：用一张八边形图看你本学期在八个方向上的修炼——勤勉（到课）、恒心（学习天数）、精进（学习行为）、悟性（正确率）、论道（弹幕）、历练（修炼场）、定力（在线时长）、根基（修为），和全班平均比一比，看清自己的所长和待补。“修为榜”“灵根”“修炼场”“宗门”四个按钮现在排在学号下面一行。', '2026-11-11'],
+        ['突破元婴', '突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面和祝福语（每台设备各放一次；已经突破的同学，下次打开页面时补放一次）。到「元婴」以后，修为榜上照常显示姓名，不能再隐匿。', '2026-11-11'],
         ['无效弹幕', '老师删除无效弹幕（比如只发“1”“111”）时，这条弹幕已经得到的修为会撤回，你的页面上会弹窗提醒。发有内容的弹幕才有修为，同一句只算一次。', '2026-11-06'],
         ['全屏答题（手机）', '用手机做题时，点题目下方“递交”旁边的“⤢ 全屏”，或面板里的“全屏答题”：一题一屏、字更大，左下角、右下角是“上一题”“下一题”，顺着做下去；右上角 A−、A+ 调字号。安卓手机会自动转成横屏；iPhone 可以把手机横过来（先在控制中心关掉“竖排方向锁定”），或点上方的“横屏”把画面转过来，写字时会自动转回竖屏。点左上角“退出”（或返回键）回到原来的页面，停在刚才那道题。', '2026-11-06'],
         ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。`, '2026-11-06'],

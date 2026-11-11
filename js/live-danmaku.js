@@ -427,9 +427,29 @@
       }
       realmMap = next;
       realmClass = classId;
+      checkAscend(next, classId);
     } catch (error) {
       realmMap = new Map();   // 还没有修为境界数据表时不显示称号
     }
+  }
+  // 境界突破画面（2026-11-11 用户：“学生突破元婴的话在课堂页面和学生自己的页面会有类似于祭出法宝的动画……和祝福语。只要在该台设备没出现过，
+  //   无论是课堂页面还是学生页面，下次登陆的时候都会在各自的页面出现一次。”）：本班达到元婴（化神）的同学，这台电脑的投屏上还没放过的，
+  //   打开投屏页（或课上老师结算后读到新境界）时放一遍；同一境界几位同学一起放一次（画面在 live-ascend.js）。匿名时不显示姓名
+  function checkAscend(map, classId) {
+    if (!window.ClassLiveAscend) return;
+    const key = `classlive-ascend:screen:${config.course}:${classId}`;
+    let seen = {};
+    try { seen = JSON.parse(localStorage.getItem(key) || '{}') || {}; } catch (error) { seen = {}; }
+    const due = { 3: [], 4: [] };
+    map.forEach((value, sid) => {
+      const level = value.realm >= 4 ? 4 : value.realm >= 3 ? 3 : 0;
+      if (level && !(Number(seen[sid]) >= level)) { due[level].push(value.name || sid); seen[sid] = level; }
+    });
+    if (!due[3].length && !due[4].length) return;
+    try { localStorage.setItem(key, JSON.stringify(seen)); } catch (error) { /* 存不下时下次再放 */ }
+    [4, 3].filter((level) => due[level].length).forEach((level) => {
+      window.ClassLiveAscend.play({ level, names: anonymous() ? [] : due[level], fit: 'wide' });
+    });
   }
   // 恭喜突破：页面最上方正中一行固定弹幕，显示 3 秒；又有新的境界提升就直接换成新的（匿名时不显示姓名）
   const cheer = document.createElement('div');
@@ -488,6 +508,7 @@
     <div class="dm-demo-row"><b>内容</b><span class="dm-demo-field" data-demo-field><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></span></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
       <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
+    <div class="dm-demo-row"><b>突破</b><button type="button" class="dm-demo-btn" data-demo-ascend="3">突破元婴</button><button type="button" class="dm-demo-btn" data-demo-ascend="4">突破化神</button></div>
     <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small>（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
   document.body.appendChild(demo);
   const demoText = demo.querySelector('[data-demo-text]');
@@ -528,7 +549,14 @@
     const levelButton = event.target.closest('[data-demo-level]');
     const colorButton = event.target.closest('[data-demo-color]');
     const giftButton = event.target.closest('[data-demo-gift]');
+    const ascendButton = event.target.closest('[data-demo-ascend]');
     if (event.target.closest('[data-demo-close]')) { toggleDemo(false); return; }
+    if (ascendButton && window.ClassLiveAscend) {
+      // 突破画面（live-ascend.js）：播放时先让开，播完再出现
+      demo.style.visibility = 'hidden';
+      window.ClassLiveAscend.play({ level: Number(ascendButton.dataset.demoAscend), names: ['示例同学'], fit: 'wide' }).then(() => { demo.style.visibility = ''; });
+      return;
+    }
     if (levelButton) { demoState.level = Number(levelButton.dataset.demoLevel); paintDemo(); return; }
     if (colorButton) { demoState.color[demoState.level] = colorButton.dataset.demoColor; paintDemo(); return; }
     if (event.target.closest('[data-demo-send]')) {

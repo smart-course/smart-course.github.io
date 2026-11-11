@@ -548,7 +548,7 @@
   @media (min-width: 701px) {
     .clp-panel.clp-v2.is-folded { width: 290px; }
     .clp-v2.is-folded .clp-head { padding: 8px 14px 7px; }
-    .clp-v2.is-folded .clp-sub { display: none; }
+    .clp-v2.is-folded .clp-sub, .clp-v2.is-folded .clp-acts { display: none; }
     .clp-v2.is-folded [data-cl-font], .clp-v2.is-folded [data-cl-leave], .clp-v2.is-folded .clp-font-pop { display: none; }
   }
   @media (min-width: 701px) {
@@ -619,9 +619,19 @@
     text-shadow: 0 1px 1px rgba(0,40,30,.35);
     font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
   .clp-sub .clp-xlbtn { margin-left: 6px; }
-  .clp-xlbtn::after, .clp-sectbtn::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+  /* 2026-11-11：按钮多了“灵根”，四个按钮从学号那一行挪到下面单独一行（窄屏自动折行） */
+  .clp-v2 .clp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 7px; margin-top: 6px; }
+  .clp-acts .clp-xlbtn, .clp-acts .clp-sectbtn { margin-left: 0; }
+  .clp-lgbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border: 1px solid #8f1d47; border-radius: 999px;
+    color: #fff; background: linear-gradient(180deg, #ffb3cf, #e8467f 55%, #a61c4e); box-shadow: 0 0 8px rgba(255,15,107,.42), inset 0 1px 0 rgba(255,255,255,.6);
+    text-shadow: 0 1px 1px rgba(80,0,30,.35);
+    font: 800 12.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; }
+  .clp-lgbtn svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linejoin: round; }
+  .clp-lgbtn svg .is-in { fill: currentColor; fill-opacity: .5; stroke: none; }
+  .clp-xlbtn::after, .clp-sectbtn::after, .clp-lgbtn::after { content: ''; position: absolute; inset: 0; pointer-events: none;
     background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.7) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat; animation: clp-sweep 3.6s ease-in-out 1.6s infinite; }
-  .clp-sectbtn::after { animation-delay: 2s; }
+  .clp-xlbtn::after { animation-delay: 2s; }
+  .clp-sectbtn::after { animation-delay: 2.4s; }
   /* 宗门（2026-11-05）：面板头部的宗门按钮（拜入后显示宗门名和宗门色）＋宗门榜弹窗（沿用修为榜的星空卡片） */
   .clp-sectbtn[hidden] { display: none; }
   .clp-sectbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; margin-left: 6px; padding: 2px 10px 2px 4px; border: 1px solid rgba(0,0,0,.22); border-radius: 999px;
@@ -743,13 +753,56 @@
   .clp-rank-privacy button { padding: 4px 12px; border: 1px solid rgba(255,211,107,.6); border-radius: 999px; background: rgba(255,211,107,.12); color: #ffe8a8; font: 700 12.5px/1.4 -apple-system, "PingFang SC", sans-serif; cursor: pointer; }
   .clp-rank-privacy button:hover { background: rgba(255,211,107,.25); } .clp-rank-privacy button:disabled { opacity: .6; cursor: default; }
   .clp-rank-state { margin: 28px 0 20px; color: rgba(244,236,255,.82); text-align: center; }
+  /* 灵根八相（2026-11-11）：沿用修为榜的星空卡片；八边形雷达（粉＝本人，青＝全班平均）＋所长/待补＋八项明细 */
+  .clp-lg-card { width: min(500px, 100%); }
+  .clp-lg-intro { margin: 2px 0 0; color: rgba(244,236,255,.74); font-size: 12.5px; line-height: 1.65; }
+  .clp-lg-keys { display: flex; flex-wrap: wrap; justify-content: center; gap: 4px 16px; margin: 10px 0 0; color: rgba(244,236,255,.86); font-size: 12.5px; }
+  .clp-lg-keys i { display: inline-block; width: 16px; height: 10px; margin-right: 6px; border-radius: 3px; vertical-align: -1px; }
+  .clp-lg-keys i.is-me { background: rgba(255,15,107,.45); box-shadow: inset 0 0 0 2px #FF0F6B; }
+  .clp-lg-keys i.is-avg { background: rgba(34,193,220,.3); box-shadow: inset 0 0 0 2px #22C1DC; }
+  .clp-lg-radar { display: block; width: 100%; max-width: 380px; height: auto; margin: 2px auto 0; overflow: visible; }
+  .clp-lg-radar .is-ring { fill: none; stroke: rgba(255,255,255,.13); stroke-width: 1; }
+  .clp-lg-radar .is-rim { fill: rgba(255,255,255,.03); stroke: rgba(255,214,110,.5); stroke-width: 1.2; }
+  .clp-lg-radar .is-name { fill: #ffe8a8; font: 800 15px/1 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: .08em; }
+  .clp-lg-radar .is-what { fill: rgba(244,236,255,.58); font: 500 10.5px/1 -apple-system, "PingFang SC", sans-serif; }
+  .clp-lg-shape { animation: clp-lg-grow .9s cubic-bezier(.2,.9,.3,1.15) both; }
+  .clp-lg-shape.is-me { animation-delay: .35s; }
+  @keyframes clp-lg-grow { from { opacity: 0; transform: scale(.15); } }
+  .clp-lg-shape.is-avg polygon { fill: rgba(34,193,220,.2); stroke: #22C1DC; stroke-width: 1.8; stroke-linejoin: round; stroke-dasharray: 5 3; }
+  .clp-lg-shape.is-avg circle { fill: #22C1DC; }
+  .clp-lg-shape.is-me polygon { fill: url(#clp-lg-me); stroke: #FF0F6B; stroke-width: 2.2; stroke-linejoin: round; filter: drop-shadow(0 0 6px rgba(255,15,107,.7)); }
+  .clp-lg-shape.is-me circle { fill: #fff; stroke: #FF0F6B; stroke-width: 2; }
+  .clp-lg-verdict { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin: 8px 0 0; }
+  .clp-lg-verdict section { min-width: 0; padding: 9px 11px; border: 1px solid; border-radius: 12px; }
+  .clp-lg-verdict .is-good { border-color: rgba(126,211,33,.45); background: linear-gradient(135deg, rgba(126,211,33,.16), rgba(34,193,220,.07)); }
+  .clp-lg-verdict .is-weak { border-color: rgba(255,138,0,.5); background: linear-gradient(135deg, rgba(255,138,0,.16), rgba(255,15,107,.07)); }
+  .clp-lg-verdict h4 { margin: 0; font: 900 17px/1.3 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: .2em; }
+  .clp-lg-verdict .is-good h4 { color: #c4f08a; } .clp-lg-verdict .is-weak h4 { color: #ffc680; }
+  .clp-lg-lead { margin: 2px 0 4px; color: rgba(244,236,255,.66); font-size: 11.5px; }
+  .clp-lg-verdict ul { display: grid; gap: 6px; margin: 0; padding: 0; list-style: none; font-size: 12.5px; line-height: 1.55; }
+  .clp-lg-verdict li b { margin-right: 3px; color: #fff; font: 800 15px/1.2 "Kaiti SC", STKaiti, KaiTi, serif; }
+  .clp-lg-verdict li small { margin-right: 6px; color: rgba(244,236,255,.6); font-size: 11px; }
+  .clp-lg-verdict li span { color: rgba(244,236,255,.84); }
+  .clp-lg-list { display: grid; gap: 5px; margin: 12px 0 0; padding: 0; list-style: none; }
+  .clp-lg-row { display: grid; grid-template-columns: 82px minmax(60px, 1fr) minmax(0, auto); align-items: center; gap: 2px 10px; padding: 6px 10px; border: 1px solid rgba(255,255,255,.07); border-radius: 10px;
+    background: linear-gradient(90deg, rgba(255,255,255,.07), rgba(255,255,255,.015)); animation: clp-row-in .45s ease both; animation-delay: calc(.6s + var(--i, 0) * .06s); }
+  .clp-lg-name { white-space: nowrap; } .clp-lg-name b { color: #ffe8a8; font: 800 16px/1.2 "Kaiti SC", STKaiti, KaiTi, serif; } .clp-lg-name small { margin-left: 5px; color: rgba(244,236,255,.58); font-size: 11px; }
+  .clp-lg-bar { position: relative; height: 8px; border-radius: 4px; background: rgba(255,255,255,.1); }
+  .clp-lg-bar i.is-me { position: absolute; left: 0; top: 0; bottom: 0; border-radius: 4px; background: linear-gradient(90deg, #ff7aa8, #FF0F6B); box-shadow: 0 0 8px rgba(255,15,107,.55); }
+  .clp-lg-bar i.is-avg { position: absolute; top: -3px; bottom: -3px; width: 3px; margin-left: -1.5px; border-radius: 2px; background: #22C1DC; box-shadow: 0 0 0 1px rgba(11,9,20,.8); }
+  .clp-lg-val { text-align: right; white-space: nowrap; font-size: 12px; } .clp-lg-val b { color: #fff; font: 800 15px/1 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; }
+  .clp-lg-val small { display: block; color: rgba(244,236,255,.55); font-size: 10.5px; }
+  @media (max-width: 460px) {
+    .clp-lg-verdict { grid-template-columns: 1fr; }
+    .clp-lg-row { grid-template-columns: 1fr auto; } .clp-lg-bar { grid-column: 1 / -1; grid-row: 2; }
+  }
   @media (max-width: 420px) {
     .clp-rank-card { padding: 14px 12px 16px; }
     .clp-ava { width: 44px; height: 44px; font-size: 20px; }
     .clp-pod.is-1 .clp-ava { width: 56px; height: 56px; font-size: 26px; }
     .clp-pod .clp-realm { font-size: 11px; padding: 0 5px; }
   }
-  @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after, .clp-xlbtn::after, .clp-sectbtn::after { animation: none !important; } }
+  @media (prefers-reduced-motion: reduce) { .clp-rank-card, .clp-rank-card *, .clp-rankbtn::after, .clp-xlbtn::after, .clp-sectbtn::after, .clp-lgbtn::after { animation: none !important; } }
   /* 2026-11-06：手机横着拿（高度很小）时，收起的面板也只剩小圆图标，不再是一长条压在正文上 */
   @media (max-width: 700px), (orientation: landscape) and (max-height: 520px) {
     .clp-panel.clp-v2.is-folded { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
@@ -1497,7 +1550,7 @@
   //   入口：每道题递交按钮旁的“⤢ 全屏”（从这一题开始）、面板里的“全屏答题”（从第一道未递交的题开始）。返回键、Esc、左上角“退出”都能退出，退出后停在刚才那道题。
   const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1 };
   const FS_STOP = 'main, body, .section-inner, .inner, section.page, .page-section, .cl-unit, [data-nav]';
-  const FS_POPUP = '.clp-poll, .clp-pzd, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
+  const FS_POPUP = '.cl-ascend-layer, .clp-poll, .clp-pzd, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
   const fsRoot = () => document.querySelector('main') || document.body;
   // 这道题在页面上占哪一块：往上找“只含这一道题”的最大容器（不越过整页、整节的容器）；找不到就取递交条前面紧挨着的几个元素
   function fsZone(q) {
@@ -1994,13 +2047,16 @@
   panel.classList.add('clp-v2', 'is-r0');
   const STAR = '<i class="clp-star" aria-hidden="true">✦</i>';
   const TROPHY = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 4h10v4.5a5 5 0 0 1-10 0V4z"/><path d="M7 6H4v1.5A3 3 0 0 0 7 10.5M17 6h3v1.5a3 3 0 0 1-3 3M12 13.5V17M8.5 20.5h7M10 17h4v3.5h-4z"/></svg>';
+  // 灵根八相按钮的小八边形（2026-11-11）
+  const LINGEN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 18.7 5.3 21.5 12 18.7 18.7 12 21.5 5.3 18.7 2.5 12 5.3 5.3Z"/><path d="M12 6.5 15.5 9.5 17 12.5 13.5 16 9.5 15.5 7.5 11.5Z" class="is-in"/></svg>';
   const DM_HINT = '投屏可见 · 老师能看到发送人 · 请文明发言';
   panel.innerHTML = `
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : ''}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
-      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名"${AUDIT ? ' hidden' : ''}>${TROPHY}修为榜</button>${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>
+      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span></div>
+      ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
@@ -3337,12 +3393,20 @@
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
-      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p></div>`;
+      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p>
+      <p class="clp-hint">突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面（每台设备各一次）。修为榜隐匿姓名只在「结丹」：到「元婴」以后照常显示姓名。面板上的“灵根”可以看自己八个方向的所长和待补。</p>
+      ${PREVIEW && window.ClassLiveAscend ? '<p class="clp-hint">测试页预览突破画面：<button type="button" class="clp-rank-link" data-realm-ascend="3">突破元婴</button> <button type="button" class="clp-rank-link" data-realm-ascend="4">突破化神</button></p>' : ''}</div>`;
     realmModal.hidden = false;
     realmModal.querySelector('[data-realm-close]').focus();
   }
   realmModal.addEventListener('click', (event) => {
     if (event.target.closest('[data-realm-rank]')) { realmModal.hidden = true; openRank(); return; }
+    const ascendDemo = event.target.closest('[data-realm-ascend]');
+    if (ascendDemo && window.ClassLiveAscend) {
+      realmModal.hidden = true;
+      window.ClassLiveAscend.play({ level: Number(ascendDemo.dataset.realmAscend) || 3, self: true, names: [identity.name], fit: 'narrow' });
+      return;
+    }
     if (event.target === realmModal || event.target.closest('[data-realm-close]')) realmModal.hidden = true;
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !realmModal.hidden) realmModal.hidden = true; });
@@ -3401,9 +3465,11 @@
       ${rest.length ? `<ol class="clp-rank-list">${rest.map((row, i) => `<li class="clp-rank-row${row.me ? ' is-me' : ''}" style="--i:${i}">
         <span class="clp-rank-no">${Number(row.rank) || ''}</span><span class="clp-rank-ava is-r${Number(row.realm) || 0}">${esc(avatarText(row))}</span>
         ${nameHtml(row, 'clp-rank-name')}${ptsHtml(row, 'clp-rank-pts')}${chip(Number(row.realm) || 0, realmText(row))}</li>`).join('')}</ol>` : ''}
-      ${mineHtml}${PREVIEW || !mine ? '' : mine.can_hide || mine.hidden
-        ? `<p class="clp-rank-privacy">${mine.hidden ? '你的姓名已在榜上隐匿：同学们看到的是“***”，修为和名次照常显示。' : '你已达到「结丹」，可以在榜上隐匿姓名：同学们会看到“***”，修为和名次照常显示（老师那里照常显示）。'}<button type="button" data-rank-hide>${mine.hidden ? '恢复显示我的姓名' : '隐匿我的姓名'}</button></p>`
-        : '<p class="clp-rank-privacy">达到「结丹」境界后，可以在修为榜上隐匿自己的姓名（显示为“***”）。</p>'}
+      ${mineHtml}${PREVIEW || !mine ? '' : mine.locked
+        ? `<p class="clp-rank-privacy">你已达到「${esc((REALMS[Number(mine.realm) || 3] || {}).name || '元婴')}」：元婴以后，修为榜上照常显示你的姓名，不能再隐匿。</p>`
+        : mine.can_hide || mine.hidden
+        ? `<p class="clp-rank-privacy">${mine.hidden ? '你的姓名已在榜上隐匿：同学们看到的是“***”，修为和名次照常显示。到「元婴」以后照常显示姓名。' : '你已达到「结丹」，可以在榜上隐匿姓名：同学们会看到“***”，修为和名次照常显示（老师那里照常显示）。到「元婴」以后照常显示姓名，不能再隐匿。'}<button type="button" data-rank-hide>${mine.hidden ? '恢复显示我的姓名' : '隐匿我的姓名'}</button></p>`
+        : '<p class="clp-rank-privacy">达到「结丹」境界后，可以在修为榜上隐匿自己的姓名（显示为“***”）；到「元婴」以后照常显示姓名。</p>'}
       <p class="clp-rank-note">按老师最近一次结算的全学期修为排名，修为相同名次并列；榜上显示境界和修为。老师结算后这里随之更新。</p>`;
   }
   async function openRank() {
@@ -3437,6 +3503,7 @@
       const value = await backend.rpc('ck_set_rank_hidden', { p_classroom: Number(identity.classroom) || identity.classroom, p_hidden: !mine.hidden });
       const res = (Array.isArray(value) ? value[0] : value) || {};
       if (res.status === 'ok') { rankCache = null; await openRank(); toast(res.hidden ? '已在修为榜上隐匿你的姓名，同学们看到的是“***”。' : '已恢复在修为榜上显示你的姓名。'); }
+      else if (res.status === 'locked') { rankCache = null; await openRank(); toast('元婴以后，修为榜上照常显示姓名，不能再隐匿。'); }
       else toast(res.status === 'realm' ? '达到「结丹」境界后才能在修为榜上隐匿姓名。' : '请回首页用课堂码重新登录后再试。');
     } catch (problem) {
       const missing = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
@@ -3447,6 +3514,118 @@
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !rankModal.hidden) rankModal.hidden = true; });
   panel.querySelectorAll('[data-cl-rank-open]').forEach((button) => button.addEventListener('click', openRank));
+
+  // ---------- 灵根八相（2026-11-11 用户：“把个人学情卡中的那个八边形图加入到学生自己的控制面板中，可以改个修仙的名字，可以体现出自己的能力，
+  //   让学生能够看到自己的优势和不足。”）：面板“灵根”按钮打开，和工作台“个人学情卡”同一套八项（ck_my_lingen，统计本班全学期、不含期中考查作业），
+  //   每项一个方向：外圈是这一项的满分或全班最高；粉色是本人，青色是全班平均。下面写所长（高于平均最多的两项）和待补（低于平均最多的两项，附修炼建议）。
+  //   测试页（老师）只有全班平均 ----------
+  const LINGEN = [
+    { key: 'attend', name: '勤勉', what: '到课', unit: ' 次', good: '到课勤，根基稳。', tip: '每次课按时进入课堂签到；不能来时记得点“请假”。' },
+    { key: 'days', name: '恒心', what: '学习天数', unit: ' 天', good: '细水长流，日日不辍。', tip: '隔一两天打开一次课程页面，复习一下、做几道修炼场题。' },
+    { key: 'acts', name: '精进', what: '学习行为', unit: ' 次', good: '课上课后都在用功。', tip: '课上每道题都递交，课后回看本课内容，动手多了自然精进。' },
+    { key: 'rate', name: '悟性', what: '正确率', unit: '%', good: '想得清楚，答得准。', tip: '递交前把材料和选项再读一遍；递交后对照解答，弄清错在哪里。' },
+    { key: 'danmaku', name: '论道', what: '弹幕', unit: ' 条', good: '敢说爱说，课堂论道常有你。', tip: '课上把自己的想法和理由发成弹幕，说出一句完整的话。' },
+    { key: 'practice', name: '历练', what: '修炼场', unit: ' 道', good: '修炼场里没少下功夫。', tip: '点面板上的“修炼场”，每天做几道新题，攒修为也练本事。' },
+    { key: 'online', name: '定力', what: '在线时长', unit: ' 分钟', good: '上课专注，心无旁骛。', tip: '上课时让课程页面留在前台，跟着老师一页一页往下走。' },
+    { key: 'points', name: '根基', what: '修为', unit: '', good: '修为积累扎实。', tip: '修为是各项的总和：签到、作答、弹幕、修炼场，样样都在添砖加瓦。' },
+  ];
+  const lgModal = document.createElement('div');
+  lgModal.className = 'clp-realm-modal clp-rank-modal';
+  lgModal.hidden = true;
+  document.body.appendChild(lgModal);
+  let lgCache = null;
+  const lgNum = (value) => { const n = Number(value); return Number.isFinite(n) ? (Number.isInteger(n) ? String(n) : n.toFixed(1)) : '—'; };
+  const lgShell = (inner) => `<div class="clp-rank-card clp-lg-card" role="dialog" aria-modal="true" aria-label="灵根八相">
+      <i class="clp-rank-stars" aria-hidden="true"></i><i class="clp-rank-stars is-b" aria-hidden="true"></i>
+      <header class="clp-rank-head"><div><span>${esc(identity.class_name || '本班')} · 全学期</span><h3>灵根八相</h3></div><button type="button" data-lg-close aria-label="关闭">×</button></header>
+      ${inner}</div>`;
+  // 八边形雷达（SVG 固定画布 360 宽，随卡片缩放）
+  function lgRadar(rows, hasMe) {
+    const W = 360; const R = 100; const cx = W / 2; const cy = R + 50; const H = cy + R + 42;
+    const n = rows.length;
+    const ang = (i) => -Math.PI / 2 + (i * Math.PI * 2) / n;
+    const at = (i, k) => [cx + R * k * Math.cos(ang(i)), cy + R * k * Math.sin(ang(i))].map((v) => Math.round(v * 10) / 10);
+    const poly = (fn) => rows.map((d, i) => at(i, fn(d)).join(',')).join(' ');
+    const rings = [0.25, 0.5, 0.75, 1].map((k) => `<polygon points="${poly(() => k)}" class="${k === 1 ? 'is-rim' : 'is-ring'}"/>`).join('');
+    const spokes = rows.map((d, i) => { const [x, y] = at(i, 1); return `<line x1="${cx}" y1="${cy}" x2="${x}" y2="${y}" class="is-ring"/>`; }).join('');
+    const labels = rows.map((d, i) => {
+      const c = Math.cos(ang(i)); const sn = Math.sin(ang(i));
+      const [x, y] = at(i, 1 + 16 / R);
+      const anchor = c > 0.2 ? 'start' : c < -0.2 ? 'end' : 'middle';
+      const y0 = sn < -0.9 ? y - 14 : sn > 0.9 ? y + 8 : y - 2;
+      return `<text x="${x}" y="${y0}" text-anchor="${anchor}" class="is-name">${esc(d.name)}</text><text x="${x}" y="${y0 + 14}" text-anchor="${anchor}" class="is-what">${esc(d.what)}</text>`;
+    }).join('');
+    const shape = (key, cls) => `<g class="clp-lg-shape ${cls}" style="transform-origin:${cx}px ${cy}px"><polygon points="${poly((d) => d[`r_${key}`])}"/>${rows.map((d, i) => { const [x, y] = at(i, d[`r_${key}`]); return `<circle cx="${x}" cy="${y}" r="${key === 'me' ? 3.6 : 2.6}"/>`; }).join('')}</g>`;
+    return `<svg class="clp-lg-radar" viewBox="0 0 ${W} ${H}" role="img" aria-label="${esc(rows.map((d) => `${d.name}（${d.what}）：${hasMe ? `你 ${lgNum(d.me)}${d.unit}，` : ''}全班平均 ${lgNum(d.avg)}${d.unit}`).join('；'))}">
+      <defs><radialGradient id="clp-lg-me" cx="50%" cy="50%" r="60%"><stop offset="0" stop-color="#ff7aa8" stop-opacity=".55"/><stop offset="1" stop-color="#FF0F6B" stop-opacity=".28"/></radialGradient></defs>
+      ${rings}${spokes}${shape('avg', 'is-avg')}${hasMe ? shape('me', 'is-me') : ''}${labels}</svg>`;
+  }
+  function lgBody(data) {
+    if (!data || data.status === 'login') return '<p class="clp-rank-state">这台设备还没有通过本堂课的登录核对，看不到灵根八相：请回首页用课堂码重新登录。</p>';
+    if (!Number(data.held)) return '<p class="clp-rank-state">本班还没有上过课。上过课以后，这里会显示你在八个方向上的修炼情况。</p>';
+    const byKey = new Map((data.rows || []).map((row) => [row.key, row]));
+    const hasMe = !data.teacher && !PREVIEW && (data.rows || []).some((row) => row.me != null);
+    const rows = LINGEN.map((item) => {
+      const row = byKey.get(item.key) || {};
+      const me = Number(row.me) || 0; const avg = Number(row.avg) || 0;
+      const top = Math.max(Number(row.max) || 0, hasMe ? me : 0, avg) || 1;
+      return { ...item, me, avg, max: Number(row.max) || 0, top, r_me: Math.max(0, Math.min(1, me / top)), r_avg: Math.max(0, Math.min(1, avg / top)), gap: (me - avg) / top };
+    });
+    const maxNote = (d) => (d.key === 'attend' ? `共 ${lgNum(d.max)} 次课` : d.key === 'days' ? `开课 ${lgNum(d.max)} 天` : d.key === 'rate' ? '满分 100%' : `全班最高 ${lgNum(d.max)}${d.unit}`);
+    let verdict = '';
+    if (hasMe) {
+      let good = rows.filter((d) => d.gap > 0.03).sort((a, b) => b.gap - a.gap).slice(0, 2);
+      const goodAbove = good.length > 0;
+      if (!good.length) good = rows.slice().sort((a, b) => b.r_me - a.r_me).slice(0, 1);
+      let weak = rows.filter((d) => d.gap < -0.03 && !good.includes(d)).sort((a, b) => a.gap - b.gap).slice(0, 2);
+      const weakBelow = weak.length > 0;
+      if (!weak.length) weak = rows.filter((d) => !good.includes(d)).sort((a, b) => a.r_me - b.r_me).slice(0, 1);
+      const tag = (d) => `<b>${esc(d.name)}</b><small>${esc(d.what)}</small>`;
+      verdict = `<div class="clp-lg-verdict">
+        <section class="is-good"><h4>所长</h4><p class="clp-lg-lead">${goodAbove ? '这几相高于全班平均：' : '八相里你最接近满格的一相：'}</p>
+          <ul>${good.map((d) => `<li>${tag(d)}${esc(lgNum(d.me))}${esc(d.unit)}（平均 ${esc(lgNum(d.avg))}${esc(d.unit)}）<br><span>${esc(d.good)}</span></li>`).join('')}</ul></section>
+        <section class="is-weak"><h4>待补</h4><p class="clp-lg-lead">${weakBelow ? '这几相低于全班平均，可以这样补：' : '没有明显低于平均的一相，再往上可以练：'}</p>
+          <ul>${weak.map((d) => `<li>${tag(d)}${esc(lgNum(d.me))}${esc(d.unit)}（平均 ${esc(lgNum(d.avg))}${esc(d.unit)}）<br><span>${esc(d.tip)}</span></li>`).join('')}</ul></section></div>`;
+    } else {
+      verdict = `<p class="clp-lg-intro">${PREVIEW || data.teacher ? '这是学生版测试页：只显示全班平均。同学们打开时，会看到自己的八相（粉色）和所长、待补。' : '你还没有学习记录：签到、作答、发弹幕以后，这里会画出你的八相。'}</p>`;
+    }
+    const when = data.updated_at ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' }).format(new Date(data.updated_at)) : '';
+    return `<p class="clp-lg-intro">八个方向看你本学期的修炼：越往外越强，外圈是这一项的满分或全班最高。</p>
+      <p class="clp-lg-keys">${hasMe ? '<span><i class="is-me"></i>你</span>' : ''}<span><i class="is-avg"></i>全班平均（${Number(data.people) || 0} 人）</span></p>
+      ${lgRadar(rows, hasMe)}
+      ${verdict}
+      <ol class="clp-lg-list">${rows.map((d, i) => `<li class="clp-lg-row" style="--i:${i}">
+        <span class="clp-lg-name"><b>${esc(d.name)}</b><small>${esc(d.what)}</small></span>
+        <span class="clp-lg-bar" title="${esc(maxNote(d))}">${hasMe ? `<i class="is-me" style="width:${Math.round(d.r_me * 100)}%"></i>` : ''}<i class="is-avg" style="left:${Math.round(d.r_avg * 100)}%"></i></span>
+        <span class="clp-lg-val">${hasMe ? `<b>${esc(lgNum(d.me))}</b>${esc(d.unit)}` : ''}<small>平均 ${esc(lgNum(d.avg))}${esc(d.unit)} · ${esc(maxNote(d))}</small></span></li>`).join('')}</ol>
+      <p class="clp-rank-note">统计本班全学期的课堂（期中考查作业不算）。勤勉＝到课次数，恒心＝有学习记录的天数，精进＝登录、签到、递交、弹幕、修炼场、抢答、聊天室等学习行为的次数，定力＝课程页面在前台的时间；悟性（作答正确率）和根基（修为）按老师最近一次结算${when ? `（${esc(when)}）` : ''}。全班平均只算点名册上的同学。</p>`;
+  }
+  async function openLingen() {
+    lgModal.innerHTML = lgShell('<p class="clp-rank-state">正在推演灵根……</p>');
+    lgModal.hidden = false;
+    lgModal.querySelector('[data-lg-close]').focus();
+    try {
+      let data = lgCache && Date.now() - lgCache.at < 30000 ? lgCache.data : null;
+      if (!data) {
+        const value = await backend.rpc('ck_my_lingen', { p_classroom: Number(identity.classroom) || identity.classroom });
+        data = Array.isArray(value) ? value[0] : value;
+        if (data && data.status === 'ok') lgCache = { at: Date.now(), data };
+      }
+      if (lgModal.hidden) return;
+      lgModal.innerHTML = lgShell(lgBody(data));
+    } catch (problem) {
+      if (lgModal.hidden) return;
+      const missing = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+      lgModal.innerHTML = lgShell(`<p class="clp-rank-state">${missing ? '灵根八相还没有开通（老师后台尚未更新）。' : '读取失败：请检查网络后再打开一次。'}</p>`);
+    }
+    const close = lgModal.querySelector('[data-lg-close]');
+    if (close) close.focus();
+  }
+  lgModal.addEventListener('click', (event) => {
+    if (event.target === lgModal || event.target.closest('[data-lg-close]')) lgModal.hidden = true;
+  });
+  document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !lgModal.hidden) lgModal.hidden = true; });
+  panel.querySelectorAll('[data-cl-lingen-open]').forEach((button) => button.addEventListener('click', openLingen));
 
   // ---------- 宗门（2026-11-05 用户：“设置四个不同的宗门……达到筑基期的同学可以让他们选择加入不同的宗门，也可以选择做散修，然后宗门也有分数和排名，
   //   加总宗门弟子的修为值就是宗门的分值，也会有排名。宗门是打通每门课程不同年份的……一年一年一直传承下去，允许新同学的加入。”）：
@@ -3635,7 +3814,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261106-danmaku' : '20261106-danmaku-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261111-lingen' : '20261111-lingen-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -3791,6 +3970,8 @@
   });
   showRealm(myRealm);
   // 本人境界：打开页面时核对一次，之后每分钟核对一次（老师课上结算后不用刷新也能看到突破）
+  const ascendKey = `classlive-ascend:me:${config.course}:${identity.sid}`;   // 这台设备给这位同学放过的最高突破境界
+  let ascendBusy = false;
   async function refreshRealm() {
     if (LOCAL_ONLY) return false;   // 测试页按化神；旁听没有境界
     let previewed = false;
@@ -3799,6 +3980,18 @@
       const row = Array.isArray(value) ? value[0] : value;
       if (!row) { showRealm(myRealm); return; }
       const fresh = { realm: Number(row.realm) || 0, stage: Number(row.stage) || 0, ratio: Number(row.ratio) || 0, updated_at: row.updated_at || '' };
+      // 突破元婴/化神画面（2026-11-11 用户：“学生突破元婴的话在课堂页面和学生自己的页面会有类似于祭出法宝的动画和祝福语。只要在该台设备没出现过，
+      //   无论是课堂页面还是学生页面，下次登陆的时候都会在各自的页面出现一次。”）：这台设备没给这位同学放过这一境界的，先放突破画面（live-ascend.js），再放法宝预览
+      if (fresh.realm >= 3 && window.ClassLiveAscend && Number(load(ascendKey, 0)) < fresh.realm && !ascendBusy) {
+        ascendBusy = true;
+        try {
+          const shown = Number(load(ascendKey, 0)) || 0;
+          for (const level of window.ClassLiveAscend.LEVELS.filter((lv) => lv > shown && lv <= fresh.realm).slice(-1)) {
+            save(ascendKey, fresh.realm);   // 先记下，播放中刷新或关掉页面也不会再放第二次
+            await window.ClassLiveAscend.play({ level, self: true, names: [identity.name], fit: 'narrow' });
+          }
+        } finally { ascendBusy = false; }
+      }
       if (myRealm && fresh.realm > (Number(myRealm.realm) || 0)) {
         const gift = GIFTS.find((item) => item.level === fresh.realm);
         toast(`恭喜突破！你已晋升「${REALMS[fresh.realm].name}」境界${gift ? `，解锁弹幕法宝「${gift.name}」（可祭出一次）。刚才是法宝预览，课上可在面板里祭出一次，投屏全班可见` : ''}。`);

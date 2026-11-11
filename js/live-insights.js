@@ -5,53 +5,55 @@
  *   2026-11-07 起又有 lines 折线／面积图、treemap 矩形树图、waffle 方格图、segmented 分段条、calendar 日历热力图、radar 雷达图、meter 进度条；
  *   所有文字先量实际宽度再排版，不超出卡片；
  *   每张图都能悬停或用键盘聚焦看数值（提示框只增补，不是唯一途径），图下面“查看数据表”给出同样的数。
- * 配色（2026-11-07 用户：“配色可以更美观，更暖色系一些吗？最好能符合我们课件的风格”）：课件是中国红 #b4142e ＋ 金 #c9a24b，标题左边金色竖条，
- *   内容框浅红、浅金、浅绿；网站是暖纸色、墨绿、赭红。所以主色用红和金，暖色为主，只留墨绿、黛蓝做少量对比。
- *   金色按用户要求（“金再亮一点”）比课件的金亮一些：#eca30d，这是通过校验（亮度上限）的最亮一档。
- *   不同类别用校验过的九色（TONE，顺序经过色盲校验，不要随意调换）；有高低、先后的用暖色多色相渐变（亮度单调，RAMPS）；
- *   有固定含义的颜色跟着含义走：行为、境界、宗门、正确率（rateColor：红到墨绿）。文字一律用文字颜色，色块上的字按底色选白或深色。
+ * 配色（2026-11-11 用户指定 8 个色号：粉红 #FF0F6B、大红 #FF3B30、橙 #FF8A00、黄 #FFD400、绿 #7ED321、青 #22C1DC、蓝 #2060FF、紫 #8E44FF）：
+ *   类别色按校验脚本挑的顺序用（CAT：蓝、橙、青、粉红、绿、紫、黄、大红——按原顺序相邻的粉红和大红、紫和蓝分不开）；
+ *   黄、绿偏浅（亮度超出校验上限），不用在细线、小点上，放在色块里时字用深色，数值都写在图上或数据表里；
+ *   2026-11-11 用户又发来完整的配色方案图核对：类别超过 8 种用方案里的扩展色（CAT_EXT）；有高低、先后的（热力、日历、在线时长、递交时间）
+ *   用方案里的“顺序渐变” #FFF5EB → #FF3B30（最浅一档当 0）；正负对比用“发散渐变”的两端 #2060FF、#FF0F6B（如课堂感受）；正确率按方案散点图的彩虹渐变（红→橙→黄→绿→青）；
+ *   颜色跟着含义走：行为、境界、宗门、正确率。文字一律用文字颜色，色块上的字按底色选白或深色。
  */
 (function () {
   'use strict';
   const NS = 'http://www.w3.org/2000/svg';
   const C = {
-    series: '#b4142e', seriesHover: '#7a0c1e', surface: '#fffdf8', grid: '#efe6d6', axis: '#d3c4ab',
-    ink: '#201c18', ink2: '#5a4f45', muted: '#7d6f60', zero: '#f6f1e7',
+    series: '#2060FF', seriesHover: '#1846c0', surface: '#fffdf8', grid: '#efe6d6', axis: '#d3c4ab',
+    ink: '#201c18', ink2: '#5a4f45', muted: '#7d6f60', zero: '#FFF5EB',
   };
-  const TONE = { crimson: '#b4142e', gold: '#eca30d', teal: '#00846e', apricot: '#e8743b', plum: '#6d3a8c', rose: '#d4688a', umber: '#a0601f', jade: '#2fa183', ink: '#1f6a9a',
-    goldLine: '#e39a10', copper: '#ab6c2c', neutral: '#ddd2bf' };
+  const TONE = { pink: '#FF0F6B', red: '#FF3B30', orange: '#FF8A00', yellow: '#FFD400', green: '#7ED321', cyan: '#22C1DC', blue: '#2060FF', purple: '#8E44FF',
+    neutral: '#d8cfc0', other: '#b9a98f' };
+  const CAT = [TONE.blue, TONE.orange, TONE.cyan, TONE.pink, TONE.green, TONE.purple, TONE.yellow, TONE.red];   // 类别色顺序（经校验，不要调换）
+  const CAT_EXT = CAT.concat(['#52D17F', '#D64EC6', '#A6E22E', '#FF8C6B']);   // 方案里的扩展配色（12 色），接在主色后面的顺序也经过校验
+  const SEQ = ['#FFF5EB', '#FFE1C7', '#FFC48D', '#FFA44D', '#FF7A3C', '#FF3B30'];   // 方案里的顺序渐变（连续型数据）：浅 → 深
+  const DIVERGE = ['#2060FF', '#5CA9FF', '#E6F4FF', '#FFE6F0', '#FF8AB6', '#FF0F6B'];   // 方案里的发散渐变（正负效应、差异比较）
   const RAMPS = {
-    heat: ['#f8e3a0', '#f2c558', '#e9a030', '#d0702f', '#b4412e', '#8e1c26', '#5e0917'],   // 浅金 → 赭 → 中国红 → 深红（课件封面的深红）
-    gold: ['#f7e3a3', '#f0c84a', '#e3a91e', '#b98a1a', '#85601a', '#553b10'],               // 浅金 → 金 → 檀棕
-    ember: ['#e9a92a', '#dc882e', '#c96a35', '#a83a2c', '#6e1420'],                         // 金 → 赭 → 深红，最浅一档也和底色分得开
-    timing: ['#00846e', '#eca30d', '#d9572a', '#a8182e', '#6d3a8c'],                        // 早 → 晚
+    seq: SEQ, diverge: DIVERGE,
+    heat: SEQ.slice(1),     // 热力图：最浅的 #FFF5EB 留给 0
+    fresh: SEQ.slice(1),    // 修炼场日历：同上
+    online: SEQ.slice(1),   // 在线时长：短 → 长
+    timing: SEQ.slice(1),   // 递交：早 → 晚
   };
-  // 正确率、到课率这类“越高越好”的值：中国红 → 赭 → 金 → 橄榄 → 墨绿（数值都直接写在图上，颜色只是帮助一眼看出高低）
-  const RATE_STOPS = [[30, '#b4142e'], [50, '#d9572a'], [65, '#eca30d'], [80, '#7f9a3c'], [95, '#00846e']];
+  // 正确率、到课率这类“越高越好”的值：大红 → 橙 → 黄 → 绿 → 青（数值都直接写在图上，颜色只是帮助一眼看出高低）
   function mix(a, b, t) {
     const [x, y] = [a, b].map((hex) => [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)));
     return `#${x.map((v, i) => Math.round(v + (y[i] - v) * t).toString(16).padStart(2, '0')).join('')}`;
   }
+  // 分数段：40 以下红、40—55 橙、55—70 黄、70—85 绿、85 以上青（直接用方案里的色号，不插中间色）
   function rateColor(value) {
     const v = Number(value) || 0;
-    if (v <= RATE_STOPS[0][0]) return RATE_STOPS[0][1];
-    for (let i = 1; i < RATE_STOPS.length; i += 1) {
-      if (v <= RATE_STOPS[i][0]) return mix(RATE_STOPS[i - 1][1], RATE_STOPS[i][1], (v - RATE_STOPS[i - 1][0]) / (RATE_STOPS[i][0] - RATE_STOPS[i - 1][0]));
-    }
-    return RATE_STOPS[RATE_STOPS.length - 1][1];
+    return v < 40 ? TONE.red : v < 55 ? TONE.orange : v < 70 ? TONE.yellow : v < 85 ? TONE.green : TONE.cyan;
   }
   const rampCss = (ramp) => `linear-gradient(90deg, ${ramp.join(', ')})`;
   const CSS = `
   .ins-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; margin-top: 12px; }
   .ins-grid > .is-wide { grid-column: 1 / -1; }
   @media (max-width: 900px) { .ins-grid { grid-template-columns: 1fr; } }
-  .ins-card { position: relative; min-width: 0; padding: 18px 18px 14px; border: 1px solid rgba(122,12,30,.12); border-radius: 14px; background: ${C.surface}; box-shadow: 0 6px 18px rgba(94,9,23,.06); transition: opacity .2s, box-shadow .2s, transform .2s; }
-  .ins-card::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, #b4142e, #e8ad28 45%, transparent 90%); }
-  .ins-card:hover { box-shadow: 0 10px 26px rgba(94,9,23,.11); }
+  .ins-card { position: relative; min-width: 0; padding: 18px 18px 14px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; box-shadow: 0 6px 18px rgba(32,96,255,.06); transition: opacity .2s, box-shadow .2s, transform .2s; }
+  .ins-card::before { content: ""; position: absolute; left: 16px; right: 16px; top: 0; height: 3px; border-radius: 0 0 3px 3px; background: linear-gradient(90deg, #FF0F6B, #FF8A00, #FFD400, #7ED321, #22C1DC, #2060FF, #8E44FF); opacity: .85; }
+  .ins-card:hover { box-shadow: 0 10px 26px rgba(32,96,255,.12); }
   .ins-card h3 { margin: 0; color: ${C.ink}; font-size: 16px; font-weight: 800; }
   .ins-card .ins-sub { margin: 2px 0 10px; color: ${C.ink2}; font-size: 13px; line-height: 1.55; }
   .ins-tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 12px; }
-  .ins-tile { position: relative; overflow: hidden; padding: 14px 16px 14px 20px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; background: linear-gradient(135deg, color-mix(in srgb, var(--tone, transparent) 13%, ${C.surface}), ${C.surface} 72%); box-shadow: 0 6px 18px rgba(94,9,23,.06); }
+  .ins-tile { position: relative; overflow: hidden; padding: 14px 16px 14px 20px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: ${C.surface}; background: linear-gradient(135deg, color-mix(in srgb, var(--tone, transparent) 13%, ${C.surface}), ${C.surface} 72%); box-shadow: 0 6px 18px rgba(32,96,255,.06); }
   .ins-tile::before { content: ""; position: absolute; left: 0; top: 0; bottom: 0; width: 5px; background: var(--tone, transparent); }
   .ins-tile span { display: block; color: ${C.ink2}; font-size: 13px; font-weight: 700; }
   .ins-tile b { display: block; margin-top: 4px; color: ${C.ink}; font-size: 28px; font-weight: 700; line-height: 1.2; }
@@ -80,7 +82,7 @@
   .ins-tip strong { display: block; color: ${C.ink}; font-size: 15px; font-weight: 800; }
   .ins-tip i { display: inline-block; width: 12px; height: 2px; margin-right: 6px; vertical-align: middle; background: ${C.series}; }
   .ins-legend { display: flex; align-items: center; gap: 8px; margin-top: 6px; color: ${C.muted}; font-size: 12px; }
-  .ins-legend i { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #f8e3a0, #d0702f, #5e0917); }
+  .ins-legend i { display: inline-block; width: 120px; height: 8px; border-radius: 4px; background: linear-gradient(90deg, #FFE1C7, #FFC48D, #FFA44D, #FF7A3C, #FF3B30); }
   .ins-legend em { display: inline-block; width: 12px; height: 8px; border-radius: 2px; background: ${C.zero}; font-style: normal; }
   .ins-table { margin-top: 8px; color: ${C.ink2}; font-size: 13px; }
   .ins-table summary { cursor: pointer; color: ${C.muted}; font-weight: 700; }
@@ -88,8 +90,8 @@
   .ins-table th, .ins-table td { padding: 4px 8px; border-bottom: 1px solid ${C.grid}; text-align: left; white-space: nowrap; }
   .ins-table .ins-scroll { max-height: 260px; overflow: auto; }
   .ins-empty { margin: 18px 0; color: ${C.muted}; font-size: 14px; text-align: center; }
-  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(122,12,30,.14); color: #7a0c1e; font-size: 18px; font-weight: 800; }
-  .ins-sec::before { content: ""; display: inline-block; width: 6px; height: 20px; margin-right: 10px; border-radius: 2px; background: #e8ad28; vertical-align: -4px; }   /* 课件标题左边的金色竖条 */
+  .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
+  .ins-sec::before { content: ""; display: inline-block; width: 6px; height: 20px; margin-right: 10px; border-radius: 3px; background: linear-gradient(180deg, #FF0F6B, #8E44FF); vertical-align: -4px; }
   .ins-sec small { margin-left: 8px; color: ${C.muted}; font-size: 13px; font-weight: 600; }
   .ins-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; color: ${C.ink2}; font-size: 12.5px; }
   .ins-keys span { display: inline-flex; align-items: center; gap: 6px; }
@@ -102,6 +104,9 @@
   .ins-seg-list li i { width: 12px; height: 12px; border-radius: 3px; }
   .ins-seg-list li b { color: ${C.ink}; font-weight: 700; font-variant-numeric: tabular-nums; text-align: right; }
   .ins-seg-list li small { min-width: 36px; color: ${C.muted}; font-size: 12px; font-variant-numeric: tabular-nums; text-align: right; }
+  .ins-scrollbox { max-height: 460px; overflow-y: auto; overscroll-behavior: contain; padding-right: 4px; }
+  .ins-scrollbox::-webkit-scrollbar { width: 8px; } .ins-scrollbox::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(94,9,23,.22); }
+  @supports not selector(::-webkit-scrollbar) { .ins-scrollbox { scrollbar-width: thin; } }
   .ins-person-grid { display: grid; grid-template-columns: minmax(280px, 380px) minmax(0, 1fr); gap: 8px 28px; align-items: start; }
   @media (max-width: 900px) { .ins-person-grid { grid-template-columns: minmax(0, 1fr); } }
   .ins-person { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 14px; margin: 0 0 8px; color: ${C.ink2}; font-size: 13px; }
@@ -209,6 +214,7 @@
     return `url(#${id})`;
   }
   function fillOf(svg, color, way = 'right') {
+    if (svg) return color;   // 2026-11-11 核对配色方案：条形、方块一律用色号本色（渐变起点会比色号浅，看起来不准）
     if (!svg.insFills) svg.insFills = new Map();
     const key = `${color}|${way}`;
     if (!svg.insFills.has(key)) {
@@ -339,7 +345,7 @@
   function tiles(parent, list) {
     const box = document.createElement('div');
     box.className = 'ins-tiles';
-    const tones = [TONE.crimson, TONE.gold, TONE.teal, TONE.apricot];   // 课件内容框：浅红、浅金、浅绿，再加赭橙
+    const tones = [TONE.pink, TONE.orange, TONE.cyan, TONE.purple];
     list.forEach((item, i) => {
       const tile = document.createElement('div');
       tile.className = 'ins-tile';
@@ -359,7 +365,7 @@
     if (!data.length || !data.some((d) => d.value > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const W = widthOf(host);
     const H = opts.height || 220;
-    const color = opts.color || TONE.crimson;
+    const color = opts.color || TONE.blue;
     const ticks = niceTicks(Math.max(...data.map((d) => d.value)));
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 18, b: 26 };
     const pw = W - m.l - m.r;
@@ -406,7 +412,7 @@
       const y = i * row + (row - bh) / 2;
       const w = (d.value / max) * pw;
       text(svg, label - 8, y + bh / 2 + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
-      const color = d.color || opts.color || TONE.crimson;
+      const color = d.color || opts.color || TONE.blue;
       const bar = w > 0 ? el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg) : null;
       const shown = shownOf(d);
       text(svg, label + w + 6, y + bh / 2 + 4, shown, { class: 'is-value' });
@@ -428,7 +434,7 @@
     const max = opts.max || Math.max(...data.map((d) => d.value)) || 1;
     data.forEach((d, i) => {
       const y = i * row;
-      const color = d.color || opts.color || TONE.crimson;
+      const color = d.color || opts.color || TONE.blue;
       const shown = shownOf(d);
       text(svg, 0, y + 15, fit(d.label, W), { class: 'is-label' });
       const w = (d.value / max) * pw;
@@ -644,7 +650,7 @@
       (opts.quadrants || []).forEach(([qx, qy, label]) => text(svg, qx ? W - m.r - 4 : m.l + 6, qy ? m.t + 26 : H - m.b - 18, label, { 'text-anchor': qx ? 'end' : 'start' }));
     }
     points.forEach((p) => {
-      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || TONE.crimson, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
+      const dot = el('circle', { cx: X(p.x), cy: Y(p.y), r: 5, fill: p.color || TONE.blue, stroke: C.surface, 'stroke-width': 2, class: 'ins-rise' }, svg);
       const hit = el('circle', { cx: X(p.x), cy: Y(p.y), r: 12, class: 'ins-hit', 'aria-label': `${p.label}：${opts.xName} ${p.x}，${opts.yName} ${p.y}` }, svg);
       bindHover(hit, cardEl, () => [p.label, p.lines || []], () => dot.setAttribute('r', '7'), () => dot.setAttribute('r', '5'));
     });
@@ -652,8 +658,8 @@
 
   // 个人与全班对比：rows＝[{ label, me, avg, max, unit }]，每行各自的刻度（不同单位不混一个轴），数值写在条末端
   function compare(host, cardEl, rows, opts = {}) {
-    const meColor = opts.meColor || TONE.crimson;
-    const avgColor = opts.avgColor || TONE.gold;
+    const meColor = opts.meColor || TONE.pink;
+    const avgColor = opts.avgColor || TONE.blue;
     if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const row = 40; const bh = 10;
@@ -804,7 +810,7 @@
     const list = data.filter((d) => d.value > 0).sort((a, b) => b.value - a.value);
     const total = list.reduce((t, d) => t + d.value, 0);
     if (!(total > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
-    if (list.length > 1) keys(host, list.map((d) => ({ name: d.label, color: d.color || TONE.crimson })));   // 图例：放不下名字的小方块也能对上颜色
+    if (list.length > 1) keys(host, list.map((d) => ({ name: d.label, color: d.color || TONE.blue })));   // 图例：放不下名字的小方块也能对上颜色
     const W = widthOf(host);
     const H = opts.height || 250;
     const worst = (row, side) => {
@@ -835,9 +841,9 @@
     }
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     boxes.forEach(({ d, x, y, w, h }) => {
-      const base = d.color || TONE.crimson;
+      const base = d.color || TONE.blue;
       const ink = inkOn(base);
-      const rect = el('rect', { x: x + 1, y: y + 1, width: Math.max(1, w - 2), height: Math.max(1, h - 2), rx: 6, class: 'ins-rise', fill: gradient(svg, [[0, mix(base, '#ffffff', 0.14)], [1, base]], { x1: 0, y1: 0, x2: 1, y2: 1 }) }, svg);
+      const rect = el('rect', { x: x + 1, y: y + 1, width: Math.max(1, w - 2), height: Math.max(1, h - 2), rx: 6, class: 'ins-rise', fill: base }, svg);
       const amount = `${fmt(d.value)}${opts.unit || ''} · ${Math.round((d.value / total) * 100)}%`;
       if (h >= 26 && textW(d.label, 13, 700) + 16 <= w) {
         text(svg, x + 9, y + 20, d.label, { style: `fill:${ink};font-size:13px;font-weight:700;font-variant-numeric:normal` });
@@ -923,7 +929,7 @@
     const H = m.t + 7 * (cell + gap) - gap + 2;
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     ['周一', '', '周三', '', '周五', '', '周日'].forEach((label, r) => { if (label) text(svg, 0, m.t + r * (cell + gap) + cell / 2 + 4, label); });
-    const scale = opts.ramp || RAMPS.gold;
+    const scale = opts.ramp || RAMPS.fresh;
     const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor((v / max) * (scale.length - 1) + 0.0001))]);
     let monthEnd = -99;
     days.forEach((d, i) => {
@@ -949,8 +955,8 @@
 
   // 雷达图（一个人和全班平均的整体轮廓）：rows＝[{ label, short, me, avg, max, unit, note }]，每个方向各自的刻度（外圈＝这一项的满分或全班最高）
   function radar(host, cardEl, rows, opts = {}) {
-    const meColor = opts.meColor || TONE.crimson;
-    const avgColor = opts.avgColor || TONE.gold;
+    const meColor = opts.meColor || TONE.pink;
+    const avgColor = opts.avgColor || TONE.blue;
     if (!opts.noKeys) keys(host, [{ name: opts.meName || '本人', color: meColor }, { name: opts.avgName || '全班平均', color: avgColor }]);
     const W = widthOf(host);
     const nameOf = (d) => d.short || d.label;
@@ -988,12 +994,101 @@
     const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
     text(svg, 0, 34, item.big, { style: `fill:${C.ink};font-size:30px;font-weight:700;font-variant-numeric:normal` });
     if (item.note) text(svg, W, 34, item.note, { 'text-anchor': 'end', class: 'is-label' });
-    const color = item.color || TONE.goldLine;
+    const color = item.color || TONE.purple;
     el('rect', { x: 0, y: 50, width: W, height: 12, rx: 6, fill: mix(color, '#ffffff', 0.82) }, svg);
     const w = Math.max(0, Math.min(1, item.value / (item.max || 1))) * W;
     if (w > 0) el('rect', { x: 0, y: 50, width: Math.max(12, w), height: 12, rx: 6, fill: fillOf(svg, color), class: 'ins-grow' }, svg);
     const hit = el('rect', { x: 0, y: 0, width: W, height: H, class: 'ins-hit', 'aria-label': `${item.big} ${item.note || ''}` }, svg);
     bindHover(hit, cardEl, () => [item.big, item.lines || []]);
+  }
+
+  // ================= 2026-11-11 用户：“学情分析可以再增加一张图表，可以看到每天学习过的同学在每堂课的停留时间” =================
+  // 堆叠柱（一天一根，按系列分段）：rows＝[{ key, label, values: [], lines }]，series＝[{ name, color }]；段与段之间留 2px 底色间隙。
+  // opts.onPick(key)：点一根柱子（或 Tab 到它按回车）选中；opts.picked：当前选中的那根，加浅金底、标出合计。放大看时不能点选
+  function stackedColumns(host, cardEl, rows, series, opts = {}) {
+    const totals = rows.map((d) => d.values.reduce((t, v) => t + (Number(v) || 0), 0));
+    if (!rows.length || !totals.some((t) => t > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    const unit = opts.unit || '';
+    const W = widthOf(host);
+    const H = opts.height || 230;
+    const ticks = niceTicks(Math.max(...totals));
+    const top = ticks[ticks.length - 1] || 1;
+    const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 22, b: 26 };
+    const pw = W - m.l - m.r;
+    const ph = H - m.t - m.b;
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
+    const Y = (v) => m.t + ph - (v / top) * ph;
+    ticks.forEach((t) => {
+      el('line', { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: t === 0 ? C.axis : C.grid, 'stroke-width': 1 }, svg);
+      text(svg, m.l - 6, Y(t) + 4, fmt(t), { 'text-anchor': 'end' });
+    });
+    const band = pw / rows.length;
+    const bw = Math.max(3, Math.min(26, band * 0.66));
+    const every = Math.max(1, Math.ceil(data_label_width(rows) / band));
+    const maxIdx = totals.reduce((best, t, i) => (t > totals[best] ? i : best), 0);
+    const pickable = typeof opts.onPick === 'function' && !cardEl.closest('.ins-zoom');
+    rows.forEach((d, i) => {
+      const cx = m.l + band * i + band / 2;
+      const picked = opts.picked != null && String(opts.picked) === String(d.key);
+      if (picked) el('rect', { x: m.l + band * i + 1, y: m.t - 8, width: Math.max(2, band - 2), height: ph + 8, rx: 6, fill: '#E6F4FF' }, svg);   // 选中的那天：方案发散渐变里的浅蓝
+      const segs = d.values.map((v, k) => [Number(v) || 0, k]).filter(([v]) => v > 0);
+      let y = m.t + ph;
+      const marks = [];
+      segs.forEach(([v, k], j) => {
+        const h = (v / top) * ph;
+        const last = j === segs.length - 1;
+        const drawn = Math.max(0.6, h - (last ? 0 : 2));
+        const yTop = y - h + (last ? 0 : 2);
+        marks.push(el('path', { d: last ? colPath(cx - bw / 2, y - h, bw, drawn) : `M${cx - bw / 2},${y}V${yTop}H${cx + bw / 2}V${y}Z`, fill: series[k].color, class: 'ins-rise' }, svg));
+        y -= h;
+      });
+      if ((rows.length - 1 - i) % every === 0) edgeText(svg, cx, H - 8, d.label, W, picked ? { style: `fill:${C.ink};font-weight:700` } : {});
+      if ((i === maxIdx || picked) && totals[i] > 0) edgeText(svg, cx, Y(totals[i]) - 6, fmt(totals[i]), W, { class: 'is-value' }, valueW);
+      const say = `${fmt(totals[i])}${unit}`;
+      const hit = el('rect', { x: m.l + band * i, y: m.t - 8, width: band, height: ph + 8, class: 'ins-hit', 'aria-label': `${d.label}：合计 ${say}`, ...(pickable ? { role: 'button', 'aria-pressed': String(picked), style: 'cursor:pointer' } : {}) }, svg);
+      bindHover(hit, cardEl, () => [say, (d.lines || [d.label]).concat(segs.map(([v, k]) => ({ key: series[k].color, text: `${series[k].name} ${fmt(v)}${unit}` })), pickable ? ['点一下看这一天每位同学的明细'] : [])],
+        () => marks.forEach((mk) => { mk.style.opacity = '.78'; }), () => marks.forEach((mk) => { mk.style.opacity = ''; }));
+      if (pickable) {
+        hit.addEventListener('click', (event) => { event.stopPropagation(); opts.onPick(d.key); });
+        hit.addEventListener('keydown', (event) => { if (event.key === 'Enter' || event.key === ' ') { event.preventDefault(); opts.onPick(d.key); } });
+      }
+    });
+  }
+  const data_label_width = (rows) => Math.max(...rows.map((d) => tickW(d.label))) + 8;
+
+  // 分段横条（每人一行，按系列分段，合计写在条末端）：rows＝[{ label, values: [], lines }]
+  function splitBars(host, cardEl, rows, series, opts = {}) {
+    const totals = rows.map((d) => d.values.reduce((t, v) => t + (Number(v) || 0), 0));
+    if (!rows.length || !totals.some((t) => t > 0)) { empty(host, opts.empty || '还没有数据。'); return; }
+    const unit = opts.unit || '';
+    const W = widthOf(host);
+    const row = 26; const bh = 14;
+    const label = labelColumn(rows, W, 150);
+    const valueCol = Math.max(...totals.map((t) => valueW(`${fmt(t)}${unit}`))) + 10;
+    const pw = Math.max(20, W - label - valueCol);
+    const max = Math.max(...totals) || 1;
+    const H = rows.length * row + 4;
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
+    el('line', { x1: label, x2: label, y1: 0, y2: H - 2, stroke: C.axis, 'stroke-width': 1 }, svg);
+    rows.forEach((d, i) => {
+      const y = i * row + (row - bh) / 2;
+      text(svg, label - 8, y + bh / 2 + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
+      const segs = d.values.map((v, k) => [Number(v) || 0, k]).filter(([v]) => v > 0);
+      let x = label;
+      const marks = [];
+      segs.forEach(([v, k], j) => {
+        const w = (v / max) * pw;
+        const last = j === segs.length - 1;
+        const drawn = Math.max(1, w - (last ? 0 : 2));
+        marks.push(el('path', { d: last ? barPath(x, y, drawn, bh) : `M${x},${y}H${x + drawn}V${y + bh}H${x}Z`, fill: series[k].color, class: 'ins-rise' }, svg));
+        x += w;
+      });
+      const say = `${fmt(totals[i])}${unit}`;
+      text(svg, x + 6, y + bh / 2 + 4, say, { class: 'is-value' });
+      const hit = el('rect', { x: 0, y: i * row, width: W, height: row, class: 'ins-hit', 'aria-label': `${d.label}：合计 ${say}，${segs.map(([v, k]) => `${series[k].name} ${fmt(v)}${unit}`).join('，')}` }, svg);
+      bindHover(hit, cardEl, () => [say, (d.lines || [d.label]).concat(segs.map(([v, k]) => ({ key: series[k].color, text: `${series[k].name} ${fmt(v)}${unit}` })))],
+        () => marks.forEach((mk) => { mk.style.opacity = '.78'; }), () => marks.forEach((mk) => { mk.style.opacity = ''; }));
+    });
   }
 
   // ---------- 放大看（2026-11-05 用户：“点击每张图表，可以放大显示。‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”） ----------
@@ -1050,7 +1145,7 @@
     cardEl.appendChild(button);
     cardEl.addEventListener('click', (event) => {
       if (event.target.closest('.ins-zoom-btn')) { openZoom(cardEl); return; }
-      if (event.target.closest('a, button, summary, details, input, select, textarea, label')) return;
+      if (event.target.closest('a, button, summary, details, input, select, textarea, label, [role="button"]')) return;   // 图里能点选的部分（如停留时间的日期柱）不放大
       if (window.getSelection && String(window.getSelection())) return;   // 正在选文字
       openZoom(cardEl);
     });
@@ -1120,7 +1215,8 @@
   }
 
   window.ClassLiveInsights = {
-    addStyle, card, tiles, section, keys, tableView, empty, colors: C, tones: TONE, ramps: RAMPS, rateColor, lightbox, openZoom,
+    addStyle, card, tiles, section, keys, tableView, empty, colors: C, tones: TONE, cat: CAT, catExt: CAT_EXT, ramps: RAMPS, rateColor, lightbox, openZoom,
+    stackedColumns: record(stackedColumns), splitBars: record(splitBars),
     lines: record(lines), treemap: record(treemap), waffle: record(waffle), segmented: record(segmented), calendar: record(calendar), radar: record(radar), meter: record(meter),
     columns: record(columns), bars: record(bars), heatmap: record(heatmap), donut: record(donut), diverging: record(diverging),
     dumbbell: record(dumbbell), scatter: record(scatter), compare: record(compare), grouped: record(grouped),

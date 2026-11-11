@@ -355,6 +355,78 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-realm-flags { color: #a4492d; font-size: 12.5px; }
 .tw-realm-rules { margin-top: 14px; font-size: 13.5px; line-height: 1.7; color: #4a423b; }
 .tw-realm-rules summary { cursor: pointer; font-weight: 700; color: #23655f; }
+/* 修为境界页重排（2026-11-11 用户：“教师控制台，‘修为境界’里面的内容，重新排下版，使其更美观一些”）：
+   顶部结算卡（标题、上课范围、按钮）＋五级境界阶梯（人数、门槛、占全班比例，越往上台阶越高）＋修为表（名次奖牌、修为进度条、提示标签、表头固定）＋分类规则卡片 */
+.tw-rm-hero { position: relative; overflow: hidden; margin: 0 0 16px; padding: 18px 20px 14px; border: 1px solid var(--line); border-radius: 16px;
+  background: radial-gradient(120% 150% at 100% 0%, rgba(168,122,42,.16), transparent 55%), linear-gradient(180deg, #fffdf8, #fbf4e7); box-shadow: var(--shadow); }
+.tw-rm-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px 24px; }
+.tw-rm-title { flex: 1 1 auto; margin: 0; color: #3a2a12; font: 900 26px/1.3 'Kaiti SC', 'STKaiti', 'KaiTi', serif; letter-spacing: .12em; }
+.tw-rm-title small { margin-left: 12px; color: var(--muted); font: 600 13.5px/1 var(--sans); letter-spacing: 0; }
+.tw-rm-sum { margin: 8px 0 0; color: #4a423b; font-size: 14px; line-height: 1.75; }
+.tw-rm-sum b { color: var(--ink); }
+.tw-rm-actions { display: flex; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; gap: 8px; }
+.tw-rm-actions .tw-primary, .tw-rm-actions .tw-secondary { margin-top: 0; }
+.tw-rm-actions a.tw-secondary { display: inline-flex; align-items: center; text-decoration: none; }
+.tw-rm-status { margin: 10px 0 0; color: var(--teal); font-size: 13.5px; font-weight: 700; }
+.tw-rm-status:empty { display: none; }
+.tw-rm-ladder { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); align-items: end; gap: 10px; margin: 16px 0 2px; }
+.tw-rm-step { position: relative; display: grid; align-content: start; justify-items: start; gap: 5px; min-width: 0; min-height: calc(118px + var(--h, 0) * 14px); padding: 12px 12px 10px;
+  border: 1px solid; border-radius: 14px 14px 8px 8px; }
+.tw-rm-step .tw-realm { font-size: 15px; }
+.tw-rm-step b { font: 800 30px/1 Georgia, 'Times New Roman', serif; font-variant-numeric: tabular-nums; }
+.tw-rm-step b small { margin-left: 3px; font: 700 13px/1 var(--sans); opacity: .75; }
+.tw-rm-step > span:not(.tw-realm) { font-size: 12.5px; line-height: 1.45; opacity: .88; }
+.tw-rm-share { align-self: end; width: 100%; height: 6px; margin-top: auto; border-radius: 3px; background: rgba(0,0,0,.08); overflow: hidden; }
+.tw-rm-share i { display: block; height: 100%; border-radius: 3px; background: currentColor; }
+.tw-rm-step.is-r0 { color: #4a443c; border-color: #d4cdbf; background: linear-gradient(180deg, #fbf9f4, #ebe5d8); }
+.tw-rm-step.is-r1 { color: #1f5c4f; border-color: #a9d9c8; background: linear-gradient(180deg, #f2fbf7, #d5eee4); }
+.tw-rm-step.is-r2 { color: #6b4504; border-color: #e8cd85; background: linear-gradient(180deg, #fffaea, #fae6ae); }
+.tw-rm-step.is-r3 { color: #3d1580; border-color: #cbb3f3; background: linear-gradient(180deg, #f9f4ff, #e5d6ff); box-shadow: 0 0 14px rgba(140,90,240,.18); }
+.tw-rm-step.is-r4 { color: #ffe08a; border-color: #6c5a9c; background: radial-gradient(120% 90% at 50% 0%, #3b2a66, #170f2a 72%); box-shadow: 0 0 18px rgba(255,214,110,.28); }
+.tw-rm-step.is-r4 .tw-rm-share { background: rgba(255,255,255,.14); }
+.tw-rm-step.is-r4 .tw-rm-share i { background: linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff); }
+.tw-rm-step + .tw-rm-step::before { content: '›'; position: absolute; left: -10px; top: 50%; width: 10px; color: #b9a98f; font: 800 18px/1 var(--sans); text-align: center; transform: translateY(-50%); }
+.tw-rm-note { margin: 10px 0 0; color: var(--muted); font-size: 12.5px; }
+.tw-rm-tablebar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; margin: 18px 0 10px; }
+.tw-rm-tablebar h4 { margin: 0; color: var(--ink); font: 800 19px/1.3 'Kaiti SC', 'STKaiti', 'KaiTi', serif; letter-spacing: .06em; }
+.tw-rm-tablebar > span { color: var(--muted); font-size: 13.5px; }
+.tw-rm-tablebar input { flex: 0 1 260px; min-width: 180px; margin-left: auto; padding: 8px 12px; border: 1.5px solid var(--line); border-radius: 8px; background: var(--white); font: inherit; font-size: 14px; }
+.tw-rm-scroll { max-height: min(72vh, 860px); overflow: auto; }
+.tw-rm-scroll thead th { position: sticky; top: 0; z-index: 1; }
+.tw-realm-table td { font-variant-numeric: tabular-nums; }
+.tw-realm-table td.is-num, .tw-realm-table th:nth-child(n+7):nth-child(-n+14) { text-align: right; }
+.tw-realm-table td.is-zero { color: #b8ada1; }
+.tw-realm-table tbody tr:hover td { background: rgba(35,101,95,.05); }
+.tw-rm-no { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 13px; color: var(--muted); font: italic 800 14px/1 Georgia, 'Times New Roman', serif; }
+.tw-rm-no.is-1 { color: #5a3a00; background: radial-gradient(circle at 35% 30%, #fff3c4, #f2c64f 55%, #c38d1c); box-shadow: 0 0 0 2px #fff, 0 0 10px rgba(242,198,79,.6); }
+.tw-rm-no.is-2 { color: #353b48; background: radial-gradient(circle at 35% 30%, #fff, #d4d9e3 55%, #9aa2b1); box-shadow: 0 0 0 2px #fff; }
+.tw-rm-no.is-3 { color: #4e2a0c; background: radial-gradient(circle at 35% 30%, #fbe1c6, #d79a63 55%, #9c5f2c); box-shadow: 0 0 0 2px #fff; }
+.tw-rm-pts { display: grid; gap: 4px; min-width: 140px; }
+.tw-rm-pbar { height: 6px; border-radius: 3px; background: rgba(70,51,34,.1); overflow: hidden; }
+.tw-rm-pbar i { display: block; height: 100%; border-radius: 3px; }
+.tw-rm-pbar i.is-r0 { background: #b9b1a3; }
+.tw-rm-pbar i.is-r1 { background: linear-gradient(90deg, #6cc7a9, #2a7d69); }
+.tw-rm-pbar i.is-r2 { background: linear-gradient(90deg, #f6d36a, #c38d1c); }
+.tw-rm-pbar i.is-r3 { background: linear-gradient(90deg, #a77af2, #5a26b5); }
+.tw-rm-pbar i.is-r4 { background: linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff); }
+.tw-realm-table td.tw-realm-flags { min-width: 150px; color: inherit; white-space: normal; }
+.tw-rm-flag { display: inline-block; margin: 1px 4px 1px 0; padding: 1px 8px; border-radius: 999px; background: var(--rust-soft); color: #8d3a20; font-size: 12px; font-weight: 700; line-height: 1.6; white-space: nowrap; }
+.tw-rm-flag.is-info { background: var(--teal-soft); color: var(--teal); }
+.tw-rm-sync { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 12px 0 0; padding: 10px 14px; border: 1px dashed var(--line); border-radius: 12px; color: var(--muted); font-size: 13.5px; }
+.tw-rm-sync .tw-secondary { margin-top: 0; padding: 6px 12px; font-size: 13.5px; }
+.tw-realm-rules { margin-top: 18px; }
+.tw-realm-rules > summary { padding: 11px 16px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: var(--shadow); color: var(--teal); font: 800 15px/1.4 var(--sans); }
+.tw-realm-rules > summary small { margin-left: 10px; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.tw-rm-rules { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(440px, 100%), 1fr)); align-items: start; gap: 14px; margin-top: 12px; }
+.tw-rm-rule { --tc: var(--teal); padding: 14px 16px 8px; border: 1px solid var(--line); border-top: 4px solid var(--tc); border-radius: 12px; background: var(--white); }
+.tw-rm-rule:nth-child(2) { --tc: #6a35c9; } .tw-rm-rule:nth-child(3) { --tc: var(--rust); } .tw-rm-rule:nth-child(4) { --tc: #2f7f70; }
+.tw-rm-rule:nth-child(5) { --tc: var(--gold); } .tw-rm-rule:nth-child(6) { --tc: #6d6259; }
+.tw-rm-rule h5 { margin: 0 0 8px; color: var(--tc); font: 800 18px/1.4 'Kaiti SC', 'STKaiti', 'KaiTi', serif; letter-spacing: .06em; }
+.tw-rm-rule h5 small { margin-left: 8px; color: var(--muted); font: 600 12.5px/1 var(--sans); letter-spacing: 0; }
+.tw-rm-rule ul { margin: 0; padding-left: 18px; }
+.tw-rm-rule li { margin: 0 0 7px; }
+.tw-rm-rule li::marker { color: var(--tc); }
+@media (max-width: 860px) { .tw-rm-ladder { grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); align-items: stretch; } .tw-rm-step { min-height: 0; } .tw-rm-step + .tw-rm-step::before { display: none; } .tw-rm-actions { justify-content: flex-start; } }
 .tw-dm-liked { font-weight: 400; }
 
 /* 登录安全 */
@@ -947,3 +1019,12 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 @media (max-width: 640px) { .tw-up-sec li { grid-template-columns: 40px minmax(0, 1fr); } .tw-up-sec li em { grid-column: 2; justify-self: start; } }
 /* 多了“更新说明”标签：窄一点的屏幕上标签左右留白收一点，保持一行 */
 @media (max-width: 1240px) { .tw-tabs > button { padding-left: 9px !important; padding-right: 9px !important; } }
+
+/* 2026-11-11 用户：“你看下其它地方是否也有可以优化美观的？”——几处通用的版面润色：
+   ① 各标签页开头的长说明（.tw-panel 里直接放的 .tw-note）改成浅金底色的说明框，和下面的内容分开；
+   ② 登录安全等板块的小标题（.tw-sec-h）加青色竖条；③ 表格里“没有记录”的空行底色更柔和 */
+.tw-panel > .tw-note { margin: 0 0 14px; padding: 10px 14px 10px 16px; border: 1px solid rgba(168,122,42,.2); border-left: 4px solid var(--gold); border-radius: 10px;
+  background: linear-gradient(90deg, rgba(168,122,42,.09), rgba(168,122,42,.03)); color: #4a423b; line-height: 1.75; }
+.tw-sec-h { padding-left: 10px; border-left: 4px solid var(--teal); color: var(--ink); font-size: 17px; font-weight: 800; line-height: 1.35; }
+.tw-sec-h small { margin-left: 6px; font-size: 13px; }
+.tw-table td.empty { padding: 26px 16px; background: #fbf8f2; color: #8a7f74; font-size: 14px; }
