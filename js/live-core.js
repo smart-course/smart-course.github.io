@@ -235,8 +235,10 @@
     let level = 0;
     list.forEach((realm) => { if (ratio >= realm.min - 1e-9) level = realm.level; });
     const lo = list[level].min;
-    const hi = level < list.length - 1 ? list[level + 1].min : Math.max(1, lo + 0.1);
-    const within = hi > lo ? Math.min(1, (ratio - lo) / (hi - lo)) : 1;
+    // 初期／中期／后期仍按原来的门槛三等分（2026-11-12 用户：“要确保学生目前的修为和境界是不变的，变的只是化神需要的分数”）：
+    // 习经化神改到 140% 以后，元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
+    const hi = level < list.length - 1 ? REALMS[level + 1].min : Math.max(1, lo + 0.1);
+    const within = hi > lo ? Math.max(0, Math.min(1, (ratio - lo) / (hi - lo))) : 1;
     const stage = Math.min(2, Math.floor(within * 3));
     return { level, stage, ratio, within, name: list[level].name, title: list[level].name + STAGES[stage] };
   }
