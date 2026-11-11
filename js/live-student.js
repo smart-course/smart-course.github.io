@@ -4309,7 +4309,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261111-ch8-pe' : '20261111-timeline-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261111-ch8-pe' : '20261112-tk-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
