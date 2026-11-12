@@ -24,6 +24,7 @@
  *       ck_join_apply（不在点名册上的同学自己点“申请加入”）、ck_pin_forgot / ck_decide_pin_request（忘记口令申请、教师同意或拒绝；教师读 ck_pin_requests）
  *       ck_set_mood / ck_my_mood（学生选“这堂课感觉怎么样”：笑脸或不高兴的脸；点笑脸每天 +5 一次）、ck_mood_stats（教师只看人数）
  *       ck_set_deadline / ck_room_deadline（期中考查作业的递交截止时间：教师设置，学生页读取；过了截止时间 ck_submit_answer 不再收）
+ *       ck_exam_progress（期中考查作业：本班已递交人数／点名册人数，学生页倒计时旁显示，2026-11-12）
  *       ck_poll_open / ck_poll_close（投屏页课堂工具“投票器”发起、结束投票；教师读 ck_polls、ck_poll_votes）、ck_poll_live / ck_poll_vote（学生页弹出投票、投票）
  *       ck_set_class_schedule（班级的上课时间、教室，工作台“课表”）、ck_save_teacher_setting（课表设置：学期、第 1 周、各节时间；校历 calendar）、ck_save_event（“日程”里的安排；教师读、删 ck_teacher_events）
  * 修为境界：ClassLive.REALMS / GIFTS / realmOf，学生页、投屏弹幕、教师工作台共用（规则见工作台“修为境界”与学生面板“修为说明”）
@@ -1907,6 +1908,21 @@
           return essay ? { status: 'ok', reveal: row.reveal, points, reason, today: have + points, cap: PRACTICE.of(room.course).cap }
             : { status: 'ok', correct, answer: row.answer.ok, reveal: row.reveal, points, reason, wait, times: s.times + (points > 0 ? 1 : 0), most: limit, today: have + points, cap: PRACTICE.of(room.course).cap };
         }
+        // 期中考查递交截止时间（学生页读取）、已递交人数比例：学生可调，放在 teacherOnly 之前（2026-11-12 修正模拟后台：截止时间原来放在后面，学生读不到）
+        if (name === 'ck_room_deadline') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          return room ? room.deadline || null : null;
+        }
+        // 期中考查作业已递交人数比例（规则同 cloudbase-pg.sql 的 ck_exam_progress，2026-11-12）
+        if (name === 'ck_exam_progress') {
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          if (!room || !/^exam\d{2}$/.test(room.chapter)) return { status: 'none' };
+          if (!myCheckin(await this.ensureAnonymous(), room.id) && !localStorage.getItem(prefix + 'teacher')) return { status: 'login' };
+          const klass = read('classes').find((row) => String(row.id) === String(room.class_id));
+          const roster = [...new Set(((klass && klass.roster) || []).map((person) => sidKey(person.sid)).filter(Boolean))];
+          const sent = new Set(read('homework').filter((doc) => String(doc.classroom) === String(room.id) && doc.payload && doc.payload.exam !== undefined).map((doc) => sidKey(doc.sid)));
+          return { status: 'ok', done: roster.filter((key) => sent.has(key)).length, total: roster.length };
+        }
         teacherOnly();
         // 学生版测试页：教师以“王不凡”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
         if (name === 'ck_test_danmaku') {
@@ -2036,10 +2052,6 @@
         if (name === 'ck_set_deadline') {
           teacherOnly();
           return updateRoom(params.p_classroom, (room) => { room.deadline = params.p_deadline || null; });
-        }
-        if (name === 'ck_room_deadline') {
-          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
-          return room ? room.deadline || null : null;
         }
         // 课表、日程（规则同 cloudbase-pg.sql 的 ck_set_class_schedule / ck_save_teacher_setting / ck_save_event）
         if (name === 'ck_set_class_schedule') {

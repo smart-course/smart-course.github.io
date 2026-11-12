@@ -937,6 +937,15 @@
   .clp-exam-clock-units b { font-size: 1.55em; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
   .clp-exam-clock-units small { font-size: .8em; font-weight: 700; opacity: .85; }
   .clp-exam-clock-note { margin: 0; color: #6b4d14; font-size: .95em; line-height: 1.6; }
+  .clp-exam-clock-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 18px; }
+  .clp-exam-ratio { display: inline-grid; grid-template-columns: auto auto; align-items: baseline; gap: 2px 8px; margin-left: auto; padding: 6px 14px 8px; border: 1px solid #e6d3a3; border-radius: 10px; background: rgba(255, 255, 255, .75); }
+  .clp-exam-ratio > span:first-child { color: #6b4d14; font-weight: 700; font-size: .9em; }
+  .clp-exam-ratio b { color: #2e4a70; font-size: 1.55em; font-weight: 800; line-height: 1.1; font-variant-numeric: tabular-nums; }
+  .clp-exam-ratio-bar { grid-column: 1 / -1; display: block; height: 6px; border-radius: 3px; background: rgba(46, 74, 112, .15); overflow: hidden; }
+  .clp-exam-ratio-bar i { display: block; height: 100%; width: 0; border-radius: 3px; background: #2e4a70; transition: width .4s ease; }
+  .clp-exam-clock.is-ratio-only .clp-exam-clock-head strong, .clp-exam-clock.is-ratio-only .clp-exam-clock-left, .clp-exam-clock.is-ratio-only .clp-exam-clock-note { display: none; }
+  .clp-exam-clock.is-ratio-only .clp-exam-ratio { margin-left: 0; }
+  @media (max-width: 560px) { .clp-exam-ratio { margin-left: 0; } }
   .clp-exam-clock.is-soon { border-color: #efc2ab; border-left-color: #c0502a; background: linear-gradient(135deg, #fff3ec, #fbdfd0); }
   .clp-exam-clock.is-soon .clp-exam-clock-units i { background: #b4432a; }
   .clp-exam-clock.is-soon .clp-exam-clock-units i:last-child { animation: clp-due-pulse 1s ease-in-out infinite; }
@@ -5130,8 +5139,10 @@
       const clockBox = document.createElement('div');
       clockBox.className = 'clp-exam-clock';
       clockBox.hidden = true;
+      // 2026-11-12 用户：“期中考查作业倒计时旁边，还要再设置一个已递交人数比例显示，比如1/40”——倒计时右边是本班已递交人数／点名册人数（ck_exam_progress）
       clockBox.innerHTML = '<div class="clp-exam-clock-head"><b>递交截止</b><strong data-due-when></strong></div>'
-        + '<div class="clp-exam-clock-left" data-due-left><span>距离截止还有</span><span class="clp-exam-clock-units" data-due-units></span></div>'
+        + '<div class="clp-exam-clock-row"><div class="clp-exam-clock-left" data-due-left><span>距离截止还有</span><span class="clp-exam-clock-units" data-due-units></span></div>'
+        + '<div class="clp-exam-ratio" data-exam-ratio hidden><span>本班已递交</span><b data-ratio-num></b><span class="clp-exam-ratio-bar" aria-hidden="true"><i data-ratio-bar></i></span></div></div>'
         + '<p class="clp-exam-clock-note" data-due-note></p>';
       const card = $('#start .cl-exam-card');
       if (card) card.insertAdjacentElement('beforebegin', clockBox);
@@ -5179,9 +5190,38 @@
           exam.dataset.due = String(at);
           due.hidden = false;
           clockBox.hidden = false;
+          clockBox.classList.remove('is-ratio-only');
           tickDue();
           if (at > Date.now()) dueTimer = setInterval(tickDue, 1000);
         }).catch((error) => console.warn('[期中考查] 截止时间读取失败：', error));
+      }
+      // 已递交人数比例：进入页面读一次，之后页面在前台时每分钟读一次，自己递交后马上再读；没有截止时间时卡片只显示这一项
+      const ratioBox = clockBox.querySelector('[data-exam-ratio]');
+      let ratioTimer = 0;
+      const paintRatio = (res) => {
+        if (!res || res.status !== 'ok' || !(Number(res.total) > 0)) return;
+        const done = Math.min(Number(res.done) || 0, Number(res.total));
+        ratioBox.querySelector('[data-ratio-num]').textContent = `${done}/${res.total}`;
+        ratioBox.querySelector('[data-ratio-bar]').style.width = `${Math.round(done / res.total * 100)}%`;
+        ratioBox.title = `点名册 ${res.total} 人，已递交 ${done} 人，未递交 ${res.total - done} 人`;
+        ratioBox.hidden = false;
+        if (!dueAt) {
+          clockBox.classList.add('is-ratio-only');
+          clockBox.querySelector('.clp-exam-clock-head b').textContent = '递交情况';
+          clockBox.hidden = false;
+        }
+      };
+      const loadRatio = () => {
+        if (document.hidden) return;
+        backend.rpc('ck_exam_progress', { p_classroom: Number(identity.classroom) || identity.classroom })
+          .then((value) => paintRatio(Array.isArray(value) ? value[0] : value))
+          .catch((error) => { if (!/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((error && error.message) || error))) console.warn('[期中考查] 递交人数读取失败：', error); });
+      };
+      if (!OFFLINE && backend && identity.classroom && (joined || PREVIEW)) {
+        loadRatio();
+        ratioTimer = setInterval(loadRatio, 60000);
+        document.addEventListener('visibilitychange', () => { if (!document.hidden) loadRatio(); });
+        document.addEventListener('classlive:submitted', () => setTimeout(loadRatio, 1500));
       }
       list.push({
         key: 'exam', section: '期中考查作业', title: (D.exam && D.exam.title) || '期中考查作业',
