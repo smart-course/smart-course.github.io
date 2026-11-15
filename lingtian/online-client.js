@@ -317,7 +317,7 @@
       get storageAvailable(){return connected;},
       now:clock.now,
       refresh,
-      tick(){if(!document.hidden&&!busy&&!pending&&!accountChanged&&!authRequired&&performance.now()-lastPoll>15000){lastPoll=performance.now();void refresh({settlePending:false});}return false;},
+      tick(){if(!document.hidden&&!busy&&!pending&&!accountChanged&&!authRequired&&performance.now()-lastPoll>30000){lastPoll=performance.now();void refresh({settlePending:false});}return false;},
       getNeighbors(){return farms;},
       getFarm(id){return farmCache.get(id) || null;},
       get visitedFarm(){return farmCache.get(activeFarmerId) || null;},
