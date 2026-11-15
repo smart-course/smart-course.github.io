@@ -1,0 +1,108 @@
+{
+  "version": 2,
+  "renderer": "Blender 4.3 Cycles",
+  "source": "assets/cards-v2/wanxiang-daozang.blend",
+  "builder": "dev/build-card-art.py",
+  "original_geometry": true,
+  "motifs": {
+    "commodity": {
+      "path": "assets/cards-v2/commodity.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 22630,
+      "sha256": "74399895d5cf96f5648567dbd57b91d7540d4337356faceda4a4ce33c9ffd6a3"
+    },
+    "scales": {
+      "path": "assets/cards-v2/scales.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 25486,
+      "sha256": "d73e2cfdd3d49755d1e923d7e217c0ad2bbe1bb71dc24ca4753636c28ebfec5a"
+    },
+    "loom": {
+      "path": "assets/cards-v2/loom.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 26418,
+      "sha256": "f95f8f027f3338078c620af769f1866d3cc33f2613dba3c66513b17c132408b5"
+    },
+    "coin": {
+      "path": "assets/cards-v2/coin.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 28152,
+      "sha256": "fca682cba7194367132ed9f2c747d67ef41818c0faee5ca4e0691cc3c662fcba"
+    },
+    "market": {
+      "path": "assets/cards-v2/market.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 26586,
+      "sha256": "13e4fbd896b43b14af70ba00508434c71b7e9a8007f1ec7a3b9d80a28297c73e"
+    },
+    "gate": {
+      "path": "assets/cards-v2/gate.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 32532,
+      "sha256": "7075d12f88898c046f427c3686c928b285f948c712ab59261ef8d0d2c82d4091"
+    },
+    "furnace": {
+      "path": "assets/cards-v2/furnace.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 24176,
+      "sha256": "0862ac12216401fc2728f18ed14226e6e36769a95247b957431858e05ba4949a"
+    },
+    "cycle": {
+      "path": "assets/cards-v2/cycle.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 28120,
+      "sha256": "682090c507f73528dc00b0ec8d9b0c107f90eb176bc1adc33445e2fe3cc04ffc"
+    },
+    "wheel": {
+      "path": "assets/cards-v2/wheel.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 28584,
+      "sha256": "e0780c7ebe584939e2ce96ea525ee662f9b8f35adbd97c938b9aedf6afa109f1"
+    },
+    "distribution": {
+      "path": "assets/cards-v2/distribution.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 25868,
+      "sha256": "26064ec4988bc0c846c49e6b0544e265bc6caac78b4758c7ed985c52bdf268d0"
+    },
+    "land": {
+      "path": "assets/cards-v2/land.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 25254,
+      "sha256": "408a5200920436f74452b5be95e90a4ba48f1f6d4fbd383b33ffa3f33180f378"
+    },
+    "book": {
+      "path": "assets/cards-v2/book.webp",
+      "width": 512,
+      "height": 512,
+      "bytes": 24444,
+      "sha256": "40f949cbcf2d70e38e9a108a3865e8986420f38216216be666d20a156e3ba2bd"
+    },
+    "sealed-pack": {
+      "path": "assets/cards-v2/sealed-pack.webp",
+      "width": 480,
+      "height": 680,
+      "bytes": 37842,
+      "sha256": "040e4318b8cba4504eb34ff9d67d45e9fd389fbe8caa11f1ee6d36215f2ee20e"
+    },
+    "card-back": {
+      "path": "assets/cards-v2/card-back.webp",
+      "width": 480,
+      "height": 680,
+      "bytes": 36548,
+      "sha256": "061b6b1082e7816a608c15f6732c34ed8d7fe8f574e17c2ea359836e9b232db0"
+    }
+  },
+  "artwork_text": "No typography is baked into images. Chinese and Latin ranks remain live HTML."
+}

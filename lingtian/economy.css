@@ -1,0 +1,320 @@
+/* Shared alchemy / market language: ivory paper, jade, fine warm gold. */
+.game-dialog[data-kind="alchemy"],
+.game-dialog[data-kind="market"] { width: min(1000px, calc(100vw - 40px)); max-width: 1000px; }
+.econ-shell { --econ-ink:#355b48; --econ-muted:#71806c; --econ-line:#d5ddc6; --econ-jade:#567b60; --econ-gold:#a8874b; color:var(--econ-ink); font-family:var(--sans); font-size:13px; line-height:1.65; min-width:0; }
+.econ-shell *, .econ-shell *::before, .econ-shell *::after { box-sizing:border-box; }
+.econ-shell h3, .econ-shell h4, .econ-shell p { margin:0; }
+.econ-shell h3 { font:600 20px/1.5 var(--serif); letter-spacing:1px; }
+.econ-shell h4 { font-size:14px; font-weight:600; line-height:1.6; }
+.econ-shell .icon { width:17px; height:17px; flex-shrink:0; }
+.econ-shell .button { min-height:44px; padding:10px 15px; font-size:12px; line-height:1.5; white-space:normal; justify-content:center; touch-action:manipulation; }
+.econ-shell .button:disabled { opacity:.6; cursor:not-allowed; }
+.econ-shell button:focus-visible, .econ-shell input:focus-visible, .econ-shell select:focus-visible, .econ-shell summary:focus-visible, .econ-shell a:focus-visible { outline:3px solid #97b28b; outline-offset:3px; }
+.econ-topline { display:flex; justify-content:space-between; gap:12px; align-items:center; flex-wrap:wrap; }
+.econ-mode { display:inline-flex; align-items:center; gap:7px; font-size:11px; color:#677c5e; }
+.econ-mode i { width:6px; height:6px; border-radius:50%; background:#7b9c6b; box-shadow:0 0 0 4px #7b9c6b14; }
+.econ-mode.is-local { color:#9a7d4f; }
+.econ-intro { color:var(--econ-muted); font-size:12px; line-height:1.9; padding:14px 0 19px; }
+.econ-kicker { display:block; color:#8b896b; font-size:10px; letter-spacing:1.2px; line-height:1.6; margin-bottom:4px; }
+.econ-section-heading { display:flex; align-items:center; justify-content:space-between; flex-wrap:wrap; gap:10px; margin:24px 0 12px; }
+.econ-section-heading h3 { display:flex; align-items:center; gap:8px; font-size:18px; }
+.econ-section-heading > span { color:var(--econ-muted); font-size:11px; }
+.econ-note { padding:13px 15px; border-radius:10px; color:#6a785c; border:1px solid #d3dcc1; background:#edf2e1; font-size:12px; line-height:1.85; margin:12px 0; }
+.econ-note-gold { background:#f7efd9; color:#887247; border-color:#ddce9d; }
+.econ-note-error { background:#f8ede0; color:#966d4c; border-color:#e0c9a9; }
+.econ-fineprint { color:var(--econ-muted); font-size:11px; line-height:1.9; margin:10px 0 0!important; }
+.econ-quota-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-bottom:15px; }
+.econ-quota { padding:13px 19px; border:1px solid #ced9bf; border-radius:13px; display:flex; justify-content:space-between; gap:15px; align-items:center; background:linear-gradient(130deg,#edf2df,#fafbf0); }
+.econ-quota > span { font-size:12px; color:#6e805f; }
+.econ-quota > strong { color:#557348; font:600 28px/1.3 var(--serif); white-space:nowrap; }
+.econ-quota small { color:#8a9579; font:11px var(--sans); }
+.econ-furnace { display:flex; gap:16px; align-items:center; padding:18px; border:1px solid #d5cfb1; border-radius:16px; background:radial-gradient(ellipse at 0 0,#f7edd5,transparent 55%),#fffdf4; box-shadow:inset 0 1px 0 #fff; }
+.econ-furnace-emblem { display:grid; place-items:center; flex:0 0 64px; height:64px; width:64px; color:#a1844e; background:linear-gradient(145deg,#efe3bd,#f5efd9); border:1px solid #d8c699; border-radius:50% 50% 43% 43%; box-shadow:inset 0 0 0 5px #fcf7e999; }
+.econ-furnace-emblem .icon { width:30px; height:30px; stroke-width:1.35; }
+.econ-furnace h3 { font-size:21px; }
+.econ-furnace p { color:#839071; font-size:11px; margin-top:3px; }
+.econ-furnace-copy { flex:1; min-width:0; }
+.econ-furnace .econ-status { margin-left:auto; background:#ecf1df; border:1px solid #d3ddbf; border-radius:20px; padding:4px 12px; font-size:11px; color:#75875f; }
+.econ-furnace-action { margin-left:auto; min-width:130px; display:grid; justify-items:center; gap:3px; }
+.econ-furnace-action small { color:#8d8b6c; font-size:10px; }
+.econ-countdown { font-size:24px; letter-spacing:1px; color:#8a7546; font-variant-numeric:tabular-nums; }
+.econ-furnace progress { display:block; margin-top:10px; width:100%; height:5px; border:0; border-radius:5px; background:#e8e4d0; accent-color:#a9ad6f; overflow:hidden; }
+.econ-furnace progress::-webkit-progress-bar { background:#e8e4d0; }
+.econ-furnace progress::-webkit-progress-value { background:linear-gradient(90deg,#c6b777,#819b6a); border-radius:5px; }
+.econ-furnace.is-ready { border-color:#aebf96; background:linear-gradient(125deg,#e9efd6,#fffdf0); }
+.econ-recipe-tabs { display:flex; overflow-x:auto; gap:9px; padding:3px 3px 12px; margin:0 -3px; scrollbar-width:thin; scrollbar-color:#c7d3b6 transparent; scroll-snap-type:x proximity; }
+.econ-recipe-tab { appearance:none; flex:0 0 105px; width:105px; border:1px solid #d7ddc9; border-radius:13px; padding:10px 5px 11px; background:#f6f6e9; display:flex; flex-direction:column; align-items:center; gap:5px; color:#6b7c62; cursor:pointer; scroll-snap-align:start; transition:border-color .15s, background .15s; font-family:var(--sans); }
+.econ-recipe-tab strong { font:600 13px/1.6 var(--serif); white-space:nowrap; letter-spacing:.2px; }
+.econ-recipe-tab > span:last-child { color:#8a967c; font-size:10px; }
+.econ-recipe-tab.is-selected { color:#416b4c; border-color:#8fae81; background:linear-gradient(145deg,#edf3df,#fbfcf1); box-shadow:inset 0 0 0 2px #fffdf4,0 2px 6px #49623e0a; }
+.econ-recipe-tab:hover { border-color:#93ac80; }
+.econ-pill-art { --pill:#8fa776; display:inline-grid; place-items:center; position:relative; flex:0 0 70px; width:70px; height:76px; border-radius:20px; background:radial-gradient(ellipse,#e9ecd2 0,transparent 70%); }
+.econ-pill-art[data-grade="1"] { --pill:#aa93b6; }
+.econ-pill-art[data-grade="2"] { --pill:#c49967; }
+.econ-pill-art[data-grade="3"] { --pill:#7fa797; }
+.econ-pill-art[data-grade="4"] { --pill:#b39b5e; }
+.econ-pill-art i { position:absolute; width:43px; height:43px; border:1px solid #ffffefb3; border-radius:50%; background:radial-gradient(circle at 32% 27%,#fffde2 1%,var(--pill) 32%,color-mix(in srgb,var(--pill),#344b33 38%) 84%); box-shadow:inset -3px -4px 7px #37452222,inset 2px 2px 4px #ffffffb3,0 7px 8px #6d74422b,0 0 0 5px #fffcef5c; transform:rotate(-15deg); }
+.econ-pill-art b { z-index:1; font:500 16px var(--serif); color:#fffce3e8; text-shadow:0 1px 3px #48573455; }
+.econ-pill-art.is-small { flex-basis:44px; width:44px; height:44px; }
+.econ-pill-art.is-small i { width:28px; height:28px; box-shadow:inset -2px -2px 5px #37452222,inset 2px 2px 3px #ffffff99,0 3px 5px #6d744222; }
+.econ-pill-art.is-small b { font-size:12px; }
+.econ-pill-art .pill-portrait-image { display:block; width:100%; height:100%; object-fit:contain; position:relative; z-index:1; }
+.econ-recipe-heading .econ-pill-art { flex-basis:106px; width:106px; height:106px; }
+.econ-market-item-preview { display:flex; align-items:center; gap:15px; margin-top:13px; padding:9px 14px; border:1px solid #dce2cb; border-radius:12px; background:#faf9ed; }
+.econ-market-item-preview > div { min-width:0; }
+.econ-market-item-preview strong { display:block; color:#486849; font:21px var(--serif); line-height:1.6; }
+.econ-market-item-preview > div > span { display:block; font-size:12px; line-height:1.8; color:#62765a; }
+.econ-market-herb-art { flex:0 0 70px; width:70px; height:76px; display:grid; place-items:center; }
+.econ-market-herb-art svg { width:100%; height:100%; }
+.econ-recipe { border:1px solid #cfd8bc; border-radius:16px; background:linear-gradient(145deg,#fffdf5,#f6f7eb); padding:21px; box-shadow:inset 0 1px 0 #fff; }
+.econ-recipe-heading { display:flex; align-items:center; gap:17px; }
+.econ-recipe-heading h3 { font-size:25px; letter-spacing:2px; }
+.econ-recipe-heading p { font-size:12px; color:#7b886b; margin-top:4px; }
+.econ-recipe-heading p strong { color:#8b7645; font-size:17px; font-weight:500; }
+.econ-recipe-rank { margin-left:auto; align-self:flex-start; font-size:10px; color:#9d9e80; padding:4px 8px; border:1px solid #e0e1cb; border-radius:7px; font-variant-numeric:tabular-nums; }
+.econ-ingredients { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px 14px; margin:20px 0 12px; }
+.econ-ingredient { display:flex; align-items:center; gap:9px; background:#f1f3e6; border:1px solid #e0e5d1; padding:4px 10px 4px 2px; border-radius:10px; min-width:0; }
+.econ-ingredient-art { flex:0 0 50px; width:50px; height:58px; display:grid; place-items:center; overflow:hidden; }
+.econ-ingredient-art .plant-art { width:60px!important; height:62px!important; }
+.econ-ingredient strong { display:block; font:600 14px var(--serif); color:#5c7553; line-height:1.5; }
+.econ-ingredient small { display:block; color:#899279; font-size:10px; }
+.econ-ingredient-status { margin-left:auto; white-space:nowrap; font-size:10px; color:#738b61; display:flex; align-items:center; gap:3px; }
+.econ-ingredient-status .icon { width:13px; height:13px; }
+.econ-ingredient.is-missing { background:#f7f1e5; border-color:#e6dac2; }
+.econ-ingredient.is-missing .econ-ingredient-status { color:#ac8459; }
+.econ-herb-glyph { color:#8aa371; }
+.econ-ratio { display:flex; align-items:center; flex-wrap:wrap; gap:10px; font-size:11px; color:#8a8c6d; padding:9px 2px 13px; }
+.econ-ratio strong { font-size:15px; font-variant-numeric:tabular-nums; color:#7c8059; letter-spacing:2px; }
+.econ-ratio small { font-size:10px; }
+.econ-recipe-facts { display:flex; gap:13px 24px; flex-wrap:wrap; border-top:1px dashed #d8deca; border-bottom:1px dashed #d8deca; padding:13px 0; color:#7d8669; font-size:11px; }
+.econ-recipe-facts span { display:flex; align-items:center; gap:5px; }
+.econ-recipe-facts span:last-child { margin-left:auto; }
+.econ-recipe-bottom { display:flex; gap:13px; align-items:center; justify-content:space-between; padding-top:15px; }
+.econ-recipe-bottom > span { color:#8a8d71; font-size:11px; }
+.econ-recipe-bottom .button { min-width:150px; }
+.econ-confirm { padding:16px; border:1px solid #bfcda6; border-radius:12px; background:#edf2df; margin-top:14px; color:#546e48; }
+.econ-confirm > strong { display:block; margin-bottom:5px; font-size:14px; }
+.econ-confirm p { font-size:12px; color:#748366; line-height:1.9; margin-top:5px; }
+.econ-actions { display:flex; gap:9px; flex-wrap:wrap; margin-top:12px; }
+.econ-confirm dl { margin:10px 0; font-size:11px; }
+.econ-confirm dl > div { display:flex; gap:12px; justify-content:space-between; border-bottom:1px solid #dbe3ca; padding:7px 0; }
+.econ-confirm dt { color:#879173; }
+.econ-confirm dd { margin:0; text-align:right; color:#536e46; }
+.econ-pill-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:9px; }
+.econ-pill-row { display:flex; gap:8px; flex-wrap:wrap; align-items:center; padding:10px 12px; border:1px solid #dbe1cd; border-radius:12px; background:#fcfcf3; }
+.econ-pill-copy { flex:1; min-width:130px; }
+.econ-pill-copy strong { display:block; font:600 15px/1.6 var(--serif); color:#526f4e; }
+.econ-pill-copy > span { font-size:10px; color:#8a947c; }
+.econ-pill-actions { display:flex; gap:6px; width:100%; }
+.econ-pill-actions .button { flex:1; font-size:11px; min-height:40px; padding:8px 10px; }
+.econ-pill-actions .button:last-child { flex:0 0 64px; }
+.econ-pill-actions .button:disabled { background:#f0f2e7; color:#939c85; border-color:#e0e5d3; }
+.econ-sync { display:flex; align-items:center; gap:10px; }
+.econ-sync > span { font-size:10px; color:#8c967e; }
+.econ-sync .button { font-size:11px; padding:8px 11px; }
+.econ-market-picker { display:flex; flex-wrap:wrap; gap:12px; align-items:center; padding:14px 16px; background:#eff3e4; border:1px solid #d2ddc0; border-radius:12px; }
+.econ-market-picker > label { font-size:12px; color:#708562; }
+.econ-shell select, .econ-shell input { color:#496c4d; border:1px solid #c5d1b5; border-radius:8px; background:#fffef7; font:14px/1.5 var(--sans); min-height:44px; padding:10px 12px; width:100%; min-width:0; }
+.econ-shell select {
+  -webkit-appearance:none;
+  appearance:none;
+  padding-right:48px;
+  background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='14' height='10' viewBox='0 0 14 10'%3E%3Cpath d='m2 3 5 5 5-5' fill='none' stroke='%237d9472' stroke-width='1.7' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat:no-repeat;
+  background-position:right 16px center;
+  background-size:14px 10px;
+}
+.econ-market-picker > select { width:220px; max-width:100%; }
+.econ-market-wallet { margin-left:auto; display:flex; align-items:flex-end; flex-direction:column; font-size:11px; color:#899475; gap:3px; }
+.econ-market-wallet > span { display:flex; gap:5px; align-items:center; }
+.econ-market-wallet strong { color:#6e8059; font-size:13px; font-weight:500; }
+.econ-market-wallet .icon { width:14px; height:14px; color:#a18e5b; }
+.econ-market-stats { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); gap:9px; margin:14px 0 19px; }
+.econ-market-stat { padding:13px 12px; border:1px solid #d9dfcb; border-radius:11px; background:#fffdf5; display:flex; flex-direction:column; gap:5px; min-width:0; }
+.econ-market-stat > span { color:#879274; font-size:11px; }
+.econ-market-stat > strong { color:#56734f; font-size:23px; line-height:1.3; font-variant-numeric:tabular-nums; font-weight:500; overflow-wrap:anywhere; }
+.econ-market-stat > small { color:#a0a28a; font-size:9px; }
+.econ-trading-grid { display:grid; grid-template-columns:minmax(0,1.1fr) minmax(0,1fr); gap:18px; align-items:start; }
+.econ-order-panel, .econ-book-panel { min-width:0; padding:17px; border:1px solid #d0dac1; border-radius:14px; background:#fafbf1; }
+.econ-trading-grid .econ-section-heading { margin-top:0; }
+.econ-side-switch { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:4px; background:#e9eddd; border-radius:10px; margin:14px 0; }
+.econ-side-switch button { appearance:none; min-height:42px; border:1px solid transparent; border-radius:7px; color:#8a957b; background:transparent; font:500 13px var(--sans); cursor:pointer; }
+.econ-side-switch button[aria-pressed="true"] { color:#446c4d; border-color:#c0d0ac; background:#fffef5; box-shadow:0 2px 5px #4d673f09; }
+.econ-side-switch button[data-side="sell"][aria-pressed="true"] { color:#967649; border-color:#dccba5; background:#fffaf0; }
+.econ-field-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
+.econ-field-grid label { display:block; color:#7a896a; font-size:11px; }
+.econ-field-grid input { display:block; margin-top:6px; }
+.econ-order-estimate { margin:14px 0; padding:11px 13px; background:#f0f3e5; border-radius:9px; color:#7a8968; min-height:74px; font-size:12px; }
+.econ-order-estimate span, .econ-order-estimate small { display:block; }
+.econ-order-estimate strong { font-size:15px; color:#536e4d; font-weight:500; }
+.econ-order-estimate small { font-size:10px; color:#96a083; line-height:1.8; margin-top:5px; }
+.econ-order-panel form > .button { width:100%; }
+.econ-book-panel > .econ-fineprint { margin-top:-4px!important; margin-bottom:12px!important; font-size:10px; }
+.econ-book-heading { display:flex; justify-content:space-between; gap:10px; align-items:center; padding:9px 10px; border-bottom:1px solid #e0e4d2; }
+.econ-book-heading strong { font-size:12px; color:#7d8a6f; }
+.econ-book-heading > span { font-size:10px; color:#929b83; }
+.econ-book-level { display:grid; grid-template-columns:44px 1fr 1fr; width:100%; border:0; background:transparent; min-height:44px; align-items:center; padding:7px 10px; text-align:right; color:#728565; font:12px var(--sans); cursor:pointer; border-radius:6px; font-variant-numeric:tabular-nums; }
+.econ-book-level > span:first-child { text-align:left; font-size:10px; }
+.econ-book-level > strong { font-weight:500; }
+.is-ask .econ-book-level { color:#a38358; background:linear-gradient(90deg,transparent,#efdfbf20); }
+.is-bid .econ-book-level { color:#638363; background:linear-gradient(90deg,transparent,#dce8cf28); }
+.econ-book-level:hover { background:#e9efdc; }
+.econ-book-spread { padding:9px; font-size:10px; text-align:center; border-top:1px dashed #d6ddc7; border-bottom:1px dashed #d6ddc7; color:#969b83; margin:5px 0; }
+.econ-book-spread strong { font-size:13px; color:#6c805e; margin:0 4px; }
+.econ-empty-small { padding:17px 10px; text-align:center; font-size:11px; color:#a1a58e; }
+.econ-lesson { display:flex; gap:12px; align-items:flex-start; padding:16px; border:1px solid #ddcfab; border-radius:12px; background:linear-gradient(120deg,#f6efd9,#fcf9ee); margin:18px 0 5px; }
+.econ-lesson-icon { display:grid; place-items:center; flex:0 0 32px; height:34px; border-radius:9px; background:#eee2be; color:#a38a54; }
+.econ-lesson strong { font:600 14px/1.6 var(--serif); color:#8d784c; }
+.econ-lesson p { margin-top:5px; font-size:11px; color:#978b68; line-height:1.9; }
+.econ-order-list { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:10px; }
+.econ-order-row { min-width:0; border:1px solid #d8dfc9; border-radius:11px; padding:13px; background:#fffdf5; }
+.econ-order-row-heading { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-bottom:10px; margin-bottom:10px; border-bottom:1px dashed #dce2ce; }
+.econ-order-row-heading > strong { font:600 14px var(--serif); }
+.econ-order-row-heading > span:last-child { margin-left:auto; color:#929b82; font-size:10px; }
+.econ-side-badge { font-size:10px; border-radius:5px; border:1px solid #c7d5ba; background:#edf2e3; color:#6c885a; padding:2px 5px; }
+.econ-side-badge.is-sell { color:#a38454; background:#f4ecd6; border-color:#ddcfaa; }
+.econ-order-row-body { display:flex; gap:10px; align-items:center; justify-content:space-between; }
+.econ-order-row-body strong { font-size:17px; font-variant-numeric:tabular-nums; color:#6d805d; font-weight:500; }
+.econ-order-row-body strong small { font-size:10px; color:#99a08a; }
+.econ-order-row-body p { font-size:11px; color:#7b8d6b; margin:4px 0 1px; }
+.econ-order-row-body small { font-size:9px; color:#9aa18a; }
+.econ-order-row-body > .button { padding:8px 10px; font-size:11px; flex-shrink:0; }
+.econ-cancel-confirm { padding:12px; }
+.econ-cancel-confirm .button { min-height:40px; padding:8px 10px; font-size:11px; }
+.econ-empty { text-align:center; padding:24px 16px; border:1px dashed #d6dec6; border-radius:12px; color:#a5ae91; background:#f7f8ed; }
+.econ-empty .icon { width:25px; height:25px; margin-bottom:4px; opacity:.7; }
+.econ-empty p { font:500 16px var(--serif); color:#839372; margin:3px 0 6px; }
+.econ-empty small { font-size:10px; color:#a1aa90; }
+.econ-ended-orders { margin-top:10px; }
+.econ-ended-orders > summary { min-height:44px; padding:12px 3px; color:#899878; cursor:pointer; font-size:11px; }
+.econ-ended-orders .econ-order-row { background:#f7f8ef; opacity:.83; }
+.econ-trade-table { overflow-x:auto; width:100%; border:1px solid #dce2ce; border-radius:11px; background:#fffdf5; }
+.econ-trade-table table { width:100%; border-collapse:collapse; font-size:11px; text-align:right; font-variant-numeric:tabular-nums; }
+.econ-trade-table th { color:#8b977b; font-size:10px; font-weight:400; padding:10px 13px; background:#f0f3e6; white-space:nowrap; }
+.econ-trade-table td { padding:10px 13px; color:#6e8261; border-top:1px solid #edf0e3; white-space:nowrap; }
+.econ-trade-table th:first-child, .econ-trade-table td:first-child { text-align:left; }
+.econ-rules { margin-top:24px; border:1px solid #d7dec9; border-radius:13px; background:#f4f6e9; overflow:hidden; }
+.econ-rules > summary { display:flex; gap:8px; align-items:center; min-height:52px; padding:14px 16px; color:#6d825d; font-size:13px; cursor:pointer; list-style:none; }
+.econ-rules > summary::-webkit-details-marker { display:none; }
+.econ-rules > summary > span { margin-left:auto; font-size:10px; color:#9aa387; }
+.econ-rules > summary::after { content:'＋'; color:#8a9c75; font-size:16px; }
+.econ-rules[open] > summary::after { content:'−'; }
+.econ-rules[open] > summary { border-bottom:1px solid #dce2cf; }
+.econ-rules-body { padding:19px; color:#7c8b6f; font-size:11px; line-height:1.95; }
+.econ-rules-body > h4 { color:#607953; margin:0 0 10px; }
+.econ-rules-body ol { margin:8px 0 12px; padding-left:21px; }
+.econ-rules-body li { margin:7px 0; }
+.econ-rules-body li strong { color:#6e825e; font-weight:500; }
+.econ-knowledge-grid { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin:19px 0; }
+.econ-knowledge-grid article { padding:14px; background:#fcfcf2; border:1px solid #dbe2cb; border-radius:10px; }
+.econ-knowledge-grid h4 { font:600 13px/1.7 var(--serif); color:#748564; margin-bottom:7px; }
+.econ-knowledge-grid p { color:#96a087; font-size:11px; line-height:1.9; }
+.econ-theory-note { padding:15px; border:1px solid #dfd4b4; border-radius:10px; background:#f8f1df; margin-bottom:20px; color:#958660; }
+.econ-theory-note > strong { color:#88774e; display:block; margin-bottom:6px; font-size:12px; }
+.econ-source-links { padding-left:17px; margin-bottom:0; }
+.econ-source-links a { color:#708760; text-decoration-color:#c2cdae; text-underline-offset:3px; overflow-wrap:anywhere; display:inline-block; padding:3px 0; }
+.econ-offline { text-align:center; padding:18px 20px 28px; max-width:560px; margin:0 auto; }
+.econ-offline .econ-furnace-emblem { margin:0 auto 17px; }
+.econ-offline h3 { font-size:23px; margin:8px 0; }
+.econ-offline p { color:#839171; font-size:12px; line-height:1.95; margin:12px 0 20px; }
+.econ-offline .button { display:inline-flex; text-decoration:none; }
+@media (max-width:760px), (max-width:960px) and (max-height:520px) {
+  .game-dialog[data-kind="alchemy"], .game-dialog[data-kind="market"] { width:calc(100vw - 20px); max-width:calc(100vw - 20px); }
+  .econ-shell { font-size:13px; padding-bottom:4px; }
+  .econ-shell .button { min-height:46px; }
+  .econ-shell input, .econ-shell select { font-size:16px; min-height:48px; }
+  .econ-topline { gap:9px; }
+  .econ-mode { font-size:10px; }
+  .econ-topline > .button { font-size:11px; padding:9px 11px; }
+  .econ-intro { font-size:11px; padding:12px 0 15px; }
+  .econ-quota-grid { gap:8px; }
+  .econ-quota { display:block; padding:11px 13px; }
+  .econ-quota > span { font-size:10px; display:block; margin-bottom:5px; }
+  .econ-quota > strong { font-size:25px; }
+  .econ-furnace { padding:14px; gap:11px; flex-wrap:wrap; }
+  .econ-furnace-emblem { flex-basis:49px; width:49px; height:52px; }
+  .econ-furnace-emblem .icon { width:25px; height:25px; }
+  .econ-furnace h3 { font-size:18px; }
+  .econ-furnace p { font-size:10px; }
+  .econ-furnace-action { width:100%; min-width:0; display:flex; gap:9px; justify-content:center; border-top:1px dashed #dadcc4; padding-top:10px; margin-top:2px; }
+  .econ-furnace-action .button { width:100%; }
+  .econ-furnace-action small { align-self:center; }
+  .econ-countdown { font-size:23px; }
+  .econ-kicker { font-size:9px; letter-spacing:.6px; }
+  .econ-section-heading { margin-top:21px; gap:7px; }
+  .econ-section-heading h3 { font-size:17px; }
+  .econ-section-heading > span { font-size:10px; }
+  .econ-recipe-tab { flex-basis:100px; width:100px; min-height:104px; }
+  .econ-recipe { padding:15px; }
+  .econ-recipe-heading { gap:10px; position:relative; }
+  .econ-recipe-heading > div { flex:1; min-width:0; }
+  .econ-recipe-heading .econ-kicker { display:block; padding-right:34px; }
+  .econ-recipe-heading h3 { font-size:21px; letter-spacing:1px; }
+  .econ-recipe-heading .econ-pill-art { flex-basis:84px; width:84px; height:84px; }
+  .econ-recipe-rank { position:absolute; right:0; top:0; white-space:nowrap; padding:3px 5px; }
+  .econ-pill-art { flex-basis:57px; width:57px; height:66px; }
+  .econ-pill-art.is-small { flex-basis:44px; width:44px; height:44px; }
+  .econ-ingredients { grid-template-columns:1fr; gap:7px; margin-top:15px; }
+  .econ-ingredient { padding-right:13px; }
+  .econ-ingredient strong { font-size:15px; }
+  .econ-ingredient small, .econ-ingredient-status { font-size:11px; }
+  .econ-recipe-facts { gap:10px 16px; }
+  .econ-recipe-facts span:last-child { margin-left:0; width:100%; font-size:10px; }
+  .econ-recipe-bottom { display:block; }
+  .econ-recipe-bottom > span { display:block; margin-bottom:10px; }
+  .econ-recipe-bottom > .button { width:100%; }
+  .econ-confirm { padding:13px; }
+  .econ-confirm .econ-actions { display:grid; grid-template-columns:1fr; }
+  .econ-confirm .econ-actions .button { width:100%; }
+  .econ-pill-list { grid-template-columns:1fr; }
+  .econ-pill-row { padding:11px 12px; }
+  .econ-pill-copy { min-width:0; }
+  .econ-pill-copy > span { font-size:11px; }
+  .econ-pill-actions .button { min-height:44px; font-size:12px; }
+  .econ-sync { width:100%; justify-content:space-between; }
+  .econ-market-picker { padding:13px; gap:10px; }
+  .econ-market-picker > label { font-size:11px; }
+  .econ-market-picker > select { width:100%; }
+  .econ-market-wallet { flex-direction:row; align-items:center; justify-content:space-between; width:100%; flex-wrap:wrap; gap:7px; font-size:10px; }
+  .econ-market-stats { grid-template-columns:repeat(2,minmax(0,1fr)); gap:8px; margin:12px 0 16px; }
+  .econ-market-stat { padding:11px 13px; }
+  .econ-market-stat > strong { font-size:23px; }
+  .econ-trading-grid { grid-template-columns:1fr; gap:15px; }
+  .econ-order-panel, .econ-book-panel { padding:14px; }
+  .econ-side-switch button { min-height:44px; }
+  .econ-field-grid { gap:10px; grid-template-columns:1.1fr 1fr; }
+  .econ-order-estimate { padding:12px; font-size:12px; }
+  .econ-order-estimate small { font-size:11px; }
+  .econ-book-level { min-height:46px; font-size:13px; }
+  .econ-book-level > span:first-child { font-size:11px; }
+  .econ-lesson { padding:14px; gap:10px; }
+  .econ-lesson strong { font-size:13px; }
+  .econ-lesson p { font-size:11px; }
+  .econ-order-list { grid-template-columns:1fr; }
+  .econ-order-row-body small { font-size:10px; }
+  .econ-trade-table th, .econ-trade-table td { padding:11px 8px; font-size:10px; }
+  .econ-rules > summary { padding:13px; font-size:12px; }
+  .econ-rules > summary > span { display:none; }
+  .econ-rules-body { padding:14px; }
+  .econ-knowledge-grid { grid-template-columns:1fr; }
+  .econ-source-links a { padding:9px 0; }
+  .econ-offline { padding:15px 8px 20px; }
+  .econ-offline h3 { font-size:20px; }
+}
+@media (prefers-reduced-motion:reduce) {
+  .econ-shell *, .econ-shell *::before, .econ-shell *::after { scroll-behavior:auto!important; transition:none!important; animation:none!important; }
+}
+
+/* A single market shell keeps category navigation and the embedded card desk together. */
+.econ-market-tabs { display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px;margin:0 0 20px;padding:5px;border:1px solid #cbd8bb;border-radius:13px;background:#edf2e2; }
+.econ-market-tabs > button { appearance:none;min-width:0;min-height:48px;padding:10px 15px;border:1px solid transparent;border-radius:9px;background:transparent;color:#7c8c6e;font:600 17px/1.4 var(--serif,serif);letter-spacing:2px;cursor:pointer;touch-action:manipulation;transition:background .15s,color .15s,border-color .15s; }
+.econ-market-tabs > button[aria-selected="true"] { color:#436d50;border-color:#b9cda5;background:#fffdf3;box-shadow:0 2px 7px #48633b0d,inset 0 0 0 1px #ffffff80; }
+.econ-market-tabs > button:hover:not(:disabled) { border-color:#9fb98d; }
+.econ-market-tabs > button:disabled { opacity:.55;cursor:wait; }
+[data-econ-market-panel], [data-econ-goods-market], .econ-card-market { min-width:0; }
+.econ-card-market { width:100%; }
+[data-econ-goods-market][hidden], [data-econ-card-market][hidden] { display:none!important; }
+@media (max-width:760px), (max-width:960px) and (max-height:520px) {
+  .econ-market-tabs { gap:4px;margin-bottom:15px;padding:4px; }
+  .econ-market-tabs > button { min-height:46px;padding:9px 6px;font-size:16px; }
+}

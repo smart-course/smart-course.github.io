@@ -1468,6 +1468,288 @@
   const savedTab = $(`[data-tab="${store.get(`tab:${course.slug}`)}"]`);
   if (savedTab && !savedTab.hidden) savedTab.click();
 
+  // ---------------- 云间灵田（2026-11-15） ----------------
+  // 开放与抽题概率（lt_admin / lt_admin_set）；万象道藏学年卡池（经云函数 lingtian 的教师接口，凭 lt_teacher_ticket 凭证）；
+  // “谁是谁”：道号与学生的对照、服丹折算的网站修为、偷菜次数；被敏感词挡下的道号，以及销号／恢复（lt_admin_ban）；
+  // “数据统计”：灵石、开垦、收获、偷菜、灵田答题、丹炉、道藏卡牌、坊市、活跃天数（lt_stats），全班汇总＋可排序明细＋导出 Excel
+  const LT_REALMS = ['炼气', '筑基', '结丹', '元婴', '化神'];
+  const lt = { loaded: false, players: [], catalog: null, plans: null, ticket: null, ticketAt: 0, stats: null, statsAt: 0, statsError: '', sort: { key: 'stones', dir: -1 } };
+  const ltSectName = (key) => (((window.ClassLive && window.ClassLive.SECTS) || []).find((item) => item.key === key) || {}).name || (key || '—');
+  const ltYearNow = () => { const d = new Date(Date.now() + 8 * 3600000); const y = d.getUTCFullYear(); return d.getUTCMonth() >= 7 ? `${y}-${y + 1}` : `${y - 1}-${y}`; };
+  function ltYears() {
+    const select = $('[data-lt-year]');
+    if (!select || select.options.length) return;
+    const now = Number(ltYearNow().slice(0, 4));
+    select.innerHTML = [now - 1, now, now + 1].map((y) => `<option value="${y}-${y + 1}"${y === now ? ' selected' : ''}>${y}—${y + 1} 学年</option>`).join('');
+  }
+  async function ltLoad() {
+    if (!backend) return;
+    ltYears();
+    try {
+      const data = await backend.rpc('lt_admin', { p_course: course.slug });
+      const row = (Array.isArray(data) ? data[0] : data) || {};
+      const set = row.settings || {};
+      $('[data-lt-enabled]').checked = !!set.enabled;
+      $('[data-lt-water]').value = set.water_quiz_pct ?? 30;
+      $('[data-lt-clear]').value = set.clear_quiz_pct ?? 30;
+      $('[data-lt-steal]').value = set.steal_quiz_pct ?? 40;
+      lt.players = Array.isArray(row.players) ? row.players : [];
+      lt.loaded = true;
+      $('[data-lt-status]').textContent = set.enabled ? '本课程已开放云间灵田。' : '本课程尚未开放：学生面板“宗门”里不显示入口。';
+      ltRender();
+      ltStatsLoad();
+    } catch (error) {
+      const missing = /PGRST202|42883|Could not find the function|lt_admin/.test(String((error && error.message) || error));
+      $('[data-lt-status]').textContent = missing ? '云间灵田的后台还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261115-云间灵田.sql。' : `读取失败：${(error && error.message) || error}`;
+    }
+  }
+  function ltRender() {
+    const box = $('[data-lt-rows]');
+    if (!box) return;
+    const word = ($('[data-lt-search]').value || '').trim();
+    const rows = lt.players.filter((p) => (!state.klass || String(p.class_id) === String(state.klass.id)) && (!word || [p.sid, p.name, p.alias].some((v) => String(v || '').includes(word))));
+    const when = (value) => (value ? new Date(millis(value)).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+    // 道号：被销号的显示原来的道号（划掉）；“（还没起道号）”＝游戏给的默认道号或恢复后还没重新起
+    const aliasOf = (p) => (p.banned ? `<s>${esc(p.banned_alias || '')}</s> <b class="tw-sec-bad">已销号</b>`
+      : !p.alias || /^(道友|已销号)·[0-9A-F]{6,8}$/.test(p.alias) ? '（还没起道号）' : esc(p.alias));
+    const rejects = (p) => (Number(p.rejects) ? `${Number(p.rejects)} 次 · 最近：${esc(p.last_reject || '')}` : '');
+    box.innerHTML = rows.map((p) => `<tr><td>${esc(p.sid)}</td><td>${esc(p.name)}</td><td>${aliasOf(p)}</td><td>${esc(ltSectName(p.sect))}</td><td>${esc(LT_REALMS[Number(p.realm) || 0])}</td><td>${p.banned ? `<s>${Number(p.qi_points || 0).toFixed(1)}</s>` : Number(p.qi_points || 0).toFixed(1)}</td><td>${Number(p.steals) || 0}</td><td>${esc(when(p.last_seen))}</td><td>${rejects(p)}</td><td>${p.banned
+      ? `<button type="button" class="tw-secondary" data-lt-unban="${esc(p.actor_id)}">恢复</button>`
+      : `<button type="button" class="tw-secondary" data-lt-ban="${esc(p.actor_id)}">销号</button>`}</td></tr>`).join('')
+      || `<tr><td colspan="10" class="empty">${state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'}</td></tr>`;
+    ltStatsRender();
+    const banned = rows.filter((p) => p.banned).length;
+    $('[data-lt-summary]').textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}已有 ${rows.length} 位同学开辟灵田${banned ? `（其中 ${banned} 位已销号）` : ''}；服丹折算的网站修为合计 ${rows.filter((p) => !p.banned).reduce((sum, p) => sum + Number(p.qi_points || 0), 0).toFixed(1)}。`;
+  }
+  // ---------- 数据统计（2026-11-15 用户：“教师工作台中的云间灵田还要能看到学生灵石数量等数据统计”） ----------
+  // 数字直接读游戏存档（学生每做一步都会存），不是估算；全班汇总只算当前班级里进过灵田的同学
+  const LT_STAT_COLS = [
+    { key: 'sid', label: '学号', text: true },
+    { key: 'name', label: '姓名', text: true },
+    { key: 'alias', label: '道号', text: true },
+    { key: 'stones', label: '灵石', tip: '现在有多少灵石' },
+    { key: 'plots', label: '开垦', tip: '已开垦的灵田（共 25 块）' },
+    { key: 'harvest', label: '收获', tip: '亲手收获成熟灵田的次数' },
+    { key: 'stealOk', label: '偷菜成/败', tip: '偷菜成功的次数／失败的次数（守田阵法答错、超时、放弃等）' },
+    { key: 'stolen', label: '被偷', tip: '自己的灵田被别人偷走的次数' },
+    { key: 'quizRate', label: '答题', tip: '灵田里抽到的修炼场题（浇水、锄草、换道友名单、守田阵法）：答对／答了（正确率）' },
+    { key: 'brew', label: '炼丹', tip: '从丹炉领取的丹药颗数' },
+    { key: 'pillsTaken', label: '服丹', tip: '服用的丹药颗数' },
+    { key: 'qi', label: '折算修为', tip: '服丹折算的网站修为（被销号的不计）' },
+    { key: 'cards', label: '卡牌', tip: '万象道藏收集到的卡牌种数（开过的卡包数）' },
+    { key: 'trades', label: '坊市', tip: '在坊市成交的笔数（买和卖都算）' },
+    { key: 'days', label: '活跃天数', tip: '在灵田里操作过的天数（操作次数）' },
+    { key: 'last', label: '最近进入' },
+  ];
+  const ltNum = (value) => Number(value) || 0;
+  const ltFmt = (value, digits = 0) => ltNum(value).toLocaleString('zh-CN', { minimumFractionDigits: digits, maximumFractionDigits: digits });
+  const ltDefaultAlias = (alias) => !alias || /^(道友|已销号)·[0-9A-F]{6,8}$/.test(alias);
+  function ltStatRow(p) {
+    const st = p.stats || {};
+    const quizRight = ltNum(p.quiz_right) + ltNum(p.guard_right), quizTotal = ltNum(p.quiz_total) + ltNum(p.guard_total);
+    return {
+      ...p, aliasText: ltDefaultAlias(p.alias) ? '（未起道号）' : String(p.alias),
+      stones: ltNum(p.stones), plots: ltNum(p.plots), growing: ltNum(p.growing), bag: ltNum(p.bag), pillStock: ltNum(p.pill_stock),
+      plant: ltNum(st.plantCount), water: ltNum(st.waterCount), clear: ltNum(st.clearCount), harvest: ltNum(st.harvestCount), harvestUnits: ltNum(st.harvestUnits),
+      brew: ltNum(st.brewClaims), pillsTaken: ltNum(st.pillsTaken), sell: ltNum(st.sellCount), sellEarnings: ltNum(st.sellEarnings), unlock: ltNum(st.unlockCount),
+      stealOk: ltNum(p.steal_ok), stealFail: ltNum(p.steal_fail), stolen: ltNum(p.stolen),
+      quizRight, quizTotal, quizRate: quizTotal ? quizRight / quizTotal : -1, guardRight: ltNum(p.guard_right), guardTotal: ltNum(p.guard_total),
+      qi: p.banned ? 0 : ltNum(p.qi_points), cards: ltNum(p.card_kinds), cardTotal: ltNum(p.card_total), packs: ltNum(p.packs),
+      trades: ltNum(p.trades), sectUnits: ltNum(p.sect_units), days: ltNum(p.active_days), actions: ltNum(p.actions),
+      last: p.last_seen ? millis(p.last_seen) : 0, first: p.first_seen ? millis(p.first_seen) : 0,
+    };
+  }
+  async function ltStatsLoad() {
+    if (!backend) return;
+    const status = $('[data-lt-stats-status]');
+    if (status) status.textContent = '正在读取……';
+    try {
+      const data = await backend.rpc('lt_stats', { p_course: course.slug });
+      const row = (Array.isArray(data) ? data[0] : data) || {};
+      lt.stats = (Array.isArray(row.players) ? row.players : []).map(ltStatRow);
+      lt.statsAt = Number(row.at) || Date.now();
+      lt.statsError = '';
+    } catch (error) {
+      const missing = /PGRST202|42883|Could not find the function|lt_stats/.test(String((error && error.message) || error));
+      lt.statsError = missing ? '数据统计要用最新的 tools/cloudbase-pg-20261115-云间灵田.sql：在云开发 SQL 编辑器再执行一次（可重复执行，不删数据）。' : `读取失败：${(error && error.message) || error}`;
+    }
+    ltStatsRender();
+  }
+  // 当前班级的行（没选班级时是本课程全部）
+  const ltStatRows = () => (lt.stats || []).filter((p) => !state.klass || String(p.class_id) === String(state.klass.id));
+  function ltStatsSummary(rows) {
+    const live = rows.filter((p) => !p.banned);
+    const sum = (key, list = rows) => list.reduce((total, p) => total + ltNum(p[key]), 0);
+    const day = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
+    const today = day(Date.now());
+    const week = rows.filter((p) => p.last && Date.now() - p.last < 7 * 86400000).length;
+    const todayCount = rows.filter((p) => p.last && day(p.last) === today).length;
+    const richest = live.slice().sort((a, b) => b.stones - a.stones)[0];
+    const quizTotal = sum('quizTotal'), quizRight = sum('quizRight');
+    const roster = rosterOf().length;
+    const avg = (value) => (rows.length ? value / rows.length : 0);
+    return [
+      { label: '开辟灵田', value: `${rows.length} 人`, note: `${roster ? `本班 ${roster} 人中的 ${Math.round(rows.length / roster * 100)}%` : '进过灵田的同学'}${rows.length - live.length ? `；已销号 ${rows.length - live.length} 人` : ''}` },
+      { label: '近 7 天来过', value: `${week} 人`, note: `今天来过 ${todayCount} 人` },
+      { label: '灵石（人均）', value: ltFmt(avg(sum('stones'))), note: `合计 ${ltFmt(sum('stones'))}${richest ? `；最多 ${richest.name} ${ltFmt(richest.stones)}` : ''}` },
+      { label: '开垦灵田（人均）', value: `${avg(sum('plots')).toFixed(1)} 块`, note: `合计 ${ltFmt(sum('plots'))} 块（每人最多 25 块）` },
+      { label: '收获', value: `${ltFmt(sum('harvest'))} 次`, note: `收获灵植 ${ltFmt(sum('harvestUnits'))} 份；种植 ${ltFmt(sum('plant'))} 次` },
+      { label: '偷菜', value: `成功 ${ltFmt(sum('stealOk'))} 次`, note: `失败 ${ltFmt(sum('stealFail'))} 次；被偷 ${ltFmt(sum('stolen'))} 次` },
+      { label: '灵田答题正确率', value: quizTotal ? `${Math.round(quizRight / quizTotal * 100)}%` : '—', note: `答了 ${ltFmt(quizTotal)} 道修炼场题，其中守田阵法 ${ltFmt(sum('guardTotal'))} 道` },
+      { label: '丹炉', value: `炼成 ${ltFmt(sum('brew'))} 颗`, note: `服丹 ${ltFmt(sum('pillsTaken'))} 颗；折算网站修为合计 ${sum('qi', live).toFixed(1)}` },
+      { label: '万象道藏', value: `开包 ${ltFmt(sum('packs'))} 个`, note: `人均收集 ${avg(sum('cards')).toFixed(1)} 种卡牌` },
+    ];
+  }
+  function ltStatsRender() {
+    const tiles = $('[data-lt-stats-tiles]'), head = $('[data-lt-stats-head]'), body = $('[data-lt-stats-rows]'), status = $('[data-lt-stats-status]');
+    if (!tiles || !head || !body) return;
+    if (lt.statsError) { status.textContent = lt.statsError; tiles.innerHTML = ''; body.innerHTML = ''; return; }
+    if (!lt.stats) return;
+    const rows = ltStatRows();
+    const { key, dir } = lt.sort;
+    const col = LT_STAT_COLS.find((item) => item.key === key) || LT_STAT_COLS[3];
+    const value = (p) => (key === 'alias' ? p.aliasText : p[key]);
+    rows.sort((a, b) => {
+      const x = value(a), y = value(b);
+      const order = col.text ? String(x || '').localeCompare(String(y || ''), 'zh-CN') : ltNum(x) - ltNum(y);
+      return order * dir || String(a.sid).localeCompare(String(b.sid));
+    });
+    status.textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}：统计到 ${clock(lt.statsAt)}，数字直接读游戏存档。点表头可以排序。`;
+    tiles.innerHTML = ltStatsSummary(rows).map((tile) => `<div class="tw-stat"><b>${esc(tile.value)}</b><span>${esc(tile.label)}</span><small>${esc(tile.note)}</small></div>`).join('');
+    head.innerHTML = `<tr>${LT_STAT_COLS.map((item) => `<th${item.tip ? ` title="${esc(item.tip)}"` : ''}><button type="button" class="tw-lt-sort${item.key === key ? ' is-on' : ''}" data-lt-sort="${item.key}">${esc(item.label)}<i aria-hidden="true">${item.key === key ? (dir < 0 ? '▼' : '▲') : ''}</i></button></th>`).join('')}</tr>`;
+    const when = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
+    body.innerHTML = rows.map((p) => `<tr${p.banned ? ' class="is-banned"' : ''}><td class="tw-nowrap">${esc(p.sid)}</td><td class="tw-nowrap">${esc(p.name)}</td>`
+      + `<td class="tw-nowrap">${p.banned ? `<s>${esc(p.aliasText)}</s> <b class="tw-sec-bad">已销号</b>` : esc(p.aliasText)}</td>`
+      + `<td class="tw-nowrap num">${ltFmt(p.stones)}</td><td class="tw-nowrap num">${p.plots}</td><td class="tw-nowrap num">${p.harvest}</td><td class="tw-nowrap num">${p.stealOk} / ${p.stealFail}</td><td class="tw-nowrap num">${p.stolen}</td>`
+      + `<td class="tw-nowrap num">${p.quizTotal ? `${p.quizRight}/${p.quizTotal}（${Math.round(p.quizRate * 100)}%）` : '—'}</td>`
+      + `<td class="tw-nowrap num">${p.brew}</td><td class="tw-nowrap num">${p.pillsTaken}</td><td class="tw-nowrap num">${p.banned ? `<s>${ltNum(p.qi_points).toFixed(1)}</s>` : p.qi.toFixed(1)}</td>`
+      + `<td class="tw-nowrap num">${p.cards}（${p.packs} 包）</td><td class="tw-nowrap num">${p.trades}</td><td class="tw-nowrap num">${p.days}（${p.actions} 次）</td><td class="tw-nowrap">${esc(when(p.last))}</td></tr>`).join('')
+      || `<tr><td colspan="${LT_STAT_COLS.length}" class="empty">${state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'}</td></tr>`;
+  }
+  function ltStatsExport() {
+    if (!lt.stats) return;
+    const O = window.ClassLive.office;
+    const rows = ltStatRows().sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
+    const when = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '');
+    const summary = [['项目', '数值', '说明']].concat(ltStatsSummary(rows).map((tile) => [tile.label, tile.value, tile.note]));
+    const detail = [['学号', '姓名', '道号', '已销号', '灵石', '开垦灵田', '正在长', '乾坤袋灵植', '丹药存量', '种植次数', '浇水次数', '锄草次数', '收获次数', '收获灵植份数',
+      '偷菜成功', '偷菜失败', '被偷', '灵田答题答对', '灵田答题答了', '正确率', '守田阵法答对', '守田阵法答了', '炼成丹药', '服丹颗数', '服丹折算修为',
+      '道藏卡牌种数', '道藏卡牌张数', '开卡包', '坊市成交', '宗门贡献', '活跃天数', '操作次数', '第一次进入', '最近进入']]
+      .concat(rows.map((p) => [String(p.sid), p.name, p.aliasText, p.banned ? '是' : '', p.stones, p.plots, p.growing, p.bag, p.pillStock, p.plant, p.water, p.clear, p.harvest, p.harvestUnits,
+        p.stealOk, p.stealFail, p.stolen, p.quizRight, p.quizTotal, p.quizTotal ? `${Math.round(p.quizRate * 100)}%` : '', p.guardRight, p.guardTotal, p.brew, p.pillsTaken, p.qi,
+        p.cards, p.cardTotal, p.packs, p.trades, p.sectUnits, p.days, p.actions, when(p.first), when(p.last)]));
+    const scope = state.klass ? safeName(state.klass.name) : '全部班级';
+    O.save(O.xlsxBook([{ name: '汇总', rows: summary, widths: [18, 18, 60] }, { name: '学生明细', rows: detail, widths: [14, 10, 16, 8].concat(Array(30).fill(10)) }]),
+      `${course.title}_${scope}_云间灵田数据_${window.ClassLive.today()}.xlsx`);
+  }
+  // 销号／恢复（2026-11-15 用户：“填写道号的时候也要提醒学生文明取名，否则会被销号”）
+  async function ltBan(actor, on) {
+    const p = lt.players.find((row) => row.actor_id === actor);
+    if (!p) return;
+    const who = `${p.name}（${p.sid}）`;
+    const tip = on
+      ? `给 ${who} 销号吗？道号“${p.alias || ''}”\n\n销号后：该生不能再进入云间灵田，道号换成“已销号”，灵田不再出现在别人的道友名单里，服丹折算的网站修为也不再计入结算。之后可以点“恢复”撤销。`
+      : `恢复 ${who} 的灵田吗？\n\n恢复后该生可以重新进入云间灵田（要先重新起一个道号），服丹折算的网站修为重新计入结算。`;
+    if (!window.confirm(tip)) return;
+    $('[data-lt-summary]').textContent = on ? '正在销号……' : '正在恢复……';
+    try {
+      await backend.rpc('lt_admin_ban', { p_course: course.slug, p_actor: actor, p_ban: !!on });
+      await ltLoad();
+      $('[data-lt-status]').textContent = `${who} ${on ? '已销号' : '已恢复'}（${clock(Date.now())}）。`;
+    } catch (error) { $('[data-lt-summary]').textContent = `${on ? '销号' : '恢复'}失败：${(error && error.message) || error}`; }
+  }
+  async function ltSave() {
+    const num = (sel) => Math.max(0, Math.min(100, Math.round(Number($(sel).value) || 0)));
+    $('[data-lt-status]').textContent = '正在保存……';
+    try {
+      await backend.rpc('lt_admin_set', { p_course: course.slug, p_enabled: $('[data-lt-enabled]').checked, p_water: num('[data-lt-water]'), p_clear: num('[data-lt-clear]'), p_steal: num('[data-lt-steal]') });
+      $('[data-lt-status]').textContent = `已保存（${clock(Date.now())}）：${$('[data-lt-enabled]').checked ? '本课程已开放云间灵田' : '本课程不开放云间灵田'}。学生约 20 秒内生效。`;
+    } catch (error) { $('[data-lt-status]').textContent = `保存失败：${(error && error.message) || error}`; }
+  }
+  async function ltTeacherCall(path, body, query) {
+    if (!lt.ticket || Date.now() - lt.ticketAt > 90 * 60000) {
+      const value = await backend.rpc('lt_teacher_ticket', { p_course: course.slug });
+      const row = (Array.isArray(value) ? value[0] : value) || {};
+      if (row.status !== 'ok') throw new Error('领取教师凭证失败');
+      lt.ticket = row.ticket; lt.ticketAt = Date.now();
+    }
+    if (typeof backend.callFunction !== 'function') throw new Error('课堂后台不支持云函数');
+    const out = await backend.callFunction('lingtian', { ticket: lt.ticket, path, query: query || {}, body: body || null });
+    if (!out) throw new Error('云函数 lingtian 没有回应（还没有部署？）');
+    if (out.status >= 400 || (out.body && out.body.ok === false)) throw new Error((out.body && out.body.message) || `云函数返回 ${out.status}`);
+    return out.body;
+  }
+  async function ltPoolLoad() {
+    const status = $('[data-lt-pool-status]');
+    if (!state.klass) { status.textContent = '请先在上方选好班级。'; return; }
+    status.textContent = '正在读取……';
+    try {
+      lt.catalog = lt.catalog || await ltTeacherCall('/api/teaching/catalog');
+      lt.plans = await ltTeacherCall('/api/teaching/curriculum', null, { classId: `class-${state.klass.id}` });
+      ltPoolRender();
+      const active = lt.plans.active || {};
+      status.textContent = active.academicYear ? `本班现在启用的是 ${active.academicYear} 学年卡池。` : '本班还没有设置过卡池（按游戏默认卡池）。';
+    } catch (error) { status.textContent = `读取失败：${(error && error.message) || error}`; }
+  }
+  function ltPoolRender() {
+    const box = $('[data-lt-chapters]');
+    const courseInfo = lt.catalog && lt.catalog.courses && lt.catalog.courses[0];
+    if (!courseInfo) { box.innerHTML = ''; return; }
+    const year = $('[data-lt-year]').value;
+    const plan = ((lt.plans && lt.plans.plans) || []).find((item) => item.academicYear === year);
+    const active = lt.plans && lt.plans.active;
+    const chosen = new Set((plan && plan.selection && plan.selection.chapterIds) || (active && active.academicYear === year && active.selection && active.selection.chapterIds) || []);
+    // 第 0 章是导论：标题本身就是“导论”时不再重复
+    const label = (ch) => (Number(ch.number) === 0 ? (/导论/.test(ch.title) ? `<b>${esc(ch.title)}</b>` : `<b>导论</b> ${esc(ch.title)}`) : `<b>第${ch.number}章</b> ${esc(ch.title)}`);
+    box.innerHTML = `<p class="tw-hint">${esc(courseInfo.name)} · 共 ${courseInfo.chapters.length} 章 ${courseInfo.totalCards} 张卡${plan ? ` · ${esc(year)} 学年已保存第 ${plan.planRevision} 版（${plan.selectedCardCount} 张）` : ''}</p>`
+      + `<div class="tw-lt-chapter-grid">${courseInfo.chapters.map((ch) => `<label class="tw-lt-chapter"><input type="checkbox" value="${esc(ch.id)}"${chosen.has(ch.id) ? ' checked' : ''}><span>${label(ch)}<small>${ch.cardCount} 张</small></span></label>`).join('')}</div>`;
+    $('[data-lt-pool-save]').disabled = false;
+  }
+  async function ltPoolSave() {
+    const status = $('[data-lt-pool-status]');
+    const chapterIds = $$('[data-lt-chapters] input:checked').map((input) => input.value);
+    if (!chapterIds.length) { status.textContent = '至少勾选一章。'; return; }
+    const year = $('[data-lt-year]').value;
+    const plan = ((lt.plans && lt.plans.plans) || []).find((item) => item.academicYear === year);
+    status.textContent = '正在保存……';
+    try {
+      const result = await ltTeacherCall('/api/teaching/curriculum', {
+        requestId: `pool${Date.now().toString(36)}${Math.random().toString(36).slice(2, 8)}`, action: 'save', classId: `class-${state.klass.id}`,
+        courseId: lt.catalog.courses[0].id, academicYear: year, expectedPlanRevision: plan ? plan.planRevision : 0,
+        expectedActiveRevision: lt.plans && lt.plans.active ? lt.plans.active.activeRevision || 0 : 0,
+        selection: { chapterIds, includeCardIds: [], excludeCardIds: [] }, activate: true });
+      lt.plans = result;
+      ltPoolRender();
+      status.textContent = `已保存并启用 ${year} 学年卡池：${result.result ? result.result.selectedCardCount : ''} 张卡（${clock(Date.now())}）。`;
+    } catch (error) { status.textContent = `保存失败：${(error && error.message) || error}`; }
+  }
+  const ltTab = $('[data-tab="lingtian"]');
+  if (ltTab) {
+    ltTab.addEventListener('click', () => { if (!lt.loaded) ltLoad(); });
+    $('[data-lt-save]').addEventListener('click', ltSave);
+    $('[data-lt-reload]').addEventListener('click', ltLoad);
+    $('[data-lt-search]').addEventListener('input', ltRender);
+    $('[data-lt-stats-reload]').addEventListener('click', ltStatsLoad);
+    $('[data-lt-stats-xlsx]').addEventListener('click', ltStatsExport);
+    $('[data-lt-stats-head]').addEventListener('click', (event) => {
+      const button = event.target.closest('[data-lt-sort]');
+      if (!button) return;
+      const key = button.dataset.ltSort, col = LT_STAT_COLS.find((item) => item.key === key) || {};
+      lt.sort = { key, dir: lt.sort.key === key ? -lt.sort.dir : (col.text ? 1 : -1) };
+      ltStatsRender();
+    });
+    $('[data-lt-rows]').addEventListener('click', (event) => {
+      const ban = event.target.closest('[data-lt-ban]'), unban = event.target.closest('[data-lt-unban]');
+      if (ban) ltBan(ban.dataset.ltBan, true);
+      else if (unban) ltBan(unban.dataset.ltUnban, false);
+    });
+    $('[data-lt-pool-load]').addEventListener('click', ltPoolLoad);
+    $('[data-lt-pool-save]').addEventListener('click', ltPoolSave);
+    $('[data-lt-year]').addEventListener('change', ltPoolRender);
+    $('[data-lt-pool-all]').addEventListener('click', () => $$('[data-lt-chapters] input').forEach((input) => { input.checked = true; }));
+    $('[data-lt-pool-none]').addEventListener('click', () => $$('[data-lt-chapters] input').forEach((input) => { input.checked = false; }));
+  }
+
   function renderAll() {
     renderStats();
     renderCheckins();
@@ -2968,7 +3250,7 @@
   //   · 签到只认“上课日”（当天本单元有足够多同学登录），课后自己打开页面不算；
   //   · 境界只由教师账号写入（ck_save_realms），点名册里没有的学号不结算。
   // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
-  const REALMS = window.ClassLive.realmsFor ? window.ClassLive.realmsFor(course.slug) : window.ClassLive.REALMS;   // 门槛按课程（2026-11-11 习经化神 140%）
+  const REALMS = window.ClassLive.realmsFor ? window.ClassLive.realmsFor(course.slug) : window.ClassLive.REALMS;   // 门槛按课程（化神：习经 135%、政经 155%，2026-11-15）
   // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
   const LIKE = window.ClassLive.LIKE || { limit: 20, points: 5, perStudent: 2 };
@@ -3107,6 +3389,12 @@
       const list = await backend.rpc('ck_practice_totals', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id });
       (Array.isArray(list) ? list : []).forEach((row) => practicePoints.set(sidKey(row.sid), Number(row.points) || 0));
     } catch (error) { if (!missingTable(error) && !missingFunction(error)) throw error; }
+    // 云间灵田（2026-11-15）：服丹折算的网站修为（后台已按每天 1、每周 5、学期为满分 3% 的上限记好；还没建好时按 0 算）
+    const lingtianPoints = new Map();
+    try {
+      const map = await backend.rpc('lt_points', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id });
+      Object.entries((Array.isArray(map) ? map[0] : map) || {}).forEach(([sid, pts]) => lingtianPoints.set(sidKey(sid), Number(pts) || 0));
+    } catch (error) { if (!missingTable(error) && !missingFunction(error)) throw error; }
     let leaves = [];
     try { leaves = await backend.fetchAll('leaves', { class_id: Number(state.klass.id) || state.klass.id }); } catch (error) { if (!missingTable(error)) throw error; }
     const leaveDay = (sid, day) => leaves.some((row) => sidKey(row.sid) === sid && row.start_day <= day && day <= row.end_day);
@@ -3158,7 +3446,7 @@
     });
     const max = realmMax();
     const rows = Array.from(people.values()).map((person) => {
-      const total = { attend: 0, leave: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0, practice: practicePoints.get(person.sid) || 0 };
+      const total = { attend: 0, leave: 0, done: 0, right: 0, danmaku: 0, like: 0, game: gameBonus.get(person.sid) || 0, practice: practicePoints.get(person.sid) || 0, lingtian: lingtianPoints.get(person.sid) || 0 };
       let excusedTimes = 0;
       perUnit.forEach((info) => {
         const { u } = info;
@@ -3245,13 +3533,13 @@
         total.danmaku += Math.min(POINTS.danmaku * m, POINTS.perDanmaku * said.size);
         total.like += LIKE.points * Math.min(likes, LIKE.perStudent * m);
       });
-      const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game + total.practice) * 10) / 10;
+      const points = Math.round((total.attend + total.leave + total.done + total.right + total.danmaku + total.like + total.game + total.practice + total.lingtian) * 10) / 10;
       const realm = window.ClassLive.realmOf(points, max, course.slug);
       const round1 = (v) => Math.round(v * 10) / 10;
       return { sid: person.sid, name: (rosterMap.get(person.sid) || {}).name || person.name || '', points, max, realm: realm.level, stage: realm.stage,
         title: realm.title, inRoster: !roster.length || rosterMap.has(person.sid), owners: person.owners.size,
         excused: excusedTimes,
-        detail: { attend: round1(total.attend), leave: round1(total.leave), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game), practice: round1(total.practice) } };
+        detail: { attend: round1(total.attend), leave: round1(total.leave), done: round1(total.done), right: round1(total.right), danmaku: round1(total.danmaku), like: round1(total.like), game: round1(total.game), practice: round1(total.practice), lingtian: round1(total.lingtian) } };
     });
     rows.forEach((row) => {
       row.flags = [];
@@ -3355,7 +3643,7 @@
       return `<tr class="${row.inRoster ? '' : 'is-muted'}"><td><span class="tw-rm-no${rank && rank <= 3 && row.points > 0 ? ` is-${rank}` : ''}">${rank || '—'}</span></td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
       <td>${realmChip(row.realm, row.title)}</td><td class="tw-sect-cell">${sectCell(row.sid)}</td>
       <td><div class="tw-rm-pts"><span><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></span><span class="tw-rm-pbar"><i class="is-r${row.realm}" style="width:${ratio}%"></i></span></div></td>
-      ${numCell(row.detail.attend)}${numCell(row.detail.leave || 0)}${numCell(row.detail.done)}${numCell(row.detail.right)}${numCell(row.detail.danmaku)}${numCell(row.detail.like || 0)}${numCell(row.detail.game || 0)}${numCell(row.detail.practice || 0)}
+      ${numCell(row.detail.attend)}${numCell(row.detail.leave || 0)}${numCell(row.detail.done)}${numCell(row.detail.right)}${numCell(row.detail.danmaku)}${numCell(row.detail.like || 0)}${numCell(row.detail.game || 0)}${numCell(row.detail.practice || 0)}${numCell(row.detail.lingtian || 0)}
       <td class="tw-realm-flags">${row.flags.map(realmFlagHtml).join('')}</td></tr>`;
     }).join('')
       || '<tr><td colspan="15" class="empty">本班还没有学生记录。</td></tr>';
@@ -3408,9 +3696,9 @@
     if (!realmResult) return;
     const sectOfSid = (sid) => { const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid); return row ? sectName(row.sect) : ''; };
     const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, sectOfSid(row.sid), row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
-      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.detail.practice || 0, row.flags.join('；')]);
+      row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.detail.practice || 0, row.detail.lingtian || 0, row.flags.join('；')]);
     download(`${course.title}_${safeName(state.klass.name)}_修为境界_${window.ClassLive.today()}.csv`,
-      csv([['名次', '学号', '姓名', '境界', '宗门', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答、PK 胜者、辩论获胜、经营沙盘、匿名建议（含点赞采纳）、点笑脸、每周登录（额外）', '修炼场（额外）', '提示'], ...rows]));
+      csv([['名次', '学号', '姓名', '境界', '宗门', '修为', '满分', '签到', '请假', '作答完成', '作答正确', '弹幕', '点赞（额外）', '猜词第一、猜谜抢答、PK 胜者、辩论获胜、经营沙盘、匿名建议（含点赞采纳）、点笑脸、每周登录（额外）', '修炼场（额外）', '云间灵田服丹（额外）', '提示'], ...rows]));
   });
   // ---------------- 修炼场题库（2026-10-22）：工作台里带着本课程题库（gzip＋base64），按单元版本号同步到后台 ----------------
   const PRACTICE = window.ClassLive.PRACTICE || { delay: 3, essayMin: 200, of: () => ({ cap: 3, item: 1 }) };

@@ -439,6 +439,29 @@
   .clp-v2 .clp-no { margin: 0; flex: 0 0 auto; }
   .clp-v2 .clp-name { min-width: 0; overflow: hidden; font-size: 17px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
   .clp-v2 .clp-realm { flex: 0 0 auto; margin: 0; padding: 1px 9px; border-radius: 5px; font: 700 14px/1.5 "Kaiti SC", STKaiti, KaiTi, serif; }
+  /* 宗主（2026-11-15 用户：“被选为宗主的人，在境界标志右边再设置一个‘宗主’的标志，要能体现出尊贵感”）：鎏金印章、细金边、外发光，一道流光扫过 */
+  .clp-lord { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; margin: 0 0 0 4px; padding: 1px 9px 1px 7px; overflow: hidden;
+    border: 1px solid #f6dc8a; border-radius: 5px; color: #4a2c05; font: 700 14px/1.5 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: 1px; white-space: nowrap;
+    background: linear-gradient(180deg, #fff6cf 0%, #f3cf6a 38%, #d9a034 70%, #b97f22 100%);
+    box-shadow: 0 0 0 1px rgba(122, 78, 10, .35), 0 0 10px rgba(240, 190, 80, .65), inset 0 1px 0 rgba(255, 255, 255, .7); text-shadow: 0 1px 0 rgba(255, 248, 214, .8); }
+  .clp-lord[hidden] { display: none; }
+  .clp-lord i { width: 12px; height: 10px; background: currentColor; clip-path: polygon(0 100%, 0 25%, 25% 60%, 50% 0, 75% 60%, 100% 25%, 100% 100%); opacity: .85; }
+  .clp-lord::after { content: ""; position: absolute; top: -40%; left: -60%; width: 40%; height: 180%; transform: rotate(20deg);
+    background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .85), transparent); animation: clp-lord-sweep 3.6s ease-in-out infinite; }
+  @keyframes clp-lord-sweep { 0%, 55% { left: -60%; } 100% { left: 130%; } }
+  @media (prefers-reduced-motion: reduce) { .clp-lord::after { animation: none; display: none; } }
+  /* 宗门榜里的云间灵田入口 */
+  .clp-lt { margin: 14px 0 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(214, 188, 120, .55);
+    background: linear-gradient(135deg, rgba(255, 249, 230, .12), rgba(140, 190, 150, .14)); color: inherit; }
+  .clp-lt-head { display: flex; gap: 12px; align-items: flex-start; }
+  .clp-lt-emb { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px 12px 12px 4px; background: #496952; color: #faf0d4; font: 700 18px/1 "Kaiti SC", STKaiti, KaiTi, serif; }
+  .clp-lt-head strong { display: block; font-size: 15px; letter-spacing: 1px; }
+  .clp-lt-head span { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.7; opacity: .85; }
+  .clp-lt-go { display: inline-flex; align-items: center; justify-content: center; margin-top: 12px; min-height: 40px; padding: 8px 18px; border-radius: 12px;
+    background: linear-gradient(180deg, #6b9a7f, #4e7967); color: #fffdf5 !important; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 6px 18px rgba(30, 60, 45, .28); }
+  .clp-lt-go:hover { filter: brightness(1.06); }
+  .clp-lt-lock, .clp-lt-note { margin: 10px 0 0; font-size: 12.5px; opacity: .8; }
+  .clp-lt-note a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
   .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 10px; margin-left: auto; }
   .clp-v2 .clp-head .clp-link { color: var(--clp-link); font-size: 13px; }
   .clp-v2 .clp-sub { margin-top: 3px; color: var(--clp-head-sub); font-size: 12.5px; }
@@ -2135,7 +2158,7 @@
   panel.innerHTML = `
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
-      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : ''}
+      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：本宗元婴以上、修为第一" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span></div>
       ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
@@ -3830,7 +3853,7 @@
     .catch(() => { /* 后台还没有 ck_my_roster_no 时不显示编号 */ });
 
   // ---------- 修为境界：老师在工作台按后台记录结算（签到、作答、弹幕），这里只显示本人的境界称号；分数不在页面上显示 ----------
-  const REALMS = Live.realmsFor ? Live.realmsFor(config.course) : (Live.REALMS || []);   // 门槛按课程（2026-11-11 习经化神 140%）
+  const REALMS = Live.realmsFor ? Live.realmsFor(config.course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 135%、政经 155%，2026-11-15）
   const GIFTS = Live.GIFTS || [];
   const realmEl = panel.querySelector('[data-cl-realm]');
   const giftBox = panel.querySelector('[data-cl-gifts]');
@@ -4150,6 +4173,33 @@
     return sect ? `<span class="clp-sect-dot" style="${sectVars(sect)}" title="${esc(sect.name)}弟子" aria-label="${esc(sect.name)}弟子">${esc(sect.mark)}</span>` : '';
   }
   const sectButton = panel.querySelector('[data-cl-sect-open]');
+  // 宗主标志与云间灵田入口（2026-11-15）：读一次 ck_my_sect_role（本人宗门、是不是宗主、本课程是否开放云间灵田）
+  const lordEl = panel.querySelector('[data-cl-lord]');
+  let sectRole = null, sectRoleAt = 0;
+  async function loadSectRole(force) {
+    if (OFFLINE || AUDIT || !joined || !backend) return sectRole;
+    if (!force && sectRole && Date.now() - sectRoleAt < 600000) return sectRole;
+    try {
+      const value = await backend.rpc('ck_my_sect_role', { p_classroom: Number(identity.classroom) || identity.classroom });
+      sectRole = (Array.isArray(value) ? value[0] : value) || null; sectRoleAt = Date.now();
+    } catch (problem) { return sectRole; }
+    if (lordEl) {
+      const lord = Boolean(sectRole && sectRole.leader), sect = lord ? (Live.SECTS || []).find((item) => item.key === sectRole.sect) : null;
+      lordEl.hidden = !lord;
+      if (lord) lordEl.title = `${sect ? sect.name : '本宗'}宗主：本宗元婴以上、修为第一（随老师结算修为更新）`;
+    }
+    return sectRole;
+  }
+  function lingtianBlock(mine) {
+    const open = Boolean(sectRole && sectRole.lingtian);
+    const href = `/lingtian/index.html?room=${encodeURIComponent(identity.classroom)}`;
+    // 老师（学生版测试页）在开放前也能先试玩；学生要等老师开放才看得到入口
+    if (!open) return PREVIEW ? `<p class="clp-lt-note">云间灵田：本课程还没有开放，学生面板里看不到入口（在教师工作台“云间灵田”里开放）。老师可以先 <a href="${href}" target="_blank" data-cl-lingtian>进入云间灵田试玩</a>。</p>` : '';
+    const member = PREVIEW || Boolean(mine && (Live.SECTS || []).some((item) => item.key === mine.sect));
+    return `<div class="clp-lt"><div class="clp-lt-head"><span class="clp-lt-emb" aria-hidden="true">田</span><div><strong>云间灵田</strong>
+      <span>开辟自己的灵田：种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。浇水、锄草和偷菜时会抽到修炼场的题，答对才能继续。</span></div></div>
+      ${member ? `<a class="clp-lt-go" href="${href}" target="_blank" data-cl-lingtian>进入云间灵田${PREVIEW ? '（测试）' : ''}</a>` : '<p class="clp-lt-lock">拜入宗门以后才能开辟自己的灵田（散修不能）。</p>'}</div>`;
+  }
   const sectModal = document.createElement('div');
   sectModal.className = 'clp-realm-modal clp-rank-modal';
   sectModal.hidden = true;
@@ -4214,7 +4264,7 @@
       : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（拜入以后就不能再变回散修）。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
     return `<p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
-      <ol class="clp-sect-list">${rows}</ol>${mineHtml}
+      <ol class="clp-sect-list">${rows}</ol>${mineHtml}${lingtianBlock(mine)}
       <p class="clp-rank-note">宗门分＝本课程历届弟子的修为之和（按老师最近一次结算），分高者排名在前。弟子结课以后修为仍留在宗门里，一届一届传承下去，新同学随时可以加入；散修不计入任何宗门。拜入宗门以后有一次改投他宗的机会，改投时修为随你转到新宗门。</p>`;
   }
   async function openSect() {
@@ -4222,7 +4272,7 @@
     sectModal.hidden = false;
     sectModal.querySelector('[data-sect-close]').focus();
     try {
-      const data = sectCache && Date.now() - sectCache.at < 30000 ? sectCache.data : await loadSect();
+      const [data] = await Promise.all([sectCache && Date.now() - sectCache.at < 30000 ? sectCache.data : loadSect(), loadSectRole(true)]);
       if (sectModal.hidden) return;
       sectModal.innerHTML = sectShell(sectBody(data));
     } catch (problem) {
@@ -4290,6 +4340,7 @@
     if (sectLoaded || LOCAL_ONLY || OFFLINE || !joined || !sectButton) return;
     if (!myRealm || (Number(myRealm.realm) || 0) < SECT_MIN) return;
     sectLoaded = true;
+    if ((Number(myRealm.realm) || 0) >= 3) loadSectRole(false);   // 宗主（元婴以上才可能）：境界旁的宗主标志
     try {
       const data = await loadSect();
       const mine = data && data.mine;

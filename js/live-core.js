@@ -56,7 +56,11 @@
   // 按课程改门槛（2026-11-11 习经用户：“按照现在两个班第一名的修为境界，达到化神好像有点容易了，你看下后面还有7周，是不是把化神需要的分数再往上调一调，
   //   尽量在倒数第二周的时候有1-2名同学达到化神境界。”——按线上数据外推（修炼场每天约 7—8、额外奖励），第 15 周末前几名约 1300—1450／满分 1000，
   //   化神定为 140%；政经不变）。比例可以超过 100%：修炼场和额外奖励不计入满分。与 cloudbase-pg.sql 的 ck_realm_level(points, max, course) 一致
-  const REALM_MIN = { 'xjp-economy': { 4: 1.40 } };
+  // 2026-11-15 用户：“现在还有6次课，你按照现在的进度，大概在倒数第2周能够有1-2位同学达到化神境界，你看下要升上化神的分数应该加到多少？”——
+  //   按 11-15 线上数据重算（课堂每次约 70—80，修炼场按题库还能得的分、额外奖励按近两周、云间灵田服丹每周约 9）：第 15 周末（12-20）
+  //   政经前三名约 153%—160%、习经前两名约 134%—136%（修炼场题库快做完了，11-11 按每天 7—8 外推偏高）。
+  //   政经化神 90% → 155%，习经 140% → 135%；学期末大约各有 3 位同学到化神。
+  const REALM_MIN = { 'xjp-economy': { 4: 1.35 }, 'political-economy': { 4: 1.55 } };
   function realmsFor(course) {
     const over = REALM_MIN[course] || {};
     return REALMS.map((realm) => (over[realm.level] != null ? { ...realm, min: over[realm.level] } : realm));
@@ -237,7 +241,7 @@
     list.forEach((realm) => { if (ratio >= realm.min - 1e-9) level = realm.level; });
     const lo = list[level].min;
     // 初期／中期／后期仍按原来的门槛三等分（2026-11-12 用户：“要确保学生目前的修为和境界是不变的，变的只是化神需要的分数”）：
-    // 习经化神改到 140% 以后，元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
+    // 化神门槛提高以后（习经 135%、政经 155%），元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
     const hi = level < list.length - 1 ? REALMS[level + 1].min : Math.max(1, lo + 0.1);
     const within = hi > lo ? Math.max(0, Math.min(1, (ratio - lo) / (hi - lo))) : 1;
     const stage = Math.min(2, Math.floor(within * 3));
@@ -283,6 +287,7 @@
 
   // 腾讯云开发 PostgreSQL 模式（JS SDK v3）：三张表 ck_checkins / ck_choices / ck_answers，
   // 行级安全策略保证学生只能新增、教师账号才能读取和删除（见 tools/cloudbase-pg.sql）。
+  const LINGTIAN_DEV = (typeof window !== 'undefined' && window.LINGTIAN_DEV) || 'http://127.0.0.1:4100';
   function cloudbaseProvider(config) {
     if (!window.cloudbase) throw new Error('未加载 CloudBase SDK');
     const app = window.cloudbase.init({ env: config.env, region: config.region || 'ap-shanghai' });
@@ -369,6 +374,12 @@
       },
       async rpc(name, params) {
         return (await call(() => db.rpc(name, params || {}))).data;
+      },
+      // 云函数（2026-11-15 云间灵田：游戏后台在云函数 lingtian 里，凭数据库换来的凭证调用）
+      async callFunction(name, data) {
+        await keepFresh(false);
+        const result = await app.callFunction({ name, data: data || {} });
+        return result && result.result;
       },
       // options.limit：只取最新的若干条（按 id 倒序）；options.since：[列名, 值]，只取该列大于此值的行（增量读取）
       async fetchAll(kind, where, options = {}) {
@@ -601,7 +612,23 @@
         docs.forEach((doc) => rows.push({ id: Math.random().toString(36).slice(2), owner: uid, ...(kind === 'danmaku' ? { status: 'new' } : {}), ...doc, ts, created_at: created }));
         write(kind, rows);
       },
+      // 云间灵田（2026-11-15）：本机测试时，游戏云函数和 lt_* 函数转给本机灵田测试服务（lingtian/test/dev-server.cjs，连本机 PostgreSQL）；
+      // 地址栏 ?as=uA 指定用本机测试库里的哪位同学（默认 uA），教师账号用 TEACHER_UID
+      async callFunction(name, data) {
+        const response = await fetch(`${LINGTIAN_DEV}/fn/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(data || {}) });
+        return response.json();
+      },
       async rpc(name, params = {}) {
+        if (/^lt_/.test(name) || name === 'ck_my_sect_role') {
+          const as = localStorage.getItem(prefix + 'teacher') ? 'TEACHER_UID' : (new URLSearchParams(location.search).get('as') || localStorage.getItem('lingtian-dev-as') || 'uA');
+          // 本机模拟课堂的编号在本机灵田测试库里不存在：lingtian-dev-room 指定换成测试库里的哪个课堂（如 4012）
+          const devRoom = Number(localStorage.getItem('lingtian-dev-room')) || 0;
+          if (devRoom && 'p_classroom' in params) params = { ...params, p_classroom: devRoom };
+          const response = await fetch(`${LINGTIAN_DEV}/rpc/${name}`, { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ as, params }) });
+          const out = await response.json();
+          if (out && out.error) throw new Error(out.error);
+          return out;
+        }
         // 学生登录：课堂码＋点名册＋4 位口令（规则同 cloudbase-pg.sql 的 ck_join）
         if (name === 'ck_join') {
           const uid = await this.ensureAnonymous();
@@ -2676,7 +2703,7 @@
     const Live = window.ClassLive || {};
     const config = { course };
     const FB = Live.feedbackBox ? Live.feedbackBox.texts(course === 'political-economy') : { tag: '匿名建议箱' };
-    const REALMS = Live.realmsFor ? Live.realmsFor(course) : (Live.REALMS || []);   // 门槛按课程（习经化神 140%）
+    const REALMS = Live.realmsFor ? Live.realmsFor(course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 135%、政经 155%）
     const GIFTS = Live.GIFTS || [];
     // 修炼场规则说明（与学生页 practiceRule 相同）
     const practiceRule = () => {
@@ -2689,6 +2716,7 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['云间灵田', '拜入宗门（四大宗门之一，散修不能）以后，面板“宗门”里会出现“云间灵田”入口（老师开放后才有）：开辟自己的灵田，种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。第一次进入先起一个道号——道友们看到的是道号，不要用真实姓名；请文明取名，不能用国家领导人的姓名（含谐音、拼音、缩写），不能有辱骂、低俗、敏感的字词，道号不文明的会被老师销号。浇水、锄草时有一定概率要先答对一道本课程修炼场的题；偷菜会触发守田阵法，答对才偷得到，答错要赔灵石给田主。道友名单每批 5 位，每天前 5 批免费，之后每答对一题再换一批，最多再换 5 批。灵田里的境界以课程网站的修为境界为准；服丹可以折算网站修为（每颗 0.3—3，每天最多 3、每周最多 15，整学期最多为满分的 10%，老师结算修为时计入）。本宗元婴以上、修为第一的同学是宗主，境界旁会显示“宗主”标志，可以在灵田里布置本宗山门。', '2026-11-15'],
         ...(config.course === 'political-economy' ? [['第八章新题', '第八章两个案例（案例 13、14）补上了“豁然开朗”（学习路线页先抛出的悬念，辩论赛之后揭晓）和完整的“课后自修”（闭卷默写、温故、讲给别人听，做了就积累修为）；修炼场也新增了这两个案例的情境辨析、易错判断和“讲给别人听”练习题。', '2026-11-11']] : []),
         ...(config.course === 'xjp-economy' ? [['迁移任务 · 小资料分析', '第二课时的“迁移任务”改为小资料分析：三则新的小资料，每题四个说法里只有一个用本案例的道理讲对了，选出来逐题递交（不用再写“说一说”）。出门测之前加了一轮“情境猜谜”抢答。猜词游戏不再放在页面里，老师在课堂工具里决定这堂课玩不玩。', '2026-11-12']] : []),
         ...(config.course === 'xjp-economy' ? [['分组讨论', `有圆桌会议的案例（案例 02、03、04、05、10、11、13、14）第二课时改为“分组讨论”：按四方角色分成四组，选好角色递交后取一个昵称进入本组聊天室，围绕讨论题和本组任务发言、给本组的好发言点赞；点赞最多的就是本组发言人，到大屏前亮观点；最后全班为三项议程表决。每组发言人加 ${DISCUSS.leader} 修为，本方提案被全班表决采纳的组里在聊天室发过言的同学各加 ${DISCUSS.win} 修为。机制图改由老师逐步演示，不再弹幕接龙。`, '2026-11-11']] : []),

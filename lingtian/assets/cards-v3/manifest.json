@@ -1,0 +1,3144 @@
+{
+  "version": 3,
+  "renderer": "Blender 4.3 CYCLES",
+  "renderer_sha256": "9857633b17bd581e1de0e90298dcf81543c8d9c94302fa49181c9aca46812fd3",
+  "render_signature": "f845ff52865d7db42ee119b07710b9d5c0a310752edbb29ff99e0fa537fbf045",
+  "samples": 64,
+  "width": 672,
+  "height": 560,
+  "source": "assets/cards-v3/daozang-concept-models.blend",
+  "builder": "dev/build-concept-art.py",
+  "original_geometry": true,
+  "cards": {
+    "pe_001": {
+      "title": "商品",
+      "path": "assets/cards-v3/pe_001.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22944,
+      "sha256": "c3ca329d3ceece598b85de2a895d68e4315b290a1a9b4631c0ed090186b26387",
+      "recipe_sha256": "3524006c03a7c288b3d6a4006ed0f8916a8d656283a39edf6adc27832723ace1",
+      "idea": "用待交换的瓷器、绸箱和钱币构成交易三角，提示商品兼具用途与交换属性。"
+    },
+    "pe_002": {
+      "title": "使用价值",
+      "path": "assets/cards-v3/pe_002.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 21720,
+      "sha256": "618b21ca8f0ca549a9865cb3fe8cfb65a1746e7564c74803deb7e23575ee8745",
+      "recipe_sha256": "ef1b3b3bb1edcbabcf1841ef2362fbe80943f59243fd04a69614a809a8525e96",
+      "idea": "人物用盛水器皿浇灌幼苗，突出物品满足具体需要的有用性。"
+    },
+    "pe_003": {
+      "title": "价值",
+      "path": "assets/cards-v3/pe_003.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39356,
+      "sha256": "ecf873c1352a97a6d773f3fbaef422e8ae8566b98b68e397d7d3d516aa563513",
+      "recipe_sha256": "32a49111cf4b149e7b4828cbe36854eff2ef6ada5399b17c0842d5c3219a4477",
+      "idea": "织机与田间劳动汇向中央光核，以共同劳动基础区别不同产品的自然形态。"
+    },
+    "pe_004": {
+      "title": "交换价值",
+      "path": "assets/cards-v3/pe_004.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28154,
+      "sha256": "42fc01142b0e2322e2eb684896c0100e5d4e28335953c4e5096783d31e1e2f1c",
+      "recipe_sha256": "5131b76d6661b6eb3de349fb9679ab03ae47b96a236c2c412885745ac8e3754e",
+      "idea": "天平两端分别是陶器和多束谷物，表现不同使用价值之间的交换比例。"
+    },
+    "pe_005": {
+      "title": "具体劳动",
+      "path": "assets/cards-v3/pe_005.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32628,
+      "sha256": "acd6ac91cedd6745c696b4e8192ce4a8d8c577d3bc4270a405e459280f6661d8",
+      "recipe_sha256": "3ab352cb31611927192f59a36b1db60f2448a9a6ee7d6eb9909c7e9602ff092e",
+      "idea": "工匠操持织机织出丝绸，以明确工具、动作和成品表现具体劳动。"
+    },
+    "pe_006": {
+      "title": "抽象劳动",
+      "path": "assets/cards-v3/pe_006.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28150,
+      "sha256": "995bf26e8ff298a7f5a6730d06cb03ba0c84bac0b71d549784dd634a06987cbf",
+      "recipe_sha256": "233334b2af51ad0a97aa9171a14dd0fe7207e0212a8e46a40419e84a2ba3068a",
+      "idea": "不同职业人物的光线汇入同一个劳动圆环，强调撇开劳动形式的一般人类劳动耗费。"
+    },
+    "pe_007": {
+      "title": "劳动二重性",
+      "path": "assets/cards-v3/pe_007.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35670,
+      "sha256": "dc94d26abd0eade26de8a94460c2ca6520758c2e769fb0dff076f062ced4a155",
+      "recipe_sha256": "9b0cf715da84505457f7a22132a8e79326e9d8ac5b29f3fe9156d0d3d624bc2f",
+      "idea": "同一劳动者与织机处于中心，一侧展开织物，一侧凝成共同价值光核，表示同一劳动的两个方面。"
+    },
+    "pe_008": {
+      "title": "私人劳动和社会劳动",
+      "path": "assets/cards-v3/pe_008.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31728,
+      "sha256": "cdf7eabf1820bb572e50a390ddc9bcff5da1fc8b5b2124e0983c8e040cfb7fb9",
+      "recipe_sha256": "a6413585e91688afef21f35349d005bc1b230ff57596811e513433a27f4a9a0a",
+      "idea": "独立作坊通向公共集市，私人生产需要经交换接入社会分工。"
+    },
+    "pe_009": {
+      "title": "商品拜物教",
+      "path": "assets/cards-v3/pe_009.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24038,
+      "sha256": "607d8965a43999c0bdcc7aeef9bc7f30fbb7b3571a795d8ec0eddd80c56a4711",
+      "recipe_sha256": "c6ed1c17fe5dc77b5419b581348ef2812b0bf34035325860150dd2c6851d6d9d",
+      "idea": "巨大的商品器物遮在人物联系之前，细链连接隐藏的劳动者，提示物的关系掩盖人的关系。"
+    },
+    "pe_010": {
+      "title": "社会必要劳动时间",
+      "path": "assets/cards-v3/pe_010.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27518,
+      "sha256": "26f5f0a766db20b36bf46e854d95d51643e03f17a8e753eb08ed47b76a0d139b",
+      "recipe_sha256": "f397bd7cbf96f7820d21bc7bd4e85a203767e47f1a6d2cc49b0ef8942b0c6c61",
+      "idea": "中央标准时钟统摄两处同类织造作坊，表达社会正常条件下的平均必要时间。"
+    },
+    "pe_011": {
+      "title": "简单劳动与复杂劳动",
+      "path": "assets/cards-v3/pe_011.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41448,
+      "sha256": "3fc6849dcc707f5b62bcca4fd81735e0d4d0ece14a6656e80035b3e2656e4598",
+      "recipe_sha256": "5acd1576b93e9ea0c16404dabbcc21430083dc885f237c1d2f3a0efaca24a999",
+      "idea": "基础劳动器具与经书学习后的精细机关并列，表现简单劳动和经训练的复杂劳动。"
+    },
+    "pe_012": {
+      "title": "劳动生产率",
+      "path": "assets/cards-v3/pe_012.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28314,
+      "sha256": "9bce96020e8959824af15113ebe5d84c372b0ad82e1c79e540ef8aa56d4baf54",
+      "recipe_sha256": "e1bd9dd8fc3762d885c1363f9aa421b3a304bfc5c9d11f1c296eeaf74804bd54",
+      "idea": "同一时钟下，一台改良织机通向成排绸箱，突出单位时间产量的提高。"
+    },
+    "pe_013": {
+      "title": "价值形式",
+      "path": "assets/cards-v3/pe_013.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30658,
+      "sha256": "f7a2f920d1355e963972f52ccc86c73fee8c472edb00ce67aaaa03eed7688c57",
+      "recipe_sha256": "95af93cf3315e1dcf7eff51cabd44de137645876269860ddafb735882b0f4814",
+      "idea": "陶器、谷物、统一交换台与钱币逐级展开，提示价值表现形式由简单走向货币。"
+    },
+    "pe_014": {
+      "title": "货币",
+      "path": "assets/cards-v3/pe_014.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38694,
+      "sha256": "3ead060b4eb6f99dc4d403012b9a2050371b26fbe3379b1648bde911af16ef9a",
+      "recipe_sha256": "f91bdd67606c1b172f307f74af7a593b79e495b0318ca43aa553a5cc154cd956",
+      "idea": "中央方孔金钱被多种商品环绕，体现固定充当一般等价物的地位。"
+    },
+    "pe_015": {
+      "title": "价格",
+      "path": "assets/cards-v3/pe_015.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26452,
+      "sha256": "5055cfa9fca8808e9f9b303fc6d27697d1c104f5aefb83065d12ff00b53db7cd",
+      "recipe_sha256": "fe43242eae888b8ce3dd2e8488e51b92608729c282195a2b154def5f7f00967f",
+      "idea": "陶器旁悬挂写价玉牌与钱币，突出商品价值以货币数量表现。"
+    },
+    "pe_016": {
+      "title": "价值尺度",
+      "path": "assets/cards-v3/pe_016.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46062,
+      "sha256": "4826d964ca3409e50a67bdbf28cf7c6e9b55e901f52ceed996af58588282f727",
+      "recipe_sha256": "3483daaeec94900ab6cdd52f409a73f2d0b2ef02ec673de63db2c64b423edf6d",
+      "idea": "金色尺度与商品并置，钱币形象悬于尺度上方，提示衡量可以使用观念货币。"
+    },
+    "pe_017": {
+      "title": "流通手段",
+      "path": "assets/cards-v3/pe_017.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37650,
+      "sha256": "7d4f8f1cac631871f5f0c3f1ffce5527854a4f3f0ddc244d0deb6e87752e2c7a",
+      "recipe_sha256": "064687ee6daa5fffec8284742d35dd1063dab9a2137fa1235bab1ec5d9927744",
+      "idea": "左右两种商品以中央钱币桥相连，直观呈现商品—货币—商品的流通。"
+    },
+    "pe_018": {
+      "title": "贮藏手段",
+      "path": "assets/cards-v3/pe_018.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27076,
+      "sha256": "9090caa0bdc3a4387a711c2f11eac28796d0ec2ec3c2088a25b1db903e3895df",
+      "recipe_sha256": "f62b19fa5f1760850e74d2d65bdde301c7792af95f2427db11733aeacc5f2a51",
+      "idea": "密封宝箱收纳一枚退出流通的钱币，远处交易道路终止在箱前。"
+    },
+    "pe_019": {
+      "title": "支付手段",
+      "path": "assets/cards-v3/pe_019.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 45928,
+      "sha256": "604e4da33f06453c93323a1c668e199c70584ce7823ed286501d77f16a57a5af",
+      "recipe_sha256": "aa24c2c3f2e1c34dd4409babea2c1732c7bcb682071a1471052a08fe416141fd",
+      "idea": "契约、时钟与后来抵达的钱币排列成有时间间隔的清偿路径。"
+    },
+    "pe_020": {
+      "title": "世界货币",
+      "path": "assets/cards-v3/pe_020.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43270,
+      "sha256": "60ce65e2a05e7b20f1eda686bf7b23381146e146f22df04f8066713b5c65f576",
+      "recipe_sha256": "8d586b7f0f7b7acf98c7de9494ec166c66951ccbaf6d6e3b80fb87fa3918c569",
+      "idea": "钱币与海船环绕地球，表现货币在跨地域贸易和国际支付中的作用。"
+    },
+    "pe_021": {
+      "title": "纸币",
+      "path": "assets/cards-v3/pe_021.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41656,
+      "sha256": "c4ab9a07f5f97348a247d43c5453c42c7bc9c9c90d9c367d3f769db911bfe954",
+      "recipe_sha256": "b57d9d758be9caba1af8392a0b5f93355a17747de43905de99814fa25b8a5633",
+      "idea": "受印玺认证的纸制货币符号展开于铜钱前，突出纸币的制度信用和符号属性。"
+    },
+    "pe_022": {
+      "title": "信用货币",
+      "path": "assets/cards-v3/pe_022.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27552,
+      "sha256": "024e33f246fbe4b4622a44770b773ee4fa27e836cb7703dbca756e881188b2de",
+      "recipe_sha256": "11357b175a2ad6392e691109fd79e4dc6c6425a27bb356da408fb6fed1da3414",
+      "idea": "银行连接凭证与多个支付节点，表现货币形式建立在信用关系和银行体系之上。"
+    },
+    "pe_023": {
+      "title": "货币流通规律",
+      "path": "assets/cards-v3/pe_023.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43328,
+      "sha256": "560c837b5088cd4b9f8a35591f69efdf4e36350ebac115f19948927f98027298",
+      "recipe_sha256": "23b1cb6280033190d2a28eac55b98f6c83e95501b62986e1db858d6f1f434ac9",
+      "idea": "一枚流通钱币沿环形路径经过多个商品点，旁置计时轮，表现数量与流速的关系。"
+    },
+    "pe_024": {
+      "title": "通货膨胀",
+      "path": "assets/cards-v3/pe_024.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41334,
+      "sha256": "e106ff03472c0a575a4662bfee13650d89687e577d97f45981e2522306f765b6",
+      "recipe_sha256": "e91b87900c941753b2436ea4bc2c118b7339a7a92115e2e179c511eb567c53a6",
+      "idea": "不断升高的钱币堆与远小于它的生活资料并置，表示物价持续上升及购买力受损。"
+    },
+    "pe_025": {
+      "title": "通货紧缩",
+      "path": "assets/cards-v3/pe_025.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 48464,
+      "sha256": "cf0299edf6c6aab5273906b6d30eea256d0ab7e75f5db4f6ac1c4664bd8a28a0",
+      "recipe_sha256": "b75b656fda1e8726eadd8566a4bae4051d1b8519c82010072a9a375e725fa702",
+      "idea": "钱币沿台阶逐次缩小，商品滞留于仓中，表现一般价格下行伴随流通放缓的可能。"
+    },
+    "pe_026": {
+      "title": "自然经济",
+      "path": "assets/cards-v3/pe_026.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29866,
+      "sha256": "eca67c8728dc2297eb396426485b83405c0ef0b667f4da082d654d7f376f4e65",
+      "recipe_sha256": "bb161eec51b4041810e61f38e100c6ccbf3809c4f9a47d03a757c0e074063bc1",
+      "idea": "一户山居围绕自种田地和水井形成封闭小循环，突出直接满足自身需要。"
+    },
+    "pe_027": {
+      "title": "商品经济",
+      "path": "assets/cards-v3/pe_027.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30060,
+      "sha256": "b1507af4d680353e76da24ed556145fcb1a4b006ffaf49f7e0b5846a90308b84",
+      "recipe_sha256": "da92dc51ce62662ececcceba3e5ba7af8ca6efae6a792ad88eb7e1f8136e602e",
+      "idea": "织造、耕种与集市通过交换路线联系，表现为交换而生产的商品经济。"
+    },
+    "pe_028": {
+      "title": "市场经济",
+      "path": "assets/cards-v3/pe_028.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33226,
+      "sha256": "b07c31facb22844bad43fd1871cfd3c128a4aa58453edf5019348a86182c084e",
+      "recipe_sha256": "6a66a3d3ff04f10968c7d785a7f8a671c3523e2e3fa49d1d828dc5de0fee8ebb",
+      "idea": "中央开放集市辐射作坊、住房和港口，呈现广泛的产品及要素市场联系。"
+    },
+    "pe_029": {
+      "title": "市场机制",
+      "path": "assets/cards-v3/pe_029.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34312,
+      "sha256": "dc81706b69a531df8e63c33568c54179715e5fcd63efac954ed6cbd511760276",
+      "recipe_sha256": "a8ba2d2f4a976380690c6b08817745b41a68d955450b50e5b5d8c1ad16f808b1",
+      "idea": "价格天平、竞争齿轮和风险盾牌共同推动中央市场轮，表现相互联动的市场机制。"
+    },
+    "pe_030": {
+      "title": "供求价格机制",
+      "path": "assets/cards-v3/pe_030.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32628,
+      "sha256": "e56e8807199e4e524a29772e2dc90c1d49242e0ed9e22e8584069fcab1011311",
+      "recipe_sha256": "2607969ebd0979e5f6eca255ab406f3df145f0ad22ac53a9798918e15cde4d89",
+      "idea": "左右货物与购买者围绕可摆动天平，回流弧线强调供求、价格及生产调整的反馈。"
+    },
+    "pe_031": {
+      "title": "竞争机制",
+      "path": "assets/cards-v3/pe_031.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36188,
+      "sha256": "5be81c76ebc5100b1b5ab7ef4f99112d617206b22a81e929fd445b4ec6ea64af",
+      "recipe_sha256": "9177b74c7577bc14b089f1155660778e71edd3f972140fc7976bc0d53f83a0a7",
+      "idea": "两处作坊沿并行山路向同一市场攀升，表现通过技术和组织改进争取机会。"
+    },
+    "pe_032": {
+      "title": "风险机制",
+      "path": "assets/cards-v3/pe_032.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24642,
+      "sha256": "88a258bb7af0a5df4e4711127cf8fe3e5781336c86ce90553e99ca6a19596dfa",
+      "recipe_sha256": "dbc9953adacfbc317839784d516e6ec8ed13e6f751ad509d293a4f5e74dbb732",
+      "idea": "商旅面前道路分向宝箱与陡峭山崖，表现自主决策同时面对收益与损失的不确定性。"
+    },
+    "pe_033": {
+      "title": "价值规律",
+      "path": "assets/cards-v3/pe_033.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35658,
+      "sha256": "668aa0205f4c1da2bdf736337e0ec30b4f9a9868d4815cad27aec657d52ebaa6",
+      "recipe_sha256": "50ee41dcbac49963729c7954e3786b918ffba6d35289f60d8910308aea105dfa",
+      "idea": "计时器与价值天平构成稳定中轴，价格钱币沿弧线起伏，表现价值决定与价格波动。"
+    },
+    "pe_034": {
+      "title": "价值规律作用的局限",
+      "path": "assets/cards-v3/pe_034.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37924,
+      "sha256": "e2abcd7831188bb70bb4e528d14899ee958dc3b3174c7ece1d63441765cc5ede",
+      "recipe_sha256": "6590dbca0164e29c0258f81157f95652783cf6de9eebdf93413b6887a510c777",
+      "idea": "集市、公共桥梁与生态树木并列，护盾提示公共服务和环境需要保障，表现自发调节仍有需要弥补的局限。"
+    },
+    "pe_035": {
+      "title": "时间节约规律",
+      "path": "assets/cards-v3/pe_035.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29886,
+      "sha256": "e42fe5d3e0db42e75dc385a548d8cdea9c312903d4cff18204fd4fa0752241c1",
+      "recipe_sha256": "1d82ed3ebac61395e2ee178221671fb4beca5cd334a378acfaf4303d24f80c79",
+      "idea": "中央时钟把有限时间分向耕种和织造，精巧齿轮表示合理配置与效率提升。"
+    },
+    "pe_036": {
+      "title": "市场体系与市场秩序",
+      "path": "assets/cards-v3/pe_036.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41326,
+      "sha256": "1afe90b10aa6a3a046ff74c5e7faf64e50d5a666284536495846ff3bffbe68e9",
+      "recipe_sha256": "df4f35dfc0b84732944b0ca855592eba46e519f0f8ce5f5e521b31c54e588d19",
+      "idea": "统一门廊内的集市和生产节点沿规范道路连接，印玺代表共同交易规则。"
+    },
+    "pe_037": {
+      "title": "资本原始积累",
+      "path": "assets/cards-v3/pe_037.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37608,
+      "sha256": "1433b2f762a73957bd6e18cd2699d47396ab9faaf3c3952394c436e08edc38ca",
+      "recipe_sha256": "d4d9c51607baf70a3053e6b1311585a345565ed5adc9a155fc6b44746e6bfb2d",
+      "idea": "围界一侧是集中财富与土地，另一侧是离开土地的劳动者，突出生产者与生产资料分离。"
+    },
+    "pe_038": {
+      "title": "资本主义所有制",
+      "path": "assets/cards-v3/pe_038.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28708,
+      "sha256": "e1bba8caf01069e4ce3b0873c35a451a0adffffeec3b80ff6d86b9d9c30f514d",
+      "recipe_sha256": "f4b5657b8d88c5d7b392905ab1ce14563b69df7d0c8ce03a2d3fbda773ac897a",
+      "idea": "印玺控制的作坊与前来劳动的人群隔着契约相连，提示所有权和雇佣劳动关系。"
+    },
+    "pe_039": {
+      "title": "业主制",
+      "path": "assets/cards-v3/pe_039.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25974,
+      "sha256": "2824fa20268d878cda1bb6549ade89fcbf80a0ed101e147dfc7704aaa5bd48a9",
+      "recipe_sha256": "7252af306c369d08a16126e66ec57819ee1031bbce9cf899743506ef6e481309",
+      "idea": "一个业主的印玺直接覆盖一间独资作坊，表现产权与经营控制集中于同一主体。"
+    },
+    "pe_040": {
+      "title": "私人股份所有制",
+      "path": "assets/cards-v3/pe_040.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32908,
+      "sha256": "06723e4d619747e1d49a6b41f3e3cc35846bde737908ac453d43b353343950fe",
+      "recipe_sha256": "a3a0d7774ae9af03774afd47a3bcf84c4b1d8f44c5d5ec6828830278edfa8a4b",
+      "idea": "三份股份凭证汇入同一企业，经营者位于企业前方，区别共同所有和日常经营。"
+    },
+    "pe_041": {
+      "title": "法人股份所有制",
+      "path": "assets/cards-v3/pe_041.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33318,
+      "sha256": "8c4fc290f780d078fdad63c3e716619ddf9bd76cf7a768d807ce672dba280ace",
+      "recipe_sha256": "e1a84714bc1d2421187b08830c568c86ba086da59fc24450eed4f48c95b1c212",
+      "idea": "银行、企业与基金式藏书楼彼此以股权光线交织，表现法人机构间的交叉持股。"
+    },
+    "pe_042": {
+      "title": "生产集中和资本集中",
+      "path": "assets/cards-v3/pe_042.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37026,
+      "sha256": "56236585580c98b91128d0ab8950e6f3b62ee3b533f177e55645b721bae1dfe3",
+      "recipe_sha256": "fa1cdc876fc0c572611dc81db100548a664450b6d9d9ec22495063d70afc4ed2",
+      "idea": "多个小作坊与资本箱汇向一座大型产业宫阙，表现生产规模和资本占有的集中。"
+    },
+    "pe_043": {
+      "title": "垄断",
+      "path": "assets/cards-v3/pe_043.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41138,
+      "sha256": "06e665c542fb3583df2c900793c5a4cd30fee62c4e9bda9395aabff741fd865c",
+      "recipe_sha256": "162a7d66d9536468b878827190a6534136c63c6c457fdfd4ba189cc60ed7102d",
+      "idea": "庞大的封锁门廊笼罩集市，小作坊处于边缘，表现少数大企业控制市场入口。"
+    },
+    "pe_044": {
+      "title": "金融资本",
+      "path": "assets/cards-v3/pe_044.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36948,
+      "sha256": "4ecc3738384870f2bac7f5599d211f0481e33f8f3ab4d22d24d4591e4b6bcc01",
+      "recipe_sha256": "76544003b9d732a280cc5209479056d643e43a3ac99eb2318805f0876018bc5f",
+      "idea": "银行与产业织机由交织金环连接，在共同底座上表现银行资本与工业资本融合。"
+    },
+    "pe_045": {
+      "title": "帝国主义",
+      "path": "assets/cards-v3/pe_045.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41350,
+      "sha256": "784c2cab4b69084c8f3afef52f463fb47052be2745830c2bdb7eb571c0b66d14",
+      "recipe_sha256": "6406af63f5942d23c7c73088fc0147c9ae7c64a8732e49c18c144c8c522396dc",
+      "idea": "金融楼阁俯视被航线连接的地球与远洋船队，提示历史上的垄断、金融统治与资本输出。"
+    },
+    "pe_046": {
+      "title": "国家垄断资本主义",
+      "path": "assets/cards-v3/pe_046.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35576,
+      "sha256": "ba512024801a7e484ec6675bbd75c26b06dfdda10b6a642cb070e10de3d978aa",
+      "recipe_sha256": "ae665a81cde58a918459ffa6e2f239b26baec044f2cbf6fddce337eb219cdca2",
+      "idea": "行政宫殿与巨型企业共享一座桥梁及契约，表现国家与私人垄断资本的结合。"
+    },
+    "pe_047": {
+      "title": "资本",
+      "path": "assets/cards-v3/pe_047.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30838,
+      "sha256": "cad52dceaace08cd81b30a0458ccfdde5a6ca46ba1bd3f7cfcf6bc852748e71d",
+      "recipe_sha256": "a1f3d23024ce76d2bff0c9c1c5fd94ba89bb129dc7a6c924465e9ea6f290330d",
+      "idea": "货币经劳动和生产装置后返回增殖的钱币，强调资本是一定社会关系中的增殖运动。"
+    },
+    "pe_048": {
+      "title": "资本总公式",
+      "path": "assets/cards-v3/pe_048.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39754,
+      "sha256": "c07221dbc59e5adf9659ed1d6af5c9282e8af05bf7e3a9ba6a2f84abef5d0d84",
+      "recipe_sha256": "430d7166a29a419cb05d0223a5f3de7eb8e778b27be4aa7b8144a8f3149a7853",
+      "idea": "左右大小钱币之间置商品箱与生产光路，以显著起讫差异表现G—W—G′。"
+    },
+    "pe_049": {
+      "title": "劳动力商品",
+      "path": "assets/cards-v3/pe_049.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25414,
+      "sha256": "7835ec2ade972087be9530306115c7d5616b9307e22960de578c5ffb9e865ddb",
+      "recipe_sha256": "724fc8c767eb8ca0a1f2e634cdfa99acac972ce415577e739b2b721af9c2e210",
+      "idea": "中心劳动者周围是生活住房、粮食与学习书卷，表示劳动力再生产及教育训练所需条件。"
+    },
+    "pe_050": {
+      "title": "劳动过程",
+      "path": "assets/cards-v3/pe_050.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26710,
+      "sha256": "1f573becebfd593cd55869d6708967e7318dd43816ef4faf2601229726a1392d",
+      "recipe_sha256": "6f4b2339b76d8d8febadb530cb0ab22524e35b8c12f9b86b2179584b3a6757d8",
+      "idea": "劳动者借助炼器炉把陶坯烧成器皿，以陶工作业清晰呈现劳动者、劳动手段和劳动对象。"
+    },
+    "pe_051": {
+      "title": "价值增殖过程",
+      "path": "assets/cards-v3/pe_051.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30176,
+      "sha256": "d47c4c4be9d500500035e786da1b643ad7ba68891d2f1a28085d380f68ab872e",
+      "recipe_sha256": "321cf404b002914995da23ac3e3b884f725c14654f08f62116974b51e4e04881",
+      "idea": "时钟和劳动者陪伴生产路线越过补偿点后抵达额外宝箱，表现价值形成过程的延长。"
+    },
+    "pe_052": {
+      "title": "剩余价值",
+      "path": "assets/cards-v3/pe_052.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28122,
+      "sha256": "f164b39ebc7f525a303a903c2abeb0500609725aeaba28c69c4ffc13b77c354c",
+      "recipe_sha256": "0a7586ea822d1a455f7b4e6e861177a24b0469397f6bbb57a25969b849f92ab6",
+      "idea": "劳动者与织机创造的成果分向生活补偿和另一份剩余箱，强调剩余来自劳动者的新劳动。"
+    },
+    "pe_053": {
+      "title": "不变资本",
+      "path": "assets/cards-v3/pe_053.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29750,
+      "sha256": "87586ccf33845bd1187506576d658628a86e25fde06c62c1acf14491c51ebab4",
+      "recipe_sha256": "9fe7ab13ff27aa394f661df1b7d050885a8859d2af2efde5ad86c54b08c54057",
+      "idea": "原有机器与原料的纹样沿生产路径进入成品箱，表现旧价值转移，避免钱币凭空增长。"
+    },
+    "pe_054": {
+      "title": "可变资本",
+      "path": "assets/cards-v3/pe_054.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24572,
+      "sha256": "6bc9ea1d258fd3f337be042cfd96b07ca7f98badcfd70e81dbde9241d1a5e8f1",
+      "recipe_sha256": "7c08157ef544c7bd02a628011b51ecd10bcfb92647a58f46fef1661c10f95a47",
+      "idea": "支付给劳动者的资本经活劳动形成补偿与剩余两束成果，突出可变资本的特殊作用。"
+    },
+    "pe_055": {
+      "title": "剩余价值率",
+      "path": "assets/cards-v3/pe_055.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 44304,
+      "sha256": "7beccb3759dbd52ee65047c9d7614879029f7c8813f6cfae0dacef0e4dc4450b",
+      "recipe_sha256": "3a51f1ab3a048c29a1cb7337153c3a0ef37b77175b3ac1c3a30741ad23b3015f",
+      "idea": "两份新价值成果置于计量天平两侧，下方时钟提示剩余劳动与必要劳动的时间比率。"
+    },
+    "pe_056": {
+      "title": "绝对剩余价值",
+      "path": "assets/cards-v3/pe_056.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28476,
+      "sha256": "0ac7e707b802d5eff37ffd62238b14ad942203b3354a8070c3a9816507fbb7fc",
+      "recipe_sha256": "fa60cb6e555cabb2b759825d0a77755936486d73de2d425cb03d73e4e578d5e5",
+      "idea": "前景连续两只沙漏通向夜灯，后方织机保持运转，以清楚的时间序列提示必要劳动时间不变、工作日延长。"
+    },
+    "pe_057": {
+      "title": "相对剩余价值",
+      "path": "assets/cards-v3/pe_057.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29934,
+      "sha256": "56714e6f416a2dd6ceb106a28b7c17f9961338e4b0372a4aeb7430927f331c10",
+      "recipe_sha256": "6043df9841366b0c111afee82b32bca61a5b31cfa15bd2fada640c550ccf1483",
+      "idea": "不变的大时钟之下，改良织机缩短生活资料生产路径，留下更大的剩余成果区。"
+    },
+    "pe_058": {
+      "title": "超额剩余价值",
+      "path": "assets/cards-v3/pe_058.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30816,
+      "sha256": "a7c7eb74744b1bdb1483e926ad15790c4da0381c0a575137094644964f444266",
+      "recipe_sha256": "5fce4cbae20ef2e77d079409948b8fdc22d8731c9cde4250fee2a8ee344c11c5",
+      "idea": "一侧先进机关作坊明显领先另一侧普通织机，较低个别耗费对应暂时额外成果。"
+    },
+    "pe_059": {
+      "title": "剩余价值规律",
+      "path": "assets/cards-v3/pe_059.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31778,
+      "sha256": "8270f1f1377b4ae8736762da30d3979356ef0e4b0bdf4b14aee355462ea1794d",
+      "recipe_sha256": "3763122dc98a04f9dbc50f713231db8c7ff467334569bb03e6941ea9f3790b0c",
+      "idea": "生产、销售与收益分配环绕中央增殖之灯，表现剩余价值追求贯穿资本运动。"
+    },
+    "pe_060": {
+      "title": "资本主义工资",
+      "path": "assets/cards-v3/pe_060.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28994,
+      "sha256": "8a7e9dd8b758e898bf921729fa74d208e3b32b0566d5b186d1f6337effb3cdda",
+      "recipe_sha256": "f396ff7bceba8e7278d2a34f7b04b1229eb67f90ec9ea8426dc912d1cdd74abf",
+      "idea": "劳动者接过工资钱币，背后的时钟与织机提示工资是劳动力价值的转化形式。"
+    },
+    "pe_061": {
+      "title": "名义工资与实际工资",
+      "path": "assets/cards-v3/pe_061.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32474,
+      "sha256": "e3b374adba8d38fe01fc60e648b81058c0dda0e088d86607b5c8f90f31c81f77",
+      "recipe_sha256": "0ba3d5ba2c03cff0f07d6babd4e4fbb32c418579d25c5077ce85444daba6a4e9",
+      "idea": "一端是货币工资，另一端是粮食与居所，两侧由购买桥连接，表现数量与购买力之别。"
+    },
+    "pe_062": {
+      "title": "当代劳资关系变化",
+      "path": "assets/cards-v3/pe_062.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43876,
+      "sha256": "8e85d746cf25672c011167fb9f3c2cd37d54c35b645ab13dd39edeadd5c9d470",
+      "recipe_sha256": "64e081da25890cdab4c92de89c7a670e50608ed357f5449a201872b2a2b63915",
+      "idea": "劳动者代表与经营者隔桌共阅契约，周围有集体人群，表现集体谈判和参与管理。"
+    },
+    "pe_063": {
+      "title": "产业资本",
+      "path": "assets/cards-v3/pe_063.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30920,
+      "sha256": "dc323a50eb9675dbf8ebfcf41115eaea9ec14613ac95cf119875c1caff9f7568",
+      "recipe_sha256": "229ec5787b292f79e8afa0be65d2b9cc7b099582838bcd2bb04e5969ea5c6a5f",
+      "idea": "织造、耕作与运输船构成产业领域群像，生产者位于共同中心。"
+    },
+    "pe_064": {
+      "title": "资本循环",
+      "path": "assets/cards-v3/pe_064.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33104,
+      "sha256": "2b5ff33f205a779a51fa1835ede21d2ee83b07dc37e806a68005e0f3d6ba1070",
+      "recipe_sha256": "decceaac78b3b2f0d45f6e90d451ab55bcbcbdb1c1639831ae625795b53e2b63",
+      "idea": "钱币、生产织机与商品箱沿闭合三角依次连接，完整呈现购买、生产、销售后的回归。"
+    },
+    "pe_065": {
+      "title": "产业资本连续循环",
+      "path": "assets/cards-v3/pe_065.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32418,
+      "sha256": "aa129732c2958336a9c2d7be449857bab7f851aca9d912f9b220e648dfbb8868",
+      "recipe_sha256": "b3b45b01eac4c1de552065d540341adaba357b0f02f61d7d6410013062144a1b",
+      "idea": "同一产业的三条并列路线同时显示货币、生产与商品，强调空间并存而又相继转化。"
+    },
+    "pe_066": {
+      "title": "生产时间",
+      "path": "assets/cards-v3/pe_066.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26730,
+      "sha256": "214f7bec6ba98bac53edee7aa0fdd023cf0752b8d8010e1605acd945b09c1532",
+      "recipe_sha256": "753a9033ead7b8e213ae116d112d9b840346f6afdf6230aaba1add110de30ab7",
+      "idea": "储料仓、实际劳动与等待成熟的灵植置于生产时钟旁，表现生产时间大于实际劳动时间。"
+    },
+    "pe_067": {
+      "title": "流通时间",
+      "path": "assets/cards-v3/pe_067.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38550,
+      "sha256": "3daf30d347ff98ccf2389794cb4935bc81d630956b5de864b507558deb41c691",
+      "recipe_sha256": "d17a3ac5d1105982cd96d45514c0a389d2a75ed441b94c86a1ff6453eaa0e29a",
+      "idea": "买入码头和卖出集市之间悬着时钟，路上货箱尚未进入生产，表现流通所占时间。"
+    },
+    "pe_068": {
+      "title": "资本周转",
+      "path": "assets/cards-v3/pe_068.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 49294,
+      "sha256": "e00ba49ffd22cbd4881c025a3434a334c4187a81b5a4bcb74d3adff7fe1ccbbf",
+      "recipe_sha256": "3d76b5a66faf6aa9e389d31e67cd0cb02660385a83de7516f373e1abda5af7ef",
+      "idea": "连续转动的大轮与重复计时环绕钱币，视觉焦点从一次循环转为重复频率。"
+    },
+    "pe_069": {
+      "title": "固定资本",
+      "path": "assets/cards-v3/pe_069.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32122,
+      "sha256": "b597eac64963c6993b682444ba3cc5acd857d3c690b51db025e8d37ea76e0426",
+      "recipe_sha256": "cfc54ac8d3dbd6e4bfff06d3221a5e3c12bae04fd14999ea03559c37ef8e46e3",
+      "idea": "稳固大型织机面前依次出现数批产品，金线分次流入每批，表现设备长期参与和价值逐步转移。"
+    },
+    "pe_070": {
+      "title": "流动资本",
+      "path": "assets/cards-v3/pe_070.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27964,
+      "sha256": "82c98e4d32eafc60907ad523e2dadad143f987ba3114bd2976b66ee3bc3c82e3",
+      "recipe_sha256": "ba44b9c47f2c8482902faecae18658e60325680d4d3ae0705d66f7830f368e54",
+      "idea": "一束原料与劳动者共同进入生产，完整产品回到钱币端，突出一次生产周转的全部回流。"
+    },
+    "pe_071": {
+      "title": "有形损耗与无形损耗",
+      "path": "assets/cards-v3/pe_071.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36504,
+      "sha256": "63e6490811bf7112d8b81b5ab77ce436969ebf230725dcf783055577c136b2cd",
+      "recipe_sha256": "c1385219975471f7d7e71b2f28f89a541f593febdfdfa190f2ece9cc8108ee99",
+      "idea": "左侧旧轮具连接一段实际断开的传动链，表现物质损坏；右侧完整旧轮具与较大的新型齿轮装置并置，表现设备未损坏却因新技术出现而贬值。"
+    },
+    "pe_072": {
+      "title": "预付资本总周转",
+      "path": "assets/cards-v3/pe_072.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38848,
+      "sha256": "30348dcfd36bf6ff711d5504fea2ce1e7e172141b5b39cb83e3ae3e17a63a637",
+      "recipe_sha256": "784389d45b7fb84f54c695c57089021888f09ee6333032c035e4ace7fb083a98",
+      "idea": "慢速大型轮与快速小轮共同汇入总账算盘，表现固定与流动资本周转的加权综合。"
+    },
+    "pe_073": {
+      "title": "年剩余价值率",
+      "path": "assets/cards-v3/pe_073.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32342,
+      "sha256": "8468f656be5c9165a8863d59824dfdbe698024d1e4bf5c5d665f1c1b67ae38a7",
+      "recipe_sha256": "2dfc63e87a59ddec6ce4087d6cdae0fa31da266b00eddb00e151e2883eb39396",
+      "idea": "同一份预付可变资本在同一年度内多次生产周转并形成剩余价值，时钟与周转轮强调一年内的周转次数。"
+    },
+    "pe_074": {
+      "title": "生产成本",
+      "path": "assets/cards-v3/pe_074.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 45738,
+      "sha256": "a965b9f7e7aad7c6ad7beb3ed4add1f735943fc17378f9811983cb15a09de4b7",
+      "recipe_sha256": "bd0a4422137ec1756d1077477bbe288b986ab2bd93dbdbe4b20bc4869a5ef632",
+      "idea": "原料齿轮与劳动力补偿一同进入算盘账册，仅呈现消耗的不变资本与可变资本。"
+    },
+    "pe_075": {
+      "title": "利润",
+      "path": "assets/cards-v3/pe_075.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30256,
+      "sha256": "572c77fd28b50569055e3e60071404806d07f3106e113d11ce71fc8e2c9ce07c",
+      "recipe_sha256": "1a31133553ddca2f9bccfb13a1b5234ca7eb077a96d50a87d89aa7dd9a542bd5",
+      "idea": "生产装置与总资本账盘共同立于底座，额外收益箱悬于整体投入之上，提示利润形式把增殖归于全部资本。"
+    },
+    "pe_076": {
+      "title": "利润率",
+      "path": "assets/cards-v3/pe_076.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 45876,
+      "sha256": "ffdeed07f84d261700c980cf1331c3433acd4a8d74d8b191bbdec65e9d9f50cc",
+      "recipe_sha256": "9cacb9d4b3410fca7e3739a58956886383a916d860635ee03dd13cb277c3bf4d",
+      "idea": "天平一侧为剩余成果，另一侧同时陈列机器与工资钱币，突出分母是全部预付资本。"
+    },
+    "pe_077": {
+      "title": "平均利润",
+      "path": "assets/cards-v3/pe_077.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41770,
+      "sha256": "f846cfe8d824194ffa4bc78cbf67bb09a9c702ccdbce5a49faa9e1c64374b7bf",
+      "recipe_sha256": "f0afc6a2896975195c299e4c6cd65102665aa0ce7a93ab7cd1e03dd95c222188",
+      "idea": "不同产业共同注入上层收益池，再向相同大小的资本承接器分流，表现平均利润的再分配。"
+    },
+    "pe_078": {
+      "title": "生产价格",
+      "path": "assets/cards-v3/pe_078.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46858,
+      "sha256": "8d5a9f1dd275afa71c4712c38c698a874de5d35eb3f2f5797b70a3d785eef4c4",
+      "recipe_sha256": "0182ebc9e051eaca12fb7a7b674fab9cb48af2511fe2a18a5e963d8c079e27bb",
+      "idea": "成本算盘和均分后的收益钱币并入统一商品价签，表现生产成本加平均利润。"
+    },
+    "pe_079": {
+      "title": "商业资本",
+      "path": "assets/cards-v3/pe_079.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46916,
+      "sha256": "cd6e5205f3f295f72fd28a6065bbc11caf92688fb6127f7dcb4e682a51a842e0",
+      "recipe_sha256": "119243d1d10bf5ee401ab9c23e5647f2a6baf017e1b98a32556edb328f70c4a6",
+      "idea": "生产仓库之外独立的商铺连接运送货船，突出专门承担销售和价值实现的资本。"
+    },
+    "pe_080": {
+      "title": "商业利润",
+      "path": "assets/cards-v3/pe_080.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37582,
+      "sha256": "c186e60c0d1d2a514f65875194e89b8dcfe278b2be61a5f51141a49f5cae296e",
+      "recipe_sha256": "c9a7bebfe7e044c56dcd7e3fa128415d8e1455d9dbb66af79c346db5d621f0fe",
+      "idea": "产业作坊创造的成果分向自身和商业柜台，钱币随分配进入商铺，表示商业利润的来源。"
+    },
+    "pe_081": {
+      "title": "生产性流通费用与纯粹流通费用",
+      "path": "assets/cards-v3/pe_081.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40686,
+      "sha256": "08325abc915dd7be17e44c51344f8f95843fcb2b698e78d03e5ac120c8172332",
+      "recipe_sha256": "043dfd5b7a31b0777180ec39b22a9a18ec8bcb0380f2c44aeb705e935498e258",
+      "idea": "一侧运输船与实物货箱，另一侧簿册和算盘，以两条不同路径区分使用价值运动与纯粹买卖记账。"
+    },
+    "pe_082": {
+      "title": "借贷资本",
+      "path": "assets/cards-v3/pe_082.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36500,
+      "sha256": "daef87973d250d3959926559927549fccb50925c5bf600daa2a61e23da7817b9",
+      "recipe_sha256": "f516f3515d475c5f52ebaa25528b4e0658fc5a59b51fb704cb728e9d3cd4ed57",
+      "idea": "闲置钱币由保管箱经借贷桥送到生产作坊，契约留在出借端，表现暂时让渡使用权。"
+    },
+    "pe_083": {
+      "title": "利息",
+      "path": "assets/cards-v3/pe_083.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31238,
+      "sha256": "3e87ec4b5e30e8f179925ffb78e664fa8ca04cf3bccee50a949da200192bff90",
+      "recipe_sha256": "bf02b6e4c89ee9d5f68fe2b0efb43ebae2fc4e459ed9056e988081a940155b3b",
+      "idea": "生产收益分作企业留存和回归出借者的一小份，利息来自生产后收益的分割。"
+    },
+    "pe_084": {
+      "title": "虚拟资本",
+      "path": "assets/cards-v3/pe_084.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34634,
+      "sha256": "fd3ca190fc9fed51a7e49f0b1870a21ff8fbf7c57ff174855cd9777c53859eab",
+      "recipe_sha256": "2eca8176b820f0772eacdda26eb37c655c27528a2668d5ea81aabe6205a9d59a",
+      "idea": "现实作坊与悬浮收益凭证隔空对应，凭证上环绕预期光点，表现收益权独立交易而非直接生产资料。"
+    },
+    "pe_085": {
+      "title": "股票价格",
+      "path": "assets/cards-v3/pe_085.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 48568,
+      "sha256": "08f5e0f3559808b23195250dfd19f020d838f48e47a218e1377ddf5692ce5893",
+      "recipe_sha256": "59a3abe1d199dc95fd0782f225d35fc8c729345204df095f66c1b9a7af8d0541",
+      "idea": "股权凭证连接年度收益钱币和利率计量算盘，突出收益资本化而非票面金额。"
+    },
+    "pe_086": {
+      "title": "资本主义地租",
+      "path": "assets/cards-v3/pe_086.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28762,
+      "sha256": "e8e0e6e5f2f20d05c79a6f27e382eb34c4c1aa7caf1806a90935fd293504357d",
+      "recipe_sha256": "d81f5b75d5a1918465266f8f557488ce224bdc59cd1ca11d410d271dcb14cb11",
+      "idea": "田间劳动者、经营契约与土地所有者的印玺形成三方关系，地租流向所有权端。"
+    },
+    "pe_087": {
+      "title": "级差地租",
+      "path": "assets/cards-v3/pe_087.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31220,
+      "sha256": "d4563f95c09914fc264bf82f3de968819330268c10c2f7b3ad0143ca50eaef27",
+      "recipe_sha256": "0bd54de23c5a38f910d12e4c20ff859ba2a4e382537f3506b1528824a80a4dd1",
+      "idea": "两块同等大小的田地通向同一集市，一条运输道路明显较长、一条较短，以区位与运输条件差异提示级差地租形成的条件。"
+    },
+    "pe_088": {
+      "title": "绝对地租",
+      "path": "assets/cards-v3/pe_088.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 48594,
+      "sha256": "1431ba3856ff33d8e9455b91f6a0a0006e804fc3c47c7f2ffda1384a915c908c",
+      "recipe_sha256": "f79f3c6d00e12ffb149d7624bba13f3f8b050fdc7bfd61d744f7b82b56012776",
+      "idea": "同一所有权门槛横跨丰瘠不同的两块土地，入口印玺和钱币强调租用任何土地都须支付。"
+    },
+    "pe_089": {
+      "title": "土地价格",
+      "path": "assets/cards-v3/pe_089.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38494,
+      "sha256": "b8239f674991bd661d97861a5fb581489b4733893755ca534ccc0fd3b0462891",
+      "recipe_sha256": "15d19daf0f3bcea56cbfac0e3095b4ffa0e8cc89d1c321ec49e56ad4af4b91fa",
+      "idea": "土地与能取得同额利息的货币资本相对，契约和计量盘连接，表示地租资本化形成价格。"
+    },
+    "pe_090": {
+      "title": "资本主义福利制度",
+      "path": "assets/cards-v3/pe_090.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30148,
+      "sha256": "4b4c7ceb9b701a5b6bf098d02c781b1bef4f4614dbf836807c56afff979f7897",
+      "recipe_sha256": "5f32a4c253239dc6f2cf0e2b596532b2864cb9d14e8164c6a598d6c9f6a9f73b",
+      "idea": "公共保障伞形盾牌下，生活住房、家庭与共享粮食由上层分配池照拂，表现收入再分配。"
+    },
+    "pe_091": {
+      "title": "物质资料生产",
+      "path": "assets/cards-v3/pe_091.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30928,
+      "sha256": "e3e861f764b2059a6cdd0a348a5602fc333434361ba623ee590fbee329de7ef9",
+      "recipe_sha256": "dcd9cd44e62e4572e9df4428d83a6dea250cbe8f49e4797d094e4d27af6ff464",
+      "idea": "劳动者以工具加工谷物，产品进入粮仓并供给家户，表现物质资料生产是社会生活的基础。"
+    },
+    "pe_092": {
+      "title": "生产力",
+      "path": "assets/cards-v3/pe_092.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25584,
+      "sha256": "296280e4f32cd305be20a6615f509574f7fc269b6cfd080dea7439f207a7c618",
+      "recipe_sha256": "f5a760c168891852d5f3693de6d138ba95fb92ee5294fd3978022f26ab563722",
+      "idea": "劳动者与齿轮工具共同作用于原料山石，前方长出晶簇产品，区分劳动者和生产资料的协同力量。"
+    },
+    "pe_093": {
+      "title": "生产关系",
+      "path": "assets/cards-v3/pe_093.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29450,
+      "sha256": "b544474c4d5bbc842f122093dbdd04954b5c4884b39b1b5ae4a1be4be29b7bd1",
+      "recipe_sha256": "6b3a3720e89879f7a59a8e6d32cfe188efa4191db9056529a22857d48b360c04",
+      "idea": "三位劳动者围绕生产用织机和共同契约，表现生产中人与人之间的社会关系。"
+    },
+    "pe_094": {
+      "title": "社会再生产四环节",
+      "path": "assets/cards-v3/pe_094.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35104,
+      "sha256": "75191ee1dbde0661962b0086884f5e04e12f914d4c3370f04ace66d2eadc3c7d",
+      "recipe_sha256": "420fdfec95955c11682d2a91e9decff5f2f3b01706218c2dde76522f9b01f083",
+      "idea": "织机、分流台、交易摊和家户依次连接成循环，分别表现生产、分配、交换和消费四环节。"
+    },
+    "pe_095": {
+      "title": "生产力与生产关系",
+      "path": "assets/cards-v3/pe_095.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33664,
+      "sha256": "21feba82792d5021385693e8cb25c103447d161b692c02ba8945957542f458dc",
+      "recipe_sha256": "67e84e3d54bd32a9f223a3b5ca6940707e41a22a929166f3953fea078ff5acff",
+      "idea": "一边是劳动者操作的齿轮，另一边是维系协作的契约，中间桥梁表现生产力与生产关系的相互作用。"
+    },
+    "pe_096": {
+      "title": "经济基础与上层建筑",
+      "path": "assets/cards-v3/pe_096.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32978,
+      "sha256": "9590047582524946e129f67f7745c4bcd0ff3ec1735fc39334fba13fb5308cb5",
+      "recipe_sha256": "22276a26d79ad5a64f6eccacd490dcf6f3b649435b153c2e6297dfe0a461477b",
+      "idea": "下层工坊中劳动者之间的占有与协作关系象征经济基础，上层门楼和印章象征制度设施；经济基础是生产关系而非建筑物本身。"
+    },
+    "pe_097": {
+      "title": "政治经济学的性质和任务",
+      "path": "assets/cards-v3/pe_097.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 47602,
+      "sha256": "0c508832aadf55a21680f5da1705a21848af1a495941230f3af351fa7ff8aabc",
+      "recipe_sha256": "a781bbf639796c1e2bf574c0c1f053f6c2d8a81f27a1a2c56a764715f91c3c0e",
+      "idea": "学者对照劳动工坊和分配天平研读书卷，突出政治经济学研究生产关系及其运动规律的任务。"
+    },
+    "pe_098": {
+      "title": "政治经济学的研究方法",
+      "path": "assets/cards-v3/pe_098.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 45932,
+      "sha256": "4cf8663e6755f1eaa79bb326836dc6a0ea1bc61f72f35d94be2d47f788587815",
+      "recipe_sha256": "70d27471308b600354300ea8525c8a8e4dcb8b7f14e32cf4dc3b3b236b18c122",
+      "idea": "实物谷物和织机汇入展开书卷，再由罗盘指向社会群像，表现从具体抽象再回到具体的研究方法。"
+    },
+    "pe_099": {
+      "title": "马克思主义政治经济学的创立与发展",
+      "path": "assets/cards-v3/pe_099.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 44500,
+      "sha256": "a08fd4660f2df52542da544c8fae3b3a141d3838e4a7ad2dfe914b6a8df8d810",
+      "recipe_sha256": "7975932afb2c44359ea452c35ad05b6194c56c57009e581ce82b9049de849624",
+      "idea": "相继展开的书卷经过工人和工具的实践场景，汇入新的书册，表现马克思主义政治经济学在实践中发展。"
+    },
+    "pe_100": {
+      "title": "简单再生产与扩大再生产",
+      "path": "assets/cards-v3/pe_100.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30626,
+      "sha256": "17a3052c8f2e050faf496e5d7cd0797c86b9f15e7b3ad88124cb91b0e8e175ee",
+      "recipe_sha256": "972c162e45e552118ae78a867992c815f9d840c9868e9ada79c7bd5d068f543f",
+      "idea": "左侧织机的产品回到原规模循环，右侧谷物盈余进入更大的工坊，比较简单再生产与扩大再生产。"
+    },
+    "pe_101": {
+      "title": "资本积累",
+      "path": "assets/cards-v3/pe_101.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32314,
+      "sha256": "73eccc7844d993606d14e3a39b1e6b49b5aff5163e06ffd6f0322b5603cd8b1f",
+      "recipe_sha256": "b8f10d449961d06768d1f03d4555b710f63b0a9da5bb90f313dfbad3b3639160",
+      "idea": "生产形成的盈余钱币经由工具转成新织机，表现剩余价值转化为追加资本的资本积累。"
+    },
+    "pe_102": {
+      "title": "资本有机构成",
+      "path": "assets/cards-v3/pe_102.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32330,
+      "sha256": "1d9242ac927e0e4c384c707fe6930d22791d5ed32e3e52b07a11b1f63187c26f",
+      "recipe_sha256": "6bce45579f2499e2c7c31d3589a5cc2d1a88f229f5e89056b4ed4ed08ac10d7b",
+      "idea": "机械齿轮与劳动者分置天平两侧，算盘把技术构成反映为不变资本与可变资本的价值比例；单纯价格变化不代表资本有机构成提高。"
+    },
+    "pe_103": {
+      "title": "资本积聚与资本集中",
+      "path": "assets/cards-v3/pe_103.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37850,
+      "sha256": "a162cee5f27bf80d230960d90ab40f636e559d2e83c0731c4e2cd86bff05ed5e",
+      "recipe_sha256": "ab5ada4e4c1c414ebf08255697a0fac28cc7ad61d03e686e1c3c8e02924f4d37",
+      "idea": "左侧种子长成一树象征单个资本自身增长，右侧多个钱币汇入同一银行象征既有资本集中。"
+    },
+    "pe_104": {
+      "title": "相对人口过剩",
+      "path": "assets/cards-v3/pe_104.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37268,
+      "sha256": "d091cc061f9fbcd00a92ecf5817ee2580cfe2c522141433575131bc09c09dab2",
+      "recipe_sha256": "ea2f17870ee83ea236632243f78f80f0f935f41392898dc82389bc6d85d2d25c",
+      "idea": "自动织机继续运转，部分劳动者留在关闭的门外，表现相对于资本需要而形成的劳动力供给过剩。"
+    },
+    "pe_105": {
+      "title": "平均利润率下降趋势",
+      "path": "assets/cards-v3/pe_105.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36980,
+      "sha256": "3ee03b8ee4e2134d43cd0ab0e02157cbbbaf1dd7087d9167af2359d22d5e3f12",
+      "recipe_sha256": "b48789ebe79c36541a2dfdd57a360a1a6a01c160fb53fcbb45a77a407b5eb540",
+      "idea": "在剩余价值率等其他条件不变时，机械设备扩张而钱币回流经过天平，表现有机构成提高带来的平均利润率下降趋势，不是每期必降。"
+    },
+    "pe_106": {
+      "title": "资本积累的两极分化",
+      "path": "assets/cards-v3/pe_106.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29466,
+      "sha256": "fc0004fb11f209bc14015d8ba1ab55303946744c9e7bdcdc066de94d61b1d826",
+      "recipe_sha256": "4a82477f098749dc2e6ffbeea5de7d09b24e3e24041ce3588f80b00ae4e13239",
+      "idea": "生产财富汇集于一端的宝箱，另一端劳动者与薄小谷束相对，表现资本积累中的财富分化。"
+    },
+    "pe_107": {
+      "title": "社会总产品与两大部类",
+      "path": "assets/cards-v3/pe_107.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36248,
+      "sha256": "a6a467990cf6e6181a30e9e57237c233940b9b348961ad35fd234bde86b6a0b8",
+      "recipe_sha256": "02c1a47d11cdfcfdea240b3f95a477f005d7b73d79c9e59392fff496c620026b",
+      "idea": "左右两座工坊分别产出齿轮和生活谷物，中间交换桥联系生产资料部类与消费资料部类。"
+    },
+    "pe_108": {
+      "title": "简单再生产的实现条件",
+      "path": "assets/cards-v3/pe_108.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35458,
+      "sha256": "1ccc1f7e2b455455caef3fcbf09841e14a575da402e73bbc401074bc493dc39d",
+      "recipe_sha256": "c69cc9e65de41da454444c88ad399458417d9de86237cee339a74b7ede7de52c",
+      "idea": "生产资料工坊与消费品家户通过等价值的部类间交换部分形成循环，对应 I(v+m)=IIc 的实物和价值补偿，不是两部类总产值相等。"
+    },
+    "pe_109": {
+      "title": "扩大再生产的实现条件",
+      "path": "assets/cards-v3/pe_109.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34906,
+      "sha256": "de775adaa4e7561f4b3ef4f127ff93e550de1b76f8fcb3510f837e85ca7cb44f",
+      "recipe_sha256": "5193153b82059d67cb73f556ea2eb2a94f2fad6c31c44c325600db6a15b96d0d",
+      "idea": "两大部类交换环中留出种子和追加齿轮，表现扩大再生产须预留生产资料与消费资料的条件。"
+    },
+    "pe_110": {
+      "title": "资本主义经济危机",
+      "path": "assets/cards-v3/pe_110.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38934,
+      "sha256": "8af32a9c9e0046fa29fad7b3cb8a6e26002f3d2cfa59d02048850e11ba36c995",
+      "recipe_sha256": "3614eea67559c2ac2577699938fc97ea65e836bfab6e5b4313333408792f9d9d",
+      "idea": "货物堆在仓前而市场入口紧闭，分离的购买钱币表现生产过剩危机中的社会购买限制。"
+    },
+    "pe_111": {
+      "title": "经济周期",
+      "path": "assets/cards-v3/pe_111.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27340,
+      "sha256": "7cdc4d3d16cb94fc9463f809211476d24cda0de69a8ce3e0860c4d5eda7f0f90",
+      "recipe_sha256": "e68672bcfec6ac71efe2c7228a89f7229ee77b8d9e275c4155bb1cdb2b3552d6",
+      "idea": "树木荣枯围绕时钟，比喻经济的扩张与收缩；经济周期阶段为危机、萧条、复苏和高涨，不对应自然季节或固定日历。"
+    },
+    "pe_112": {
+      "title": "经济危机与金融危机",
+      "path": "assets/cards-v3/pe_112.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 44086,
+      "sha256": "d7a65567bc9d01e321f8285b30337f3940905891c0b29c276bf7a10f8f0b3fc0",
+      "recipe_sha256": "da95a682d835ae61db359744ab9d643046e14fdfc91d8d5bfbfefa449be149fb",
+      "idea": "实体工坊和金融银行由信贷链相连，一处阻塞会传导到另一处，区别经济危机与金融危机并表现联系。"
+    },
+    "pe_113": {
+      "title": "资本主义的历史进步性",
+      "path": "assets/cards-v3/pe_113.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39380,
+      "sha256": "b707a2c8316dd73f2cad7152b10d3f8495b676143bc2e67d19848cf1efd9d825",
+      "recipe_sha256": "9de23173f1eecac068aa5ec4e9c427df9b9c31d848e0e153483accf4e2fcf099",
+      "idea": "传统手工作坊旁出现大型机械与远航船，表现资本主义曾推动生产力和世界交往的历史作用。"
+    },
+    "pe_114": {
+      "title": "资本主义的历史局限性",
+      "path": "assets/cards-v3/pe_114.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33546,
+      "sha256": "5befa98d1eb66e937001af5f7bb338dc6678f7552c9858ee85cf28eacd7c95b4",
+      "recipe_sha256": "6ca7bea67693d0f52faf613bff7882bb4ba01c163d629dd59934cfedcfd5c0ff",
+      "idea": "大型机械工坊由社会劳动者共同运转，却在围栏门后集中收益，表现社会化生产与私人占有的局限。"
+    },
+    "pe_115": {
+      "title": "当代资本主义基本矛盾",
+      "path": "assets/cards-v3/pe_115.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32164,
+      "sha256": "82b1daf685b893157fa7a87996424b4880ff4894825da76355b67c82fcf73c1b",
+      "recipe_sha256": "b172d54166797afb48911eb4ccd3acde7c18980fd6d7671f5d2b7233c7fe5ae9",
+      "idea": "互联生产网络围绕劳动群像铺开，收益却指向少数宝箱，表现当代资本主义基本矛盾的延续。"
+    },
+    "pe_116": {
+      "title": "社会主义代替资本主义的历史趋势",
+      "path": "assets/cards-v3/pe_116.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33268,
+      "sha256": "ca57dace27616073ad81ed560e9b9a980e8578498d7d6e4283481299e7e425e1",
+      "recipe_sha256": "03753fa19e84dd218ef1345e7d7be161f0888adefb7a85f3433b1d2b858fe651",
+      "idea": "工业生产基础经由共同协作桥走向公共家园，象征社会制度演进的历史趋势而非瞬间替换。"
+    },
+    "pe_117": {
+      "title": "社会制度更替的长期性",
+      "path": "assets/cards-v3/pe_117.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23998,
+      "sha256": "d1fc14b9a47bfdc8417f95e88747d84d163daf1736717c83a23dc352e87c376c",
+      "recipe_sha256": "1abe2684f17596ca28eca8b1cbe9957009d09329f24cdeae2ef0f9462d8f798a",
+      "idea": "蜿蜒道路穿过山峰与时钟到达远处家园，表现社会制度更替的长期、曲折和条件性。"
+    },
+    "pe_118": {
+      "title": "未来社会的经济特征",
+      "path": "assets/cards-v3/pe_118.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34474,
+      "sha256": "173aa8c26ab4b3365caf002e542cb8f06a0b68fa221fb6d660fd73d0ea678420",
+      "recipe_sha256": "b1d046dd57c96b7c20d2ec17fb2eefb17a2f9f3b3f0423ac56e5d675d41d6fa8",
+      "idea": "公共生产工具、共同分配台和人人可达的书院围绕群像，象征未来社会中人的发展和共同占有。"
+    },
+    "pe_119": {
+      "title": "社会主义经济制度的建立",
+      "path": "assets/cards-v3/pe_119.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34296,
+      "sha256": "c43a5d0f2e84f02cc91deef707e0b2d6c0b260659291a7586e3e15660be58550",
+      "recipe_sha256": "de41e35e1b07372b1ac18b6343d86fb6919143f22a789b247cca3c9b33da9530",
+      "idea": "劳动者共同打开工坊大门，契约印章连接生产工具与公共家园，表现社会主义经济制度的确立。"
+    },
+    "pe_120": {
+      "title": "新经济政策",
+      "path": "assets/cards-v3/pe_120.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41968,
+      "sha256": "3fd9c2e7ccafcb31497b917c924497c33fd40978d2506517989ceb5f66c66611",
+      "recipe_sha256": "3fd73c89f809ae00b680ad8ba2f0e979d0ba237bb03348f1da10823cb4087e86",
+      "idea": "国家工坊、农田和集市之间重新搭建交换桥，表现新经济政策利用市场和商品货币关系恢复生产。"
+    },
+    "pe_121": {
+      "title": "社会主义基本矛盾",
+      "path": "assets/cards-v3/pe_121.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34022,
+      "sha256": "b54d13f690eab1fc6c3311d32814e7042b3093e46e2e3743a14ae6ead214d763",
+      "recipe_sha256": "3383396fede3ec7db7025ebfe7b506d4b255b12b8e42bb594e6f44d873417f96",
+      "idea": "生产齿轮与协作契约、经济工坊与制度门楼两组互动，表现社会主义基本矛盾可通过制度完善解决。"
+    },
+    "pe_122": {
+      "title": "社会主义物质基础",
+      "path": "assets/cards-v3/pe_122.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24766,
+      "sha256": "38cf5193807ebbcbab4654d28fef82bfa533f92f5afc690877757db2fd032698",
+      "recipe_sha256": "bd2f2e703cb2f95bd59d457cd82a11825330dc9b9d580fd21fc44dbef0e7b792",
+      "idea": "基础工坊、能源风车和通达道路托起共同家园，突出社会主义发展所需的物质技术基础。"
+    },
+    "pe_123": {
+      "title": "社会主义本质",
+      "path": "assets/cards-v3/pe_123.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35486,
+      "sha256": "0be70a2bb058fb8a191153ae4b5683f64b3eded2c522066b2c299cd2bc8dbc12",
+      "recipe_sha256": "ffcd0cc7b6c840c491ddb1592d3513f393072601a2be469b7be372ef8ef0560c",
+      "idea": "工具解放劳动、断链解除束缚、合理分配通向共同富裕家园，表现社会主义本质的内在联系，不把共同富裕理解为平均分配。"
+    },
+    "pe_124": {
+      "title": "发展生产力的根本任务",
+      "path": "assets/cards-v3/pe_124.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27716,
+      "sha256": "0b29fb23c1f923b926d4bb21ae600459c041957b630861e9c6c135f6918be69a",
+      "recipe_sha256": "dde01cbd84f7a7a771450801db338121fe74341c747aea1ca2c673ad017417ac",
+      "idea": "劳动者用工具培育壮大树木，生产成果再流向家户，表现解放和发展生产力的根本任务。"
+    },
+    "pe_125": {
+      "title": "社会主义初级阶段",
+      "path": "assets/cards-v3/pe_125.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26438,
+      "sha256": "234ad692767230deaa145c59f18a28708c4d11ed063d87b5689ad84c46729423",
+      "recipe_sha256": "9247393e1c31966cb7465065d9ab27127057ad22e7ac44f3069ca1222e16b596",
+      "idea": "起步台阶、幼苗和建设中的公共家园并置，表现社会主义初级阶段的长期发展任务。"
+    },
+    "pe_126": {
+      "title": "经济制度与经济体制",
+      "path": "assets/cards-v3/pe_126.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29888,
+      "sha256": "e33b369c915c2e280341d966d26602b5afcc704e9fd6d1aa250190ecd46dfba2",
+      "recipe_sha256": "28b2ab1c9795bfdc82afc0a6031a52270d18c00a165c92695a8b56bc9fb79317",
+      "idea": "同一公共家园的地基上排列不同齿轮和组织契约，区分经济制度的性质与经济体制的具体形式。"
+    },
+    "pe_127": {
+      "title": "社会主义经济体制改革",
+      "path": "assets/cards-v3/pe_127.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39822,
+      "sha256": "6770dcbe1f76b2e3c94c8a96baf2542eefe12b1a1b297f2625a2fc59c0c01f0e",
+      "recipe_sha256": "0e7a748d75d2ee446ec5a585dcdc4cbf41dcfa2bd9363ba641c22e47ddf7cc81",
+      "idea": "旧协作链经过工具调整成为畅通的市场桥，表现改革生产关系和管理体制以释放发展活力。"
+    },
+    "pe_128": {
+      "title": "改革发展稳定的关系",
+      "path": "assets/cards-v3/pe_128.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26262,
+      "sha256": "0f865d765fcf96af8b6b9d79b0cd152a6f6cd4763f1def2a703a2b6f2a31d31e",
+      "recipe_sha256": "a886842b780017fce1394dc473599c94fd53497122fb8bdac9c1add4923c9839",
+      "idea": "改革工具、发展树木和稳定山石围成相互支撑的三角，表现改革发展稳定需要协调推进。"
+    },
+    "pe_129": {
+      "title": "社会主义市场经济",
+      "path": "assets/cards-v3/pe_129.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35626,
+      "sha256": "516f06491f40d7be88f4c26d5bf7f8b06165e14538cd5c3a7a4d25da68b9b308",
+      "recipe_sha256": "0f22f1d78d6fde2d62a57f66b7b4476315bd62a83698479822ac01f2e2dfe2b5",
+      "idea": "开放市场通过规则契约联接公共工坊和家户，表现市场配置资源与社会主义制度的结合。"
+    },
+    "pe_130": {
+      "title": "社会主义市场经济基本框架",
+      "path": "assets/cards-v3/pe_130.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35138,
+      "sha256": "c0b4b9edcaab39ad03fe77929747209da8e6151ec20b48d6024ec27942f18f97",
+      "recipe_sha256": "1bd8ce3f4061f79b5e2b4007693d3addd3e07f7ffc49af674c5dda338fe00645",
+      "idea": "市场、企业工坊、政府门楼和社会保障盾形成完整框架，突出多项制度配套而非单一市场。"
+    },
+    "pe_131": {
+      "title": "现代市场体系",
+      "path": "assets/cards-v3/pe_131.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30252,
+      "sha256": "2270bbe116872b9e1ee101542a277a733222144a13b5794e71ff1433229dfa67",
+      "recipe_sha256": "218a478aa435b67b734152fa2552a0aafbaf8540a9daa689ec91de3bae2c45ab",
+      "idea": "商品粮仓、资本银行、劳动群像与技术晶体接入一个市场网络，表现统一开放的现代市场体系。"
+    },
+    "pe_132": {
+      "title": "完善社会主义市场经济体制",
+      "path": "assets/cards-v3/pe_132.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30010,
+      "sha256": "0ac0f1403c924695d05d4d4485ffcb115a4ea1d04b64477514a54c161142fe70",
+      "recipe_sha256": "1bdeb005bb9a05cc1013d82c79eebcc23175d33e9425d35f0ebcb9f9e6051085",
+      "idea": "市场网络由法治契约护栏支撑，并接入创新工具和公共服务家园，表现社会主义市场体制的完善。"
+    },
+    "pe_133": {
+      "title": "社会主义公有制",
+      "path": "assets/cards-v3/pe_133.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28144,
+      "sha256": "01b3b65c69da835620cf61ee6757f95c50345658fadac2fb476bbf94ecb84226",
+      "recipe_sha256": "9cde758f2cb40d6fa138ca22339068c850b631b45299b0e8ebd67e46fc0fda72",
+      "idea": "劳动者共同围绕生产用工坊，公共印章连接各人，表现生产资料公有而非个人日用品共有。"
+    },
+    "pe_134": {
+      "title": "国家所有制与集体所有制",
+      "path": "assets/cards-v3/pe_134.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30280,
+      "sha256": "a6f2167b25629dc5418df090634ea463a0cfb456f428ac13e188adefc145446e",
+      "recipe_sha256": "d09531596596c7e1ed5058a49f37b9d74d4421f6f73be3a0b21a8c02515cf440",
+      "idea": "一侧国家门楼联系大型工坊，另一侧村民共同围绕粮田，区分国家所有与集体所有的组织范围。"
+    },
+    "pe_135": {
+      "title": "公有制的实现形式",
+      "path": "assets/cards-v3/pe_135.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46978,
+      "sha256": "5be7661cd5004451dec71b5855522fbd1b1c2ec6c65b29f69c068b8890725130",
+      "recipe_sha256": "fa253904d58033c148382acd6b5747378136dc31d740380a233638facd9d5ac8",
+      "idea": "公共印章连接公司契约、合作群像和股份算盘，表现公有制可以采用多种组织实现形式。"
+    },
+    "pe_136": {
+      "title": "公有制主体与国有经济主导",
+      "path": "assets/cards-v3/pe_136.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34632,
+      "sha256": "ae2a1abecf0a7c5aa0721684cda83d6c5457e148abdc7c375c0ec0a09be17a2f",
+      "recipe_sha256": "d6b8cae8344babb509f4f06315d968f6dccc4a06759daba2f24443055b419132",
+      "idea": "公共工坊构成主体地基，关键基础设施由高门楼牵引，表现公有制主体和国有经济主导并不等同。"
+    },
+    "pe_137": {
+      "title": "非公有制经济",
+      "path": "assets/cards-v3/pe_137.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29960,
+      "sha256": "502a3ba9a396d503084b8d5ee0116a958a37b7d7f15df7792e050f266ff8a5a1",
+      "recipe_sha256": "458d102135e47e18cb12f1b953ed435e5d1913e0096d6b357dfaec1108b3d6da",
+      "idea": "不同经营者以店铺、器皿与织机参与共同市场，表现非公有制经济的多样形式和重要作用。"
+    },
+    "pe_138": {
+      "title": "两个毫不动摇",
+      "path": "assets/cards-v3/pe_138.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39312,
+      "sha256": "78d05f30e07e1aa1688b19574f1b03d245db1e5e0eb7f72f156001d9f517701c",
+      "recipe_sha256": "3845b65002d1308cd30fe1b1dc71337a14c1c007d78b6c08614b7fe2d2c0f1b4",
+      "idea": "公共工坊与民营店铺并列生长，两者由同一法治桥连接，表现两个毫不动摇须一并坚持的政策要求，不表示所有制数量相同。"
+    },
+    "pe_139": {
+      "title": "现代企业制度",
+      "path": "assets/cards-v3/pe_139.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35436,
+      "sha256": "67d11ffb3ee5db24b80de9cf8db3cf21e29912b18c30c9b1ea9ae5e86d7c8b7f",
+      "recipe_sha256": "41ad8517660e0eed0922f3d3ee4f9ca57fddf5abc5ae637ab92582e53b1fdb9e",
+      "idea": "独立企业门楼置于清晰契约之上，算盘和管理齿轮各有归位，表现产权清晰、权责明确与科学管理。"
+    },
+    "pe_140": {
+      "title": "公司法人治理结构",
+      "path": "assets/cards-v3/pe_140.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32872,
+      "sha256": "6056184f58952809a3ec39c1d55212eb07f2890b3a7b2c5c1b91927bffac963b",
+      "recipe_sha256": "6ef7b72f5fd219ecc810bf7c0064a5424ff1fabe348f262dd74e8c31f4420b34",
+      "idea": "股东算盘、决策印章、执行齿轮和监督罗盘环绕公司大楼，表现法人治理中的分工制衡。"
+    },
+    "pe_141": {
+      "title": "国有企业改革与资产管理",
+      "path": "assets/cards-v3/pe_141.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30328,
+      "sha256": "32f1af277324dcc6a816acadc251e26aeefd8180f5dabd1541d9ef688556315e",
+      "recipe_sha256": "e0cfdf5fbce642820e1cbdbf28b93e836440b7cb412af218a772e2be1fb0a0a3",
+      "idea": "公共资产宝箱经由监督罗盘进入专业企业工坊，表现国资管理和企业经营的权责界定。"
+    },
+    "pe_142": {
+      "title": "农村基本经营制度",
+      "path": "assets/cards-v3/pe_142.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27776,
+      "sha256": "bc771c98fbfcf6a599af7fc477c622d8b779f1cc7a17eca5d5acb1a482db8b97",
+      "recipe_sha256": "ff0072067868a7220995f555af34c857f1256dd7fb8733b48955c858a9ffcd77",
+      "idea": "村集体印章、家庭农户和田间作物由经营契约相连，表现以家庭承包经营为基础、统分结合。"
+    },
+    "pe_143": {
+      "title": "农业产业化与社会化服务",
+      "path": "assets/cards-v3/pe_143.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 42702,
+      "sha256": "f6bcfa8a3d537d70a97c75788a5001c4ac875da708328c5d8394610299b264fe",
+      "recipe_sha256": "8b2dca4f8da1bae48095674eda29581fed3ec7891ed07a43b2c6478058596427",
+      "idea": "田间谷物经由仓储工坊和市场船运连成链，旁侧共享工具服务各环节，表现农业产业化与社会化服务。"
+    },
+    "pe_144": {
+      "title": "国内生产总值与国民总收入",
+      "path": "assets/cards-v3/pe_144.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39404,
+      "sha256": "7dffa49e138426714e2817ac64c1464fc03eb5171b3cb322b4d75d5d93006e8d",
+      "recipe_sha256": "2269537bf1bc4d2a47c6c16ab7b361a8dc380e84b4c760b102ee69d678c0c1b4",
+      "idea": "境内工坊的产出记入生产账册，常住单位收入连同跨境初次收入流入另一账册，区分国内生产总值与国民总收入。"
+    },
+    "pe_145": {
+      "title": "国民收入初次分配",
+      "path": "assets/cards-v3/pe_145.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35576,
+      "sha256": "44a742bf40cd9498ece0d958a1a432c971f3157d4764045057ba67bcc7830704",
+      "recipe_sha256": "006d41a49f3beebe063066f4df21e745ce156423afdce1d59a018c0debafcdd7",
+      "idea": "新创造的产出从生产工坊流向劳动者、企业和公共账册，表现国民收入的初次分配渠道。"
+    },
+    "pe_146": {
+      "title": "国民收入再分配",
+      "path": "assets/cards-v3/pe_146.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37610,
+      "sha256": "efe99417b92571f3aab820e0b7c727a3bf358989eb19d83ab5b87d443a024fe2",
+      "recipe_sha256": "f6564cf3d8551709e0c4e8a02e8823965a069c7f796d8ab10434afc4990e9578",
+      "idea": "税收钱币进入公共分流台，再流向教育书册、家户和保障盾，表现国民收入再分配。"
+    },
+    "pe_147": {
+      "title": "投资与消费的关系",
+      "path": "assets/cards-v3/pe_147.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36568,
+      "sha256": "b08df805311f6767e5cd0e2db8bfe482f463304093d1e2264f461d1c0116ecc5",
+      "recipe_sha256": "26e7e718bb96765934e0690c068709726edacecdae64c415be0b177ddbcc3027",
+      "idea": "社会收入经由天平分向追加工具和家庭消费，表现投资与消费需要保持合理比例。"
+    },
+    "pe_148": {
+      "title": "按劳分配",
+      "path": "assets/cards-v3/pe_148.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30470,
+      "sha256": "082319012a2e0a950082f6112c1ede041961200526e0f5e8afe592135de568de",
+      "recipe_sha256": "c24cef3f915b2c98b55714de8637c7a6454ce466632d7c2830c027199643e427",
+      "idea": "劳动工具和工时钟汇入计量天平，再向劳动者发放产品，表现以劳动贡献作为分配依据。"
+    },
+    "pe_149": {
+      "title": "多种分配方式",
+      "path": "assets/cards-v3/pe_149.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38198,
+      "sha256": "225f4b4e0b9ab4c48402423870703dd8b650a056cd60f03def26af19146208ba",
+      "recipe_sha256": "86ee1d0d3ef63d7d57eb1e335c4b058506c88d65def215dd2fbc70525a247938",
+      "idea": "劳动者、资本钱币和技术晶体分别接入同一分配台，表现多种生产要素参与收益分配。"
+    },
+    "pe_150": {
+      "title": "按劳分配为主体",
+      "path": "assets/cards-v3/pe_150.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36258,
+      "sha256": "2bf5f471d47c8773f5d6bfe1c6b5ca19b1480a224aac9324bf05fdc3c718ffe6",
+      "recipe_sha256": "dbf10a487317d565ee46534f41ca32c5f23497c5066d95ac34ebcd04e51a4e80",
+      "idea": "主体劳动者群像连接大的分配台，两侧钱币和技术晶体作为并存路径，突出按劳分配的主体地位。"
+    },
+    "pe_151": {
+      "title": "效率与公平",
+      "path": "assets/cards-v3/pe_151.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30140,
+      "sha256": "abcb0adbed5a1cf27e0adaf42784935f8c8dfd74ad3d7cfc63ea72f7a2a072da",
+      "recipe_sha256": "e352c14cfb6673696f9f1473de9994384c244ab43c118d2bb2b697e986c9ea21",
+      "idea": "高效齿轮与平衡天平共同托起共享谷物，表现效率激励与分配公平的协调关系。"
+    },
+    "pe_152": {
+      "title": "社会保障制度",
+      "path": "assets/cards-v3/pe_152.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28770,
+      "sha256": "0a7be0bd786e6f043d53dff12b72ca0e323fa4d6e009d2ecae452b0243156f48",
+      "recipe_sha256": "4cce225ce521baa6167cb0e44e26c5ab2a8b7a519168a35b5d95ada24cf43429",
+      "idea": "保护盾围护老人式家庭群像与家园，公共粮仓作后盾，表现社会保障的兜底和风险共担。"
+    },
+    "pe_153": {
+      "title": "社会保险与社会救助",
+      "path": "assets/cards-v3/pe_153.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33190,
+      "sha256": "16f3f3623ceb752c89ce4cf28b3a061d47bc6587aa37eaf5dc4722cf5d5ad6a2",
+      "recipe_sha256": "281a502b3a3c153f2aa22f88f0a77780b33af134b358e19ae20741404a618cce",
+      "idea": "一侧缴费钱币汇入保险盾，另一侧公共粮仓直接救助有需要家户，区别社会保险与社会救助。"
+    },
+    "pe_154": {
+      "title": "经济增长与经济发展",
+      "path": "assets/cards-v3/pe_154.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32400,
+      "sha256": "51f3835b90cd583e232d317fe59c75901a9aacd13ac3351d6d6ee441dc2759cf",
+      "recipe_sha256": "c9892479d70e39267cfc144eef96ce3936e0d5b8124b182c1fa259ace1019002",
+      "idea": "产出谷物的数量增加与家园、知识树的共同改善并列，区分经济增长和更广的经济发展。"
+    },
+    "pe_155": {
+      "title": "经济发展方式",
+      "path": "assets/cards-v3/pe_155.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31136,
+      "sha256": "d3bdb92b96c5fd7f938af62a42b795ca26ed712884c83fc9f11a8ca8f2a250f4",
+      "recipe_sha256": "192131b3572fd8e4f6a006b2223d7f4e891f85ee16c792ac6c1a2d963386fc36",
+      "idea": "粗放燃炉路径转向高效齿轮、知识书卷和绿色风车，表现发展方式由投入扩张走向质量效益。"
+    },
+    "pe_156": {
+      "title": "经济结构调整",
+      "path": "assets/cards-v3/pe_156.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32466,
+      "sha256": "2b1a6ed681686e095b59b5e423075945b62e73b2aca3018c7a23499f27edefeb",
+      "recipe_sha256": "7db6d98fbf1382c6a125dcc80c8b087c4445e36cdcedb680bb57f783620c4687",
+      "idea": "农田、制造工坊与服务书院在同一分配枢纽重新组织，表现经济结构的协调调整。"
+    },
+    "pe_157": {
+      "title": "需求结构优化",
+      "path": "assets/cards-v3/pe_157.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41774,
+      "sha256": "7c4bdfe2362ed3d12762968a522a4531d559545e0b128b08bbf03f8b5326d58f",
+      "recipe_sha256": "e2978bb9f6906a613b19208656f9ad253906b07dae47af1442c04672f1ef3d2c",
+      "idea": "消费家户、投资工具与外贸船运分列需求天平，表现消费、投资、出口需求结构优化。"
+    },
+    "pe_158": {
+      "title": "产业结构升级",
+      "path": "assets/cards-v3/pe_158.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31980,
+      "sha256": "89813001c8d18b84260aab07d2f75b13011e700a7539aede2f973a74fb2705c1",
+      "recipe_sha256": "e653de4c8f9d4679ece565b54402dad07514849b1c8788d5c55b0f7131de66ce",
+      "idea": "初级谷物、制造机械和创新晶体沿阶梯升级，表现产业从低附加值走向高技术与高服务能力。"
+    },
+    "pe_159": {
+      "title": "经济发展战略",
+      "path": "assets/cards-v3/pe_159.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23788,
+      "sha256": "98d8ac3af4046eb470d6cee07b41947364ef4f34b5dac841c7e961af514bc976",
+      "recipe_sha256": "739ae68c5b77be2419a91f9851ac0ecd820d7e796181e379784b60e2b3fc8207",
+      "idea": "罗盘在长卷和远山前标出多阶段道路，表现经济发展战略的目标、重点与步骤。"
+    },
+    "pe_160": {
+      "title": "新型工业化道路",
+      "path": "assets/cards-v3/pe_160.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25790,
+      "sha256": "b133f014a07f10ca9d34e2caad822b89189ce615452458c4285b5d28d9e76014",
+      "recipe_sha256": "4a75d27ab1c4b7ef9958e27a41a60ca13c78c9f3dfee1a2faa8a4abbafa5d2a4",
+      "idea": "工业齿轮、数字网络和绿色风车联动，劳动者置于成果中心，表现新型工业化的信息化与生态要求。"
+    },
+    "pe_161": {
+      "title": "农业现代化道路",
+      "path": "assets/cards-v3/pe_161.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34482,
+      "sha256": "c6f0a4308654b4e000d5afb75851fca9f567559094e690fc0349ec3126bc9df8",
+      "recipe_sha256": "c6b49c8778cab14cf4144c6cbcc68341bb842cb9cfa8594f5500019c20d1940a",
+      "idea": "农田作物连接自动机械、水井与知识书册，表现农业现代化的装备、灌溉和技术支撑。"
+    },
+    "pe_162": {
+      "title": "自主创新道路",
+      "path": "assets/cards-v3/pe_162.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46204,
+      "sha256": "5b121b77d213df091f0f5c569b128dfc319b84c899065eda0f93f7fbda323421",
+      "recipe_sha256": "7d45dce11a220dcb973961fe6b331aa22a1aae12a458722364187127f69a996f",
+      "idea": "书卷研究形成晶体成果，经试制齿轮转为自有工坊，表现自主创新从知识到应用的路径。"
+    },
+    "pe_163": {
+      "title": "中国特色城镇化道路",
+      "path": "assets/cards-v3/pe_163.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32966,
+      "sha256": "fd1618446f52e2d1af3476d30c03108984ad3bdda0205d87d179bfe478bb35f4",
+      "recipe_sha256": "334ca5ac297e4347d04bc58658369ef554e942cff180e5485f6de0a6b1caf9f0",
+      "idea": "城镇家园与乡村粮田由道路和公共书院相连，表现以人为中心、城乡协调的城镇化道路。"
+    },
+    "pe_164": {
+      "title": "政府经济职能",
+      "path": "assets/cards-v3/pe_164.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33098,
+      "sha256": "e20900fc4717af3462cd06224d6ada0028742a8962ee37d3d6750fb9e921a4a4",
+      "recipe_sha256": "16a1a7709171580dae1934c37041092ed26806aa37bd8bb10aa25069c99a8059",
+      "idea": "政府门楼将规则卷轴、公共道路与服务家户联系起来，表现政府经济职能的多重组成。"
+    },
+    "pe_165": {
+      "title": "社会总供求平衡",
+      "path": "assets/cards-v3/pe_165.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37762,
+      "sha256": "96785c9b8e4d39bb8be64596050f9e1847e09ba149f1b3895f30dd38d8feafb5",
+      "recipe_sha256": "dbe98cf36546a52947ff037e86741d390f04ca1ffa36a05bc24a5ba609e86311",
+      "idea": "产出工坊与消费家户分列天平两侧，中间粮物和货币相互流动，表现社会总供给与总需求平衡。"
+    },
+    "pe_166": {
+      "title": "宏观调控目标",
+      "path": "assets/cards-v3/pe_166.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 42248,
+      "sha256": "aabab88e9bb92822d4380a324f2c03a2f828723d1d3b6e5f24d86f327e3bde64",
+      "recipe_sha256": "4fe89ce5548730a952045a6045b3ea744532ad10ab6df536bb0fd812ab5329b8",
+      "idea": "就业群像、增长树、稳定钱币和对外船只围绕罗盘，表现宏观调控多项目标的协调。"
+    },
+    "pe_167": {
+      "title": "财政政策",
+      "path": "assets/cards-v3/pe_167.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40408,
+      "sha256": "106bffc6c18e4a151dc4cdbddb4da42ee904339fd669bb8041bfe0da651b461d",
+      "recipe_sha256": "942cb5de816940b03bafd5e946ad54cabf1dfb76aff268515d0e2e5ab81deda3",
+      "idea": "公共钱币经账册流向道路和服务家园，另一条税收路径回流，表现财政收入与支出的调节作用。"
+    },
+    "pe_168": {
+      "title": "货币政策",
+      "path": "assets/cards-v3/pe_168.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33382,
+      "sha256": "38f12af6189af173c80d7a215d10a600b49d11bea6a1938a87235d1dd2a0856b",
+      "recipe_sha256": "aaaf6840617d594ea818c4b2432ec965d381e666035c5f6a90cb3d7642d370a5",
+      "idea": "中央银行通过信贷链和钱币流调节企业工坊，旁置时钟提示政策传导需要时间。"
+    },
+    "pe_169": {
+      "title": "宏观调控政策配合",
+      "path": "assets/cards-v3/pe_169.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40838,
+      "sha256": "d11799586b5f286c2dd46baa70927bec65becff499744a29d79448e69bfc461b",
+      "recipe_sha256": "773efe16c3232ba44ac6277a392838239482c5ac48608f15af04a6464e99953d",
+      "idea": "财政账册与货币银行通过双向桥共同作用于需求家园，表现两类宏观政策的配合。"
+    },
+    "pe_170": {
+      "title": "短期调控与长远发展",
+      "path": "assets/cards-v3/pe_170.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30050,
+      "sha256": "4651e7185fbe9ad74fa997222e83e7ec15435abc571ef7fc422aa88e9eec47ff",
+      "recipe_sha256": "6c90215c33a66717497bebf9f0b39848c6f7d796069ed8ccd677d705413713db",
+      "idea": "近处时钟与稳需求家园、远处知识树与基础道路相连，区分短期调控与长远发展。"
+    },
+    "pe_171": {
+      "title": "市场监管体系",
+      "path": "assets/cards-v3/pe_171.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30464,
+      "sha256": "d5bdf9283178c4620a25a9216c173cc3732d601a8aea7a386f07b7059cd1a26e",
+      "recipe_sha256": "31dca54eb1a3511f05934cdc45d88ca9f5d1d2946d766d6d1628bdb90ab5c8ed",
+      "idea": "统一规则卷轴和监督罗盘覆盖市场网络，表现以制度和执法构成的市场监管体系。"
+    },
+    "pe_172": {
+      "title": "经济性监管",
+      "path": "assets/cards-v3/pe_172.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38718,
+      "sha256": "19dea7ef4a5d6e5b9feb2e398690d952dcd765f1f2fa660de2846288ed98a8fb",
+      "recipe_sha256": "f8b2f13984520e8a1a52334f41861d9d45f6bba4c32740de566d870b6705f954",
+      "idea": "公共水井与能源工坊经价格算盘和规则门楼服务家户，表现对自然垄断等领域的经济性监管。"
+    },
+    "pe_173": {
+      "title": "社会性监管",
+      "path": "assets/cards-v3/pe_173.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28170,
+      "sha256": "783d2533be24a593c6f4c23bdcc1e0a3af955d78d4ff2f05d78b0632cdb9a1e5",
+      "recipe_sha256": "d45d6f0a7a52b13c06853e14e82d24fe1cdf722a3267d78a4e903e7e02e78523",
+      "idea": "产品器皿、生态幼苗和劳动者被安全盾与规则卷轴护持，表现质量、安全、环境等社会性监管。"
+    },
+    "pe_174": {
+      "title": "经济全球化",
+      "path": "assets/cards-v3/pe_174.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36396,
+      "sha256": "44cad210eccf3f0d1a10d9b80a1543a599bf52725ddd8b6ed845941c705191fd",
+      "recipe_sha256": "0ecf03675db27d2fe1901fdf5f65dcdf18c6486149ff1e9ce419e36f5486767a",
+      "idea": "环球网络把生产工坊、贸易船只和金融银行相连，表现全球经济联系日益紧密。"
+    },
+    "pe_175": {
+      "title": "贸易全球化",
+      "path": "assets/cards-v3/pe_175.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37444,
+      "sha256": "c5f76513676f7d60cf1c0e96a92ccf31646371ec0c1c16997ce640e039ce7641",
+      "recipe_sha256": "c42db451caa4c9f882049889938212c1ebc1108d8fe4be4d4c89fcbf83776b9d",
+      "idea": "两座港口之间的货船与商品箱跨越海面，环球置于后方，表现国际商品和服务交换扩大。"
+    },
+    "pe_176": {
+      "title": "生产全球化",
+      "path": "assets/cards-v3/pe_176.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33282,
+      "sha256": "c7a576531debbf22954c71dd783ca584097005bda68f1175f52dfcf76a2d754d",
+      "recipe_sha256": "528172ea44c271bbe5a37a0ebb581fe4ea94b9fb8168a83a2809ff63e51ccf58",
+      "idea": "不同地域的齿轮工坊、组装织机与仓库通过网络协作，表现生产环节跨国分工。"
+    },
+    "pe_177": {
+      "title": "金融全球化",
+      "path": "assets/cards-v3/pe_177.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 38978,
+      "sha256": "53f89241b60c93dcc0158b019bcd149e13aac758a832520a4ffbc0699f5cdca5",
+      "recipe_sha256": "6c13368d305a124d1011e0310fd84227e39d8e2c96600f3676bad78835d7044a",
+      "idea": "银行、钱币与环球信贷网络循环相接，表现跨境资本流动和金融市场联系。"
+    },
+    "pe_178": {
+      "title": "全球化的双重影响",
+      "path": "assets/cards-v3/pe_178.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31770,
+      "sha256": "b725a86239f174ed175c1e4ad8b7c3095fac2cf20dc239d0714dc7c5948339fa",
+      "recipe_sha256": "c6d714a006a227b94e1d3b8c3bd92f6c9b1f97e779680f80d324e4d54c4469af",
+      "idea": "环球一侧连接增长树与开放桥，另一侧连接风险盾和不平衡天平，表现全球化机遇与风险并存。"
+    },
+    "pe_179": {
+      "title": "区域经济合作",
+      "path": "assets/cards-v3/pe_179.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41058,
+      "sha256": "c61aa06a4221a2721a3bbe177fac06c4a1d18deda0c04d67d5e8ddbcf24ab396",
+      "recipe_sha256": "2cf96fcc9908681c853942f075e54f19c5e5b729a15fdc2da64829d343fc8cfb",
+      "idea": "相邻家园和港口围成区域合作环，外侧船只通向环球，表现区域合作与全球联系相衔接。"
+    },
+    "pe_180": {
+      "title": "国际经济协调",
+      "path": "assets/cards-v3/pe_180.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39968,
+      "sha256": "aa1ab8f8678f49db46efdc78c5d5d284ca4f7d523b498edaf9ab159a5fc89af9",
+      "recipe_sha256": "166d7100b58edfe07489531432873276db6980b2b62a70cde9c395487693be20",
+      "idea": "多个地区门楼代表不同经济体，共同围绕规则卷轴和协商天平，表现国际经济政策协调。"
+    },
+    "pe_181": {
+      "title": "国际经济新秩序",
+      "path": "assets/cards-v3/pe_181.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33448,
+      "sha256": "59145694afcf5af09267a53e1529117abf6b2db40edcaff84911faaf45120dd4",
+      "recipe_sha256": "23d5e4fc59d092937aea379bfc3e5eaa009556029479ac1bb167653c39ae40ea",
+      "idea": "全球各方群像围绕平等天平与共同规则，开放桥联系发展中的家园，表现公正合理的国际经济秩序。"
+    },
+    "pe_182": {
+      "title": "对外开放基本国策",
+      "path": "assets/cards-v3/pe_182.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 45400,
+      "sha256": "cdd78e3bbafd62bfb5b7af33670e9713b9262fbf58c063b2b4296c29b8eb3ea0",
+      "recipe_sha256": "0e46124976e6e7a80eddd1e6a8adabdc23aa0fd86824247d1809e40db0d46fcf",
+      "idea": "国土家园敞开大门连接远航船与环球，门侧规则卷轴表现持续、制度化的对外开放。"
+    },
+    "pe_183": {
+      "title": "独立自主与对外开放",
+      "path": "assets/cards-v3/pe_183.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37854,
+      "sha256": "2faf67c94d5791c6d577275be1ad8ea3e58f1dbbeb4c57453ba86c3e49e24889",
+      "recipe_sha256": "e054ed56739e03ccf93ac05b600f8aaef8003e4da4b839a9ca31eb19f6868862",
+      "idea": "自立根基树木稳固生长，同时通过桥梁连接外部船只，表现独立自主与开放合作相统一。"
+    },
+    "pe_184": {
+      "title": "互利共赢开放战略",
+      "path": "assets/cards-v3/pe_184.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33000,
+      "sha256": "a3a2e40836a6c45a8231cd5af12cbbb0a845a9313e6ce84d759c6d289d31ef59",
+      "recipe_sha256": "2b9bfa025a47ebbd7fc101d5d6ecf7469fe1df7ffb805612386507a98c91c654",
+      "idea": "两端家园通过双向贸易桥交换不同产品并共同长出树木，表现开放合作中的互利共赢。"
+    },
+    "pe_185": {
+      "title": "统筹国内发展与对外开放",
+      "path": "assets/cards-v3/pe_185.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41304,
+      "sha256": "2e86dc61633980ea3398f9a5a86504cce85789f0a7f0a8cb388b100a84fd59f1",
+      "recipe_sha256": "f1e3002d509239a04b9a18477f6d3db3c64f09ec836bb4ccba39a81c2ca0059b",
+      "idea": "国内生产工坊和家户循环与外部港口相连，罗盘统筹内外联系，表现国内发展与对外开放的协调。"
+    },
+    "pe_186": {
+      "title": "对外贸易",
+      "path": "assets/cards-v3/pe_186.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40252,
+      "sha256": "facf2d2e8737874c40ca54328e72d906e18ba67c21868088feb0a2f70f5cce66",
+      "recipe_sha256": "6f3b1e61b4d38cbcf42be80ef05b551bdf61a9652b64f0c656da1d6b2073c498",
+      "idea": "商品粮物与工艺器皿在港口汇聚装船，回流钱币用于采购，表现进出口贸易的交换过程。"
+    },
+    "pe_187": {
+      "title": "引进和利用外资",
+      "path": "assets/cards-v3/pe_187.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40536,
+      "sha256": "b3a08dc8961051bc1c081edd4ccd1d027777a39b0eddf77d695483cc4501eb65",
+      "recipe_sha256": "c6bb02794664ad189f99e6350b4b7c21ecac2baeabca7bf313dd6328b53f2676",
+      "idea": "外部资本钱币通过开放门进入本地工坊，规则契约和知识书册有助于有效利用与能力建设；资金进入不保证技术已经转移。"
+    },
+    "pe_188": {
+      "title": "走出去战略",
+      "path": "assets/cards-v3/pe_188.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43196,
+      "sha256": "30f3a8c453abfdd4505f5db5aaaa7d8f816c57e5559aec345a23d5b9f0be0e68",
+      "recipe_sha256": "bc44cb7f4aea0ea4a90919ed04cb3f7435d79ebbbd1a493bb8c21bbbf7687b5b",
+      "idea": "本土企业工坊带着技术齿轮乘船进入外部市场，表现企业对外投资合作的走出去路径。"
+    },
+    "pe_189": {
+      "title": "开放条件下的国家经济安全",
+      "path": "assets/cards-v3/pe_189.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41874,
+      "sha256": "02475bee96d6900c6018c8b3f2babf9401b10b0c71eadf9a1b74b24024617780",
+      "recipe_sha256": "a4955d9775d98ef65a57b9a7f271f6429b70fbac0c497118f843191da1f50185",
+      "idea": "开放港口继续通航，核心粮仓、金融银行和产业齿轮由风险盾护持，表现开放条件下维护经济安全。"
+    },
+    "xj_001": {
+      "title": "习近平经济思想的地位",
+      "path": "assets/cards-v3/xj_001.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41568,
+      "sha256": "d8feefde5478dbb7961837adbfede6856ddf1e2f1df00dc120049f7728d16156",
+      "recipe_sha256": "b00093c933be43519ab7d46233f580aadc8b8cee12b6236eb983dcbcbd627391",
+      "idea": "玉册从根深的古木旁展开，金色定向仪在后方引出道路，表现立足实践的系统理论及其指导作用。"
+    },
+    "xj_002": {
+      "title": "思想形成与发展节点",
+      "path": "assets/cards-v3/xj_002.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40822,
+      "sha256": "22311e688bfd67955ba30febeb6850881064a7b91c5a24bce516f7c327d103e7",
+      "recipe_sha256": "3ee679cabf9f51455b433093d17f044eabb1ec1e459b3d8b17cc7ad99a0116a7",
+      "idea": "沿递升石阶排列卷轴、成册文献与展开的新卷，节点灯依次连接，表现思想形成发展的文献脉络。"
+    },
+    "xj_003": {
+      "title": "《纲要》十三个方面",
+      "path": "assets/cards-v3/xj_003.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27706,
+      "sha256": "b8ffc9773bbfcfbd96669893ae5385eade598169ec81a08b87b4b6cb0c04d57e",
+      "recipe_sha256": "7536b7c019f6a541960416f9b5e2a3a89fe1af6862c926705176f66c6d16f13c",
+      "idea": "中央天盘统摄知识、人、生产与保障四组器物，放射纹理寓意有机联系的理论体系，不把十三方面误画成四方面。"
+    },
+    "xj_004": {
+      "title": "社会主义经济道路的探索",
+      "path": "assets/cards-v3/xj_004.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28220,
+      "sha256": "1c6568b24f172cf5862b160e9150e96730564b133dc377f7b1e84bc04df4f5c3",
+      "recipe_sha256": "1ee5d137d4b6c1973db410e0bca93a685b565b7afdaa745c3e46b75508199b94",
+      "idea": "山间长路穿过旧山门、石桥再通向高处楼阁，表现社会主义经济道路在历史进程中的连续探索。"
+    },
+    "xj_005": {
+      "title": "原创性理论贡献",
+      "path": "assets/cards-v3/xj_005.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39696,
+      "sha256": "a8617017a0e8ffa65bcb84708ca3754e60d2c495c9ed0c09de28fcc5cc47608c",
+      "recipe_sha256": "8d3dd687586da3337a7be6cf1628401a0475ab628794d4246817e17fcd186b5d",
+      "idea": "新生灵晶从翻开的古册上方凝结，旁边齿轮获得新的结构，表现基于理论基础和实践经验的原创贡献。"
+    },
+    "xj_006": {
+      "title": "理论与实践的相互作用",
+      "path": "assets/cards-v3/xj_006.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33580,
+      "sha256": "19be27d4efc2c921fc8542e6655b5c5367496839c38ff8e41c513622c25c2130",
+      "recipe_sha256": "5c8540c048a4485127aaa2b3a21fbf491d14938ce18c146c6e776c94e39660d4",
+      "idea": "玉册与织机分立两侧，由前景往复环连接，表现理论和实践的双向作用与反复发展。"
+    },
+    "xj_007": {
+      "title": "两个结合与五个鲜明特征",
+      "path": "assets/cards-v3/xj_007.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29498,
+      "sha256": "eeb496812658432d7f6b92b919ba0f3b581a898015523abff0f0ba1a5781ea6f",
+      "recipe_sha256": "dbcc6fbcf5458ba622dab5e016b9984640a0162f8fe72f15d6cd7475b99ab119",
+      "idea": "典籍、现实梯田和传统长卷三者相接，前者分别连接后两者，表现两个结合，避免把两项结合混为一项。"
+    },
+    "xj_008": {
+      "title": "中国式现代化",
+      "path": "assets/cards-v3/xj_008.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25258,
+      "sha256": "cdacbd970ff59180840b1536a6e5103c55e868e9ebd3a6596924d09bf561c639",
+      "recipe_sha256": "e07f147f4eed07e8a9899c324548293f5e0e18798a63406dd20c27336aa842b1",
+      "idea": "宽阔石桥承载共同前行的人们通向中式楼阁，周围保留山水，表现立足自身条件的现代化道路。"
+    },
+    "xj_009": {
+      "title": "中国式现代化的中国特色",
+      "path": "assets/cards-v3/xj_009.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27874,
+      "sha256": "dd7e190e8e08ed6a6448cbaaf31060d63e9364dfac34bf4554e94e5eb5d239a6",
+      "recipe_sha256": "fb21d0f48a5822f6ad14f59fee7f65f20582717cb352205f271734a9aebd36a1",
+      "idea": "人群、居所、书卷、绿树与地球形成五向相连的庭院，表现五方面中国特色相互联系。"
+    },
+    "xj_010": {
+      "title": "现代化战略安排与重大关系",
+      "path": "assets/cards-v3/xj_010.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30772,
+      "sha256": "f549d460c38c55c8f8620ab43e4f0894769085b548a4dc4b448a12be8bb89902",
+      "recipe_sha256": "92397b6db35e4231d78c97e017ebbb15b9ca764bdf210e654dff0d91780dedad",
+      "idea": "两道逐级抬升的建筑节点由台阶连接，近景罗盘提示统筹关系，表现现代化两步走的阶段安排。"
+    },
+    "xj_011": {
+      "title": "社会主要矛盾的转化",
+      "path": "assets/cards-v3/xj_011.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26256,
+      "sha256": "f84e44e2e9f7e9d42168eb10c35016b178f1baf716497e1ff69cedfa2bde868d",
+      "recipe_sha256": "e1c7b04d8fa7f36911789920f6bbd15a6663ab16b94c40aba477aa9802c99c40",
+      "idea": "居民和更丰富的生活设施面对起伏不均的田阶，中央衡器联结两侧，表现美好生活需要与发展不平衡不充分。"
+    },
+    "xj_012": {
+      "title": "全面建成小康社会",
+      "path": "assets/cards-v3/xj_012.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25276,
+      "sha256": "295b20947a88ba0d13ba1a94ca36a30cc58ef275f930ac17aa34ba7c619f876f",
+      "recipe_sha256": "98ee3c0a16efbd3ade47f55e4d2470afe5e6ff69913a2c8657e6e995ad226358",
+      "idea": "丰收粮束与安居家庭围绕完整院落，院外道路继续伸向远处，表现小康目标实现后开启新征程。"
+    },
+    "xj_013": {
+      "title": "新发展阶段",
+      "path": "assets/cards-v3/xj_013.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27368,
+      "sha256": "ac360428ba56b60e28eb7d729be70adc60222aaf0f019f51bf97dc78a05cc96d",
+      "recipe_sha256": "acb2dbfda05755378cff7bd33a110e3719f49aec0e7b794616406d9a8953cd1e",
+      "idea": "以已完成的山门为起点，路面向更高层阁展开，表现新的历史起点和继续推进的阶段任务。"
+    },
+    "xj_014": {
+      "title": "发展与经济建设中心地位",
+      "path": "assets/cards-v3/xj_014.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27826,
+      "sha256": "cd999ab9edbdd93b87aef5cde6bafc0634e929593c4b34dfbe28c26090f2f8b1",
+      "recipe_sha256": "611d87a2375a1ef1b6f096ce6d45e9bd83ab4b83be8a1c75e28f17f740444af8",
+      "idea": "中央大型齿轮带动生产织机，前景新芽不断生长，表现经济建设提供发展的物质基础与生产力动力。"
+    },
+    "xj_015": {
+      "title": "现代化经济体系",
+      "path": "assets/cards-v3/xj_015.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30350,
+      "sha256": "4bced81717de764e0ff6aca735d6242de4ef0b8c4699265017b8bb665d752887",
+      "recipe_sha256": "662cd0f98affc35a48e8f906aa0f5227aa5f54018d89821c394b6ad92510ed17",
+      "idea": "中央网络连通生产、市场、生态与开放的不同场景，表现经济体系是多个环节领域构成的有机整体。"
+    },
+    "xj_016": {
+      "title": "党对经济工作的全面领导",
+      "path": "assets/cards-v3/xj_016.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23788,
+      "sha256": "9320b18bffcd5d8526a5d1ef679d3989ead3bbdb1648b3275899b1ee94434cca",
+      "recipe_sha256": "d106c339d71c9be725be211fbeadd2b9fa64ecc89c415248feb0b5317097195c",
+      "idea": "高位定向仪为宽阔道路指引方向，多个参与者沿同一方向前进，表现领导在经济工作全程的统领作用。"
+    },
+    "xj_017": {
+      "title": "总揽全局与协调各方",
+      "path": "assets/cards-v3/xj_017.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30436,
+      "sha256": "bb860101ae3db5763f285950d51d6fc5e4f2499af23c0e6f725e737a5aafb1d2",
+      "recipe_sha256": "9540aea74d1a509d3354b8fcbe2312e02da2fde139edca4e62c64f3611fe2dbd",
+      "idea": "定向仪连接地域楼阁、商坊和田畴，各主体保留自身空间，表现总揽协调而非替代具体经营。"
+    },
+    "xj_018": {
+      "title": "全面领导的五个方面",
+      "path": "assets/cards-v3/xj_018.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40380,
+      "sha256": "098470188b57601f5249b6494783be35516e8aaecb649bb3a39351019578516c",
+      "recipe_sha256": "834171f001c3f528a89aec1a181341eabf7d50bd54b18d909876ca5f161e3946",
+      "idea": "定向仪、规划卷、制度印、改革齿轮与执行者沿路径相接，表现从把握方向到督促落实的五方面衔接。"
+    },
+    "xj_019": {
+      "title": "经济工作领导体制机制",
+      "path": "assets/cards-v3/xj_019.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22604,
+      "sha256": "0ad9e5bb40a3a867e27bed4f30be61be5ab89e9bbea188641a81b31f8e6e8f91",
+      "recipe_sha256": "fe52582249383a86d32c64af9b852e046dfc44fcd51019027bcb3c315fe1de30",
+      "idea": "定期运转的计时仪连到制度印、研判案卷和决策盘，表现制度化规范化的领导体制机制。"
+    },
+    "xj_020": {
+      "title": "发展战略与规划体系",
+      "path": "assets/cards-v3/xj_020.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41252,
+      "sha256": "b119a1e44bf785185061fa4e6635c608dd981ef79df8a004019a74f24b49e130",
+      "recipe_sha256": "40006af56f83e652237f0416e263c2bc19a698a5ec281730036654b3298b100f",
+      "idea": "展开的规划长卷向上引出层级楼阁，定向仪标示长远方向，表现战略、中长期规划和不同层级相互衔接。"
+    },
+    "xj_021": {
+      "title": "集中力量办大事",
+      "path": "assets/cards-v3/xj_021.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22996,
+      "sha256": "8ee0027da20707120f248af366aa614b7f11c0ae782a20c7c325045eef507db0",
+      "recipe_sha256": "533a614d134c8f0bbaf026fbd9d74cdeef81acaebd0a445993b7ba850837fc0b",
+      "idea": "众人和生产资源共同汇聚到中央待凝结的巨大灵晶，表现有限力量聚焦关键任务和协同攻关。"
+    },
+    "xj_022": {
+      "title": "中央和地方两个积极性",
+      "path": "assets/cards-v3/xj_022.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32834,
+      "sha256": "c912b9e7b756bfac72e623216d162a068ee84265db91a498bd7faae94b8d4cb2",
+      "recipe_sha256": "38401f62dcb919d8890444b4497ded7ccbe857a52c6fa228635bd71b5a777a0a",
+      "idea": "一座统筹楼阁与一座地方山亭以桥相接，地方旁保留地形差异，表现统一部署与因地制宜的两个积极性。"
+    },
+    "xj_023": {
+      "title": "经济治理能力与法治思维",
+      "path": "assets/cards-v3/xj_023.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43434,
+      "sha256": "b8324e3a1b084e354eb354fe82405b19d308f3b568b319ee09406caf92f81360",
+      "recipe_sha256": "f71f42f3bd4986c72eb522ea800b3d44305a114cc5516f6e4bf103089d456713",
+      "idea": "专业典籍、法度衡器和战略罗盘相互联结，表现专业知识、法治思维与战略判断共同提升治理能力。"
+    },
+    "xj_024": {
+      "title": "人民立场与生产目的",
+      "path": "assets/cards-v3/xj_024.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24656,
+      "sha256": "fe2bf2367293529fa9d61cac96b5585b63ca0dc6fe6403f5f9de80421c653009",
+      "recipe_sha256": "eb015fb1098eac74dc2d4670c7e3343061b494cfdd5650b0853d56cc25afbd3d",
+      "idea": "人物处于画面中心，粮食与知识器物朝向人群，表现生产发展的目的落在人们福祉和全面发展上。"
+    },
+    "xj_025": {
+      "title": "以人民为中心的三重内涵",
+      "path": "assets/cards-v3/xj_025.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27236,
+      "sha256": "c07f06370b68432a5533d2b26525aaf2ae07d7fa519325a01292c04d27f45a3c",
+      "recipe_sha256": "da23424c44b2054445400270d36e5916ca78df9295181fa4b56c680c35e7fba6",
+      "idea": "人们共同推动生产器物，成果再经分流泉回到人群，表现为了人民、依靠人民与成果共享的完整关系。"
+    },
+    "xj_026": {
+      "title": "人民立场贯穿经济循环",
+      "path": "assets/cards-v3/xj_026.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41208,
+      "sha256": "a5d2dd8e8df7841ec2de36f7af5c972646ef06e5eed73b8278098a62e08e4dba",
+      "recipe_sha256": "02de45c203eae1b20ef305b7818e989609921762d8de26797ee9839246ae4ccd",
+      "idea": "生产、分配、运输与生活场景围绕人群连成循环，表现人民立场贯穿各个经济环节。"
+    },
+    "xj_027": {
+      "title": "民生福祉与发展动力",
+      "path": "assets/cards-v3/xj_027.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34132,
+      "sha256": "0c55ce4768fb3aa86d9e8cf294e3a5579a4b95cecd4c65de37443489a885c7bd",
+      "recipe_sha256": "54f41fc2c61bce0527149d1977af93236bf188aaa37ee401074722b4be969c73",
+      "idea": "改善的居所与活跃商坊之间形成双向环流，表现民生改善既是目的也能形成发展动力。"
+    },
+    "xj_028": {
+      "title": "急难愁盼与民生保障",
+      "path": "assets/cards-v3/xj_028.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27080,
+      "sha256": "44a6013a187272cc2f83413f5707fa4ea8d87c7a0570f047e270ad8662864027",
+      "recipe_sha256": "5ed031e1892880048e038cac6d10771a0a973290545a193496cce37075364033",
+      "idea": "宽厚护盾围护家庭、学习书籍与居住小屋，表现基本民生保障为生活提供安全底线。"
+    },
+    "xj_029": {
+      "title": "尽力而为与量力而行",
+      "path": "assets/cards-v3/xj_029.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29140,
+      "sha256": "ebaf4b3432df5659c5850439bcae0da886ca7d62266c2ab051044ce90e75d763",
+      "recipe_sha256": "5fd443cc9c89e0da4d69099e27a3a05d088d481bb29d7c79ae05d9a1bf14838a",
+      "idea": "衡器一侧接可持续积累的资源，一侧接基本生活设施，表现积极保障民生与财力承受能力相适应。"
+    },
+    "xj_030": {
+      "title": "共同富裕的目标",
+      "path": "assets/cards-v3/xj_030.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25216,
+      "sha256": "c821293f2bfb086ce6e61448fa94d7c9dff1e4d315dae074034d0eb5e8794507",
+      "recipe_sha256": "8c88f0d9f7b09c3c648b60b50619f13adedc2945141b97e420037472d42996cc",
+      "idea": "丰茂大树的树荫覆盖所有人，粮束和书卷并置，表现共同富裕兼顾物质与精神生活且面向全体。"
+    },
+    "xj_031": {
+      "title": "共同富裕的推进原则",
+      "path": "assets/cards-v3/xj_031.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34964,
+      "sha256": "33a7042af260cda31a320c1cde2f5eb3d17389fc20daf89010ea41d3a81071fa",
+      "recipe_sha256": "4ff2a6cec0f3296ca3d6bf6fc4001d7cd83cd33abf9f6dbdcd1025241f8e704f",
+      "idea": "分层流泉沿缓坡向不同生活空间输送水流，劳动者与创新齿轮为源头注入力量，表现在发展中循序推进共同富裕。"
+    },
+    "xj_032": {
+      "title": "共同富裕的实践举措",
+      "path": "assets/cards-v3/xj_032.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30634,
+      "sha256": "d68b44a85163b3e8005ba02c1e46a79a2c3446ffde8b1a593638acaac7fbe2ff",
+      "recipe_sha256": "171061552ec9b0494461a908d9f33845864e947f33abc72128a55aa6feb700ef",
+      "idea": "公共井泉连到乡居、文化书卷和通达石桥，人们能够共同接近这些设施，表现公共服务和农村精神生活改善。"
+    },
+    "xj_033": {
+      "title": "社会主义基本经济制度",
+      "path": "assets/cards-v3/xj_033.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33560,
+      "sha256": "ad92a021e704ecf3edb664f1874b87122f98d9d3326e1a555809dc1a55e9c959",
+      "recipe_sha256": "13a4c71a18538b270fa14df977a24d33372b9979134f2b7232ddbb285d070033",
+      "idea": "生产资料仓、分配流泉与市场商坊立在同一稳固基座上，表现基本经济制度三个方面的相互联系。"
+    },
+    "xj_034": {
+      "title": "两个毫不动摇",
+      "path": "assets/cards-v3/xj_034.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22324,
+      "sha256": "2d0ce0a27972058248057b9a884970382041a21303221da80187c744d55620ef",
+      "recipe_sha256": "b29799dfa288825f78f18f9f1069021872bd369bab53ae57a0b655fc076723bb",
+      "idea": "两株形态不同且同样茁壮的树根植同一土地，共同受到护盾庇护，表现两个毫不动摇及平等保护。"
+    },
+    "xj_035": {
+      "title": "公有制主体与国有经济主导",
+      "path": "assets/cards-v3/xj_035.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27866,
+      "sha256": "fd7274c311302663c209b5a1129ab841ef771240d89673bbc760345bcf3c0534",
+      "recipe_sha256": "72c508a75659b1133735b484cc1a26d635e7dd4761db0e2212e6c7f9178241bb",
+      "idea": "宽阔仓基支撑居高的主导齿轮，并接共同劳动者，区分公有制主体范围、国有经济主导及集体经济。"
+    },
+    "xj_036": {
+      "title": "非公有制经济发展",
+      "path": "assets/cards-v3/xj_036.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34792,
+      "sha256": "53009959cc4d9c10374702c2816b46bb4beb086e573b17f40a49961fe741a230",
+      "recipe_sha256": "b755972e8b67235912ade06a44ff0502b4de353b7346f3898ea82a436e1efb3d",
+      "idea": "商坊旁的新芽得到资源滋养并受规则护盾保护，表现支持非公有制发展与规范经营环境。"
+    },
+    "xj_037": {
+      "title": "按劳分配与多种分配方式",
+      "path": "assets/cards-v3/xj_037.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30462,
+      "sha256": "c113329bd69c521c97ae56bec1967ad72a4c319b22f4bf7696264c98bbb602f2",
+      "recipe_sha256": "7840b99f63e6fd9f2d999fa9d02fb8690226745f4a655dcdaa9ba14d91daf9c4",
+      "idea": "劳动者和生产织机汇入分配流泉，主要水路来自劳动场景，表现按劳为主体并依据要素贡献参与分配。"
+    },
+    "xj_038": {
+      "title": "三次分配的协调配套",
+      "path": "assets/cards-v3/xj_038.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37648,
+      "sha256": "b0f3424081891d8a541bb73ccb3984f3a34b36a90129e16e92a4f3e5314b854c",
+      "recipe_sha256": "a4fd0d09fb91481f0e3d2a226ca5c6b0a71156721ecb76e548be6767f5cd7539",
+      "idea": "生产织机、代表公共调节的制度玉印与自愿互助之手，分别以独立水路汇入分配水系；三种来源具有不同主体与原则，共同发挥基础、保障和补充作用，不以银行代指再分配，也不画成依次串联。"
+    },
+    "xj_039": {
+      "title": "效率与公平",
+      "path": "assets/cards-v3/xj_039.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26138,
+      "sha256": "188d68745d60bf289f4878a3876eaefc9f000095009e5b0bd18d4e9eccced48c",
+      "recipe_sha256": "6cb227f0f5cb7b35f59884085e88cb059d3f511310555ede405340a42837b139",
+      "idea": "衡器两旁分别是高效齿轮和不断增加的粮束，金色流线沟通两侧，表现创造财富与合理分配相互促进。"
+    },
+    "xj_040": {
+      "title": "社会主义市场经济",
+      "path": "assets/cards-v3/xj_040.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27620,
+      "sha256": "ea6dbf552d115c46e2f534c530cbb5d874138fa4796f114c0d95d833df1fc870",
+      "recipe_sha256": "82fd354a57d441f87105405b46563f8ef5b7f19e794f3a23facc0a074f1efbda",
+      "idea": "活跃商坊与制度玉印通过同一座桥连通，表现社会主义制度与市场配置机制的有机结合。"
+    },
+    "xj_041": {
+      "title": "市场决定与政府作用",
+      "path": "assets/cards-v3/xj_041.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28378,
+      "sha256": "500cfb75589770dbbca75e3a45d532b9235a9cf80e6a8e6a50c4ef133fca8119",
+      "recipe_sha256": "c11fd5359d961a9b0968443b8577d68a4bfffbb2077ea5b73890f1c52c227cef",
+      "idea": "商坊以多条货物流线配置资源，宏观定向仪与外围护盾维护秩序，区分市场配置和政府职责。"
+    },
+    "xj_042": {
+      "title": "有效市场与有为政府",
+      "path": "assets/cards-v3/xj_042.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31414,
+      "sha256": "9abeed3b9ccd8e03f512e1194b43c5cb189b67586afc3b2993eeec2204f5139e",
+      "recipe_sha256": "4df21b5fa8994031a4ba756687445b8f936ca3a2285b5acdb0e805de60369603",
+      "idea": "通畅道路连接商坊，公平衡器和规则玉印位于道路两侧，表现有效市场与规范有为治理相配合。"
+    },
+    "xj_043": {
+      "title": "改革开放的根本动力作用",
+      "path": "assets/cards-v3/xj_043.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 46250,
+      "sha256": "2e31dbd1b77577a3b0e06879189fbc71fba2836fcd1899c78c43f81168880467",
+      "recipe_sha256": "344fdb327e37a407163b85a427d3f9f3b22d045ca5ab89bed675cc852462a75a",
+      "idea": "更新齿轮驱动敞开的港口山门，远行灵舟从门外驶入，表现改革和开放共同带来活力。"
+    },
+    "xj_044": {
+      "title": "全面深化改革总目标",
+      "path": "assets/cards-v3/xj_044.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28930,
+      "sha256": "277878deb3a9a028cf6e4d09326378a299f5e8a0ff3069b20efb8e94aebf4e05",
+      "recipe_sha256": "57451504350aac01ea0375a173732a7fa5856fe51fd9e7ae4b531adf2be33646",
+      "idea": "制度楼阁与通达治理网络共用清晰定向仪，表现完善制度和治理现代化两个目标有机统一。"
+    },
+    "xj_045": {
+      "title": "改革的持续性",
+      "path": "assets/cards-v3/xj_045.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30120,
+      "sha256": "0ef722dd96697c8d36c28ab52d46a7d5bc77bc6b4bd627efab8487a10b7a18c9",
+      "recipe_sha256": "793d2a34f917fe60c160ff244a1d104f916731b80c28b8a3269da7a8ccbf104e",
+      "idea": "转轮沿蜿蜒水道持续向前，沿途长出新芽并连接更新的桥梁，表现实践变化推动改革不断继续。"
+    },
+    "xj_046": {
+      "title": "经济体制改革的牵引作用",
+      "path": "assets/cards-v3/xj_046.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31986,
+      "sha256": "9462883260fbd31ea61a6585f1d36dc04de9de8fbed46bf44295a586f082de68",
+      "recipe_sha256": "dcb41421761d5f55ea1c197a7f4d43ce207edf0df188dd0845cd71ec317559ac",
+      "idea": "前景主齿轮经链条牵引市场和治理场景，表现经济体制改革的牵引作用与政府市场这一核心关系。"
+    },
+    "xj_047": {
+      "title": "经济体制改革的原则方法",
+      "path": "assets/cards-v3/xj_047.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 43416,
+      "sha256": "1c7680cccf47c6f56cceadcc6b263c935556e728f19cc256190acfe9b8312683",
+      "recipe_sha256": "ca9b42ee5f1f09b5fbef39f4d22f54a1ca81e6150e47283d54058224fe5d85bd",
+      "idea": "罗盘指向人群与市场方向，重点齿轮接入整体网络，表现原则、人民立场、重点与系统集成并举。"
+    },
+    "xj_048": {
+      "title": "全国统一大市场与基础制度",
+      "path": "assets/cards-v3/xj_048.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27874,
+      "sha256": "8fb9900decef9e6c8a5e18f6a651c8c3cecb751bf048509576c4c6c92e2dd8d8",
+      "recipe_sha256": "7e5ecda86fcab7670740ac2b85565da4fad54bdec952bd06261968312865ff11",
+      "idea": "两个各具形态的商坊由连续无阻的道路连接，同一制度玉印位于中央，表现统一基础制度和破除分割。"
+    },
+    "xj_049": {
+      "title": "以开放促改革促发展",
+      "path": "assets/cards-v3/xj_049.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39844,
+      "sha256": "4b616343763cd07ed1339b7c11fe4992e8d438735158fdc8e5dd43a137e74afc",
+      "recipe_sha256": "4baf70a539284741b5de8950cfdf8b93fadd135c30136bb00f796d6718490651",
+      "idea": "开放山门、改革齿轮与合作灵舟以双向水路连成循环，表现开放促改革与改革支持开放。"
+    },
+    "xj_050": {
+      "title": "对外开放基本国策",
+      "path": "assets/cards-v3/xj_050.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 51892,
+      "sha256": "b2b8586e159cde688d6932f4c25ae3270e8dfc042597ac06128bb5238868759c",
+      "recipe_sha256": "d427970485234597c26e9c529447edb4edbf383986a8df181714525f8e5b7677",
+      "idea": "宽阔山门向全球球仪敞开，近侧保持厚实的国内商坊基础，表现长期开放与超大规模市场相联系。"
+    },
+    "xj_051": {
+      "title": "制度型开放",
+      "path": "assets/cards-v3/xj_051.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 37964,
+      "sha256": "07f6595f4707b44740745ffb9a5784a2221b023340ba41d78f791fd6d5a6d235",
+      "recipe_sha256": "c6de3b5d0be3164dacc4b668d879fe2c8c1fdaf5cd276276ce1cad7ac139bd09",
+      "idea": "规则长卷和标准玉印沿通关山门展开，突出制度接口而非只画运输货物，表现制度型开放。"
+    },
+    "xj_052": {
+      "title": "发展理念的先导作用",
+      "path": "assets/cards-v3/xj_052.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 21178,
+      "sha256": "82094c8a6a637b7a52877e29cdc94a8f52928c2db4aa0ad2247aaa2152680757",
+      "recipe_sha256": "5d5e49c8d30760d39f0739ed15c84ed8e618c77503fcd285f3151582aff40b7d",
+      "idea": "高处的明灯照亮罗盘所指山路，表现理念先行并通过方向、路径引导具体行动。"
+    },
+    "xj_053": {
+      "title": "新发展理念",
+      "path": "assets/cards-v3/xj_053.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31246,
+      "sha256": "c2c276843e8c449de5eea361943ccf1035c41ae9f56427945cacc6a517b949ee",
+      "recipe_sha256": "c3e9731faffda2d1c187560be3b7e448030074a1f07edea8386e5e712aa6eb23",
+      "idea": "创新灵晶在后方中央完整显露，协调石桥低置前景，绿树位于左侧，开放山门后移并略缩，共享泉位于右前；五件器物均有独立可辨轮廓，以相连庭园表现创新、协调、绿色、开放、共享组成统一体系。"
+    },
+    "xj_054": {
+      "title": "新发展理念与发展规律",
+      "path": "assets/cards-v3/xj_054.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27872,
+      "sha256": "0e325103025cdd1583155730c0e60e1eebafb5f08c31bf574b80b000b5e270af",
+      "recipe_sha256": "1af5b1cfeb061547b4105e4d0b2550ddb5cd41b2c0328e39c957196f2c5b86a4",
+      "idea": "放射网络连接发展动力、平衡、生态和世界联系，所有节点共同运转，表现理念所概括的规律性联系。"
+    },
+    "xj_055": {
+      "title": "创新驱动发展",
+      "path": "assets/cards-v3/xj_055.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39972,
+      "sha256": "94b9c8acecbd1bad39a983cd91b99566ef739d992e927755844c539ae6c59856",
+      "recipe_sha256": "fab970718ff5e5de24aaf26a12949b640d744f49248f66d557bd516fb76b443e",
+      "idea": "创新晶体悬于生产齿轮的动力核心，展开的知识书卷为其提供基础，表现创新引领发展的动力作用。"
+    },
+    "xj_056": {
+      "title": "协调发展",
+      "path": "assets/cards-v3/xj_056.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24624,
+      "sha256": "6c877bbd363f59031f193030440a034c692d261db562f875362340f9ac48e6cc",
+      "recipe_sha256": "b8637f5ae43298ad064b94245ab3649c6d1ea03c7887e5cd54fa6e7b72943108",
+      "idea": "长桥连接高度不同的田地与居所，保留地形差异而打通联系，表现补短板和优势互补的动态协调。"
+    },
+    "xj_057": {
+      "title": "绿色发展",
+      "path": "assets/cards-v3/xj_057.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32312,
+      "sha256": "979a393a3da4d7c3cf2e525b12aa54c9445c3090a031c79a091a694e0715d5d8",
+      "recipe_sha256": "f6cd6767131c08723d88fa09807df5cccafd28acb7f1408ac5d5bcf9c38e5ba2",
+      "idea": "绿树和清洁水轮围绕清澈河湾，人们在树下生活，表现生态保护与绿色生产生活相互促进。"
+    },
+    "xj_058": {
+      "title": "开放发展",
+      "path": "assets/cards-v3/xj_058.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36242,
+      "sha256": "feb864a894cc6b95049b5449544e0508877ec0b7bdaf216db21576a94798d6a4",
+      "recipe_sha256": "542c86d4a9c20d690ec421addf68c7fa0909197100616eea25f651915f6c03be",
+      "idea": "石桥跨向港口灵舟并接到内陆商坊，表现开放发展所强调的内外联动。"
+    },
+    "xj_059": {
+      "title": "共享发展",
+      "path": "assets/cards-v3/xj_059.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29830,
+      "sha256": "bd385ab571fa43751e1fda1c8f9784426b8d8e7eb5e27f40bedec8dd60424913",
+      "recipe_sha256": "0514ec1c51bbb51f2c8a9d1f2a685e00e569bf89a140778c2f7048911ce60033",
+      "idea": "共享泉周围的人们共同修筑水路，远端水道逐段延展，表现全民、全面、共建与渐进共享。"
+    },
+    "xj_060": {
+      "title": "完整准确全面贯彻",
+      "path": "assets/cards-v3/xj_060.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39310,
+      "sha256": "51e80d288c15622c02c36cc95ca537be1391f10878107f15b63eb28c0855c320",
+      "recipe_sha256": "b5adf559ee53863f2fe86cdb1c9f9679848b60d25a6006309cb8eb5815ec823b",
+      "idea": "一条连续路径从规划卷经过政策印走向项目齿轮，完整罗盘在旁校准方向，表现新理念贯穿全过程。"
+    },
+    "xj_061": {
+      "title": "新发展格局",
+      "path": "assets/cards-v3/xj_061.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33284,
+      "sha256": "418c85f279b89cf7b17372171be46343cd44eb376ae54435f7c6bc6cef003c14",
+      "recipe_sha256": "9dedd5e2c2d3e009eb7cf4368bbeffc57ea1326209eb2861c3c4557eba14c73e",
+      "idea": "中央较大的国内循环直接与前景国内商坊双向相连，右侧较小的全球球仪另以双向流线连接主循环；表现国内大循环的主体地位和国内国际相互促进，国内市场循环不必先经由国际节点。"
+    },
+    "xj_062": {
+      "title": "大国经济与内需主导",
+      "path": "assets/cards-v3/xj_062.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33064,
+      "sha256": "0b7d89a42bfe29df5c7820307d2c2d614a053182a837f2805e65400b63f2ba2d",
+      "recipe_sha256": "28b6dd87823373a5315c91326a279ae4f9f739b12598cbf889fc603d5e7ccbcf",
+      "idea": "宽阔商坊承接人群需求与织机供给，主流线在本地闭合，表现大规模市场和内部可循环条件。"
+    },
+    "xj_063": {
+      "title": "经济循环畅通无阻",
+      "path": "assets/cards-v3/xj_063.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39228,
+      "sha256": "4f3264b04ad3cdcab5dcffe30c4bbe9052099833f3dbeb4a7c95b1f052f68e92",
+      "recipe_sha256": "9a7c6f8c3ef6bfce9081aa86c0e6af9ddce485cf4a978700b13b32dfabe1d429",
+      "idea": "四个不同场景通过连续清澈水路闭合相接，画面强调没有断流与堵点，表现完整经济循环畅通。"
+    },
+    "xj_064": {
+      "title": "扩大内需的战略基点",
+      "path": "assets/cards-v3/xj_064.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24088,
+      "sha256": "b3c69f5022e9d94ecbc741962e6b66e8f674648ffa0cd7e2b0a2ea7c90d72970",
+      "recipe_sha256": "c568a82cf1047fe77a7cec285e88f39e0d73c13dd1d635ff795e9211adba8faf",
+      "idea": "人群与商坊构成中央生活场景，投资形成的桥梁支撑外部通达，表现消费基础作用与有效投资配合。"
+    },
+    "xj_065": {
+      "title": "高水平自立自强",
+      "path": "assets/cards-v3/xj_065.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27826,
+      "sha256": "3cb9fe90b8baa0f76df3533c8a064c9d240487e891b5c72a3635829d2d631f38",
+      "recipe_sha256": "a8c4aad9a7f1bad11d7dacd4c473869f320e98ef0901ba58d9c734ea41a7f416",
+      "idea": "稳固齿轮上凝结关键灵晶，背景山门保持敞开，表现关键能力自立自强与开放合作并不矛盾。"
+    },
+    "xj_066": {
+      "title": "国内循环的动力与可靠性",
+      "path": "assets/cards-v3/xj_066.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28284,
+      "sha256": "253dce1a862a35ac7246b2cc41e6199f09712def4854ace6736fbbf66208f758",
+      "recipe_sha256": "8305c3dc0a830bb0c1198a35e6ffc7f3bace85fbd434e95a1e8be42fde217f9e",
+      "idea": "牢固循环外接供应链、分配水系和安全护盾，表现内生动力、覆盖面与可靠性共同增强。"
+    },
+    "xj_067": {
+      "title": "国内国际双循环相互促进",
+      "path": "assets/cards-v3/xj_067.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 41390,
+      "sha256": "09adec8aafdcab138cf84ea3c991deb515228dd72351658932c9c92b6c8118a5",
+      "recipe_sha256": "41dfb3ac216f227b92399270e318b48e9eec6a13fe64ef5ed69f30799d428605",
+      "idea": "大小两个相互咬合的循环中间有往来灵舟，大环更显著，表现国内牵引国际、国际提升国内效率。"
+    },
+    "xj_068": {
+      "title": "从高速增长转向高质量发展",
+      "path": "assets/cards-v3/xj_068.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28348,
+      "sha256": "bd26c17b02d1a62f198231048502016b650846601ab3664f891d9ea42c6bb6ef",
+      "recipe_sha256": "a72392d01d87cc8ee1e9295e5219d0ea11fcc6fc382df0f4557cf2c41681e7ab",
+      "idea": "前景快速转轮沿台阶转向高处精炼灵晶，衡器保持质量与合理数量的协调，表现从速度导向转向质量提升。"
+    },
+    "xj_069": {
+      "title": "高质量发展",
+      "path": "assets/cards-v3/xj_069.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23580,
+      "sha256": "63c6993af1a03677559e58cfad08f19e06f927f90d9717ec951e37286ec827da",
+      "recipe_sha256": "dbece0c09c10157e4c8a1117bfb4d0549e601099442c6ea90657d2a8ad6ecd6b",
+      "idea": "精炼灵晶处于创新齿轮上方，人们和绿树共同围绕，表现高质量发展最终改善生活并体现新理念。"
+    },
+    "xj_070": {
+      "title": "现代化建设的首要任务",
+      "path": "assets/cards-v3/xj_070.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24812,
+      "sha256": "456412d2088775bbf7b9f1d208bcf26fdc88b2401c63f4e3fcb4239cee00b979",
+      "recipe_sha256": "701999f8edddd6a5c27d953af7df39935bff5630576e49d7ca565fd8d74dc665",
+      "idea": "高质量灵晶化为坚实台基支撑上方楼阁，护盾立于山脚，表现现代化首要任务和安全前提。"
+    },
+    "xj_071": {
+      "title": "质量效率动力三大变革",
+      "path": "assets/cards-v3/xj_071.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25328,
+      "sha256": "ddef9a004d5d3829d8e680a9bc5381ecd715d0845dca7989b250ffb5be6aaa08",
+      "recipe_sha256": "9efd0d89a4c3094d376d5c6b463f381319ae0ec6354ec790de8b5626f7d5cfe7",
+      "idea": "优质灵晶、高效转轮与新动力火炬呈三角联动，后两者的流线汇向灵晶，表现三大变革关系。"
+    },
+    "xj_072": {
+      "title": "高质量发展的四个必须",
+      "path": "assets/cards-v3/xj_072.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27232,
+      "sha256": "f417586a134353e7ea30a93df8abcff69d5b58838f5f852c4ebb52abcf0d779e",
+      "recipe_sha256": "29fdcf8f09f0e94d37c4287d4c38fd626d25e468164e6ab04de3b04b83f15c99",
+      "idea": "人群处在目的位置，完整罗盘、质与量衡器和开放山门连成共同支撑，表现四个必须协同落实。"
+    },
+    "xj_073": {
+      "title": "高质量发展的普遍要求",
+      "path": "assets/cards-v3/xj_073.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22974,
+      "sha256": "a093b839a1b436d645d67165501f69778d08d16259b744030dcc438257593292",
+      "recipe_sha256": "14ea4e43782272f3676a529471cc651f52437a48e2b6f66842f2cb6282fcce5f",
+      "idea": "不同地形上各自发展田畴、生活与产业，共同朝向高质量灵晶，表现各地区因地制宜而共享质量要求。"
+    },
+    "xj_074": {
+      "title": "供给侧与需求侧管理",
+      "path": "assets/cards-v3/xj_074.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28062,
+      "sha256": "5f97762e3b48d676e3524a07bc643cf0532a9a430dc00d624b2215f86d468feb",
+      "recipe_sha256": "4fae9d5d89aa9f081905a454df487bcb36ea1e81b07bde84b87afa2f5dd7dd41",
+      "idea": "供给织机与需求人群分立两侧，中央衡器形成动态联系，表现供给侧结构改善与需求侧总量调节的配合。"
+    },
+    "xj_075": {
+      "title": "扩大内需与供给侧结构性改革",
+      "path": "assets/cards-v3/xj_075.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23444,
+      "sha256": "287250943223f8f67818096962db705a92f6dca1eb5fbdd743e45012d5d24eae",
+      "recipe_sha256": "f12f10ff969cffa51d66830f899c207b130c68d1ebc293d8d4700a5e965e35fa",
+      "idea": "精工器物与人们的新需求以递升双向环相接，表现需求牵引供给与优质供给创造需求的升级互动。"
+    },
+    "xj_076": {
+      "title": "解放和发展社会生产力",
+      "path": "assets/cards-v3/xj_076.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26092,
+      "sha256": "1b5ccb62de2b01280d2b58be373f6ccc9107590e06eef4318eb4602452eb44f2",
+      "recipe_sha256": "48d3ba44a37bb8df1337ae05f9ab047bf053e9d614b8edbdb0093b0f858ce722",
+      "idea": "主齿轮周围解除束缚链环，新芽从稳固基座生长，表现解放生产力的破束缚与发展能力。"
+    },
+    "xj_077": {
+      "title": "新质生产力与高质量发展",
+      "path": "assets/cards-v3/xj_077.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25474,
+      "sha256": "dfea1a7cb8797583d0213c5f4f2c608c630821f93f223bf60e10fbfa136e6caa",
+      "recipe_sha256": "7d9f2644d8d9f5a07cd05024cdf4c1bc8e5784a7b5c716c75504fc414b0bf487",
+      "idea": "先进齿轮孕育新质灵晶再支撑高处发展楼阁，表现新质生产力作为高质量发展的重要着力点。"
+    },
+    "xj_078": {
+      "title": "新质生产力",
+      "path": "assets/cards-v3/xj_078.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22992,
+      "sha256": "8d28c1c9fdcb8eaab575b3d0c035fea67b4c4ec1ffd2a8b187f9e6c2e904bbec",
+      "recipe_sha256": "dba7f052cc49e35c5b02d0a9440d6bc8b6c7020ab5133c48da15e84564e2a569",
+      "idea": "劳动者、先进生产器物与新材料灵晶通过清晰网络优化组合，表现新质生产力的要素跃升及组合创新。"
+    },
+    "xj_079": {
+      "title": "高科技高效能高质量",
+      "path": "assets/cards-v3/xj_079.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29826,
+      "sha256": "46407f6491ebbe5935f49085fc5991f10233b993fa139790bcdba3f9ab784745",
+      "recipe_sha256": "22e0d75865024d89e9796142f596579325729216c4dcea1c7c387dc6a40342e2",
+      "idea": "知识卷、高效转轮和精制器物构成三件明显不同的成果，表现高科技、高效能、高质量三项特征。"
+    },
+    "xj_080": {
+      "title": "新质生产力的创新机制",
+      "path": "assets/cards-v3/xj_080.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40668,
+      "sha256": "bc7ed6fa629f10ca20192411225c43d04c2f83cb0783d4b3518882f4c3452dac",
+      "recipe_sha256": "99cf9019a7b786e98b989bdeb618a030b1f0ea5b467818e12e843fc89eee1a93",
+      "idea": "科技晶体连接产业齿轮，人才、制度与绿色新芽为两者提供条件，表现科技与产业创新及配套机制。"
+    },
+    "xj_081": {
+      "title": "因地制宜与新型举国体制",
+      "path": "assets/cards-v3/xj_081.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25096,
+      "sha256": "24fbcaaa2655b97c9fbe3288536e8705e344ab2f484b1c73f901b45bdb41a6b3",
+      "recipe_sha256": "63c660d5c8144c934643d8af7050321e370ebaa4c346d4bc85cce20234e646cf",
+      "idea": "不同地形承载传统产业与新兴晶体，多方协作而保留各地条件差异，表现因地制宜和新型举国体制。"
+    },
+    "xj_082": {
+      "title": "要素集聚数实融合绿色低碳",
+      "path": "assets/cards-v3/xj_082.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30120,
+      "sha256": "9017e40ad26fde3a466c18a9d6212f5d6e1afbfbed440c8b932858c5911159fc",
+      "recipe_sha256": "d03e8a832733767e9cad12e3b4ad149f5cd79504044e4efcdd343636ad19de7a",
+      "idea": "数字网络与实体齿轮融合，清洁风车为其供能，三者通过环流相接，表现数实融合和绿色低碳转型。"
+    },
+    "xj_083": {
+      "title": "现代化产业体系",
+      "path": "assets/cards-v3/xj_083.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28380,
+      "sha256": "010e133810e221b33f4ea2ae315e1af351f85f9b7ea52cf9c3cc5a6d71ab1114",
+      "recipe_sha256": "1016cab4279211d764be4a18a6c85630a1564c6fce9b9e585512789d4de37872",
+      "idea": "农业、工业、服务与基础设施四类场景由统一网络连接，表现现代化产业体系的完整性与融合。"
+    },
+    "xj_084": {
+      "title": "实体经济",
+      "path": "assets/cards-v3/xj_084.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 36954,
+      "sha256": "746f78cd6af38fae1757d3e27518c54ff3490de7a74e6db8f3f4e8d19668b2e8",
+      "recipe_sha256": "c0d97fc43ecb02cbcf7eee8661dd2faebc199a9da6d40509ca7b63597a3c1a24",
+      "idea": "生产织机、书籍与服务商坊占据主体，较小金融楼阁向它们提供流线，表现金融服务实体及实体的广泛内涵。"
+    },
+    "xj_085": {
+      "title": "新型工业化",
+      "path": "assets/cards-v3/xj_085.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33248,
+      "sha256": "b11a7b9b8bf8632a0cf3ef88088514d7128726737b3adf2c613be7bf6be6f4e9",
+      "recipe_sha256": "378519c8c7a0c2f0902d8b89967dea0df8102329adec9fe6410017609c2bc01b",
+      "idea": "升级织机接入数字网络，以绿色树冠和牢固链条形成支撑，表现制造升级、数字化与绿色韧性的新型工业化。"
+    },
+    "xj_086": {
+      "title": "数字经济",
+      "path": "assets/cards-v3/xj_086.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26202,
+      "sha256": "ace5ba063cb9160f54c5dc7fee50b6b13d7b97281a80f80e9080ee42e42177c4",
+      "recipe_sha256": "30f4e44ed533ed4c82bc2dc514339dc23581a2341f59f3214410b14d737b0f11",
+      "idea": "发光数据网络围绕信息灵晶展开，延伸到服务商坊，表现数据为关键要素、信息网络为载体的数字经济。"
+    },
+    "xj_087": {
+      "title": "数字产业化与产业数字化",
+      "path": "assets/cards-v3/xj_087.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27394,
+      "sha256": "82d872401560165573c016309a6db8b87737cb4d94bfa1d82dcb6d39f366ec98",
+      "recipe_sha256": "6d0e394a4e627214f481f5b5ad71c76f2f07b149d2f1b25841e738687c4e54c4",
+      "idea": "一侧由灵晶形成独立数字产品，另一侧网络融入传统织机，双向联系但分清数字产业化与产业数字化。"
+    },
+    "xj_088": {
+      "title": "现代化基础设施",
+      "path": "assets/cards-v3/xj_088.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 31662,
+      "sha256": "4f6c7fb6d36ee43c3208b78afc359062a278b0f07b5832ccdbc4d32f2d45ee52",
+      "recipe_sha256": "19bae09584db2cda7fbee6a170531ed4b2af3aacce047e9fb2452aec09310325",
+      "idea": "交通桥、清洁能源、水利井泉和信息网络共同铺设在地形上，表现传统与新型基础设施协同支撑。"
+    },
+    "xj_089": {
+      "title": "中国特色金融发展之路",
+      "path": "assets/cards-v3/xj_089.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29836,
+      "sha256": "727276b60e71227fa14db9a6acb204ac14df7c2c66f73e24ba3c9e62034530d1",
+      "recipe_sha256": "b3ca60a2e9e2ec2c699f0b1ea1bdc488fad1975382c7333fe5918823b387566c",
+      "idea": "金融楼阁向实体织机与人们提供资源，护盾在外围防控风险，表现服务实体和人民以及安全要求。"
+    },
+    "xj_090": {
+      "title": "金融强国与现代金融体系",
+      "path": "assets/cards-v3/xj_090.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30010,
+      "sha256": "33b1063adb0b1d2ed71eff2313ad74b3fd899aca91c6c980a286c123240ccd17",
+      "recipe_sha256": "d2a1c93afcccc1b032bb61742ea9d4e445dfb6609f5432777f5a779da06dc6d9",
+      "idea": "金融主体连通货币、基础设施、监管和人才，表现现代金融体系由多种关键要素共同构成。"
+    },
+    "xj_091": {
+      "title": "城镇化与现代化",
+      "path": "assets/cards-v3/xj_091.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24634,
+      "sha256": "1113bc88854d8da307e5aa1afb8a1f329c9f417439b744897505c468fbf258d9",
+      "recipe_sha256": "f5deb913d4056b30d3271ea1d346e06f6602eb5dd8d853421694b5bc283406bb",
+      "idea": "人物沿通道从乡地走向城居与产业空间，表现城镇化伴随工业化、就业转移和需求扩展。"
+    },
+    "xj_092": {
+      "title": "以人为本的新型城镇化",
+      "path": "assets/cards-v3/xj_092.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 27454,
+      "sha256": "01b2ce866217f171ab9868d92c0f5d6c2a6a2290a766c8c29c70a9f38a51320d",
+      "recipe_sha256": "67be99b396afad2adb6420932487e0ab81ac5a36275e65cc47787ca3fbb4d3d2",
+      "idea": "居民在安居院落中央，书籍和通达桥围绕其生活配置，表现以人为本而不只是土地扩张的城镇化。"
+    },
+    "xj_093": {
+      "title": "人民城市与城市更新",
+      "path": "assets/cards-v3/xj_093.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24344,
+      "sha256": "8dbf7f6952d57eae055306bbcfb72c980926cc3e3bae4d6d6a393fec3c29f3e5",
+      "recipe_sha256": "aafb6ff441f3122bb07f5ace43f8916443807b0ae963f6d3a81b4c4c4f4c74bf",
+      "idea": "已有居所旁增设生活绿树并由居民参与更新，表现存量提质、城市更新和人民城市。"
+    },
+    "xj_094": {
+      "title": "农业农村现代化的地位",
+      "path": "assets/cards-v3/xj_094.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28456,
+      "sha256": "7a21ec90bfe8e8f800305567fb171068ea004cbeba29ecbfc6d7fac79eac5cad",
+      "recipe_sha256": "d52177ebe015ec36ce85c67c384b1c303542b3001d51e907a81ec6a090429d0c",
+      "idea": "乡地、农业与农民构成前景根基，高处楼阁由它们支撑，表现农业农村现代化在国家全局中的地位。"
+    },
+    "xj_095": {
+      "title": "乡村振兴战略",
+      "path": "assets/cards-v3/xj_095.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25712,
+      "sha256": "dfb08d03ae9939271054934f6276ae37e83a660af602e84a49f721333857d4d7",
+      "recipe_sha256": "83fb317e75183103c4048a5286c50ef4ec071a275fc2fd460a1638aea5123322",
+      "idea": "乡村庭园中产业、人才、文化、生态、组织五组具体器物相连，表现全面乡村振兴的五方面。"
+    },
+    "xj_096": {
+      "title": "农业强国",
+      "path": "assets/cards-v3/xj_096.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24418,
+      "sha256": "c3c8a7d06ac6353d691391556db192c2737d9225920f9210199b8eadbb8203e3",
+      "recipe_sha256": "2f6aaf052094c2c7197672166e74aa8897baaf5a7528c6e5eb39f46dbd3d5ac9",
+      "idea": "丰硕粮束与农业齿轮处于中心，稳固仓储和生态绿树在旁支撑，表现供给、科技、韧性和农情基础。"
+    },
+    "xj_097": {
+      "title": "城乡融合发展",
+      "path": "assets/cards-v3/xj_097.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32810,
+      "sha256": "b1853758e5a6efe9c11eff87bceed677cf235a2c0893a881f7ebffca51805c70",
+      "recipe_sha256": "39324661eec6f969235b29ea7f701f1cbf2fb0f28f29f39107e7ec4c15da56dd",
+      "idea": "城居与田畴由宽阔双向桥连接，人们在两侧流动，表现城乡要素平等交换与双向流动。"
+    },
+    "xj_098": {
+      "title": "县域与城乡融合机制",
+      "path": "assets/cards-v3/xj_098.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 23010,
+      "sha256": "9779464c2ea4759b419eb2336328c30b7ae68e16cbc2958e20f12b23c30b926e",
+      "recipe_sha256": "05df62a93bcc3b716a4ab5ff5a7979e3173d1f80fff39bbc923d06c3795a1cc8",
+      "idea": "大城、县城与乡田沿同一条服务道路排列，县城位于连接中心，表现县域作为城乡融合切入点和纽带。"
+    },
+    "xj_099": {
+      "title": "区域协调发展的辩证法",
+      "path": "assets/cards-v3/xj_099.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25046,
+      "sha256": "4ec2cd2067ee19de5b85072f347b65207c9b294738c5792b1f1508f1ba0da695",
+      "recipe_sha256": "2434b568666c0c07ee44340d8d86a3df085e60bad5a27a673e23af8c7680b21a",
+      "idea": "山地资源区与临海航运区以桥相连，各自保留不同形态，表现区域分工优势互补而非同一产业结构。"
+    },
+    "xj_100": {
+      "title": "区域协调目标与新机制",
+      "path": "assets/cards-v3/xj_100.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 32350,
+      "sha256": "6f26aa348ada893603d5e3282c93489b83be6b9eb614ab7746e512c55595e8cf",
+      "recipe_sha256": "687e57ea6dcac974e5e5bea4f96725d88d9a77acca24ec307d2c73a7daef31a9",
+      "idea": "通达桥梁连接公共井泉与不同人群，补偿衡器协调资源流向，表现区域协调机制和均衡可及。"
+    },
+    "xj_101": {
+      "title": "四大板块协调发展",
+      "path": "assets/cards-v3/xj_101.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24866,
+      "sha256": "f1c4270687271f038e87dc8c8ccd37f6a6db55a7fd6c8912345a0d8020de3672",
+      "recipe_sha256": "657c6e3fcc27938f6589dd4c892037b04d60be78cd6246c0c2b0892bf6a2b9bd",
+      "idea": "四个明显不同的地域场景围合连接，西部山地、东北仓工、中部桥枢、东部港口各展其长，表现四大板块协调。"
+    },
+    "xj_102": {
+      "title": "区域重大战略",
+      "path": "assets/cards-v3/xj_102.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33680,
+      "sha256": "6f3f080d9a732c4ab5ab52720d930ba520a3f362443415c641b58eaf13c9c74e",
+      "recipe_sha256": "97078207867599f6a64d05a4d27ec9d0826ebce2d703a3ed3a1ca9eae930ddbf",
+      "idea": "跨区桥梁连通水系、湾区港口和一体化商坊，生态绿树贯穿其间，表现区域重大战略的不同任务与协同。"
+    },
+    "xj_103": {
+      "title": "主体功能区战略",
+      "path": "assets/cards-v3/xj_103.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22644,
+      "sha256": "f840434f134b6d24d01a62334dee7758e0e0c4055dd7057537aba54e88e3dc60",
+      "recipe_sha256": "43eadc38c761f65225ec49d84b4f993b044a0abffbb4a08cef6112fc1fd8311e",
+      "idea": "粮食主产地、生态林地和城居区依地形分区排列，边界清楚而互相连接，表现主体功能因承载条件而异。"
+    },
+    "xj_104": {
+      "title": "海洋经济与陆海统筹",
+      "path": "assets/cards-v3/xj_104.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 35194,
+      "sha256": "4227ed8868ec9d459f3cd19bce0a691a9f39b0e952631fd86e54e3e9fa0fe9f8",
+      "recipe_sha256": "9ed99f26a1456d28569ff87a609de6079eca187b13ba0c2a4a188c2efd381762",
+      "idea": "港口海舟与陆域土地形成同一画面，海岸保留生态林带，表现陆海统筹与海洋产业生态协调。"
+    },
+    "xj_105": {
+      "title": "经济全球化",
+      "path": "assets/cards-v3/xj_105.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33972,
+      "sha256": "dba895c0d63d229a1579fe98045828e3460b89aed5bbe6d84106b4ef0014e4a0",
+      "recipe_sha256": "d07e75ba591da4e1aa9956f0b01e33e962fcd08e8dca2b92e19b463a50e71d45",
+      "idea": "球仪周围以贸易灵舟、金融货币和生产网络形成跨域联系，表现生产要素在全球流动与配置。"
+    },
+    "xj_106": {
+      "title": "经济全球化的双重作用",
+      "path": "assets/cards-v3/xj_106.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 26822,
+      "sha256": "50a0754f3311e0767d7c7b0a3f048c3bc515f3fb34f72c7189fa9731f89fc19e",
+      "recipe_sha256": "741c2e15a5cf33a3f573a11f54546bf432d375b8db91b5bf312c13623cbcf90f",
+      "idea": "全球球仪与衡器共同呈现增长成果和风险防护两侧，表现全球化的收益与挑战需要辩证认识。"
+    },
+    "xj_107": {
+      "title": "全球化的趋势与曲折",
+      "path": "assets/cards-v3/xj_107.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29490,
+      "sha256": "af822cf5226751725cc7b21f5187e6a50f4f9824b56a6a1e68eb2477c6534085",
+      "recipe_sha256": "1486a30eb8ee39748f21f730056244433736941ada819e785f0cf1fa85be5bcc",
+      "idea": "航船沿有曲折的长水路驶向仍相连的球仪，局部云层遮挡但航路延续，表现全球化趋势与过程曲折。"
+    },
+    "xj_108": {
+      "title": "中国与经济全球化",
+      "path": "assets/cards-v3/xj_108.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 40496,
+      "sha256": "61765a5890d7fb9bba71d06e8668c64253d036433c4b8c73d85c1813ec0b4c48",
+      "recipe_sha256": "158835657816601465a0878318ee1d3784f551fb316f0f160cdcbf77c0d00c10",
+      "idea": "国内商坊与世界球仪之间有双向航船及流线，表现中国从全球化受益也通过发展合作产生作用。"
+    },
+    "xj_109": {
+      "title": "普惠包容的经济全球化",
+      "path": "assets/cards-v3/xj_109.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 28326,
+      "sha256": "2de0f9346f9a6fdd83fa912f42951301211be0e021a52b5c2a71e8e8b287246d",
+      "recipe_sha256": "41248adce0bb6234ce7a82a6e1f10295eb8a49370ab60e0d8cf37075c1de197f",
+      "idea": "全球球仪旁的共享流泉与前景开放桥梁相连，参与人群独立置于右侧，不被泉池遮挡；全球联系、共享成果、参与者和参与路径四种意象均完整可辨，表现普惠包容的参与和受益。"
+    },
+    "xj_110": {
+      "title": "全球经济治理",
+      "path": "assets/cards-v3/xj_110.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29280,
+      "sha256": "d27f378b54032919997b762be1956ba738a37b927af6ce43b57476f87480a68d",
+      "recipe_sha256": "bdbd2b833879f91a2a1d4997f61a940e29981578091dfbc8803e502397f2c307",
+      "idea": "多方参与者围绕球仪共同展开规则长卷，公平衡器与其相接，表现平等、开放、合作与共享治理。"
+    },
+    "xj_111": {
+      "title": "高质量共建一带一路",
+      "path": "assets/cards-v3/xj_111.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 30484,
+      "sha256": "73d34ac11b202791383972907de5f73afe15654f6d89a31d49420e77bcbe1817",
+      "recipe_sha256": "c743d3d711d5a6cac53e4b9a6f10b4adfcb9d17f400fa04013341a8e9c17eea5",
+      "idea": "石桥、规则长卷与相向人群沿丝路灵舟的航线串联，表现硬联通、软联通和民心相通。"
+    },
+    "xj_112": {
+      "title": "忧患意识与底线思维",
+      "path": "assets/cards-v3/xj_112.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25350,
+      "sha256": "41d8b4366f85a9f78f0f97aa4f2d18d8856101c44bc88b080848974338aa7984",
+      "recipe_sha256": "eeb9c92cadefb49f0334621337df3bce9c5ecb22d8dfd02e75d23372cb9563dd",
+      "idea": "牢固护盾前有预警明灯，后方储备仓库整齐就位，表现面对不利情况提前准备、监测与源头防控。"
+    },
+    "xj_113": {
+      "title": "机遇与风险并存",
+      "path": "assets/cards-v3/xj_113.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22516,
+      "sha256": "d01c11ff28b056acdf6b95f671d19ebb8a8bcd73872ac2e062be4116d94398a8",
+      "recipe_sha256": "3efc9c37725bcfedf9d5fd986b023fde382083f5c3dbcdb117a70036411cef62",
+      "idea": "明亮新晶与不确定云层共存，定向仪和护盾处于两者之间，表现机遇与风险并存且需要具体判断。"
+    },
+    "xj_114": {
+      "title": "统筹发展和安全",
+      "path": "assets/cards-v3/xj_114.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34846,
+      "sha256": "2d845973137e5e6420427af6c188f38d1619dbc6664d6c445f70987d67a7a254",
+      "recipe_sha256": "727a46cf1ad1f030737e03af342681d0bd8daca1146a83cb266f24e2658237a5",
+      "idea": "大小相近的两只转轮共用稳固基座，护盾与动力流线同时支撑，表现发展与安全同步相互促进。"
+    },
+    "xj_115": {
+      "title": "高质量发展与高水平安全",
+      "path": "assets/cards-v3/xj_115.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 21524,
+      "sha256": "b0819590fa62c5efe730d7d67fd88635344131673233aed0e84e7fed717a9d8d",
+      "recipe_sha256": "1ccffc62749773d1a060d1d8b6e9c868692f055088174680dd21453758e06aec",
+      "idea": "高质量灵晶与高水平护盾分立衡器两侧并形成互流，表现综合能力、安全保障与动态平衡。"
+    },
+    "xj_116": {
+      "title": "粮食安全",
+      "path": "assets/cards-v3/xj_116.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 29594,
+      "sha256": "0e7cd7f99ff96b458233c94613f4902ac356aecff6bddef9acb15ac742d3b1fd",
+      "recipe_sha256": "c87f4617f3a39e66d46cd18b612baa374ced59fb6b8c4fae63cc76cd90867fcd",
+      "idea": "饱满粮仓、稻穗、新种苗与受保护田地组成完整供给场景，表现粮食安全的产能、耕地和种子关键。"
+    },
+    "xj_117": {
+      "title": "能源与产业链供应链安全",
+      "path": "assets/cards-v3/xj_117.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25716,
+      "sha256": "d0ab1ccf1294737a4f48c0c62af6122e88a2c96eb5ef693b63ab9cb24cf73863",
+      "recipe_sha256": "5a9d8d3561b39a1b595f2f673b59df740f5122d88934f315aaaa1d973977d5bb",
+      "idea": "清洁能源风机、完整连环供应链、替代齿轮与储备仓共同组成韧性系统；链条低置独立前景，避免与仓库屋顶重合，以清楚呈现连续连接、必要备份与替代能力。"
+    },
+    "xj_118": {
+      "title": "金融安全与数据安全",
+      "path": "assets/cards-v3/xj_118.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 25714,
+      "sha256": "baeed14cc56407c9e0f826c39f34e34142bc156de35dcb638e531db00ef242bf",
+      "recipe_sha256": "43ced371def3f19c263bc814bfd35b72e07b7bc9a6f401c68c8aaf39c7e5c198",
+      "idea": "金融楼阁与数据网络分别受到连续护盾保护，并保留正常连接，表现金融和数据使用中的安全治理。"
+    },
+    "xj_119": {
+      "title": "稳中求进",
+      "path": "assets/cards-v3/xj_119.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 19210,
+      "sha256": "ce2e2040406c21f81929ae4cdaf845b6b342374b87f786545d5f4ec5c490d987",
+      "recipe_sha256": "8ec0bdd0ae2931045dfcce67561011294e7f0aa55e0e20dfb8b2f42cf2b61297",
+      "idea": "宽稳道路托住前行齿轮，护盾维护连续秩序，表现以稳求进、以进固稳而非停滞不前。"
+    },
+    "xj_120": {
+      "title": "稳进关系与先立后破",
+      "path": "assets/cards-v3/xj_120.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 34612,
+      "sha256": "839c5221bebd1f596bc22d034751768164fce9c4ae9fd48effe527357da7574a",
+      "recipe_sha256": "8b4ead624557f0c02ba5a66e8048b96d8dc0abcc33153e9591fae901cdede1ac",
+      "idea": "新桥已经接通后旧门才开始调整，生产齿轮保持运转，表现先建立新条件再破除旧环节的时序。"
+    },
+    "xj_121": {
+      "title": "系统观念",
+      "path": "assets/cards-v3/xj_121.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 24752,
+      "sha256": "7111cbd1c307691cedc59892c74078c6f3323358050e12d92b66fd210c7b1cd6",
+      "recipe_sha256": "c602578999232851566ebc35f233d2ccf00e60b3bdb57b00bf763889c8a45803",
+      "idea": "整体网络中一个重点齿轮被明确突出，并接长远生长与关系衡器，表现系统推进和重点突破的统一。"
+    },
+    "xj_122": {
+      "title": "目标导向与问题导向",
+      "path": "assets/cards-v3/xj_122.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 22024,
+      "sha256": "846615e0876678e3675889f37909ef7b2692acf7856581157d6a32a97afbd752",
+      "recipe_sha256": "e7b1d4a9f7bce5dfe0049e1e8ad162bcd0f8b30a136240e5c00c62ef8fcf9a39",
+      "idea": "目标罗盘指向远处方向，近景灯照见路径上的具体阻碍，表现目标导向与问题导向通过调查相结合。"
+    },
+    "xj_123": {
+      "title": "集中精力办好自己的事",
+      "path": "assets/cards-v3/xj_123.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 33310,
+      "sha256": "3c074e4974bc06e6e68b0f77e18760d925a39fdd6fc7049e87fb0619a8389783",
+      "recipe_sha256": "bd8129351ace78c9b69a4c035848a01e48ce90361eb842d7a7419b13e3650364",
+      "idea": "深根树木与自身能力齿轮构成主体，外部云气围绕但山门敞开，表现内因基础、战略定力与开放并行。"
+    },
+    "xj_124": {
+      "title": "钉钉子精神与落实",
+      "path": "assets/cards-v3/xj_124.webp",
+      "width": 672,
+      "height": 560,
+      "bytes": 39256,
+      "sha256": "d467d78a9027961b49cc21eef1b67a0d19d7dd15008a49a63b2f6100a2a8e951",
+      "recipe_sha256": "85a1a4c918e91262af18ef54b3b32cd0e1d5a4e5ae5e375538f69c37c22a24ad",
+      "idea": "同一张展开蓝图延伸到持续施工者、接续运转齿轮和建成居所，表现长期接续把部署转为实际结果。"
+    }
+  }
+}

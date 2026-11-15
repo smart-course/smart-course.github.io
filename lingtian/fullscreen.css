@@ -1,0 +1,1036 @@
+/* The garden is the app: edge-mounted jade HUD, one uninterrupted scene. */
+.fullscreen-only,
+.fullscreen-more,
+.game-sheet { display: none; }
+.game-sr-only { position: absolute !important; width: 1px !important; height: 1px !important; padding: 0 !important; margin: -1px !important; overflow: hidden !important; clip-path: inset(50%) !important; white-space: nowrap !important; border: 0 !important; }
+
+body.game-app {
+  --hud-top: max(18px, env(safe-area-inset-top, 0px));
+  --hud-left: max(20px, env(safe-area-inset-left, 0px));
+  --hud-right: max(20px, env(safe-area-inset-right, 0px));
+  --hud-bottom: max(14px, env(safe-area-inset-bottom, 0px));
+  --hud-profile-height: 72px;
+  --hud-profile-width: 224px;
+  --hud-dock-height: 80px;
+  --hud-clear-top: calc(var(--hud-top) + var(--hud-profile-height) + 10px);
+  --hud-clear-bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 12px);
+  --hud-paper: #fffdf0ed;
+  --hud-jade: #567b60;
+  --hud-jade-dark: #365943;
+  --hud-gold: #b49a61;
+  --hud-line: #c6cfaf;
+  --hud-shadow: 0 7px 25px #29483224, inset 0 1px 0 #fffef6d9;
+  --game-window-top: max(24px, env(safe-area-inset-top, 0px));
+  --game-window-bottom: max(24px, env(safe-area-inset-bottom, 0px));
+  --game-window-left: max(30px, env(safe-area-inset-left, 0px));
+  --game-window-right: max(30px, env(safe-area-inset-right, 0px));
+  --fs-top: var(--hud-clear-top);
+  --fs-bottom: var(--hud-clear-bottom);
+  --fs-left: var(--hud-left);
+  --fs-right: var(--hud-right);
+  --fs-safe-bottom: env(safe-area-inset-bottom, 0px);
+  width: 100%; height: 100dvh; min-height: 0; margin: 0; padding: 0;
+  overflow: hidden; overscroll-behavior: none; background: #dbe8d4; color: #4b684c;
+}
+.game-app [hidden] { display: none !important; }
+.game-app .fullscreen-only { display: inline-flex; }
+.game-app .app-layout { display: block; width: 100%; min-height: 0; height: 100%; padding: 0; overflow: hidden; }
+.game-app .workspace { position: absolute; inset: 0; z-index: auto; display: block; width: 100%; max-width: none; height: auto; min-height: 0; grid-column: auto; padding: 0; margin: 0; overflow: hidden; }
+.game-app #garden-page,
+.game-app .garden-column { position: absolute; inset: 0; display: block; width: 100%; min-width: 0; min-height: 0; margin: 0; padding: 0; border: 0; background: transparent; box-shadow: none; }
+body.game-app.game-booting .game-hud,
+body.game-app.game-booting .game-dock,
+body.game-app.game-booting .game-shortcuts,
+body.game-app.game-booting .game-quest-peek,
+body.game-app.game-booting .game-guard-resume,
+body.game-app.game-booting .garden-toolbar,
+body.game-app.game-booting .garden-topline { display: none; }
+.game-app .game-boot-splash { position: fixed; inset: 0; z-index: 500; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 15px; padding: 30px; background: radial-gradient(ellipse at 40% 30%, #f4f3df, transparent 65%), radial-gradient(ellipse at 80% 90%, #ccdabe88, transparent 60%), #e5ecd9; text-align: center; isolation: isolate; }
+.game-app .game-boot-splash::before { content: ""; position: absolute; z-index: -1; width: min(464px, calc(100vw - 24px)); height: min(436px, calc(100dvh - 24px)); border: 1px solid #c6c79e; border-radius: 32px 18px 32px 18px; background: linear-gradient(145deg, #fffdf2f7, #eff3dfe8); box-shadow: 0 15px 70px #54724720, inset 0 1px 0 #fffef8; }
+.game-app .game-boot-splash::after { content: ""; position: absolute; z-index: -1; width: min(440px, calc(100vw - 48px)); height: min(412px, calc(100dvh - 48px)); border: 1px solid #bbab7252; border-radius: 25px 12px 25px 12px; pointer-events: none; }
+.game-app .game-boot-emblem { position: relative; display: block; }
+.game-app .game-boot-emblem::before,
+.game-app .game-boot-emblem::after { content: ""; position: absolute; top: 50%; width: 39px; height: 1px; background: linear-gradient(90deg, transparent, #bba26a); }
+.game-app .game-boot-emblem::before { right: calc(100% + 16px); }
+.game-app .game-boot-emblem::after { left: calc(100% + 16px); transform: rotate(180deg); }
+.game-app .game-boot-splash .game-avatar { width: 62px; height: 62px; flex-basis: 62px; font-size: 32px; }
+.game-app .game-boot-splash h1 { display: block; margin: 0; font: 29px/1.4 var(--serif, serif); letter-spacing: 4px; color: #50714c; }
+.game-app .game-boot-splash p { max-width: 260px; margin: 0; font-size: 12px; line-height: 1.8; color: #8a9473; }
+.game-app .game-boot-splash #game-boot-stage { min-height: 22px; color: #718268; }
+.game-app .game-boot-splash .button { min-height: 44px; padding: 10px 23px; border-radius: 14px; }
+.game-app .game-boot-journey { width: min(310px, calc(100vw - 84px)); display: grid; gap: 8px; }
+.game-app .game-boot-progress-meta { display: flex; align-items: baseline; justify-content: space-between; padding: 0 5px; color: #7c815f; font: 10px/1.4 var(--sans, sans-serif); letter-spacing: 2px; }
+.game-app .game-boot-progress-meta b { color: #55714f; font: 600 13px/1.2 var(--sans, sans-serif); font-variant-numeric: tabular-nums; letter-spacing: 1px; }
+.game-app .game-boot-progress-shell { position: relative; }
+.game-app .game-boot-progress-shell::before,
+.game-app .game-boot-progress-shell::after { content: ""; position: absolute; z-index: 1; top: 50%; width: 11px; height: 11px; border: 1px solid #b29656; border-radius: 3px; background: linear-gradient(135deg, #f7e6ad, #759071 48%, #466a52); box-shadow: 0 0 0 3px #e8dfbb, 0 0 0 4px #b5a47780, inset 0 0 0 2px #f5ecc080; transform: translateY(-50%) rotate(45deg); }
+.game-app .game-boot-progress-shell::before { left: -13px; }
+.game-app .game-boot-progress-shell::after { right: -13px; }
+.game-app .game-boot-progress { box-sizing: border-box; width: 100%; height: 26px; padding: 3px; overflow: hidden; border: 1px solid #b69d60; border-radius: 15px; background: linear-gradient(180deg, #bccbb0, #e0e8d1 52%, #c5d3b8); box-shadow: 0 2px 8px #62774c19, inset 0 1px 3px #51674240, 0 0 0 2px #fff9e17a; }
+.game-app .game-boot-progress i { position: relative; display: block; width: 0; height: 100%; overflow: hidden; border: 1px solid #71865d; border-radius: 11px; background: linear-gradient(180deg, #d4e4b2 0%, #a8c78e 17%, #6e986d 50%, #4e7b58 78%, #92b386 100%); box-shadow: inset 0 1px 0 #edf4cca6, 1px 0 7px #426a4a55; transition: width .32s ease-out; }
+.game-app .game-boot-progress[aria-valuenow="100"] i { transition-duration: .2s; }
+.game-app .game-boot-progress i::before { content: ""; position: absolute; inset: 2px 6px auto; height: 1px; background: linear-gradient(90deg, transparent, #f7f1baad, transparent); }
+.game-app .game-boot-progress i::after { content: ""; position: absolute; inset: -8px auto -8px -100px; width: 90px; background: linear-gradient(110deg, transparent 10%, #fffbd120 35%, #fffbd18c 50%, #fffbd120 65%, transparent 90%); animation: game-boot-jade-shimmer 2.6s ease-in-out infinite; }
+.game-app .game-boot-steps { display: flex; justify-content: space-between; padding: 1px 4px 0; color: #989d80; font: 10px/1.4 var(--sans, sans-serif); letter-spacing: 2px; }
+.game-app .game-boot-steps span { display: inline-flex; align-items: center; gap: 6px; }
+.game-app .game-boot-steps i { display: inline-block; width: 4px; height: 4px; border: 1px solid #a8ae8c; border-radius: 50%; background: #e7ebd6; }
+.game-app .game-boot-steps .is-current { color: #50724e; }
+.game-app .game-boot-steps .is-current i { border-color: #9e925d; background: #a8be86; box-shadow: 0 0 0 3px #b8c79c4d; }
+.game-app .game-boot-steps .is-complete { color: #8b8056; }
+.game-app .game-boot-steps .is-complete i { border-color: #aa965d; background: #c2ac72; }
+.game-app .game-boot-verse { display: grid; justify-items: center; gap: 8px; margin-top: 4px; }
+.game-app .game-boot-verse small { color: #a48a54; font: 10px/1.4 var(--sans, sans-serif); letter-spacing: 4px; padding-left: 4px; }
+.game-app .game-boot-verse #game-boot-quote { max-width: min(350px, calc(100vw - 64px)); font: 20px/1.8 var(--serif, serif); letter-spacing: 1px; color: #5a7253; text-wrap: balance; }
+@keyframes game-boot-jade-shimmer { 0%, 12% { transform: translateX(0); } 88%, 100% { transform: translateX(420px); } }
+@media (max-width: 600px), (max-height: 450px) {
+  .game-app .game-boot-progress { height: 22px; padding: 2px; }
+}
+@media (max-height: 450px) {
+  .game-app .game-boot-splash { gap: 8px; padding: 12px; }
+  .game-app .game-boot-splash::before { height: min(300px, calc(100dvh - 20px)); }
+  .game-app .game-boot-splash::after { height: min(280px, calc(100dvh - 40px)); }
+  .game-app .game-boot-splash .game-avatar { width: 44px; height: 44px; flex-basis: 44px; font-size: 26px; }
+  .game-app .game-boot-splash h1 { font-size: 25px; line-height: 1.2; }
+  .game-app .game-boot-journey { gap: 5px; }
+  .game-app .game-boot-verse { gap: 4px; margin-top: 1px; }
+  .game-app .game-boot-verse #game-boot-quote { font-size: 17px; line-height: 1.6; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .game-app .game-boot-progress i,
+  .game-app .game-boot-progress[aria-valuenow="100"] i { transition: none; }
+  .game-app .game-boot-progress i::after { animation: none; display: none; }
+}
+.game-app .cloud-entry { position: fixed; inset: 0; z-index: 600; display: flex; align-items: flex-start; justify-content: center; width: 100%; height: 100dvh; min-height: 0; padding: max(28px, env(safe-area-inset-top, 0px)) max(18px, env(safe-area-inset-right, 0px)) max(28px, env(safe-area-inset-bottom, 0px)) max(18px, env(safe-area-inset-left, 0px)); overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; }
+.game-app .cloud-entry-card { flex: 0 0 auto; margin: auto; }
+.game-app .garden-column .garden-card { position: absolute; inset: 0; width: 100%; height: 100%; min-width: 0; min-height: 0; flex: none; margin: 0; border: 0; border-radius: 0; box-shadow: none; }
+.game-app .garden-card::after { border-radius: 0; box-shadow: inset 0 -70px 90px #4b684212, inset 0 55px 75px #fff9dd16; }
+.game-app .scene-container,
+.game-app .scene-container canvas { border-radius: 0; scroll-margin: 0; touch-action: none; }
+.game-app .scene-note,
+.game-app .scene-bottom-hint { display: none; }
+
+/* Only the actual controls intercept touches; transparent HUD space stays playable. */
+.game-app .fullscreen-bar.game-hud { position: fixed; inset: 0; z-index: 120; display: block; width: auto; height: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; pointer-events: none; }
+.game-app .game-hud button,
+.game-app .game-dock,
+.game-app .game-shortcuts,
+.game-app .game-quest-peek { pointer-events: auto; }
+.game-app .game-hud button,
+.game-app .game-dock button,
+.game-app .game-shortcuts button,
+.game-app .fullscreen-panel-close { min-width: 44px; min-height: 44px; touch-action: manipulation; }
+.game-app button:focus-visible { outline: 2px solid #a5894e; outline-offset: 3px; }
+.game-app .game-profile { position: absolute; top: var(--hud-top); left: var(--hud-left); display: flex; align-items: center; gap: 11px; width: var(--hud-profile-width); height: var(--hud-profile-height); padding: 7px 13px 7px 7px; border: 1px solid #bec9a7d9; border-radius: 22px 14px 18px 14px; background: linear-gradient(110deg, #fffef3f5, #eef2dfdf); color: #46664c; box-shadow: var(--hud-shadow); text-align: left; backdrop-filter: blur(12px); }
+.game-app .game-profile[aria-expanded="true"] { border-color: #a08e59; box-shadow: 0 0 0 2px #d7c4954d, var(--hud-shadow); }
+.game-app .game-avatar { display: grid; place-items: center; width: 55px; height: 55px; flex: 0 0 55px; border: 2px solid #ddcf9e; border-radius: 50%; background: radial-gradient(ellipse at 30% 20%, #92ae88, #537b61 75%); color: #fff8d9; box-shadow: inset 0 0 0 3px #f3e9be2b, 0 3px 8px #48633d20; font: 29px/1 var(--serif, serif); }
+.game-app .game-profile-copy { display: flex; flex: 1; min-width: 0; flex-direction: column; gap: 6px; }
+.game-app #player-name { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font: 600 16px/1.2 var(--serif, serif); letter-spacing: .7px; }
+.game-app .game-profile-copy > span:not(.hud-progress) { display: flex; align-items: baseline; justify-content: space-between; gap: 8px; }
+.game-app #fullscreen-realm { color: #6f835e; font-size: 11px; font-weight: 500; white-space: nowrap; }
+.game-app #hud-qi { color: #8a896a; font-size: 10px; font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.game-app .hud-progress { display: block; width: 100%; height: 4px; overflow: hidden; border-radius: 5px; background: #dce3cc; box-shadow: inset 0 1px 1px #6c835820; }
+.game-app #hud-qi-progress { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #729864, #b4ba73); }
+.game-app .game-center-title { position: absolute; top: var(--hud-top); left: 50%; display: grid; align-content: center; gap: 3px; width: 264px; max-width: none; min-height: 68px; padding: 6px 11px; transform: translateX(-50%); border: 1px solid #c9caa5; border-radius: 15px; background: linear-gradient(125deg, #fffdf1f5, #f3f5e4ed); color: #506c4c; box-shadow: inset 0 0 0 1px #fffdf0b0, var(--hud-shadow); text-shadow: none; text-align: left; backdrop-filter: blur(12px); }
+/* Equal side tracks keep each page title on the card's actual centre, even
+   when the brand and weather link have different widths. */
+.game-app .game-sky-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 5px; width: 100%; min-width: 0; padding-bottom: 3px; border-bottom: 1px solid #d7d6b98a; }
+.game-app .game-sky-heading small { justify-self: start; font: 8px/1.3 var(--serif, serif); letter-spacing: .8px; color: #9b8d63; white-space: nowrap; }
+.game-app #fullscreen-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; text-align: center; font: 600 17px/1.15 var(--serif, serif); letter-spacing: .3px; white-space: nowrap; }
+.game-app .game-sky-hint { display: inline-flex; justify-self: end; align-items: center; gap: 2px; min-width: 0; color: #869474; font-size: 9px; white-space: nowrap; }
+.game-app .game-sky-hint .environment-chevron { width: 11px; height: 11px; margin: 0; }
+.game-app .game-sky-hint .environment-chevron[hidden] { display: none; }
+/* Keep the weather and clock together: a flexible middle column made this
+   compact card look like two unrelated controls at opposite ends. */
+.game-app .game-sky-details { display: flex; align-items: center; justify-self: center; gap: 6px; width: max-content; max-width: 100%; }
+.game-app .game-sky-summary .environment-chip-icon { flex: 0 0 28px; width: 28px; height: 28px; background: #eee4c9; color: #a38445; }
+.game-app .game-sky-summary .environment-chip-icon .icon { width: 20px; height: 20px; }
+.game-app .game-sky-summary #environment-chip-title { flex: 0 0 auto; font: 600 16px/1.2 var(--sans, sans-serif); letter-spacing: 0; white-space: nowrap; }
+.game-app .game-sky-clock { display: flex; flex: 0 0 auto; align-items: center; gap: 5px; min-width: 0; margin-left: 5px; padding-left: 9px; border-left: 1px solid #d7d6b9; color: #47684d; white-space: nowrap; }
+.game-app #environment-chip-clock { font: 500 26px/1 var(--sans, sans-serif); letter-spacing: 0; font-variant-numeric: tabular-nums; }
+.game-app #environment-chip-phase { max-width: 30px; color: #889477; font-size: 10px; line-height: 1.2; white-space: normal; word-break: keep-all; }
+.game-app .game-sky-note { min-height: 26px; align-content: center; font-size: 13px; line-height: 1.5; color: #718163; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+.game-app .game-sky-summary[aria-disabled="true"] { cursor: default; }
+.game-app .game-sky-summary[aria-disabled="true"] .game-sky-hint { display: none; }
+.game-app .game-sky-summary[data-scope="sect"] .game-sky-hint { display: inline-flex; }
+.game-app .game-sky-summary[data-scope="sect"] #environment-chip-phase { width: 24px; max-width: 24px; font-size: 9px; line-height: 1.25; white-space: normal; }
+.game-app .game-sky-summary[data-phase="night"] { background: linear-gradient(125deg, #f5f5eaf5, #e6eeeaee); }
+.game-app .game-sky-summary[data-season="autumn"] .environment-chip-icon { background: #f2e3ca; color: #b27a3c; }
+.game-app .game-sky-summary[data-season="winter"] .environment-chip-icon { background: #e1eaeb; color: #567b8b; }
+.game-app .game-sky-summary[data-scope="sect"] .environment-chip-icon { background: #e6ead7; color: #7c9569; }
+.game-app .game-wallet { position: absolute; top: calc(var(--hud-top) + 4px); right: calc(var(--hud-right) + 172px); display: flex; align-items: center; gap: 7px; }
+.game-app .game-wallet button { display: inline-flex; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 8px 13px; border: 1px solid #d6c99eda; border-radius: 24px; background: linear-gradient(115deg, #fff9e2f2, #fffdf2eb); color: #8a794b; box-shadow: var(--hud-shadow); backdrop-filter: blur(10px); }
+.game-app .game-stone-pill .icon { width: 20px; height: 20px; color: #ac9252; }
+.game-app #fullscreen-stones { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.game-app .game-stone-pill > span { font-size: 10px; color: #a08f61; }
+.game-app .game-wallet .game-save-pill { max-width: 92px; padding-inline: 12px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 10px; border-color: #cbd7b7d9; background: #f6fae9e0; color: #7d8c6b; }
+.game-app .game-system-controls { position: absolute; top: var(--hud-top); right: var(--hud-right); display: flex; gap: 8px; }
+.game-app .game-system-controls button { position: relative; display: grid; place-items: center; width: 48px; height: 48px; padding: 10px; border: 1px solid #d5ceacd9; border-radius: 50%; background: linear-gradient(145deg, #fffdf3f2, #ebf0dfe6); box-shadow: var(--hud-shadow); color: #6e845e; backdrop-filter: blur(10px); }
+.game-app .game-system-controls .icon { width: 22px; height: 22px; }
+.game-app .game-system-controls button > span { position: absolute; width: 1px; height: 1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+.game-app .game-system-controls button[aria-pressed="true"] { color: #42694b; border-color: #9eaf87; background: #e5eed4ed; }
+
+/* Small mission and shortcut islands leave the middle of the landscape open. */
+.game-app .game-quest-peek { position: fixed; z-index: 115; top: calc(var(--hud-clear-top) + 2px); left: var(--hud-left); display: flex; flex-direction: column; align-items: flex-start; gap: 5px; width: 216px; min-height: 76px; padding: 12px 28px 12px 14px; border: 1px solid #cecda9c9; border-radius: 14px; background: linear-gradient(110deg, #fffbeaeb, #f5f6e5cf); box-shadow: 0 5px 18px #3c57391a; text-align: left; color: #61764f; backdrop-filter: blur(9px); }
+.game-app .game-quest-peek > small { font-size: 9px; letter-spacing: 1.5px; color: #9b8c5f; }
+.game-app .game-quest-peek > strong { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 14px/1.3 var(--serif, serif); letter-spacing: .5px; }
+.game-app .game-quest-peek > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11px; line-height: 1.55; color: #82916d; }
+.game-app .badge { position: absolute; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid #fff5cc; border-radius: 11px; background: #b89755; color: #fffdf1; font: 600 9px/1 var(--sans, sans-serif); box-shadow: 0 2px 5px #67582a24; font-variant-numeric: tabular-nums; }
+.game-app .game-quest-peek .badge { top: 9px; right: 9px; }
+.game-app .game-guard-resume { position: fixed; z-index: 119; top: calc(var(--hud-clear-top) + 154px); left: var(--hud-left); display: grid; grid-template-columns: 26px minmax(0, 1fr); align-items: center; gap: 3px 9px; width: 216px; min-height: 56px; padding: 10px 13px; border: 1px solid #d2b87c; border-radius: 15px; background: linear-gradient(115deg, #fff6dceF, #f0e8c9ef); color: #88713f; box-shadow: 0 5px 20px #79602e20; text-align: left; touch-action: manipulation; }
+.game-app .game-guard-resume > .icon { grid-row: 1 / 3; width: 26px; height: 26px; color: #a28a4d; }
+.game-app .game-guard-resume > strong { font: 600 14px/1.3 var(--serif, serif); }
+.game-app .game-guard-resume > span { font-size: 10px; line-height: 1.5; color: #9b8a5a; }
+.game-app .game-shortcuts { position: fixed; z-index: 116; top: calc(var(--hud-top) + 84px); right: var(--hud-right); display: flex; flex-direction: column; align-items: center; gap: 13px; width: 58px; }
+.game-app .game-shortcuts button { position: relative; display: flex; flex-direction: column; align-items: center; justify-content: flex-start; gap: 4px; width: 58px; min-height: 65px; padding: 0; border: 0; background: transparent; color: #566f50; font-size: 10px; line-height: 1.3; text-shadow: 0 1px 4px #fffcea; }
+.game-app .game-shortcuts button > .icon { width: 49px; height: 49px; padding: 12px; border: 1px solid #cbd1b1d9; border-radius: 50%; background: linear-gradient(145deg, #fffdf0f2, #eaf0dce6); color: #6b865b; box-shadow: var(--hud-shadow); backdrop-filter: blur(10px); }
+.game-app .game-shortcuts button[aria-expanded="true"] > .icon { background: #dae9c9ed; border-color: #94ac7c; color: #4b714b; }
+.game-app .game-shortcuts .badge { top: -1px; right: 0; }
+
+/* Eight destinations share the same floating dock on every screen. */
+.game-app .game-dock { position: fixed; z-index: 125; left: 50%; bottom: var(--hud-bottom); display: flex; align-items: center; justify-content: center; gap: 6px; width: max-content; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); height: var(--hud-dock-height); padding: 8px 10px; margin: 0; transform: translateX(-50%); border: 1px solid #d2c899e0; border-radius: 24px; background: linear-gradient(180deg, #fffef1ed, #edf1dbeb); box-shadow: 0 8px 30px #29463030, inset 0 1px 0 #fffef8; backdrop-filter: blur(14px); }
+.game-app .game-dock button { position: relative; display: flex; flex: 0 0 60px; flex-direction: column; align-items: center; justify-content: center; gap: 5px; width: 60px; height: 62px; min-width: 44px; min-height: 44px; padding: 5px; border: 1px solid transparent; border-radius: 16px; background: transparent; color: #7c8765; font-size: 11px; line-height: 1.2; white-space: nowrap; }
+.game-app .dock-icon { display: grid; place-items: center; width: 32px; height: 32px; border: 1px solid #dce3c8; border-radius: 12px; background: #eff3dfb3; color: #7b9362; }
+.game-app .dock-icon .icon { width: 23px; height: 23px; }
+.game-app .game-dock button:is([aria-pressed="true"], [aria-current="page"], .is-active) { border-color: #c7d0aa; color: #476b49; background: #e3ecd0bf; }
+.game-app .game-dock button:is([aria-pressed="true"], [aria-current="page"], .is-active) .dock-icon { border-color: #6d8b64; background: linear-gradient(135deg, #7a9b6c, #52785c); color: #fff6da; box-shadow: inset 0 1px 0 #d3ddb978; }
+.game-app .game-dock button:hover { background: #e6edd8b3; color: #4f714c; }
+.game-app .game-dock .badge { top: -3px; right: -1px; }
+
+/* Planting tools and harvest stay at opposite corners of the scene. */
+.game-app .garden-column .garden-toolbar { position: fixed; inset: 0; z-index: 118; display: block; height: auto; margin: 0; padding: 0; border: 0; background: none; box-shadow: none; pointer-events: none; backdrop-filter: none; }
+.game-app .garden-toolbar .garden-summary { display: none; }
+.game-app .fullscreen-field-tools { position: absolute; left: var(--hud-left); bottom: calc(var(--hud-bottom) + 5px); display: flex; align-items: flex-end; gap: 9px; pointer-events: auto; }
+.game-app .fullscreen-field-tools button { display: flex; align-items: center; gap: 8px; width: 93px; min-width: 44px; height: 64px; min-height: 44px; padding: 9px; border: 1px solid #d3caa4d9; border-radius: 18px; background: linear-gradient(140deg, #fffdf0f2, #eaf1dae6); box-shadow: var(--hud-shadow); color: #5e7d50; text-align: left; font-size: 12px; line-height: 1.3; backdrop-filter: blur(10px); touch-action: manipulation; }
+.game-app .fullscreen-field-tools button[aria-expanded="true"] { border-color: #9eae7a; background: #dce9c8ed; }
+.game-app .fullscreen-field-tools .icon { width: 24px; height: 24px; }
+.game-app .fullscreen-field-tools button > span { display: flex; min-width: 0; flex-direction: column; gap: 4px; }
+.game-app .fullscreen-field-tools small { max-width: 50px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; color: #8b9371; }
+.game-app .garden-toolbar .garden-actions { position: absolute; right: var(--hud-right); bottom: calc(var(--hud-bottom) + 3px); display: flex; align-items: flex-end; width: auto; margin: 0; gap: 10px; pointer-events: auto; }
+.game-app .garden-actions .button { display: flex; flex-direction: column; justify-content: center; gap: 5px; min-width: 44px; min-height: 44px; padding: 8px; border-radius: 50%; font-size: 10px; line-height: 1.25; box-shadow: var(--hud-shadow); backdrop-filter: blur(10px); }
+.game-app .garden-actions #plot-list { display: flex; width: 58px; height: 58px; background: #fffdf0ed; border-color: #cbd6b4; color: #7c8d64; }
+.game-app .garden-actions #plot-list .icon { width: 21px; height: 21px; }
+.game-app .garden-actions #harvest-all { width: 78px; height: 78px; border: 2px solid #d5c797; background: radial-gradient(ellipse at 30% 15%, #83a477, #527a5a 76%); color: #fff9dd; box-shadow: 0 6px 22px #30553935, inset 0 0 0 3px #d4dfad22; font-size: 12px; }
+.game-app .garden-actions #harvest-all .icon { width: 27px; height: 27px; }
+.game-app #harvest-all .bulk-unlock-hint { max-width: 63px; font-size: 8px; line-height: 1.2; letter-spacing: 0; }
+.game-app .garden-card .garden-topline { position: fixed; inset: 0; z-index: 110; display: block; pointer-events: none; }
+.game-app .garden-topline .location-chip { position: absolute; top: calc(var(--hud-clear-top) + 110px); left: var(--hud-left); bottom: auto; display: flex; align-items: center; flex-wrap: wrap; gap: 4px 6px; width: max-content; min-height: 28px; max-width: 224px; padding: 5px 10px; border: 1px solid #d6dbbc88; border-radius: 13px; background: #fffce3b3; color: #75805a; font-size: 10px; line-height: 1.4; transform: none; backdrop-filter: blur(7px); }
+.game-app .garden-topline .location-chip #location-name { overflow: hidden; white-space: nowrap; text-overflow: ellipsis; }
+.game-app .garden-topline .location-chip #land-count { flex-basis: auto; padding: 0; font-size: 9px; }
+.game-app .garden-topline .location-divider { display: none; }
+.game-app .garden-topline .environment-chip { position: absolute; top: calc(var(--hud-top) + 62px); right: calc(var(--hud-right) + 78px); min-height: 44px; max-width: 182px; gap: 7px; padding: 6px 9px; border-color: #cad3b1bb; border-radius: 15px; background: #fffdebe0; box-shadow: 0 5px 18px #3d57321a; pointer-events: auto; }
+.game-app .environment-chip-icon { width: 28px; height: 28px; }
+.game-app .environment-chip-icon .icon { width: 18px; height: 18px; }
+.game-app .environment-chip-copy strong { font-size: 11px; }
+.game-app .environment-chip-copy small { font-size: 9px; }
+.game-app .garden-card .neighbor-strip { position: fixed; top: var(--hud-clear-top); left: calc(var(--hud-left) + 236px); right: calc(var(--hud-right) + 270px); display: flex; gap: 6px; max-width: none; padding: 2px 1px 6px; overflow-x: auto; overflow-y: hidden; scrollbar-width: thin; scroll-snap-type: x proximity; touch-action: pan-x; z-index: 111; }
+.game-app .neighbor-strip .neighbor-tab { flex: 0 0 auto; min-width: 87px; min-height: 44px; padding: 7px 9px; border: 1px solid #cbd7b6; border-radius: 13px; background: #fffce8eb; font-size: 11px; scroll-snap-align: start; box-shadow: 0 3px 10px #38503212; }
+.game-app .neighbor-tab .avatar { width: 24px; height: 24px; }
+.game-app .neighbor-tab small { display: none; }
+.game-app .environment-preview-notice { position: fixed; top: calc(var(--hud-clear-top) + 22px); right: calc(var(--hud-right) + 78px); z-index: 112; max-width: min(300px, calc(100vw - 160px)); }
+.game-app .environment-preview-notice button { min-height: 44px; }
+
+/* Compact side sheets use the live controls and existing gameplay state. */
+.game-app .seed-section,
+.game-app .farm-tools,
+.game-app .camera-controls { display: none; }
+.game-app .fullscreen-more,
+.game-app .game-sheet,
+.game-app[data-fullscreen-panel="seeds"] .seed-section,
+.game-app[data-fullscreen-panel="tools"] .farm-tools { position: fixed; z-index: 150; top: var(--hud-clear-top); bottom: auto; display: flex; flex-direction: column; width: 340px; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); max-height: calc(100dvh - var(--hud-clear-top) - var(--hud-clear-bottom)); min-width: 0; margin: 0; padding: 16px; border: 1px solid #c6c99fd9; border-radius: 21px; background: linear-gradient(135deg, #fffdf1f7, #f0f4e0f5); box-shadow: 0 16px 50px #213f343d, inset 0 1px 0 #fffdf4; backdrop-filter: blur(16px); overflow: auto; overscroll-behavior: contain; scrollbar-width: thin; touch-action: pan-y; }
+.game-app .game-sheet,
+.game-app[data-fullscreen-panel="seeds"] .seed-section,
+.game-app[data-fullscreen-panel="tools"] .farm-tools { left: var(--hud-left); }
+.game-app .fullscreen-more { right: calc(var(--hud-right) + 71px); width: 300px; }
+.game-app .game-sheet { width: 420px; }
+.game-app .fullscreen-panel-heading { position: sticky; top: 0; z-index: 2; display: flex; flex-shrink: 0; align-items: center; justify-content: space-between; gap: 10px; width: 100%; margin: 0 0 12px; padding-bottom: 10px; border-bottom: 1px solid #d9dfc4; background: #fcfdef; }
+.game-app .fullscreen-panel-heading strong,
+.game-app .fullscreen-panel-heading h2,
+.game-app .fullscreen-panel-heading h3 { margin: 0; color: #506e4c; font: 22px/1.5 var(--serif, serif); letter-spacing: 1px; }
+.game-app .fullscreen-panel-heading small { display: block; margin-top: 3px; color: #8a9072; font-size: 10px; line-height: 1.6; }
+.game-app .fullscreen-panel-close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; padding: 10px; border: 1px solid #cad5b4; border-radius: 50%; background: linear-gradient(140deg, #fffef2, #e5eed5); color: #7c8e67; box-shadow: inset 0 1px 0 #fffdf6; }
+.game-app .fullscreen-panel-close .icon { width: 19px; height: 19px; }
+.game-app .seed-section .seed-heading { position: sticky; top: 0; z-index: 2; display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 0 0 10px; padding-bottom: 8px; background: #fcfdef; flex-shrink: 0; }
+.game-app .seed-heading > div { flex: 1; min-width: 0; }
+.game-app .seed-heading h2 { font-size: 21px; letter-spacing: 1px; }
+.game-app .seed-heading h2::after { content: none; }
+.game-app .seed-heading h2 > span { display: block; margin-top: 4px; font-size: 10px; letter-spacing: 0; }
+.game-app .seed-heading #open-codex { order: 3; width: 100%; justify-content: flex-start; min-height: 44px; font-size: 11px; }
+.game-app .seed-section .seed-tray { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; width: 100%; max-width: none; margin: 0; padding: 0 0 2px; overflow: visible; flex-shrink: 0; scroll-snap-type: none; }
+.game-app .seed-section .seed-card { display: block; flex: none; width: 100%; height: 88px; min-height: 88px; padding: 10px 12px 8px 78px; border-radius: 13px; text-align: left; }
+.game-app .seed-card::before { inset: 4px; border-radius: 9px; }
+.game-app .seed-card .seed-art { left: 5px; top: 8px; width: 68px; height: 72px; transform: none; }
+.game-app .seed-card .plant-art { width: 71px; height: 74px; }
+.game-app .seed-card .seed-grade { position: static; display: block; writing-mode: horizontal-tb; margin: 0 0 3px; font-size: 9px; letter-spacing: 0; line-height: 1.2; }
+.game-app .seed-card h3 { margin: 0 0 4px; font-size: 16px; line-height: 1.35; letter-spacing: .4px; }
+.game-app .seed-card .seed-yield { display: none; }
+.game-app .seed-card .seed-meta { display: flex; justify-content: flex-start; flex-wrap: wrap; gap: 5px 10px; font-size: 11px; line-height: 1.2; }
+.game-app .seed-card .seed-time { display: inline-flex; gap: 3px; font-size: 10px; }
+.game-app .seed-card .seed-meta .icon { width: 12px; height: 12px; }
+.game-app .seed-section .seed-help { flex-shrink: 0; margin: 11px 0 0; font-size: 11px; line-height: 1.7; }
+.game-app .farm-tools-row { display: flex; flex-direction: column; align-items: stretch; gap: 12px; flex-shrink: 0; }
+.game-app .farm-tools-select { display: grid; grid-template-columns: minmax(0, 1fr); width: 100%; gap: 8px; }
+.game-app .farm-tool { min-height: 61px; padding: 10px 13px; justify-content: flex-start; gap: 12px; }
+.game-app .farm-tool > .icon { width: 26px; height: 26px; }
+.game-app .farm-tool strong { font-size: 14px; }
+.game-app .farm-tool small { font-size: 11px; }
+.game-app .farm-tools-links { display: grid; width: 100%; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 7px; }
+.game-app .farm-tools-links .button { min-height: 44px; padding: 8px; font-size: 11px; }
+.game-app .farm-tool-hint { flex-shrink: 0; margin-top: 12px; font-size: 11px; line-height: 1.8; }
+.game-app .fullscreen-more-grid { display: grid; gap: 8px; }
+.game-app .fullscreen-more-grid button { display: grid; grid-template-columns: 32px minmax(0, 1fr); align-content: center; align-items: center; gap: 3px 10px; min-width: 0; min-height: 68px; padding: 11px 13px; border: 1px solid #d0dbbd; border-radius: 13px; background: #f1f5e4; color: #5c7651; font-size: 13px; text-align: left; line-height: 1.4; }
+.game-app .fullscreen-more-grid button:hover { border-color: #a8b98c; background: #e5eed4; }
+.game-app .fullscreen-more-grid .icon { grid-row: 1 / 3; width: 26px; height: 26px; color: #7f9666; }
+.game-app .fullscreen-more-grid small { grid-column: 2; color: #899578; font-size: 11px; line-height: 1.5; }
+.game-app .game-sheet-actions { display: flex; flex-wrap: wrap; flex-shrink: 0; gap: 7px; margin-top: 13px; padding-top: 11px; border-top: 1px solid #dce3c9; }
+.game-app .game-sheet-actions .button { flex: 1; min-width: 92px; min-height: 44px; padding: 8px 10px; border: 1px solid #cdd8b9; border-radius: 10px; background: #f5f7e9; color: #758663; font-size: 11px; }
+.game-app .game-sheet > .cultivation-card,
+.game-app .game-sheet > .quest-card,
+.game-app .game-sheet > .journey-entry-card { flex-shrink: 0; width: 100%; margin: 0 0 12px; padding: 17px; border-radius: 15px; }
+.game-app .game-sheet .quest-claim,
+.game-app .game-sheet .breakthrough-button,
+.game-app .game-sheet .arrival-entry { min-height: 44px; }
+.game-app[data-fullscreen-panel="camera"] .camera-controls { position: fixed; z-index: 150; top: var(--hud-clear-top); right: calc(var(--hud-right) + 71px); bottom: auto; display: flex; flex-wrap: wrap; gap: 6px; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); padding: 10px; border: 1px solid #becba7; border-radius: 18px; background: #fffdefed; box-shadow: 0 9px 30px #29452f30; backdrop-filter: blur(12px); }
+.game-app .camera-controls .icon-button { width: 44px; height: 44px; border: 1px solid #d0dbbf; background: #f0f5e4; }
+.game-app .camera-controls .icon { width: 19px; height: 19px; }
+.game-app .camera-controls .zoom-button { font-size: 25px; }
+
+/* The selected field is a small inspectable card, not another page section. */
+.game-app .garden-column .plot-detail { position: fixed; top: calc(var(--hud-clear-top) + 48px); right: calc(var(--hud-right) + 72px); bottom: auto; left: auto; z-index: 140; display: flex; flex-direction: column; align-items: stretch; gap: 11px; width: 310px; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); max-height: calc(100dvh - var(--hud-clear-top) - var(--hud-clear-bottom) - 48px); min-height: 0; margin: 0; padding: 14px; border-radius: 18px; background: #fffdefed; box-shadow: 0 12px 36px #2b483430; overflow: auto; overscroll-behavior: contain; touch-action: pan-y; scrollbar-width: thin; backdrop-filter: blur(12px); }
+.game-app .plot-detail::before { display: none; }
+.game-app .plot-detail-main { grid-column: auto; gap: 9px; padding-right: 30px; align-items: flex-start; }
+.game-app .plot-detail .plot-detail-art { width: 43px; height: 49px; flex-basis: 43px; }
+.game-app .plot-detail .plot-detail-art .plant-art { width: 51px; height: 52px; }
+.game-app .plot-detail .plot-detail-info { min-width: 0; }
+.game-app .plot-detail .plot-detail-info h3 { gap: 5px; font-size: 16px; letter-spacing: .5px; }
+.game-app .plot-detail .plot-detail-info p { font-size: 11px; line-height: 1.75; }
+.game-app .plot-detail .plot-status-panel { width: 100%; min-width: 0; padding: 10px 12px; }
+.game-app .plot-detail .plot-status-value.is-countdown { font-size: 24px; }
+.game-app .plot-detail .plot-detail-actions { align-items: stretch; justify-self: stretch; gap: 7px; margin: 0; }
+.game-app .plot-detail .plot-action-buttons { flex-wrap: wrap; }
+.game-app .plot-detail .button { min-height: 44px; padding: 10px 12px; font-size: 12px; }
+.game-app .plot-detail .plot-action-buttons > .button { flex: 1; }
+.game-app .plot-detail .plot-action-note { max-width: none; font-size: 10px; }
+.game-app .plot-detail > .icon-button { position: sticky; top: 0; right: auto; align-self: flex-end; order: -1; flex: 0 0 44px; width: 44px; height: 44px; margin: -4px -4px -40px 0; z-index: 2; background: #eaf1da; border-color: #cbd8b7; border-radius: 50%; }
+.game-app .plot-detail > .icon-button .icon { width: 16px; height: 16px; }
+.game-app .plot-detail .growth-steps { display: grid; grid-template-columns: repeat(5, minmax(0, 1fr)); gap: 3px; max-width: none; font-size: 9px; }
+.game-app .plot-detail .growth-steps li { flex-direction: column; gap: 4px; }
+.game-app .plot-detail .growth-steps li::after { display: none; }
+.game-app .farm-guard-panel { display: none; }
+.game-app .farm-protection-heading > .farm-seal,
+.game-app .farm-protection-heading > div,
+.game-app .farm-guard-panel > .farm-protection-note,
+.game-app .farm-guard-panel > .farm-batch-summary { display: none; }
+.game-app .farm-protection-heading > .button { min-height: 44px; background: #fffde7e3; border-color: #cbd6b5; border-radius: 15px; }
+.game-app .farm-guard-panel .farm-pending { margin-top: 7px; padding: 9px; background: #fff8e9f5; box-shadow: 0 5px 18px #38503a20; }
+.game-app .farm-pending .button { min-height: 44px; flex-shrink: 0; }
+
+/* All game windows share one quiet frame; their headers never scroll away. */
+.game-app .game-dialog { position: fixed; inset: var(--game-window-top) var(--game-window-right) var(--game-window-bottom) var(--game-window-left); width: min(940px, calc(100vw - var(--game-window-left) - var(--game-window-right))); max-width: calc(100vw - var(--game-window-left) - var(--game-window-right)); max-height: calc(100dvh - var(--game-window-top) - var(--game-window-bottom)); margin: auto; padding: 0; border: 1px solid #bac8a5; border-radius: 22px; background: #f7f8ec; color: #4c694b; box-shadow: 0 24px 90px #152e2559, inset 0 1px 0 #fffef6; overflow: hidden; }
+.game-app .game-dialog[open] { display: flex; flex-direction: column; }
+.game-app .game-dialog::backdrop { background: #18362c70; backdrop-filter: blur(3px); }
+.game-app .game-dialog .dialog-header { position: relative; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; min-height: 68px; margin: 0; padding: 10px 18px; border-bottom: 1px solid #cdd8b8; background: linear-gradient(110deg, #f8f4df, #edf3e1); }
+.game-app .game-dialog .dialog-header::after { display: none; }
+.game-app .dialog-header .dialog-heading { min-width: 0; flex: 1; gap: 11px; }
+.game-app .dialog-header .dialog-heading > div { min-width: 0; }
+.game-app .dialog-header .dialog-emblem { width: 38px; height: 40px; flex-basis: 38px; border-radius: 12px; }
+.game-app .dialog-header .dialog-emblem .icon { width: 23px; height: 23px; }
+.game-app .dialog-header h2 { margin: 0; color: #456247; font: 22px/1.35 var(--serif, serif); letter-spacing: 1px; overflow-wrap: anywhere; }
+.game-app .dialog-header .eyebrow { display: none; }
+.game-app .game-dialog #dialog-close { width: 44px; height: 44px; min-width: 44px; min-height: 44px; flex: 0 0 44px; border: 1px solid #c4d0af; border-radius: 13px; background: #fafbed; color: #6e845c; touch-action: manipulation; }
+.game-app .game-dialog #dialog-close .icon { width: 19px; height: 19px; }
+.game-app .game-dialog #dialog-back { display: inline-flex; align-items: center; justify-content: center; flex: 0 1 auto; gap: 6px; min-width: 44px; min-height: 44px; max-width: 220px; padding: 9px 12px; border: 1px solid #c4d0af; border-radius: 12px; background: #fafbed; color: #607c55; font-size: 12px; line-height: 1.4; touch-action: manipulation; }
+.game-app #dialog-back .icon { width: 18px; height: 18px; }
+.game-app #dialog-back-label { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.game-app #dialog-back:not([hidden]) ~ .dialog-heading .dialog-emblem { display: none; }
+.game-app #dialog-content { min-width: 0; min-height: 0; flex: 1 1 auto; padding: 18px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scrollbar-width: thin; -webkit-overflow-scrolling: touch; }
+.game-app .game-dialog .button,
+.game-app .game-dialog .text-button,
+.game-app .game-dialog select { min-height: 44px; }
+.game-app .game-dialog .button { border-radius: 11px; }
+.game-app .game-dialog .dialog-intro { font-size: 12px; line-height: 1.8; }
+
+/* Seeds and tools are direct choices, kept beside the scene throughout farming. */
+.game-app .field-quickbar { position: fixed; z-index: 118; left: var(--hud-left); bottom: var(--hud-clear-bottom); display: none; grid-template-columns: minmax(0, 1fr); gap: 7px; width: min(430px, calc(100vw - var(--hud-left) - var(--hud-right))); margin: 0; padding: 8px; border: 1px solid #c9cea9df; border-radius: 18px; background: linear-gradient(145deg, #fffdefee, #e8efdbeb); box-shadow: var(--hud-shadow); backdrop-filter: blur(12px); pointer-events: auto; }
+.game-app[data-fullscreen-page="garden"][data-game-view="home"]:not(.spirit-decor-open):not(.game-booting) .field-quickbar { display: grid; }
+.game-app[data-game-window] .field-quickbar,
+.game-app:has(#game-dialog[open]) .field-quickbar,
+.game-app[data-fullscreen-panel]:not([data-fullscreen-panel=""]) .field-quickbar { visibility: hidden; pointer-events: none; }
+.game-app .field-quickbar .seed-section,
+.game-app .field-quickbar .farm-tools { position: static; display: block; width: 100%; max-width: none; max-height: none; min-width: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: none; box-shadow: none; backdrop-filter: none; overflow: visible; }
+.game-app .field-quickbar .seed-heading,
+.game-app .field-quickbar .seed-help,
+.game-app .field-quickbar .farm-tool-hint { display: none; }
+.game-app .field-quickbar .seed-tray { display: grid; grid-template-columns: repeat(5, minmax(44px, 1fr)); gap: 5px; width: 100%; min-width: 0; margin: 0; padding: 0; overflow: visible; }
+.game-app .field-quickbar .seed-card { position: relative; display: grid; justify-items: center; align-content: center; gap: 2px; width: 100%; min-width: 44px; height: 74px; min-height: 44px; margin: 0; padding: 4px 3px; border: 1px solid #d0dabc; border-radius: 11px; background: #f9faeee0; color: #526e48; text-align: center; touch-action: manipulation; transform: none; }
+.game-app .field-quickbar .seed-card::before { display: none; }
+.game-app .field-quickbar .seed-card.selected { border-color: #7e9b65; background: #e0edce; box-shadow: inset 0 0 0 1px #90ab75, 0 2px 6px #506e3821; }
+.game-app .field-quickbar .seed-card.selected::after { content: ""; position: absolute; top: 5px; right: 5px; width: 5px; height: 5px; padding: 0; border-radius: 50%; background: #66874b; }
+.game-app .field-quickbar .seed-card.locked { opacity: .6; }
+.game-app .field-quickbar .seed-card .seed-art { position: static; display: grid; place-items: center; width: 36px; height: 30px; margin: 0; transform: none; }
+.game-app .field-quickbar .seed-card .plant-art { width: 39px; height: 33px; max-width: none; }
+.game-app .field-quickbar .seed-card .seed-art img { width: 36px; height: 30px; object-fit: contain; }
+.game-app .field-quickbar .seed-card h3 { margin: 0; color: inherit; font: 500 12px/1.3 var(--serif, serif); letter-spacing: 0; white-space: nowrap; }
+.game-app .field-quickbar .seed-card .seed-grade,
+.game-app .field-quickbar .seed-card .seed-yield,
+.game-app .field-quickbar .seed-card .seed-time { display: none; }
+.game-app .field-quickbar .seed-card .seed-meta { display: flex; justify-content: center; align-items: center; gap: 3px; width: auto; margin: 0; color: #819064; font: 10px/1.2 var(--sans, sans-serif); }
+.game-app .field-quickbar .seed-price,
+.game-app .field-quickbar .seed-lock { display: inline-flex; justify-content: center; align-items: center; gap: 2px; font-size: 10px; }
+.game-app .field-quickbar .seed-card .seed-meta .icon,
+.game-app .field-quickbar .seed-card .seed-price .icon { width: 10px; height: 10px; }
+.game-app .field-quickbar .farm-tools-row { display: grid; grid-template-columns: minmax(0, 3fr) minmax(44px, .8fr); align-items: stretch; gap: 6px; width: 100%; margin: 0; }
+.game-app .field-quickbar .farm-tools-select { display: grid; grid-template-columns: repeat(3, minmax(44px, 1fr)); gap: 5px; width: 100%; min-width: 0; }
+.game-app .field-quickbar .farm-tool,
+.game-app .field-quickbar .farm-tools-links .button { display: flex; align-items: center; justify-content: center; gap: 7px; width: 100%; min-width: 44px; height: 46px; min-height: 44px; padding: 4px 6px; border: 1px solid #cdd9b6; border-radius: 10px; background: #f5f8e8; color: #647d51; box-shadow: none; font-size: 11px; line-height: 1.3; touch-action: manipulation; }
+.game-app .field-quickbar .farm-tool.selected { border-color: #789365; background: #dceacb; box-shadow: inset 0 0 0 1px #93aa7a; color: #436542; }
+.game-app .field-quickbar .farm-tool > .icon,
+.game-app .field-quickbar .farm-tools-links .icon { width: 21px; height: 21px; }
+.game-app .field-quickbar .farm-tool > span { display: flex; flex-direction: column; min-width: 0; gap: 2px; }
+.game-app .field-quickbar .farm-tool strong { color: inherit; font-size: 11px; line-height: 1.2; }
+.game-app .field-quickbar .farm-tool em { margin-left: 2px; color: #80916c; font-size: 8px; }
+.game-app .field-quickbar .farm-tool small { margin: 0; color: #84946d; font-size: 9px; line-height: 1.2; }
+.game-app .field-quickbar .farm-tools-links { display: block; width: 100%; }
+
+/* Layout containers do not create stacking contexts above the scene windows. */
+.game-app[data-fullscreen-page="journey"] .game-quest-peek { display: none; }
+.game-app[data-fullscreen-page="journey"] .journey-page { position: absolute; inset: 0; z-index: auto; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; overflow: hidden; background: transparent; }
+.game-app .journey-page > .journey-root { position: static; width: 100%; height: 100%; max-width: none; }
+.game-app[data-game-window="journey"] .journey-page::before,
+.game-app[data-game-window="decor"] .journey-page::before,
+.game-app .game-sect-info-backdrop { content: ""; position: fixed; inset: 0; z-index: 160; margin: 0; padding: 0; border: 0; background: #18362c70; backdrop-filter: blur(3px); pointer-events: auto; touch-action: none; }
+.game-app:is([data-game-window="journey"], [data-game-window="decor"], [data-game-window="sect-info"], [data-game-window="cards"]) :is(.game-hud, .game-dock, .game-shortcuts, .game-quest-peek, .game-guard-resume, .garden-toolbar, .garden-topline, .neighbor-strip, .environment-preview-notice, .game-sect-selector, .game-sect-info-toggle, .journey-sect-sky-controls, .journey-sect-camera, .plot-detail, .fullscreen-more, .game-sheet, .seed-section, .farm-tools, .camera-controls) { visibility: hidden; pointer-events: none; }
+.game-app .game-journey-window,
+.game-app[data-game-view="sect"] .game-sect-info { position: fixed; inset: var(--game-window-top) var(--game-window-right) var(--game-window-bottom) var(--game-window-left); z-index: 165; display: flex; flex-direction: column; width: min(1040px, calc(100vw - var(--game-window-left) - var(--game-window-right))); height: min(800px, calc(100dvh - var(--game-window-top) - var(--game-window-bottom))); max-width: calc(100vw - var(--game-window-left) - var(--game-window-right)); max-height: calc(100dvh - var(--game-window-top) - var(--game-window-bottom)); min-width: 0; min-height: 0; margin: auto; padding: 0; border: 1px solid #bac8a5; border-radius: 22px; background: #f7f8ec; box-shadow: 0 24px 90px #152e2559, inset 0 1px 0 #fffef6; overflow: hidden; color: #4c694b; pointer-events: auto; }
+.game-app .game-window-header,
+.game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading { position: relative; top: auto; z-index: 2; display: flex; flex: 0 0 auto; align-items: center; justify-content: space-between; gap: 12px; min-width: 0; min-height: 68px; width: 100%; margin: 0; padding: 10px 18px; border-bottom: 1px solid #cdd8b8; background: linear-gradient(110deg, #f8f4df, #edf3e1); }
+.game-app .game-window-header > div,
+.game-app .game-window-heading,
+.game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading > div { min-width: 0; }
+.game-app .game-window-heading { display: flex; flex: 1; flex-direction: column; align-items: flex-start; gap: 2px; }
+.game-app .game-window-header > .icon,
+.game-app .game-window-heading > .icon,
+.game-app .game-window-emblem { flex: 0 0 38px; width: 38px; height: 40px; padding: 8px; border: 1px solid #cdd8b7; border-radius: 12px; background: #f9fae8; color: #72935d; }
+.game-app .game-window-header h2,
+.game-app #journey-window-title,
+.game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading strong { display: block; min-width: 0; margin: 0; color: #456247; font: 22px/1.35 var(--serif, serif); letter-spacing: 1px; overflow-wrap: anywhere; }
+.game-app .game-window-header small,
+.game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading small { display: block; margin-top: 3px; color: #7d896a; font-size: 11px; line-height: 1.5; letter-spacing: 0; }
+.game-app .game-window-status { display: flex; flex: 0 0 auto; flex-direction: column; align-items: flex-end; gap: 2px; margin-left: auto; color: #8c7a4e; font-size: 11px; line-height: 1.4; text-align: right; }
+.game-app .game-window-status strong { font-size: 16px; font-weight: 600; font-variant-numeric: tabular-nums; }
+.game-app .game-window-emblem { display: grid; place-items: center; }
+.game-app .game-window-emblem .icon { width: 22px; height: 22px; }
+.game-app .game-window-status small { font-size: 10px; margin: 0; }
+.game-app .game-window-help > div { padding: 0 13px 12px; }
+.game-app .game-window-help .journey-decor-realm-limits { margin-bottom: 0; }
+.game-app .game-window-close,
+.game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading > .fullscreen-panel-close { display: grid; place-items: center; flex: 0 0 44px; width: 44px; height: 44px; min-width: 44px; min-height: 44px; padding: 10px; border: 1px solid #c4d0af; border-radius: 13px; background: #fafbed; color: #6e845c; box-shadow: none; touch-action: manipulation; }
+.game-app .game-window-close .icon { width: 19px; height: 19px; }
+.game-app .game-window-body,
+.game-app .game-sect-info-content { position: relative; min-width: 0; min-height: 0; flex: 1 1 auto; padding: 18px; overflow-x: hidden; overflow-y: auto; overscroll-behavior: contain; scroll-padding: 16px; scrollbar-width: thin; touch-action: pan-y; -webkit-overflow-scrolling: touch; }
+.game-app .game-window-body > .journey-panel { min-height: 0; margin: 0; padding: 0; }
+.game-app .game-journey-window > .journey-tabs { position: relative; top: auto; z-index: 1; display: grid; flex: 0 0 auto; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 0; padding: 6px 18px; border: 0; border-bottom: 1px solid #d5dec3; border-radius: 0; background: #f1f5e5; box-shadow: none; }
+.game-app .game-journey-window > .journey-tabs button { display: flex; flex-direction: row; align-items: center; justify-content: center; gap: 7px; min-height: 44px; padding: 7px 12px; border-radius: 11px; font-size: 12px; }
+.game-app .game-journey-window > .journey-tabs button[aria-selected="true"] { border-color: #b3c49a; background: #dfeace; color: #466d45; box-shadow: inset 0 1px 0 #faffed; }
+.game-app .game-window-body .journey-feedback,
+.game-app .game-journey-window > .journey-feedback,
+.game-app .game-window-body .journey-busy,
+.game-app .game-journey-window > .journey-busy { position: relative; top: auto; z-index: 1; flex: 0 0 auto; margin: 0 0 12px; }
+.game-app .game-journey-window > .journey-feedback,
+.game-app .game-journey-window > .journey-busy { margin: 8px 18px 0; }
+.game-app .game-window-body .journey-section-heading h3 { font-size: 19px; }
+.game-app .game-window-body .journey-section-intro { font-size: 12px; line-height: 1.75; }
+.game-app .game-window-body .journey-period { margin-bottom: 18px; padding-bottom: 18px; }
+.game-app .game-window-body .journey-quest-grid { margin-top: 10px; gap: 10px; }
+.game-app .game-window-body .journey-quest { padding: 13px; }
+.game-app .game-window-body .journey-quest-top { margin-bottom: 8px; }
+.game-app .game-window-body .journey-card-description { min-height: 0; font-size: 12px; line-height: 1.75; }
+.game-app .game-window-body .journey-reward { padding-block: 9px; }
+.game-app .game-window-body .journey-subtabs { margin-top: 0; }
+.game-app .game-window-body .journey-decor-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 12px; margin-top: 12px; }
+.game-app .game-window-body .journey-decor-picture { display: grid; place-items: center; height: auto; aspect-ratio: 8 / 5; }
+.game-app .game-window-body .journey-decor-art { width: 100%; height: auto; object-fit: contain; }
+.game-app .game-window-body .journey-decor-copy { padding: 12px; }
+.game-app .game-window-body .journey-decor-copy h4 { margin-bottom: 4px; font-size: 17px; }
+.game-app .game-window-body .journey-decor-copy p { font-size: 12px; line-height: 1.7; }
+.game-app .game-window-body .journey-decor-copy > small { margin-block: 7px 9px; font-size: 11px; }
+.game-app .game-window-body .journey-decor-wallet { margin-block: 0 12px; }
+/* The catalog starts with two compact rows, then the first items immediately. */
+.game-app .game-decor-toolbar { display: flex; align-items: center; gap: 8px; min-width: 0; min-height: 50px; }
+.game-app .game-window-body .game-decor-toolbar .journey-home-subtabs { display: flex; flex: 1 1 auto; align-items: center; gap: 4px; min-width: 0; width: auto; margin: 0; padding: 2px; border: 1px solid #d1dbc0; border-radius: 12px; background: #edf2df; }
+.game-app .game-decor-toolbar .journey-home-subtabs button { flex: 1 1 0; min-width: 0; min-height: 44px; margin: 0; padding: 7px 12px; gap: 6px; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.game-app .game-decor-toolbar > .button { flex: 0 0 auto; min-height: 44px; padding: 8px 12px; gap: 6px; font-size: 12px; line-height: 1.4; white-space: nowrap; }
+.game-app .game-decor-status { display: flex; align-items: center; flex-wrap: wrap; gap: 0 8px; min-width: 0; min-height: 46px; margin-top: 2px; border: 1px solid #dfdcc0; border-radius: 11px; background: #faf5e4; }
+.game-app .game-window-body .game-decor-status .journey-decor-wallet { display: flex; flex: 1 1 180px; align-items: center; justify-content: space-between; gap: 6px 14px; min-width: 0; min-height: 44px; margin: 0; padding: 7px 10px; border: 0; border-radius: 0; background: transparent; font-size: 11px; line-height: 1.4; }
+.game-app .game-window-body .game-decor-status .game-window-help { flex: 0 0 auto; min-width: 98px; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; }
+.game-app .game-decor-status .game-window-help > summary { justify-content: center; gap: 7px; min-height: 44px; padding: 7px 10px; font-size: 11px; line-height: 1.4; }
+.game-app .game-decor-status .game-window-help > summary > .icon { margin-left: 0; }
+.game-app .game-window-body .game-decor-status .game-window-help[open] { flex-basis: 100%; margin-top: 2px; border-top: 1px solid #dedfc3; border-radius: 0 0 10px 10px; background: #f3f6e8; }
+.game-app .game-decor-status .game-window-help[open] > summary { justify-content: flex-start; }
+.game-app .game-decor-status .game-decor-help-content { padding: 0 12px 12px; }
+.game-app .game-decor-help-content p { font-size: 12px; line-height: 1.75; }
+.game-app .game-decor-help-content p + p { margin-top: 6px; }
+.game-app .game-window-body .journey-decor > .journey-decor-grid { margin-top: 8px; }
+.game-app .game-window-body .journey-residence-current { gap: 12px; margin-block: 12px 16px; padding: 14px; }
+.game-app .game-window-body .journey-residence-current h4 { margin-block: 3px; font-size: 19px; }
+.game-app .game-window-body .journey-residence-seal { width: 42px; height: 49px; font-size: 25px; }
+.game-app .game-window-body .journey-residence-grid { gap: 12px; }
+.game-app .game-window-body .journey-residence-picture { height: auto; aspect-ratio: 8 / 5; }
+.game-app .game-window-body .journey-residence-art { width: 100%; height: 100%; object-fit: contain; }
+.game-app .game-window-body .journey-residence-copy { padding: 14px; }
+.game-app .game-window-body .journey-residence-heading h4 { font-size: 21px; letter-spacing: 1px; }
+.game-app .game-window-body .journey-residence-features { margin-block: 10px; }
+.game-app .game-window-body .journey-details { margin-block: 10px; }
+.game-app .game-window-body .journey-details > summary { min-height: 44px; }
+.game-app .game-window-body .journey-details > :not(summary) { overflow-wrap: anywhere; }
+.game-app .game-window-body .button,
+.game-app .game-sect-info-content .button { min-height: 44px; }
+.game-app .journey-page .journey-school-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 12px; }
+.game-app .journey-page .journey-sect-tour { position: relative; overflow: visible; border-radius: 17px; }
+.game-app .journey-page .journey-sect-tour-top { border-radius: 16px 16px 0 0; }
+.game-app .journey-page .journey-sect-sky-controls { display: flex; align-items: center; flex-wrap: nowrap; gap: 10px; padding: 4px 7px 4px 4px; border: 1px solid #c7d0b6bd; border-radius: 14px; background: #fffdf1d9; box-shadow: 0 4px 16px #3f573920; backdrop-filter: blur(10px); }
+.game-app .journey-page .journey-sect-sky-choices { gap: 3px; padding: 0; border: 0; background: transparent; }
+.game-app .journey-page .journey-sect-sky-choices button { min-width: 66px; min-height: 44px; padding: 7px 9px; font-size: 11px; }
+.game-app .journey-page .journey-sect-clock { flex-shrink: 0; gap: 3px; padding-right: 2px; font-size: 10px; }
+.game-app .journey-page .journey-sect-clock small { font-size: 9px; }
+.game-app .journey-page .journey-sect-camera { width: fit-content; gap: 8px; padding: 4px; border: 1px solid #c7d0b6bd; border-radius: 14px; background: #fffdf1d9; box-shadow: 0 4px 16px #3f573920; backdrop-filter: blur(10px); }
+.game-app .journey-page .journey-sect-camera > div { flex-wrap: nowrap; gap: 4px; }
+.game-app .journey-page .journey-sect-camera .button { min-width: 44px; min-height: 44px; padding: 7px 10px; font-size: 11px; background: #f9fbedc9; }
+.game-app .journey-page .journey-sect-camera .button-secondary { border-color: #b4c59e; background: #eaf1dcdd; }
+
+/* Connection notices and rewards float below the wallet instead of across the HUD. */
+.game-app .workspace > .session-banner { position: fixed; z-index: 155; top: var(--hud-clear-top); right: calc(var(--hud-right) + 72px); display: flex; flex-wrap: wrap; gap: 8px; width: min(380px, calc(100vw - var(--hud-left) - var(--hud-right))); max-height: calc(100dvh - var(--hud-clear-top) - var(--hud-clear-bottom)); margin: 0; padding: 13px 15px; border: 1px solid #d9c994; border-radius: 15px; background: #fff9e5f5; box-shadow: 0 8px 25px #4b472b25; overflow: auto; }
+.game-app .session-banner .button,
+.game-app .session-banner a { min-height: 44px; }
+.game-app #toast-stack { top: calc(var(--hud-clear-top) + 6px); right: calc(var(--hud-right) + 72px); bottom: auto; left: auto; width: min(350px, calc(100vw - var(--hud-left) - var(--hud-right) - 72px)); max-width: calc(100vw - var(--hud-left) - var(--hud-right)); gap: 7px; }
+.game-app #toast-stack .toast { border-radius: 16px; }
+
+/* Orientation is a real modal; no CSS transform ever rotates the canvas. */
+.fullscreen-orientation { width: min(360px, calc(100vw - 40px)); max-height: calc(100dvh - 40px); padding: 27px 25px 24px; border: 1px solid #bacbad; border-radius: 24px; background: radial-gradient(ellipse at 50% 0, #e6eed5, transparent 65%), #fffdf1; color: #42654a; box-shadow: 0 20px 80px #0f2c3159; text-align: center; overflow: auto; }
+.fullscreen-orientation[open] { display: grid; justify-items: center; gap: 15px; }
+.fullscreen-orientation::backdrop { background: #17382de0; backdrop-filter: blur(12px); }
+.fullscreen-rotate-symbol { width: 76px; height: 76px; color: #7a9362; }
+.fullscreen-rotate-symbol svg { display: block; width: 100%; height: 100%; }
+.fullscreen-orientation h2 { margin: 0; font: 25px/1.5 var(--serif, serif); letter-spacing: 1px; }
+.fullscreen-orientation p { margin: 0; color: #78846a; font-size: 13px; line-height: 1.9; }
+.fullscreen-orientation button { min-height: 46px; width: 100%; padding: 11px 16px; border: 1px solid #b8c9a6; border-radius: 13px; background: #5c7e56; color: #fffdf1; font-size: 13px; touch-action: manipulation; }
+
+@media (max-width: 1050px) {
+  body.game-app { --hud-profile-width: 205px; --hud-dock-height: 72px; }
+  .game-app .game-dock { gap: 4px; padding: 6px 8px; border-radius: 21px; }
+  .game-app .game-dock button { flex-basis: 52px; width: 52px; height: 58px; }
+  .game-app .fullscreen-field-tools { gap: 7px; }
+  .game-app .fullscreen-field-tools button { width: 66px; height: 66px; padding: 7px 5px; flex-direction: column; justify-content: center; gap: 4px; text-align: center; }
+  .game-app .fullscreen-field-tools button > span { gap: 2px; }
+  .game-app .fullscreen-field-tools .icon { width: 22px; height: 22px; }
+  .game-app .garden-actions #harvest-all { width: 68px; height: 68px; font-size: 11px; }
+  .game-app .garden-actions #plot-list { width: 54px; height: 54px; }
+  .game-app .garden-toolbar .garden-actions { gap: 8px; }
+  .game-app .game-quest-peek { width: 192px; }
+  .game-app .garden-card .neighbor-strip { left: calc(var(--hud-left) + 211px); right: calc(var(--hud-right) + 225px); }
+  .game-app .journey-page .journey-school-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-width: 760px) {
+  body.game-app { --hud-top: max(12px, env(safe-area-inset-top, 0px)); --hud-left: max(12px, env(safe-area-inset-left, 0px)); --hud-right: max(12px, env(safe-area-inset-right, 0px)); --hud-profile-width: 185px; --hud-profile-height: 64px; }
+  .game-app .game-profile { gap: 8px; padding: 6px 9px 6px 6px; }
+  .game-app .game-avatar { width: 49px; height: 49px; flex-basis: 49px; font-size: 26px; }
+  .game-app #player-name { font-size: 14px; }
+  .game-app #hud-qi { font-size: 9px; }
+  .game-app .game-wallet { right: calc(var(--hud-right) + 102px); gap: 5px; }
+  .game-app .game-wallet button { gap: 5px; padding-inline: 10px; }
+  .game-app .game-stone-pill > span { display: none; }
+  .game-app #fullscreen-stones { font-size: 14px; }
+  .game-app .game-wallet .game-save-pill { max-width: 72px; padding-inline: 9px; font-size: 9px; }
+  .game-app .game-system-controls { gap: 6px; }
+  .game-app .game-system-controls button { width: 44px; height: 44px; padding: 10px; }
+  .game-app .game-system-controls .icon { width: 20px; height: 20px; }
+  .game-app .game-quest-peek { width: 175px; padding: 10px 24px 10px 12px; }
+  .game-app .game-quest-peek > strong { font-size: 13px; }
+  .game-app .game-shortcuts { width: 52px; right: var(--hud-right); gap: 9px; }
+  .game-app .game-shortcuts button { width: 52px; min-height: 60px; }
+  .game-app .game-shortcuts button > .icon { width: 44px; height: 44px; padding: 10px; }
+  .game-app .garden-topline .environment-chip { right: calc(var(--hud-right) + 66px); }
+  .game-app .fullscreen-more { right: var(--hud-right); }
+  .game-app #dialog-content { padding: 16px; }
+}
+
+@media (max-height: 520px) and (orientation: landscape) {
+  body.game-app { --hud-top: max(9px, env(safe-area-inset-top, 0px)); --hud-left: max(9px, env(safe-area-inset-left, 0px)); --hud-right: max(9px, env(safe-area-inset-right, 0px)); --hud-bottom: max(9px, env(safe-area-inset-bottom, 0px)); --hud-profile-width: 174px; --hud-profile-height: 55px; --hud-dock-height: 61px; }
+  .game-app .game-profile { gap: 8px; padding: 5px 9px 5px 5px; border-radius: 18px 12px 15px 12px; }
+  .game-app .game-avatar { width: 43px; height: 43px; flex-basis: 43px; font-size: 24px; }
+  .game-app .game-profile-copy { gap: 4px; }
+  .game-app #player-name { font-size: 13px; }
+  .game-app #fullscreen-realm { font-size: 10px; }
+  .game-app #hud-qi { font-size: 9px; }
+  .game-app .hud-progress { height: 3px; }
+  .game-app .game-wallet { top: var(--hud-top); right: calc(var(--hud-right) + 101px); gap: 5px; }
+  .game-app .game-wallet button { min-height: 44px; gap: 5px; padding: 7px 10px; }
+  .game-app .game-wallet .game-save-pill { max-width: 78px; padding-inline: 9px; font-size: 9px; }
+  .game-app .game-stone-pill .icon { width: 18px; height: 18px; }
+  .game-app #fullscreen-stones { font-size: 14px; }
+  .game-app .game-stone-pill > span { display: none; }
+  .game-app .game-system-controls { gap: 6px; }
+  .game-app .game-system-controls button { width: 44px; height: 44px; padding: 10px; }
+  .game-app .game-quest-peek { top: calc(var(--hud-clear-top) - 2px); width: 153px; min-height: 62px; gap: 3px; padding: 9px 23px 9px 10px; border-radius: 12px; }
+  .game-app .game-quest-peek > small { font-size: 8px; letter-spacing: 1px; }
+  .game-app .game-quest-peek > strong { font-size: 12px; }
+  .game-app .game-quest-peek > span { -webkit-line-clamp: 1; font-size: 10px; }
+  .game-app .game-guard-resume { top: calc(var(--hud-clear-top) + 103px); width: 153px; min-height: 54px; padding: 9px 10px; gap: 2px 7px; border-radius: 12px; }
+  .game-app .game-guard-resume > strong { font-size: 12px; }
+  .game-app .game-guard-resume > span { font-size: 9px; }
+  .game-app .game-shortcuts { top: calc(var(--hud-top) + 68px); right: var(--hud-right); width: 50px; gap: 7px; }
+  .game-app .game-shortcuts button { width: 50px; min-height: 56px; gap: 3px; font-size: 9px; }
+  .game-app .game-shortcuts button > .icon { width: 44px; height: 44px; padding: 10px; }
+  .game-app .game-dock { gap: 3px; padding: 5px 6px; border-radius: 19px; }
+  .game-app .game-dock button { flex-basis: 44px; width: 44px; height: 49px; min-height: 44px; padding: 3px; gap: 3px; border-radius: 13px; font-size: 10px; }
+  .game-app .dock-icon { width: 26px; height: 26px; border-radius: 10px; }
+  .game-app .dock-icon .icon { width: 20px; height: 20px; }
+  .game-app .game-dock .badge { top: -4px; right: -2px; min-width: 16px; height: 16px; font-size: 8px; }
+  .game-app .fullscreen-field-tools { bottom: calc(var(--hud-bottom) + 1px); gap: 6px; }
+  .game-app .fullscreen-field-tools button { width: 52px; height: 57px; padding: 5px 3px; flex-direction: column; justify-content: center; gap: 3px; border-radius: 15px; font-size: 11px; text-align: center; }
+  .game-app .fullscreen-field-tools button > span { gap: 1px; }
+  .game-app .fullscreen-field-tools .icon { width: 20px; height: 20px; }
+  .game-app .fullscreen-field-tools small { max-width: 43px; font-size: 8px; }
+  .game-app .garden-toolbar .garden-actions { bottom: var(--hud-bottom); gap: 6px; }
+  .game-app .garden-actions #plot-list { width: 48px; height: 48px; padding: 5px 3px; gap: 3px; font-size: 9px; }
+  .game-app .garden-actions #plot-list .icon { width: 19px; height: 19px; }
+  .game-app .garden-actions #harvest-all { width: 60px; height: 60px; padding: 5px; gap: 3px; font-size: 10px; }
+  .game-app .garden-actions #harvest-all .icon { width: 23px; height: 23px; }
+  .game-app #harvest-all .bulk-unlock-hint { max-width: 50px; font-size: 7px; }
+  .game-app .garden-topline .location-chip { top: calc(var(--hud-clear-top) + 70px); bottom: auto; min-height: 22px; max-width: 153px; padding: 3px 8px; font-size: 9px; }
+  .game-app .garden-topline .location-chip #land-count { display: none; }
+  .game-app .garden-topline .environment-chip { top: calc(var(--hud-top) + 52px); right: calc(var(--hud-right) + 62px); max-width: 154px; gap: 6px; padding: 5px 8px; border-radius: 13px; }
+  .game-app .environment-chip-icon { width: 23px; height: 23px; }
+  .game-app .environment-chip-icon .icon { width: 16px; height: 16px; }
+  .game-app .environment-chip-copy strong { font-size: 10px; }
+  .game-app .environment-chip-copy small { font-size: 9px; }
+  .game-app .garden-card .neighbor-strip { top: calc(var(--hud-top) + 58px); left: calc(var(--hud-left) + 164px); right: calc(var(--hud-right) + 226px); padding-bottom: 4px; gap: 5px; }
+  .game-app .neighbor-strip .neighbor-tab { min-width: 78px; min-height: 44px; padding: 6px 8px; font-size: 10px; }
+  .game-app .environment-preview-notice { top: calc(var(--hud-top) + 104px); right: calc(var(--hud-right) + 62px); }
+  .game-app .fullscreen-more,
+  .game-app .game-sheet { top: calc(var(--hud-top) + 2px); bottom: calc(var(--hud-bottom) + 2px); max-height: calc(100dvh - var(--hud-top) - var(--hud-bottom) - 4px); padding: 12px; border-radius: 18px; }
+  .game-app .fullscreen-more { right: var(--hud-right); bottom: auto; width: min(300px, calc(100vw - var(--hud-left) - var(--hud-right))); }
+  .game-app .game-sheet { width: 370px; }
+  .game-app[data-fullscreen-panel="seeds"] .seed-section,
+  .game-app[data-fullscreen-panel="tools"] .farm-tools { top: calc(var(--hud-top) + 2px); bottom: var(--hud-clear-bottom); max-height: calc(100dvh - var(--hud-top) - var(--hud-clear-bottom) - 2px); width: 284px; padding: 11px; border-radius: 16px; }
+  .game-app .fullscreen-panel-heading { margin-bottom: 9px; padding-bottom: 7px; }
+  .game-app .fullscreen-panel-heading strong { font-size: 19px; }
+  .game-app .fullscreen-more-grid { gap: 7px; }
+  .game-app .fullscreen-more-grid button { min-height: 64px; padding: 9px 11px; }
+  .game-app .seed-heading h2 { font-size: 18px; }
+  .game-app .seed-heading h2 > span { display: none; }
+  .game-app .seed-section .seed-card { height: 82px; min-height: 82px; padding-top: 8px; }
+  .game-app .seed-card .seed-art { top: 5px; }
+  .game-app .farm-tool { min-height: 56px; }
+  .game-app .garden-column .plot-detail { top: calc(var(--hud-top) + 107px); right: calc(var(--hud-right) + 60px); width: 280px; max-height: calc(100dvh - var(--hud-top) - var(--hud-clear-bottom) - 107px); padding: 11px; gap: 8px; border-radius: 15px; }
+  .game-app .plot-detail .plot-detail-art { display: none; }
+  .game-app .plot-detail .plot-detail-info h3 { font-size: 15px; }
+  .game-app .farm-guard-panel { max-width: 280px; }
+  .game-app .farm-protection-heading > .button { min-height: 44px; padding: 8px 9px; font-size: 10px; }
+  .game-app .cloud-entry { padding-block: 16px; }
+  .game-app .cloud-entry-card { padding: 23px; }
+  .game-app .cloud-entry-seal { width: 44px; height: 48px; margin-bottom: 13px; }
+  .game-app .cloud-entry-seal .icon { width: 27px; height: 27px; }
+  .game-app .cloud-entry h1 { margin-block: 9px 12px; font-size: 25px; }
+  .game-app .cloud-entry-actions { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin-block: 18px; }
+  .game-app #dialog-content { padding: 14px 16px 18px; }
+  .game-app .journey-page .journey-sect-sky-controls { top: var(--hud-clear-top); gap: 7px; }
+  .game-app .journey-page .journey-sect-sky-choices button { min-width: 62px; padding-inline: 7px; }
+  .game-app .journey-page .journey-sect-clock { font-size: 9px; }
+  .game-app .journey-page .journey-sect-clock small { font-size: 8px; }
+  .game-app .journey-page .journey-school-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 9px; }
+  .game-app .workspace > .session-banner { right: calc(var(--hud-right) + 60px); width: min(340px, calc(100vw - var(--hud-left) - var(--hud-right) - 60px)); font-size: 11px; }
+  .game-app #toast-stack { top: calc(var(--hud-top) + 58px); right: calc(var(--hud-right) + 60px); width: min(320px, calc(100vw - var(--hud-left) - var(--hud-right) - 60px)); gap: 6px; }
+  .game-app #toast-stack .toast { padding: 9px 12px 9px 10px; gap: 8px; border-radius: 13px; font-size: 11px; }
+  .game-app #toast-stack .toast-emblem { flex-basis: 28px; height: 31px; border-radius: 9px; }
+  .game-app #toast-stack .toast-emblem .icon { width: 17px; height: 17px; }
+  .game-app #toast-stack .toast-copy > strong { font-size: 13px; }
+  .game-app #toast-stack .toast-copy > span { font-size: 11px; line-height: 1.6; }
+  /* Unopened fields stay quiet; selection and keyboard focus restore their details. */
+  .game-app[data-fullscreen-page="garden"] .spirit-plot-label.is-locked.is-reclaim:not(.is-active):not([data-highlight="selected"]):not(:focus-visible) { display: grid; place-items: center; gap: 0; min-width: 24px; width: 24px; min-height: 24px; height: 24px; padding: 0; border-radius: 7px; border-color: #aabca2b3; background: #edf2e0d9; color: #71836a; box-shadow: 0 1px 4px #2f4e3217; touch-action: manipulation; }
+  .game-app[data-fullscreen-page="garden"] .spirit-plot-label.is-locked.is-reclaim:not(.is-active):not([data-highlight="selected"]):not(:focus-visible)::before { content: "+"; display: block; width: 18px; height: 18px; font: 400 19px/17px var(--sans, sans-serif); text-align: center; }
+  .game-app[data-fullscreen-page="garden"] .spirit-plot-label.is-locked.is-reclaim:not(.is-active):not([data-highlight="selected"]):not(:focus-visible) .plot-label-main,
+  .game-app[data-fullscreen-page="garden"] .spirit-plot-label.is-locked.is-reclaim:not(.is-active):not([data-highlight="selected"]):not(:focus-visible) .plot-label-note { display: none; }
+  .game-app[data-fullscreen-page="garden"] .spirit-plot-label.is-locked.is-reclaim.is-available:not(.is-active):not([data-highlight="selected"]):not(:focus-visible) { border-color: #8fa577; background: #658452ed; color: #fff8dd; box-shadow: 0 1px 4px #34542c2b; }
+}
+
+/* Short displays keep the window title and close target above the scroll area. */
+@media (max-width: 760px) {
+  body.game-app { --game-window-top: max(16px, env(safe-area-inset-top, 0px)); --game-window-bottom: max(16px, env(safe-area-inset-bottom, 0px)); --game-window-left: max(16px, env(safe-area-inset-left, 0px)); --game-window-right: max(16px, env(safe-area-inset-right, 0px)); }
+  .game-app .game-window-status { max-width: 120px; }
+  .game-app .game-window-body,
+  .game-app .game-sect-info-content { padding: 14px; }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  body.game-app { --game-window-top: max(8px, env(safe-area-inset-top, 0px)); --game-window-bottom: max(8px, env(safe-area-inset-bottom, 0px)); --game-window-left: max(8px, env(safe-area-inset-left, 0px)); --game-window-right: max(8px, env(safe-area-inset-right, 0px)); }
+  .game-app .game-dialog,
+  .game-app .game-journey-window,
+  .game-app[data-game-view="sect"] .game-sect-info { border-radius: 16px; }
+  .game-app .game-dialog .dialog-header,
+  .game-app .game-window-header,
+  .game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading { min-height: 58px; gap: 10px; padding: 6px 12px; }
+  .game-app .dialog-header h2,
+  .game-app #journey-window-title,
+  .game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading strong { font-size: 19px; letter-spacing: .7px; }
+  .game-app .game-window-header small,
+  .game-app[data-game-view="sect"] .game-sect-info > .fullscreen-panel-heading small { font-size: 10px; margin-top: 1px; }
+  .game-app .game-window-emblem,
+  .game-app .dialog-header .dialog-emblem { width: 34px; height: 36px; flex-basis: 34px; border-radius: 10px; }
+  .game-app .game-window-emblem { padding: 6px; }
+  .game-app .game-dialog #dialog-back { flex: 0 0 auto; gap: 2px; max-width: 74px; padding: 8px; font-size: 11px; }
+  .game-app #dialog-back::after { content: "返回"; }
+  .game-app #dialog-back-label { position: absolute; width: 1px; height: 1px; padding: 0; margin: -1px; overflow: hidden; clip-path: inset(50%); white-space: nowrap; }
+  .game-app .game-window-status { max-width: 140px; font-size: 10px; }
+  .game-app .game-window-status strong { font-size: 14px; }
+  .game-app .game-window-body,
+  .game-app .game-sect-info-content,
+  .game-app #dialog-content { padding: 12px; }
+  .game-app .game-journey-window > .journey-tabs { gap: 5px; padding: 4px 12px; }
+  .game-app .game-journey-window > .journey-tabs button { min-height: 44px; gap: 6px; padding: 6px 10px; font-size: 11px; }
+  .game-app .game-window-body .journey-section-heading h3 { font-size: 17px; }
+  .game-app .game-window-body .journey-quest-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 8px; }
+  .game-app .game-window-body .journey-season-period .journey-quest-grid.has-one { grid-template-columns: 1fr; }
+  .game-app .game-window-body .journey-quest { padding: 11px; }
+  .game-app .game-window-body .journey-decor-grid { gap: 9px; }
+  .game-app .game-window-body .journey-decor-picture,
+  .game-app .game-window-body .journey-decor-art { height: 96px; }
+  .game-app .game-window-body .journey-decor-copy { padding: 10px; }
+  .game-app .game-window-body .journey-decor-copy h4 { font-size: 16px; }
+  .game-app .game-decor-toolbar .journey-home-subtabs button,
+  .game-app .game-decor-toolbar > .button { padding-inline: 10px; font-size: 11px; }
+  .game-app .game-window-body .game-decor-status .journey-decor-wallet { font-size: 10px; }
+  .game-app .game-window-body .journey-residence-picture { height: 118px; }
+  .game-app .game-window-body .journey-residence-copy { padding: 11px; }
+  .game-app .game-window-body .journey-residence-heading h4 { font-size: 18px; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .game-app .game-window-status { display: none; }
+  .game-app .game-window-body .journey-decor-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+
+/* Portrait phones keep a tidy background while the orientation modal is open. */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.game-app { --hud-top: max(10px, env(safe-area-inset-top, 0px)); --hud-left: max(10px, env(safe-area-inset-left, 0px)); --hud-right: max(10px, env(safe-area-inset-right, 0px)); --hud-profile-width: 170px; --hud-profile-height: 58px; --hud-dock-height: 66px; }
+  .game-app .game-profile { padding: 5px; gap: 7px; }
+  .game-app .game-avatar { width: 44px; height: 44px; flex-basis: 44px; font-size: 24px; }
+  .game-app #player-name { font-size: 13px; }
+  .game-app .game-profile-copy { gap: 4px; }
+  .game-app .game-profile-copy > span:not(.hud-progress) { gap: 4px; }
+  .game-app #fullscreen-realm { font-size: 10px; }
+  .game-app #hud-qi { font-size: 8px; }
+  .game-app .game-wallet { top: calc(var(--hud-top) + 54px); right: var(--hud-right); gap: 4px; }
+  .game-app .game-wallet .game-save-pill { display: none; }
+  .game-app .game-system-controls { gap: 6px; }
+  .game-app .game-dock { gap: 2px; padding: 5px 6px; border-radius: 19px; }
+  .game-app .game-dock button { flex-basis: 44px; width: 44px; height: 54px; font-size: 10px; gap: 3px; padding: 4px; }
+  .game-app .dock-icon { width: 28px; height: 28px; }
+  .game-app .dock-icon .icon { width: 21px; height: 21px; }
+  .game-app .game-quest-peek { width: 162px; }
+  .game-app .game-shortcuts { top: calc(var(--hud-top) + 116px); }
+  .game-app .fullscreen-field-tools,
+  .game-app .garden-toolbar .garden-actions { bottom: calc(var(--hud-clear-bottom) + 2px); }
+  .game-app .fullscreen-field-tools button { width: 57px; height: 61px; }
+  .game-app .garden-actions #harvest-all { width: 64px; height: 64px; }
+  .game-app .garden-actions #plot-list { width: 51px; height: 51px; }
+  .game-app .garden-topline .environment-chip { top: calc(var(--hud-top) + 174px); right: calc(var(--hud-right) + 62px); max-width: 142px; }
+  .game-app .garden-topline .location-chip { bottom: calc(var(--hud-clear-bottom) + 73px); max-width: calc(100vw - 30px); }
+  .game-app .garden-card .neighbor-strip { top: calc(var(--hud-clear-top) + 88px); left: var(--hud-left); right: calc(var(--hud-right) + 66px); }
+  .game-app .fullscreen-more,
+  .game-app .game-sheet { left: var(--hud-left); right: var(--hud-right); width: auto; top: var(--hud-clear-top); bottom: var(--hud-clear-bottom); }
+  .game-app .fullscreen-more { left: auto; bottom: auto; width: min(300px, calc(100vw - var(--hud-left) - var(--hud-right))); }
+  .game-app .garden-column .plot-detail { top: calc(var(--hud-clear-top) + 84px); right: var(--hud-right); width: calc(100vw - var(--hud-left) - var(--hud-right)); max-height: calc(100dvh - var(--hud-clear-top) - var(--hud-clear-bottom) - 160px); }
+  .game-app .journey-page .journey-sect-sky-controls { gap: 5px; max-width: calc(100% - 12px); margin-inline: 6px; }
+  .game-app .journey-page .journey-sect-sky-choices button { min-width: 55px; padding-inline: 5px; font-size: 10px; }
+  .game-app .journey-page .journey-sect-clock { font-size: 9px; }
+  .game-app .journey-page .journey-sect-clock small { font-size: 8px; }
+}
+
+/* Visiting a sect is another landscape; its ledger opens only when requested. */
+.game-app[data-game-view="sect"] .journey-page { position: absolute; z-index: auto; inset: 0; width: 100%; height: 100%; min-height: 0; padding: 0; overflow: hidden; background: #e5ecdc; }
+.game-app[data-game-view="sect"] .journey-page > .journey-root { position: static; width: 100%; height: 100%; }
+.game-app[data-game-view="sect"] .journey-root > .journey-hero,
+.game-app[data-game-view="sect"] .journey-root > .journey-tabs { display: none; }
+.game-app[data-game-view="sect"] .journey-root > .journey-busy,
+.game-app[data-game-view="sect"] .journey-root > .journey-feedback { position: fixed; z-index: 135; top: calc(var(--hud-clear-top) + 62px); left: 50%; width: min(360px, calc(100vw - var(--hud-left) - var(--hud-right))); margin: 0; transform: translateX(-50%); }
+.game-app[data-game-view="sect"] .journey-panel { position: static; min-height: 0; padding: 0; }
+.game-app[data-game-view="sect"] .game-sect-experience,
+.game-app[data-game-view="sect"] .game-sect-backdrop { position: absolute; inset: 0; width: 100%; height: 100%; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-tour { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; padding: 0; border: 0; border-radius: 0; background: transparent; box-shadow: none; overflow: visible; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-scene { position: absolute; inset: 0; width: 100%; height: 100%; min-height: 0; margin: 0; border: 0; border-radius: 0; scroll-margin: 0; touch-action: none; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .sect-visit-canvas { touch-action: none; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-tour-top,
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-weather,
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-waypoints,
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-atmosphere,
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-gesture { display: none; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-scene-error { position: fixed; z-index: 110; top: 45%; left: 50%; width: min(360px, calc(100vw - 40px)); padding: 17px; border: 1px solid #d7c59b; border-radius: 17px; background: #fffaeaf2; transform: translate(-50%, -50%); text-align: center; }
+.game-app[data-game-view="sect"] .game-sect-selector { position: fixed; z-index: 117; top: var(--hud-clear-top); left: var(--hud-left); display: flex; align-items: center; gap: 5px; width: max-content; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); padding: 5px; border: 1px solid #cecaa4d9; border-radius: 18px; background: #fffde8d9; box-shadow: 0 5px 20px #37513d24; backdrop-filter: blur(12px); }
+.game-app[data-game-view="sect"] .game-sect-selector button { display: flex; align-items: center; justify-content: center; gap: 7px; min-width: 91px; min-height: 44px; padding: 6px 9px; border: 1px solid transparent; border-radius: 12px; background: transparent; color: #7c886a; touch-action: manipulation; }
+.game-app[data-game-view="sect"] .game-sect-selector button > span { display: grid; place-items: center; width: 26px; height: 29px; border: 1px solid #ccd5b7; border-radius: 13px 13px 5px 5px; background: #edf2ddd9; color: #879769; font: 17px/1 var(--serif, serif); }
+.game-app[data-game-view="sect"] .game-sect-selector button > strong { font-size: 12px; font-weight: 500; white-space: nowrap; }
+.game-app[data-game-view="sect"] .game-sect-selector button[aria-pressed="true"] { border-color: #b4c59b; background: #e3edd0e6; color: #496c48; }
+.game-app[data-game-view="sect"] .game-sect-selector button[aria-pressed="true"] > span { border-color: #7b9968; background: #678b59; color: #fff8d8; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-controls { position: fixed; z-index: 117; top: var(--hud-clear-top); right: calc(var(--hud-right) + 78px); bottom: auto; left: auto; width: fit-content; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); gap: 9px; margin: 0; border-radius: 17px; background: #fffde8d9; }
+.game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-camera { position: fixed; z-index: 117; right: calc(var(--hud-right) + 78px); bottom: var(--hud-clear-bottom); left: auto; width: fit-content; max-width: calc(100vw - var(--hud-left) - var(--hud-right)); margin: 0; border-radius: 16px; background: #fffde8d9; }
+.game-app[data-game-view="sect"] .game-sect-info-toggle { position: fixed; z-index: 119; left: var(--hud-left); bottom: calc(var(--hud-bottom) + 10px); display: inline-flex; align-items: center; justify-content: center; gap: 9px; min-width: 126px; min-height: 54px; padding: 12px 16px; border: 1px solid #c8c99c; border-radius: 18px; background: linear-gradient(140deg, #fffbe7f0, #e7efd6e6); box-shadow: var(--hud-shadow); color: #647e50; font-size: 12px; backdrop-filter: blur(12px); touch-action: manipulation; }
+.game-app[data-game-view="sect"] .game-sect-info-toggle .icon { width: 22px; height: 22px; }
+.game-app[data-game-view="sect"] .game-sect-info-toggle[aria-expanded="true"] { border-color: #8ea878; background: #dce9cbed; }
+.game-app[data-game-view="sect"] .game-sect-info .journey-school-grid { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+
+@media (max-width: 1050px) {
+  .game-app[data-game-view="sect"] .game-sect-selector button { min-width: 70px; padding: 7px; }
+  .game-app[data-game-view="sect"] .game-sect-selector button > span { display: none; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-controls { gap: 6px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-choices button { min-width: 57px; padding-inline: 7px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-clock { font-size: 9px; }
+  .game-app[data-game-view="sect"] .game-sect-info .journey-school-grid { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-app[data-game-view="sect"] .game-wallet { left: calc(var(--hud-left) + var(--hud-profile-width) + 16px); right: auto; }
+  .game-app[data-game-view="sect"] .game-sect-selector { gap: 3px; padding: 4px; border-radius: 15px; }
+  .game-app[data-game-view="sect"] .game-sect-selector button { min-width: 56px; min-height: 44px; padding: 7px; border-radius: 10px; }
+  .game-app[data-game-view="sect"] .game-sect-selector button > span { display: none; }
+  .game-app[data-game-view="sect"] .game-sect-selector button > strong { font-size: 10px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-controls { top: auto; right: auto; bottom: var(--hud-clear-bottom); left: var(--hud-left); gap: 6px; padding: 4px; border-radius: 15px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-choices { gap: 2px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-sky-choices button { min-width: 51px; min-height: 44px; padding: 7px 5px; font-size: 10px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-clock { font-size: 9px; gap: 2px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-clock small { font-size: 8px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-camera { right: calc(var(--hud-right) + 62px); bottom: var(--hud-clear-bottom); padding: 4px; gap: 6px; }
+  .game-app[data-game-view="sect"] .game-sect-backdrop .journey-sect-camera .button { min-width: 44px; min-height: 44px; padding: 7px 8px; font-size: 10px; }
+  .game-app[data-game-view="sect"] .game-sect-info-toggle { bottom: calc(var(--hud-bottom) + 3px); min-width: 105px; min-height: 50px; padding: 9px 12px; gap: 7px; border-radius: 15px; font-size: 11px; }
+  .game-app[data-game-view="sect"] .game-sect-info-toggle .icon { width: 19px; height: 19px; }
+}
+
+/* Phone farming keeps all nine choices along the left edge, away from the ripe front row. */
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-app .field-quickbar { grid-template-columns: repeat(3, minmax(44px, 1fr)); gap: 3px; bottom: var(--hud-bottom); width: 150px; padding: 4px; border-radius: 14px; }
+  .game-app .field-quickbar .seed-section,
+  .game-app .field-quickbar .seed-tray,
+  .game-app .field-quickbar .farm-tools,
+  .game-app .field-quickbar .farm-tools-row,
+  .game-app .field-quickbar .farm-tools-select,
+  .game-app .field-quickbar .farm-tools-links { display: contents; }
+  .game-app .field-quickbar .seed-card { height: 60px; min-height: 60px; gap: 1px; padding: 3px 1px; border-radius: 9px; }
+  .game-app .field-quickbar .seed-card .seed-art { width: 30px; height: 26px; }
+  .game-app .field-quickbar .seed-card .plant-art { width: 33px; height: 28px; }
+  .game-app .field-quickbar .seed-card .seed-art img { width: 30px; height: 26px; }
+  .game-app .field-quickbar .seed-card h3 { font-size: 10px; letter-spacing: 0; white-space: nowrap; }
+  .game-app .field-quickbar .seed-card .seed-meta,
+  .game-app .field-quickbar .seed-price,
+  .game-app .field-quickbar .seed-lock { font-size: 9px; }
+  .game-app .field-quickbar .farm-tool,
+  .game-app .field-quickbar .farm-tools-links .button { flex-direction: column; justify-content: center; gap: 4px; height: 60px; min-height: 60px; padding: 4px 1px; border-radius: 9px; font-size: 10px; }
+  .game-app .field-quickbar .farm-tool > span { align-items: center; gap: 1px; }
+  .game-app .field-quickbar .farm-tool strong { font-size: 10px; white-space: nowrap; }
+  .game-app .field-quickbar .farm-tool small { display: none; }
+  .game-app .field-quickbar .farm-tool em { display: block; margin: 2px 0 0; font-size: 8px; }
+  .game-app .field-quickbar .farm-tool > .icon,
+  .game-app .field-quickbar .farm-tools-links .icon { width: 21px; height: 21px; }
+}
+@media (max-height: 360px) and (orientation: landscape) {
+  .game-app .field-quickbar .seed-card,
+  .game-app .field-quickbar .farm-tool,
+  .game-app .field-quickbar .farm-tools-links .button { height: 48px; min-height: 48px; gap: 2px; padding-block: 2px; }
+  .game-app .field-quickbar .seed-card .seed-meta { display: none; }
+  .game-app .field-quickbar .farm-tool em { display: none; }
+  .game-app[data-game-view="home"] .garden-topline .location-chip { display: none; }
+}
+
+/* Landscape tablets reserve the front fields by keeping their choices beside the dock. */
+@media (min-width: 761px) and (max-width: 1100px) and (min-height: 521px) and (orientation: landscape) {
+  .game-app .field-quickbar { grid-template-columns: repeat(3, minmax(44px, 1fr)); gap: 4px; bottom: var(--hud-bottom); width: clamp(154px, calc((100vw - 406px) / 2 - var(--hud-left) - 6px), 200px); padding: 6px; border-radius: 17px; }
+  .game-app .field-quickbar .seed-section,
+  .game-app .field-quickbar .seed-tray,
+  .game-app .field-quickbar .farm-tools,
+  .game-app .field-quickbar .farm-tools-row,
+  .game-app .field-quickbar .farm-tools-select,
+  .game-app .field-quickbar .farm-tools-links { display: contents; }
+  .game-app .field-quickbar .seed-card { height: 74px; min-height: 74px; padding: 4px 1px; }
+  .game-app .field-quickbar .seed-card h3 { font-size: 11px; letter-spacing: 0; white-space: nowrap; }
+  .game-app .field-quickbar .farm-tool,
+  .game-app .field-quickbar .farm-tools-links .button { flex-direction: column; justify-content: center; gap: 5px; height: 74px; min-height: 74px; padding: 5px 2px; font-size: 11px; }
+  .game-app .field-quickbar .farm-tool > span { align-items: center; gap: 2px; }
+  .game-app .field-quickbar .farm-tool strong { font-size: 11px; white-space: nowrap; }
+  .game-app .field-quickbar .farm-tool em { display: block; margin: 3px 0 0; font-size: 9px; }
+  .game-app .field-quickbar .farm-tool small { display: none; }
+  .game-app .field-quickbar .farm-tool > .icon,
+  .game-app .field-quickbar .farm-tools-links .icon { width: 24px; height: 24px; }
+}
+@media (min-width: 761px) and (max-width: 850px) and (min-height: 521px) and (orientation: landscape) {
+  .game-app .field-quickbar .seed-card h3,
+  .game-app .field-quickbar .farm-tool strong { font-size: 10px; }
+}
+
+/* One sky summary, one activity window, and direct controls around the landscape. */
+.game-app .game-system-controls { gap: 8px; }
+.game-app .game-system-controls button { flex: 0 0 48px; aspect-ratio: 1; border-color: #c9cfae; border-radius: 50%; background: radial-gradient(circle at 35% 25%, #fffef6, #eff2df 78%); }
+.game-app .game-system-controls button .icon { display: block; flex: none; width: 23px; height: 23px; stroke-width: 1.65; transform: none; }
+.game-app #settings-button .icon { width: 25px; height: 25px; stroke-width: 1.55; }
+.game-app .game-system-controls button:hover { border-color: #a9b78f; background: #f9fbe9; color: #476b4d; }
+.game-app .game-system-controls button[aria-expanded="true"] { border-color: #9eaf87; background: #e5eed4; color: #42694b; }
+.game-app .game-quest-peek .game-quest-activity-hint { display: flex; align-items: center; gap: 4px; margin-top: 2px; color: #80946a; font-size: 10px; line-height: 1.3; }
+.game-app .game-quest-activity-hint .icon { width: 12px; height: 12px; }
+.game-app .garden-card .neighbor-strip { top: max(var(--hud-clear-top), calc(var(--hud-top) + 110px)); right: calc(var(--hud-right) + 170px); }
+.game-app .environment-preview-notice { top: calc(var(--hud-top) + 109px); left: 50%; right: auto; transform: translateX(-50%); }
+.game-app[data-fullscreen-panel="camera"] .camera-controls { top: calc(var(--hud-top) + 61px); right: var(--hud-right); }
+.game-app .activity-tabs { display: flex; flex-shrink: 0; gap: 5px; padding: 4px; margin-bottom: 14px; border: 1px solid #d7dec4; border-radius: 14px; background: #eaf0da; }
+.game-app .activity-tabs button { display: flex; align-items: center; justify-content: center; flex: 1; gap: 7px; min-width: 0; min-height: 44px; padding: 8px 10px; border: 1px solid transparent; border-radius: 10px; background: transparent; color: #8a9476; font-size: 13px; line-height: 1.3; }
+.game-app .activity-tabs button[aria-selected="true"] { border-color: #c6d0ad; background: #fffdf0; color: #526f49; box-shadow: 0 2px 6px #49653912; }
+.game-app .activity-tabs .icon { width: 20px; height: 20px; }
+.game-app .activity-pane { flex-shrink: 0; min-width: 0; }
+.game-app .activity-pane > .quest-card,
+.game-app .activity-pane > .journey-entry-card { width: 100%; margin: 0 0 12px; padding: 17px; border-radius: 15px; }
+.game-app #activity-guard .farm-guard-panel { display: block; position: static; width: 100%; max-width: none; margin: 0 0 14px; padding: 14px; }
+.game-app #activity-guard .farm-protection-heading { display: flex; align-items: center; gap: 9px; }
+.game-app #activity-guard .farm-protection-heading > div { min-width: 0; }
+.game-app #activity-guard .farm-protection-note,
+.game-app #activity-guard .farm-batch-summary { display: block; }
+.game-app #activity-guard .farm-protection-note { margin-top: 10px; font-size: 11px; line-height: 1.8; }
+.game-app #activity-guard .farm-pending { display: flex; flex-wrap: wrap; margin-top: 12px; padding: 11px; }
+.game-app #activity-guard .farm-pending > div { flex: 1; min-width: 150px; }
+.game-app #activity-guard .farm-pending > .button { min-height: 44px; }
+.game-app #activity-history .farm-directory-intro { flex-wrap: wrap; gap: 8px; }
+.game-app #activity-history .farm-directory-intro .button { min-height: 44px; }
+.game-app #activity-history .farm-intro { font-size: 11px; line-height: 1.8; }
+.game-app #activity-history .farm-history-row { grid-template-columns: 30px minmax(0, 1fr); gap: 9px; padding: 13px 0; }
+.game-app #activity-history .farm-history-title { flex-wrap: wrap; gap: 5px 8px; }
+.game-app #activity-history .farm-history-title strong { font-size: 13px; }
+.game-app #activity-history .farm-history-row p,
+.game-app #activity-history .farm-history-row time { line-height: 1.8; }
+.game-app #activity-history .farm-empty { padding: 27px 12px; }
+
+@media (max-width: 1100px) {
+  .game-app .game-center-title { width: 260px; }
+  .game-app .game-sky-heading small { font-size: 8px; letter-spacing: .8px; }
+  .game-app #fullscreen-title { font-size: 17px; }
+  .game-app .game-sky-summary #environment-chip-title { font-size: 15px; }
+  .game-app .game-sky-hint { font-size: 9px; }
+}
+@media (max-width: 930px) {
+  .game-app .game-center-title { width: 246px; padding-inline: 10px; }
+  .game-app .game-wallet,
+  .game-app[data-game-view="sect"] .game-wallet { top: calc(var(--hud-top) + 58px); left: auto; right: var(--hud-right); }
+  .game-app .game-sky-hint { font-size: 0; }
+  .game-app .game-sky-heading { gap: 5px; }
+  .game-app .game-sky-details { gap: 6px; }
+  .game-app .game-sky-summary .environment-chip-icon { flex-basis: 27px; width: 27px; height: 27px; }
+  .game-app .game-sky-summary .environment-chip-icon .icon { width: 20px; height: 20px; }
+  .game-app #environment-chip-clock { font-size: 25px; }
+  .game-app .game-sky-clock { margin-left: 4px; padding-left: 8px; }
+  .game-app .game-dock button { flex-basis: 48px; width: 48px; }
+}
+@media (min-width: 761px) and (max-width: 1100px) and (min-height: 521px) and (orientation: landscape) {
+  .game-app .field-quickbar { width: clamp(150px, calc((100vw - 462px) / 2 - var(--hud-left) - 8px), 200px); }
+}
+@media (min-width: 801px) and (max-width: 930px) and (min-height: 521px) and (orientation: landscape) {
+  .game-app .field-quickbar { width: clamp(150px, calc((100vw - 430px) / 2 - var(--hud-left) - 8px), 200px); }
+}
+@media (min-width: 761px) and (max-width: 800px) and (min-height: 521px) and (orientation: landscape) {
+  .game-app .game-dock { gap: 3px; padding-inline: 6px; }
+  .game-app .game-dock button { flex-basis: 44px; width: 44px; }
+  .game-app .field-quickbar { width: clamp(150px, calc((100vw - 387px) / 2 - var(--hud-left) - 8px), 200px); }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-app .game-center-title { width: 234px; min-height: 62px; gap: 3px; padding: 5px 9px; border-radius: 12px; }
+  .game-app .game-sky-heading { padding-bottom: 2px; }
+  .game-app #fullscreen-title { font-size: 16px; }
+  .game-app .game-sky-heading small { font-size: 8px; letter-spacing: .6px; }
+  .game-app .game-sky-details { gap: 5px; }
+  .game-app .game-sky-summary .environment-chip-icon { flex-basis: 25px; width: 25px; height: 25px; }
+  .game-app .game-sky-summary .environment-chip-icon .icon { width: 19px; height: 19px; }
+  .game-app .game-sky-summary #environment-chip-title { font-size: 13px; letter-spacing: 0; }
+  .game-app #environment-chip-clock { font-size: 25px; }
+  .game-app #environment-chip-phase { font-size: 9px; }
+  .game-app .game-sky-clock { gap: 4px; margin-left: 4px; padding-left: 8px; }
+  .game-app .game-sky-note { min-height: 25px; font-size: 12px; }
+  .game-app .game-system-controls { gap: 6px; }
+  .game-app .game-system-controls button { flex-basis: 44px; width: 44px; height: 44px; }
+  .game-app .game-system-controls button .icon { width: 21px; height: 21px; }
+  .game-app #settings-button .icon { width: 24px; height: 24px; }
+  .game-app .game-wallet,
+  .game-app[data-game-view="sect"] .game-wallet { top: calc(var(--hud-top) + 50px); right: var(--hud-right); left: auto; }
+  .game-app .game-quest-peek { min-height: 66px; }
+  .game-app .game-quest-peek > #hud-quest-note { display: none; }
+  .game-app .game-quest-peek .game-quest-activity-hint { font-size: 9px; line-height: 1.3; }
+  .game-app .garden-card .neighbor-strip { top: calc(var(--hud-top) + 96px); left: calc(var(--hud-left) + 164px); right: calc(var(--hud-right) + 126px); }
+  .game-app .environment-preview-notice { top: calc(var(--hud-top) + 92px); max-width: 285px; }
+  .game-app[data-fullscreen-panel="camera"] .camera-controls { top: calc(var(--hud-top) + 51px); }
+  .game-app .game-dock button { flex-basis: 44px; width: 44px; }
+  .game-app .activity-tabs { margin-bottom: 11px; }
+  .game-app .activity-tabs button { font-size: 12px; }
+}
+@media (max-width: 760px) and (orientation: landscape) {
+  body.game-app { --hud-profile-width: 151px; }
+  .game-app .game-center-title { width: 220px; }
+  .game-app .game-sky-heading small { font-size: 8px; }
+  .game-app #fullscreen-title { font-size: 16px; letter-spacing: .5px; }
+  .game-app .game-sky-summary #environment-chip-title { font-size: 13px; }
+  .game-app #environment-chip-phase { max-width: 26px; }
+  .game-app .game-dock { left: calc(50% + 14px); gap: 0; padding-inline: 4px; }
+}
+@media (max-width: 630px) and (orientation: landscape) {
+  body.game-app { --hud-top: max(6px, env(safe-area-inset-top, 0px)); --hud-bottom: max(6px, env(safe-area-inset-bottom, 0px)); --hud-profile-width: 134px; --hud-profile-height: 44px; --hud-dock-height: 56px; }
+  .game-app .game-avatar { width: 34px; height: 34px; flex-basis: 34px; font-size: 21px; }
+  .game-app #player-name { font-size: 11px; }
+  .game-app #hud-qi { font-size: 8px; }
+  .game-app .game-profile { gap: 5px; }
+  .game-app .game-profile-copy { gap: 2px; }
+  .game-app .game-center-title { width: 214px; padding-inline: 8px; }
+  .game-app #environment-chip-clock { font-size: 24px; }
+  .game-app .game-quest-peek { top: calc(var(--hud-top) + 48px); min-height: 44px; padding-block: 5px; gap: 2px; }
+  .game-app .game-quest-peek > small { display: none; }
+  .game-app .game-quest-peek > strong { font-size: 11px; }
+  .game-app .game-quest-peek .game-quest-activity-hint { font-size: 8px; }
+  .game-app .field-quickbar { bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 4px); }
+  .game-app .field-quickbar .seed-card,
+  .game-app .field-quickbar .farm-tool,
+  .game-app .field-quickbar .farm-tools-links .button { height: 44px; min-height: 44px; gap: 1px; padding-block: 1px; }
+  .game-app .field-quickbar .seed-card .seed-meta,
+  .game-app .field-quickbar .farm-tool em { display: none; }
+  .game-app .field-quickbar .seed-card .seed-art { height: 23px; }
+  .game-app .field-quickbar .seed-card .seed-art img { height: 23px; }
+  .game-app .field-quickbar .farm-tool > .icon,
+  .game-app .field-quickbar .farm-tools-links .icon { width: 20px; height: 20px; }
+  .game-app .game-dock { left: 50%; }
+  .game-app .garden-toolbar .garden-actions { bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 4px); flex-direction: column; align-items: center; }
+  .game-app .garden-topline .location-chip { display: none; }
+  .game-app .game-guard-resume { top: calc(var(--hud-top) + 100px); left: auto; right: calc(var(--hud-right) + 65px); width: 142px; }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  .game-app .game-center-title { top: calc(var(--hud-top) + 116px); width: min(246px, calc(100vw - 32px)); }
+  .game-app .game-system-controls button { flex-basis: 44px; width: 44px; height: 44px; }
+  .game-app .game-wallet { top: calc(var(--hud-top) + 58px); }
+  .game-app .game-dock { gap: 0; padding-inline: 3px; }
+  .game-app .game-dock button { flex-basis: 44px; width: 44px; }
+}
+
+/* Nine destinations retain full touch targets in the small landscape HUD. */
+.game-app .game-dock { overflow-x: auto; overscroll-behavior-x: contain; scrollbar-width: thin; }
+@media (max-width: 760px) and (orientation: landscape) {
+  .game-app .game-dock { left: 50%; }
+  .game-app .field-quickbar { bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 6px); }
+  .game-app .garden-toolbar .garden-actions { bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 6px); flex-direction: column; align-items: center; }
+  .game-app[data-game-view="sect"] .game-sect-info-toggle { bottom: calc(var(--hud-bottom) + var(--hud-dock-height) + 6px); }
+}
+@media (max-width: 760px) and (max-height: 520px) and (orientation: landscape) {
+  /* Profile, activity and the complete nine-choice quickbar each get their own vertical space. */
+  .game-app .game-quest-peek { top: calc(var(--hud-top) + var(--hud-profile-height) + 6px); display: grid; grid-template-columns: auto minmax(0, 1fr); align-content: center; align-items: center; width: 150px; height: 44px; min-height: 44px; column-gap: 5px; row-gap: 2px; padding: 5px 22px 5px 8px; }
+  .game-app .game-quest-peek > small { display: block; grid-column: 1; grid-row: 1; font-size: 8px; line-height: 1.3; letter-spacing: .4px; }
+  .game-app .game-quest-peek > strong { grid-column: 2; grid-row: 1; min-width: 0; font-size: 10px; line-height: 1.3; letter-spacing: 0; }
+  .game-app .game-quest-peek > #hud-quest-note { display: none; }
+  .game-app .game-quest-peek .game-quest-activity-hint { grid-column: 1 / -1; grid-row: 2; margin-top: 0; font-size: 8px; line-height: 1.3; }
+  .game-app .game-quest-peek .badge { top: 6px; right: 6px; }
+  .game-app .field-quickbar .seed-card,
+  .game-app .field-quickbar .farm-tool,
+  .game-app .field-quickbar .farm-tools-links .button { height: 44px; min-height: 44px; gap: 1px; padding-block: 1px; }
+  .game-app .field-quickbar .seed-card .seed-meta,
+  .game-app .field-quickbar .farm-tool em { display: none; }
+  .game-app .field-quickbar .seed-card .seed-art { height: 23px; }
+  .game-app .field-quickbar .seed-card .plant-art { width: 28px; height: 23px; }
+  .game-app .field-quickbar .seed-card .seed-art img { height: 23px; }
+  .game-app .field-quickbar .farm-tool > .icon,
+  .game-app .field-quickbar .farm-tools-links .icon { width: 20px; height: 20px; }
+}
+@media (max-width: 450px) {
+  .game-app .game-dock { justify-content: flex-start; }
+}

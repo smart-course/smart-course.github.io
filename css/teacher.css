@@ -1036,3 +1036,31 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-sec-h { padding-left: 10px; border-left: 4px solid var(--teal); color: var(--ink); font-size: 17px; font-weight: 800; line-height: 1.35; }
 .tw-sec-h small { margin-left: 6px; font-size: 13px; }
 .tw-table td.empty { padding: 26px 16px; background: #fbf8f2; color: #8a7f74; font-size: 14px; }
+
+/* 云间灵田（2026-11-15） */
+.tw-lt-block { margin: 18px 0 8px; padding: 16px 18px; border: 1px solid var(--line, #e2dccd); border-radius: 14px; background: var(--card, #fffdf8); }
+.tw-lt-block h3 { margin: 0 0 10px; font-size: 16px; }
+.tw-lt-switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
+.tw-lt-switch input { width: 18px; height: 18px; }
+.tw-lt-pcts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 12px 0 4px; }
+.tw-lt-pcts label { display: inline-flex; align-items: center; gap: 6px; }
+.tw-lt-pcts input { width: 72px; }
+.tw-lt-chapter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 10px 0; }
+.tw-lt-chapter { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--line, #e2dccd); border-radius: 10px; cursor: pointer; line-height: 1.55; }
+.tw-lt-chapter:has(input:checked) { border-color: #4e7967; background: rgba(78, 121, 103, .08); }
+.tw-lt-chapter input { margin-top: 4px; }
+.tw-lt-chapter small { display: block; color: var(--muted, #7a705f); font-size: 12px; }
+/* 云间灵田 · 数据统计（2026-11-15）：汇总卡片（数值＋项目＋一行说明）、可排序的明细表 */
+.tw-lt-stats { margin: 12px 0 14px; gap: 12px; }
+.tw-lt-stats .tw-stat { flex: 1 1 190px; min-width: 170px; max-width: 260px; padding: 14px 16px; }
+.tw-lt-stats .tw-stat b { font-size: 26px; overflow-wrap: anywhere; }
+.tw-lt-stats .tw-stat span { display: block; margin-top: 2px; }
+.tw-lt-stats .tw-stat small { display: block; margin-top: 6px; color: var(--muted, #7a705f); font-size: 12px; line-height: 1.55; }
+.tw-lt-stat-table th { padding: 0; }
+.tw-lt-stat-table td { padding: 8px 9px; font-size: 14px; }
+.tw-lt-sort { display: inline-flex; align-items: center; gap: 4px; width: 100%; padding: 9px 9px; font-size: 14px !important; border: 0; background: none; color: inherit; font: inherit; font-weight: 800; white-space: nowrap; cursor: pointer; }
+.tw-lt-sort i { min-width: .9em; font-style: normal; font-size: 11px; opacity: .85; }
+.tw-lt-sort:hover, .tw-lt-sort.is-on { text-decoration: underline; text-underline-offset: 4px; }
+.tw-lt-sort:focus-visible { outline: 2px solid #e8c56b; outline-offset: -2px; }
+.tw-lt-stat-table td.num { text-align: right; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw-lt-stat-table tr.is-banned td { color: var(--muted, #7a705f); }

@@ -1,0 +1,51 @@
+/* 云间灵田 · 智慧课堂接入层的样式（昵称、修炼场答题弹窗；境界以课程网站为准时隐藏游戏原来的修为进度与突破） */
+.lt-site-realm #breakthrough, .lt-site-realm .qi-label, .lt-site-realm .cultivation-card .progress-track,
+.lt-site-realm #hud-qi, .lt-site-realm .hud-progress { display: none !important; }
+.lt-site-realm .cultivation-tip { font-size: 12px; line-height: 1.8; color: #6c705c; }
+
+.lt-layer { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; padding: 18px;
+  width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; box-sizing: border-box; color: inherit;
+  background: rgba(35, 48, 40, .42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+dialog.lt-layer:not([open]) { display: none; }
+dialog.lt-layer::backdrop { background: transparent; }
+.lt-card { width: min(100%, 520px); max-height: calc(100dvh - 36px); overflow: auto; padding: 26px 26px 22px; border-radius: 22px;
+  background: #fffdf5; border: 1px solid #dedfcb; box-shadow: 0 28px 90px rgba(34, 52, 42, .28); color: #344b43;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.lt-eyebrow { margin: 0; font-size: 11px; letter-spacing: 3px; color: #aa8a4f; }
+.lt-card h2 { margin: 8px 0 10px; font: 600 22px/1.45 "Noto Serif SC", "Songti SC", "STSong", serif; color: #365e50; }
+.lt-note { margin: 0 0 14px; font-size: 13px; line-height: 1.8; color: #6f7462; }
+/* 文明取名的提醒：朱红细边框，醒目但不吓人 */
+.lt-rule { margin: -4px 0 14px; padding: 9px 12px; border: 1px solid rgba(164, 73, 45, .35); border-left: 4px solid #a4492d; border-radius: 10px;
+  background: rgba(164, 73, 45, .06); font-size: 13px; line-height: 1.75; color: #5e3a2c; }
+.lt-rule b { margin-right: 6px; color: #a4492d; letter-spacing: .08em; }
+.lt-stem { margin: 0 0 14px; font-size: 16px; line-height: 1.85; white-space: pre-line; }
+.lt-field { display: grid; gap: 6px; font-size: 13px; color: #6f7462; }
+.lt-field input { min-height: 44px; padding: 8px 14px; border: 1px solid #cfd6c0; border-radius: 12px; font-size: 16px; color: #344b43; background: #fff; }
+.lt-field input:focus { outline: 2px solid rgba(78, 121, 103, .35); border-color: #4e7967; }
+.lt-options { display: grid; gap: 10px; }
+.lt-option { display: grid; grid-template-columns: 30px 1fr; align-items: start; gap: 10px; width: 100%; padding: 12px 14px; text-align: left;
+  border: 1px solid #dedfcb; border-radius: 14px; background: #fbfaf2; color: #344b43; font: inherit; font-size: 15px; line-height: 1.7; cursor: pointer; }
+.lt-option b { display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e8f0e7; color: #365e50; font-size: 13px; }
+.lt-option:hover:not(:disabled) { border-color: #4e7967; background: #f2f7f0; }
+.lt-option:disabled { cursor: default; color: #344b43; }
+.lt-option:disabled:not(.is-right):not(.is-wrong) { opacity: .6; }
+.lt-option.is-right { border-color: #4e7967; background: #e3efe4; }
+.lt-option.is-right b { background: #4e7967; color: #fff; }
+.lt-option.is-wrong { border-color: #c98f6b; background: #f8e9df; }
+.lt-option.is-wrong b { background: #b2643d; color: #fff; }
+.lt-status { min-height: 20px; margin: 12px 0 0; font-size: 13px; line-height: 1.8; color: #6f7462; }
+.lt-status.is-ok { color: #365e50; font-weight: 600; }
+.lt-status.is-bad { color: #9b4f2c; font-weight: 600; }
+.lt-explain { display: block; margin-top: 6px; font-weight: 400; color: #5d6253; }
+.lt-actions { display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 10px; margin-top: 16px; }
+.lt-timer { margin-right: auto; font-size: 12px; color: #8a8c76; font-variant-numeric: tabular-nums; }
+.lt-btn { min-height: 40px; padding: 8px 16px; border: 1px solid #cfd6c0; border-radius: 12px; background: #fff; color: #4e7967; font: inherit; font-size: 14px; cursor: pointer; }
+.lt-btn.lt-primary { border-color: #4e7967; background: #4e7967; color: #fffdf5; }
+.lt-btn:disabled { opacity: .55; cursor: default; }
+
+/* 拜访道友：今天第几批 */
+.farm-batch-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 14px; padding: 10px 14px; border-radius: 12px;
+  background: #f2f5ea; border: 1px solid #dfe5d2; font-size: 12px; color: #5b6b55; }
+.farm-batch-bar b { color: #365e50; font-size: 14px; }
+.farm-batch-bar span { display: inline-flex; align-items: center; gap: 4px; }
+@media (max-width: 560px) { .lt-card { padding: 22px 18px 18px; border-radius: 18px; } .lt-card h2 { font-size: 19px; } .lt-stem { font-size: 15px; } }
