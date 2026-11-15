@@ -4166,6 +4166,19 @@
   const SECTS = Live.SECTS || [];
   const SECT_MIN = Live.SECT_MIN_REALM || 1;
   const sectOf = (key) => SECTS.find((item) => item.key === key) || null;
+  // 学生版测试页（2026-11-16 用户：“把学生测试版的角色王不凡也能加入宗门（不参与宗门统计），进入灵田跟学生版的一样……别人看不到我”）：
+  //   替王不凡选的宗门只记在这台设备上（localStorage；云间灵田页读同一项、随请求带给云函数），不进网站的宗门名单，不计宗门分和人数；随时可以改选
+  const PREVIEW_SECT_KEY = `lingtian-preview-sect:${config.course}`;
+  let previewSectMemo = '';
+  function previewSect() {
+    let key = previewSectMemo;
+    try { key = localStorage.getItem(PREVIEW_SECT_KEY) || ''; } catch (problem) { /* 浏览器禁用存储时只在本页有效 */ }
+    return key === 'sanxiu' || sectOf(key) ? key : '';
+  }
+  function setPreviewSect(key) {
+    previewSectMemo = key || '';
+    try { if (key) localStorage.setItem(PREVIEW_SECT_KEY, key); else localStorage.removeItem(PREVIEW_SECT_KEY); } catch (problem) { /* 同上 */ }
+  }
   const rgba = (hex, alpha) => { const n = parseInt(String(hex).slice(1), 16); return `rgba(${(n >> 16) & 255},${(n >> 8) & 255},${n & 255},${alpha})`; };
   const sectVars = (sect) => `--sc:${sect.color};--sg:${rgba(sect.glow, 0.75)};--sa:${rgba(sect.color, 0.42)}`;
   function sectDot(key) {
@@ -4193,12 +4206,14 @@
   function lingtianBlock(mine) {
     const open = Boolean(sectRole && sectRole.lingtian);
     const href = `/lingtian/index.html?room=${encodeURIComponent(identity.classroom)}`;
-    // 老师（学生版测试页）在开放前也能先试玩；学生要等老师开放才看得到入口
-    if (!open) return PREVIEW ? `<p class="clp-lt-note">云间灵田：本课程还没有开放，学生面板里看不到入口（在教师工作台“云间灵田”里开放）。老师可以先 <a href="${href}" target="_blank" data-cl-lingtian>进入云间灵田试玩</a>。</p>` : '';
-    const member = PREVIEW || Boolean(mine && (Live.SECTS || []).some((item) => item.key === mine.sect));
+    // 老师（学生版测试页）在开放前也能先试玩；学生要等老师开放才看得到入口。测试页和学生一样，要先（替王不凡）拜入宗门
+    const member = Boolean(mine && (Live.SECTS || []).some((item) => item.key === mine.sect));
+    const observer = '测试身份只看不交换：坊市、卡牌坊市只能看，不能买卖；可以拜访道友，不能偷采；不能捐献宗门材料。道友和同门都看不到王不凡，也不计入任何统计。';
+    if (!open) return PREVIEW ? `<p class="clp-lt-note">云间灵田：本课程还没有开放，学生面板里看不到入口（在教师工作台“云间灵田”里开放）。${member ? `老师可以先 <a href="${href}" target="_blank" data-cl-lingtian>进入云间灵田试玩</a>。${observer}` : '老师可以先在上面替王不凡挑一个宗门，再进入云间灵田试玩。'}</p>` : '';
     return `<div class="clp-lt"><div class="clp-lt-head"><span class="clp-lt-emb" aria-hidden="true">田</span><div><strong>云间灵田</strong>
       <span>开辟自己的灵田：种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。浇水、锄草和偷菜时会抽到修炼场的题，答对才能继续。</span></div></div>
-      ${member ? `<a class="clp-lt-go" href="${href}" target="_blank" data-cl-lingtian>进入云间灵田${PREVIEW ? '（测试）' : ''}</a>` : '<p class="clp-lt-lock">拜入宗门以后才能开辟自己的灵田（散修不能）。</p>'}</div>`;
+      ${member ? `<a class="clp-lt-go" href="${href}" target="_blank" data-cl-lingtian>进入云间灵田${PREVIEW ? '（测试）' : ''}</a>${PREVIEW ? `<p class="clp-lt-note">${observer}</p>` : ''}`
+        : `<p class="clp-lt-lock">拜入宗门以后才能开辟自己的灵田（散修不能）。${PREVIEW ? '测试页：先在上面替王不凡挑一个宗门。' : ''}</p>`}</div>`;
   }
   const sectModal = document.createElement('div');
   sectModal.className = 'clp-realm-modal clp-rank-modal';
@@ -4214,13 +4229,15 @@
     sectButton.style.cssText = sect ? sectVars(sect) : '';
     sectButton.innerHTML = sect ? `<span aria-hidden="true">${esc(sect.mark)}</span>${esc(sect.name)}`
       : mine && mine.sect === 'sanxiu' ? '<span aria-hidden="true">散</span>散修' : '<span aria-hidden="true">宗</span>宗门';
-    sectButton.title = sect ? `你是${sect.name}弟子：点开看宗门榜` : mine && mine.sect === 'sanxiu' ? '你现在是散修，随时可以拜入宗门' : '宗门榜：达到「筑基」后可以拜入宗门';
+    sectButton.title = PREVIEW ? (sect ? `测试页：王不凡是${sect.name}弟子（只记在这台设备上，不计入宗门统计）` : '测试页：点开可以替王不凡挑一个宗门')
+      : sect ? `你是${sect.name}弟子：点开看宗门榜` : mine && mine.sect === 'sanxiu' ? '你现在是散修，随时可以拜入宗门' : '宗门榜：达到「筑基」后可以拜入宗门';
   }
   async function loadSect() {
     // 测试页（2026-11-06 用户：“学生测试版中的控制页面，要能够同步宗门的排行”）：宗门榜读后台的真实排行（ck_sect_board 对教师账号照常返回，
     // 只是没有“本人”）；“本人”按测试身份王不凡显示，可以看“山门大开”，不会真的拜入。读不到时才用示意数据
     if (PREVIEW) {
-      const me = { sect: null, realm: Number(myRealm && myRealm.realm) || 0, points: null, can_join: true };
+      const own = previewSect();
+      const me = { sect: own || null, realm: Number(myRealm && myRealm.realm) || 0, points: null, can_join: true, can_change: Boolean(sectOf(own)) };
       let data = null;
       try {
         const value = await backend.rpc('ck_sect_board', { p_classroom: Number(identity.classroom) || identity.classroom });
@@ -4229,6 +4246,7 @@
       data = data && data.status === 'ok' ? { ...data, mine: me, live: true }
         : { status: 'ok', sects: SECTS.map((sect) => ({ key: sect.key, points: 0, members: 0, class_members: 0, class_points: 0 })), sanxiu: 0, class_sanxiu: 0, classes: 0, mine: me, live: false };
       sectCache = { at: Date.now(), data };
+      showSectButton(me);
       return data;
     }
     const value = await backend.rpc('ck_sect_board', { p_classroom: Number(identity.classroom) || identity.classroom });
@@ -4259,7 +4277,9 @@
     }).join('');
     const sect = sectOf(mine.sect);
     const gateBtn = (text) => `<button type="button" class="clp-sect-gate" data-sect-gate>${text}</button>`;
-    const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>${data.live ? '测试页：上面是本课程宗门的真实排行（和学生看到的一样）' : '测试页：后台没读到，上面是示意数据'}；可以看“山门大开”的画面，不会真的拜入宗门。</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
+    const mineHtml = PREVIEW ? `<div class="clp-rank-mine clp-sect-mine"><span>${data.live ? '测试页：上面是本课程宗门的真实排行（和学生看到的一样）。' : '测试页：后台没读到，上面是示意数据。'}${sect
+        ? `王不凡现在是「${esc(sect.name)}」弟子（测试身份：只记在这台设备上，不计入宗门分和人数），可以随时改选。`
+        : mine.sect === 'sanxiu' ? '王不凡现在是散修，散修不能开辟灵田。' : '可以替王不凡挑一个宗门（测试身份：只记在这台设备上，不计入宗门分和人数）；拜入以后就能像学生一样进入云间灵田。'}</span>${gateBtn(sect ? '改选宗门' : '进入山门 · 挑选宗门')}</div>`
       : sect ? `<div class="clp-rank-mine clp-sect-mine"><span>你是「${esc(sect.name)}」弟子${mine.points != null ? `，你的修为 ${ptsText(mine.points)} 计入本门` : ''}。宗训：“${esc(sect.motto)}”。${mine.can_change ? '你还有一次改投他宗的机会（只有一次，改投后不能再换）。' : Number(mine.changes) >= 1 ? '你的改投机会已经用过了。' : ''}</span>${mine.can_change ? gateBtn('改投他宗（仅一次）') : ''}</div>`
       : choosing ? `<div class="clp-rank-mine clp-sect-mine"><span>${mine.sect === 'sanxiu' ? '你现在是散修，修为不计入任何宗门；想清楚了随时可以拜入一个宗门。' : `你已达到「${esc(REALMS[Number(mine.realm) || SECT_MIN].name)}」，可以拜入一个宗门，也可以暂做散修（拜入以后就不能再变回散修）。`}</span>${gateBtn('进入山门 · 挑选宗门')}</div>`
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
@@ -4288,7 +4308,10 @@
   async function joinSect(key) {
     const sect = sectOf(key);
     if (PREVIEW) {
-      toast(key === 'sanxiu' ? '测试页：不会真的做散修。' : `测试页：只演示画面，不会真的拜入「${sect.name}」。`);
+      setPreviewSect(key);
+      sectCache = null;
+      try { await loadSect(); redrawSect(); } catch (problem) { /* 下次打开再读 */ }
+      if (key === 'sanxiu') toast('测试页：王不凡暂做散修（散修不能开辟灵田）。');
       return { ok: true };
     }
     let res;
@@ -4333,6 +4356,7 @@
   });
   document.addEventListener('keydown', (event) => { if (event.key === 'Escape' && !sectModal.hidden) sectModal.hidden = true; });
   if (sectButton) sectButton.addEventListener('click', () => openSect());
+  if (PREVIEW && sectButton) showSectButton({ sect: previewSect() || null });   // 测试页：按钮显示替王不凡选的宗门（不读后台）
   // 打开页面（和每分钟刷新境界）时：已达筑基的同学读一次宗门榜，按钮显示所属宗门；既没拜入宗门也没选散修的，每天第一次自动弹出“山门大开”
   // （这台设备每天一次，等更新说明、修为提升等弹窗关掉以后）
   let sectLoaded = false;

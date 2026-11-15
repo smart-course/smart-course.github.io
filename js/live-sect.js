@@ -165,14 +165,18 @@
   function open(opts) {
     addStyle();
     const mode = opts.mode === 'switch' ? 'switch' : 'join';
+    // 学生版测试页（2026-11-16）：替王不凡选宗门，只记在那台设备上、不计宗门统计、随时可以改选——文字跟着换（没有“只有一次改投”之说）
+    const P = Boolean(opts.preview);
+    const verb = mode === 'switch' ? (P ? '改选' : '改投') : '拜入';
     const sects = opts.sects || [];
     const home = sects.find((sect) => sect.key === opts.current);
     const root = document.createElement('div');
     root.className = 'sg-root';
     root.setAttribute('role', 'dialog');
     root.setAttribute('aria-modal', 'true');
-    root.setAttribute('aria-label', mode === 'switch' ? '改投他宗' : '拜入宗门');
-    const lead = mode === 'switch'
+    root.setAttribute('aria-label', mode === 'switch' ? (P ? '改选宗门' : '改投他宗') : '拜入宗门');
+    const lead = P ? `${mode === 'switch' ? `测试页：王不凡现在是「${esc(home ? home.name : '')}」弟子，可以随时改选。` : '测试页：替王不凡挑一个宗门。'}<b>只记在这台设备上，不计入宗门分和人数</b>；拜入以后就能像学生一样进入云间灵田（测试身份只看不交换）。`
+      : mode === 'switch'
       ? `你是「${esc(home ? home.name : '')}」弟子。<b>改投机会只有一次</b>：改投以后修为随你转到新宗门，不能再换，也不能退为散修。`
       : `${opts.welcome ? '恭喜你修成「筑基」！' : ''}四大宗门山门大开、广纳贤才。选一个最合你心意的宗门拜入，从此你的修为计入宗门，与历届同门一起为宗门争光；也可以暂做散修，想清楚再来。<b>拜入以后就不能再变回散修，只有一次改投他宗的机会。</b>`;
     const cards = sects.map((sect, i) => {
@@ -185,19 +189,19 @@
         <p class="sg-intro">${esc(sect.intro || '')}</p>
         <section class="sg-block sg-motto"><span class="sg-label">宗训</span><blockquote>${esc(sect.motto)}</blockquote><cite>——${esc(sect.source)}</cite>${sect.mottoNote ? `<p>${esc(sect.mottoNote)}</p>` : ''}</section>
         <section class="sg-block sg-way"><span class="sg-label">宗风</span><strong>${esc(sect.way)}</strong>${sect.wayNote ? `<p>${esc(sect.wayNote)}</p>` : ''}</section>
-        <div class="sg-act" data-sg-act>${isHome ? '<span class="sg-here">你现在是本门弟子</span>'
-          : `<button type="button" class="sg-btn is-go" data-sg-pick="${esc(sect.key)}">${mode === 'switch' ? '改投' : '拜入'}${esc(sect.name)}</button>`}</div>
+        <div class="sg-act" data-sg-act>${isHome ? `<span class="sg-here">${P ? '王不凡现在在本门' : '你现在是本门弟子'}</span>`
+          : `<button type="button" class="sg-btn is-go" data-sg-pick="${esc(sect.key)}">${verb}${esc(sect.name)}</button>`}</div>
       </article>`;
     }).join('');
     root.innerHTML = `<div class="sg-sky" aria-hidden="true"><i class="sg-mist is-a"></i><i class="sg-mist is-b"></i><i class="sg-mist is-c"></i><i class="sg-stars"></i><i class="sg-stars is-b"></i></div>
       <div class="sg-wrap">
-        <header class="sg-head"><p class="sg-kicker">${mode === 'switch' ? '改投他宗 · 仅此一次' : opts.welcome ? '恭喜筑基' : '四大宗门'}</p>
-          <h2 class="sg-title">${mode === 'switch' ? '改投他宗' : '山门大开'}</h2><p class="sg-lead">${lead}</p>
+        <header class="sg-head"><p class="sg-kicker">${P ? '学生版测试 · 王不凡' : mode === 'switch' ? '改投他宗 · 仅此一次' : opts.welcome ? '恭喜筑基' : '四大宗门'}</p>
+          <h2 class="sg-title">${mode === 'switch' ? (P ? '改选宗门' : '改投他宗') : '山门大开'}</h2><p class="sg-lead">${lead}</p>
           <button type="button" class="sg-x" data-sg-close aria-label="关闭">×</button></header>
         <div class="sg-grid">${cards}</div>
         <footer class="sg-foot">${mode === 'join' ? '<button type="button" class="sg-btn" data-sg-sanxiu>暂做散修</button>' : ''}
           <button type="button" class="sg-btn" data-sg-close>${mode === 'join' ? '稍后再说' : '不改了'}</button>
-          <p>宗门分＝本课程历届弟子的修为之和（按老师最近一次结算）。弟子结课以后修为仍留在宗门里，一届一届传承下去；散修不计入任何宗门。宗门本身不加修为，是归属，也是集体荣誉。${opts.preview ? '（测试页：不会真的拜入。）' : ''}</p></footer>
+          <p>宗门分＝本课程历届弟子的修为之和（按老师最近一次结算）。弟子结课以后修为仍留在宗门里，一届一届传承下去；散修不计入任何宗门。宗门本身不加修为，是归属，也是集体荣誉。${P ? '（测试页：王不凡只记在这台设备上，不计入宗门统计。）' : ''}</p></footer>
       </div>`;
     const lastFocus = document.activeElement;
     const oldOverflow = document.documentElement.style.overflow;
@@ -221,7 +225,7 @@
         const sect = sects.find((item) => item.key === card.dataset.sgCard);
         const act = card.querySelector('[data-sg-act]');
         if (sect && act && !(mode === 'switch' && sect.key === opts.current)) {
-          act.innerHTML = `<button type="button" class="sg-btn is-go" data-sg-pick="${esc(sect.key)}">${mode === 'switch' ? '改投' : '拜入'}${esc(sect.name)}</button>`;
+          act.innerHTML = `<button type="button" class="sg-btn is-go" data-sg-pick="${esc(sect.key)}">${verb}${esc(sect.name)}</button>`;
         }
       });
     }
@@ -232,11 +236,12 @@
       if (!sect || !card) return;
       root.classList.add('is-picking');
       card.classList.add('is-picked');
-      const ask = mode === 'switch'
+      const ask = P ? `确定让王不凡${verb}「${esc(sect.name)}」吗？（测试身份：只记在这台设备上，不计入宗门统计，随时可以再改。）`
+        : mode === 'switch'
         ? `确定从「${esc(home ? home.name : '')}」改投「${esc(sect.name)}」吗？改投机会只有一次，改投以后不能再换，也不能退为散修。`
         : `确定拜入「${esc(sect.name)}」吗？拜入以后就不能再变回散修，只有一次改投他宗的机会。`;
       actOf(key).innerHTML = `<p>${ask}</p><button type="button" class="sg-btn" data-sg-cancel>再想想</button>
-        <button type="button" class="sg-btn is-go" data-sg-confirm="${esc(key)}">${mode === 'switch' ? '确定改投' : '确定拜入'}</button>`;
+        <button type="button" class="sg-btn is-go" data-sg-confirm="${esc(key)}">确定${verb}</button>`;
       const go = actOf(key).querySelector('[data-sg-confirm]');
       go.focus({ preventScroll: true });
       card.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
@@ -253,9 +258,9 @@
       box.setAttribute('style', vars(sect));
       box.innerHTML = `<div class="sg-cele-in"><i class="sg-rays" aria-hidden="true"></i><span class="sg-burst" aria-hidden="true">${burst}</span>
         <span class="sg-emb" aria-hidden="true"><b>${esc(sect.mark)}</b></span>
-        <h3>${mode === 'switch' ? '改投' : '拜入'}${esc(sect.name)}</h3>
+        <h3>${verb}${esc(sect.name)}</h3>
         <blockquote>“${esc(sect.motto)}”</blockquote>
-        <p>${mode === 'switch' ? `你的修为已随你转入${esc(sect.name)}，改投机会已经用完。` : `从此你的修为计入${esc(sect.name)}，与历届同门一起为宗门争光。`}宗风：${esc(sect.way)}。</p>
+        <p>${P ? `王不凡已${verb}${esc(sect.name)}（测试身份，不计入宗门统计），现在可以进入云间灵田了。` : mode === 'switch' ? `你的修为已随你转入${esc(sect.name)}，改投机会已经用完。` : `从此你的修为计入${esc(sect.name)}，与历届同门一起为宗门争光。`}宗风：${esc(sect.way)}。</p>
         <button type="button" class="sg-btn is-go" data-sg-close>进入山门</button></div>`;
       root.appendChild(box);
       box.querySelector('[data-sg-close]').focus({ preventScroll: true });

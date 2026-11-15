@@ -3,7 +3,9 @@
  *    核对课堂码登录、点名册、设备，并要求已入宗门、老师已开放），之后游戏的每个请求都带着凭证调用云函数 lingtian；
  * 2. 道号：第一次进入时请同学起个道号（道友们看到道号，老师在工作台能对上是谁）；提醒文明取名，敏感词（含谐音）由云函数挡下，不文明的老师会销号；
  * 3. 修炼场答题：浇水、锄草、额外刷新道友名单时抽到的题在这里作答，答对才执行；作答后显示正确答案和解析（同修炼场）；
- * 4. 境界以课程网站为准：隐藏游戏原来的“修为进度、尝试突破”，说明服丹折算网站修为的规则。
+ * 4. 境界以课程网站为准：隐藏游戏原来的“修为进度、尝试突破”，说明服丹折算网站修为的规则；
+ * 5. 学生版测试页的老师（王不凡，2026-11-16）：宗门是老师在测试页替他选的（记在这台设备上，随每次请求带给云函数）；只看不交换、别人看不到他，
+ *    页面上标明“测试 · 只看”，第一次进入时说明一次。
  */
 (function (global) {
   'use strict';
@@ -14,6 +16,7 @@
   let backend = null;
   try { backend = config && config.provider !== 'off' && global.ClassLive ? global.ClassLive.create(config) : null; } catch (error) { backend = null; }
   let ticketValue = null;
+  let role = null, ticketCourse = null;   // 凭证对应的身份（student / preview）和课程
 
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
@@ -35,7 +38,7 @@
     if (!force) {
       try {
         const saved = JSON.parse(sessionStorage.getItem(KEY) || 'null');
-        if (saved && saved.ticket && saved.expiresAt > Date.now() + 60_000) { ticketValue = saved.ticket; return ticketValue; }
+        if (saved && saved.ticket && saved.role && saved.expiresAt > Date.now() + 60_000) { ticketValue = saved.ticket; role = saved.role; ticketCourse = saved.course || null; return ticketValue; }
       } catch (error) { /* 浏览器禁用存储时每次重新领凭证 */ }
     }
     const raw = await backend.rpc('lt_ticket', { p_classroom: room });
@@ -44,9 +47,14 @@
       const status = res.status || 'login';
       throw fail(status === 'login' ? 401 : 403, status, (REASONS[status] || REASONS.login)[1]);
     }
-    ticketValue = res.ticket;
-    try { sessionStorage.setItem(KEY, JSON.stringify({ ticket: res.ticket, expiresAt: Number(res.expiresAt) || Date.now() + 3_600_000 })); } catch (error) { /* 忽略 */ }
+    ticketValue = res.ticket; role = res.role || 'student'; ticketCourse = res.course || null;
+    try { sessionStorage.setItem(KEY, JSON.stringify({ ticket: res.ticket, role, course: ticketCourse, expiresAt: Number(res.expiresAt) || Date.now() + 3_600_000 })); } catch (error) { /* 忽略 */ }
     return ticketValue;
+  }
+
+  // 学生版测试页替王不凡选的宗门（live-student.js 记在这台设备上：lingtian-preview-sect:课程）；学生的宗门以网站名单为准，不带这一项
+  function previewSect() {
+    try { return localStorage.getItem(`lingtian-preview-sect:${ticketCourse}`) || ''; } catch (error) { return ''; }
   }
 
   async function request(path, body) {
@@ -56,7 +64,8 @@
       const ticket = ticketValue || await fetchTicket(attempt > 0);
       let out;
       try {
-        out = await backend.callFunction('lingtian', { ticket, path: pathname, query, body: body === undefined ? null : body });
+        out = await backend.callFunction('lingtian', { ticket, path: pathname, query, body: body === undefined ? null : body,
+          ...(role === 'preview' ? { previewSect: previewSect() } : {}) });
       } catch (error) {
         throw fail(503, 'network', '云端暂时没有回应，请检查网络后重试；已有灵田进度保存在服务器。');
       }
@@ -139,8 +148,30 @@
         const alias = await askAlias(engine.player && engine.player.alias, true);
         if (alias) { try { await engine.refresh(); } catch (error) { /* 下次刷新再更新 */ } }
       }
+      if (profile.observer) observerNote();
     }
     addAliasEntry(engine);
+  }
+
+  // 学生版测试身份（王不凡）：境界旁标“测试 · 只看”，修为说明里写明规则；这次打开第一次进入时弹一次说明（有题目弹窗时不打扰）
+  const OBSERVER_TEXT = '测试身份（王不凡）只看不交换：自己的灵田照常种、收、炼丹、开道藏、参悟；坊市和卡牌坊市只能看，不能挂单买卖、上架购买；可以拜访道友、看他们的灵田，不能偷采；宗门可以看，不能捐献材料。道友和同门都看不到你，也不计入任何统计。';
+  function observerNote() {
+    document.documentElement.classList.add('lt-observer');
+    const realm = document.getElementById('fullscreen-realm');
+    if (realm && !document.querySelector('.lt-observer-tag')) {
+      const tag = document.createElement('em');
+      tag.className = 'lt-observer-tag'; tag.textContent = '测试 · 只看'; tag.title = OBSERVER_TEXT;
+      realm.insertAdjacentElement('afterend', tag);
+    }
+    const tip = document.querySelector('.cultivation-tip');
+    if (tip && !tip.textContent.includes('只看不交换')) tip.textContent += ` ${OBSERVER_TEXT}`;
+    let seen = false;
+    try { seen = sessionStorage.getItem('lingtian-observer-seen') === '1'; } catch (error) { seen = false; }
+    if (seen || layer) return;
+    try { sessionStorage.setItem('lingtian-observer-seen', '1'); } catch (error) { /* 忽略 */ }
+    const node = openLayer(`<p class="lt-eyebrow">学 生 版 测 试</p><h2>王不凡 · 只看不交换</h2><p class="lt-note">${esc(OBSERVER_TEXT)}</p>
+      <div class="lt-actions"><button type="button" class="lt-btn lt-primary" data-lt-close>知道了</button></div>`, 'lt-observer-intro');
+    node.querySelector('[data-lt-close]').addEventListener('click', closeLayer);
   }
 
   // 境界以课程网站为准：游戏里原来的修为进度、突破按钮隐藏（见 lingtian-bridge.css），说明换成服丹折算网站修为的规则

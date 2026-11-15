@@ -43,6 +43,10 @@ dialog.lt-layer::backdrop { background: transparent; }
 .lt-btn.lt-primary { border-color: #4e7967; background: #4e7967; color: #fffdf5; }
 .lt-btn:disabled { opacity: .55; cursor: default; }
 
+/* 学生版测试身份（王不凡）：境界旁的“测试 · 只看”标记 */
+.lt-observer-tag { display: inline-block; margin-left: 6px; padding: 0 7px; border: 1px solid rgba(164, 73, 45, .4); border-radius: 999px;
+  background: rgba(164, 73, 45, .1); color: #a4492d; font-size: 11px; font-style: normal; font-weight: 600; line-height: 18px; white-space: nowrap; vertical-align: middle; }
+
 /* 拜访道友：今天第几批 */
 .farm-batch-bar { display: flex; flex-wrap: wrap; gap: 8px 18px; margin: 4px 0 14px; padding: 10px 14px; border-radius: 12px;
   background: #f2f5ea; border: 1px solid #dfe5d2; font-size: 12px; color: #5b6b55; }
