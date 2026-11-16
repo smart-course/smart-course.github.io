@@ -450,18 +450,85 @@
     background: linear-gradient(90deg, transparent, rgba(255, 255, 255, .85), transparent); animation: clp-lord-sweep 3.6s ease-in-out infinite; }
   @keyframes clp-lord-sweep { 0%, 55% { left: -60%; } 100% { left: 130%; } }
   @media (prefers-reduced-motion: reduce) { .clp-lord::after { animation: none; display: none; } }
-  /* 宗门榜里的云间灵田入口 */
-  .clp-lt { margin: 14px 0 6px; padding: 14px 16px; border-radius: 14px; border: 1px solid rgba(214, 188, 120, .55);
-    background: linear-gradient(135deg, rgba(255, 249, 230, .12), rgba(140, 190, 150, .14)); color: inherit; }
-  .clp-lt-head { display: flex; gap: 12px; align-items: flex-start; }
-  .clp-lt-emb { flex: 0 0 auto; display: grid; place-items: center; width: 38px; height: 38px; border-radius: 12px 12px 12px 4px; background: #496952; color: #faf0d4; font: 700 18px/1 "Kaiti SC", STKaiti, KaiTi, serif; }
-  .clp-lt-head strong { display: block; font-size: 15px; letter-spacing: 1px; }
-  .clp-lt-head span { display: block; margin-top: 4px; font-size: 12.5px; line-height: 1.7; opacity: .85; }
-  .clp-lt-go { display: inline-flex; align-items: center; justify-content: center; margin-top: 12px; min-height: 40px; padding: 8px 18px; border-radius: 12px;
-    background: linear-gradient(180deg, #6b9a7f, #4e7967); color: #fffdf5 !important; font-weight: 700; font-size: 14px; text-decoration: none; box-shadow: 0 6px 18px rgba(30, 60, 45, .28); }
-  .clp-lt-go:hover { filter: brightness(1.06); }
-  .clp-lt-lock, .clp-lt-note { margin: 10px 0 0; font-size: 12.5px; opacity: .8; }
+  /* 宗门榜里的云间灵田入口（2026-11-16 用户：“云间灵田的图标和进入的按钮可以做得更美观炫酷一些，最好带点特效”）：
+     卡片上一层流动的灵雾；图标是悬在阵法圈里的浮空灵田（彩色阵纹环转动、内圈符文反转、灵田上下浮动、云朵飘移、瀑布流淌、灵芽发光、灵气上升）；
+     按钮是玉色流光底＋转动的彩色描边＋呼吸外发光＋一道斜光扫过、两颗星闪烁，悬停微微上浮、箭头前探。系统设置“减少动态效果”时全部静止 */
+  @property --clp-lt-a { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+  .clp-lt { position: relative; isolation: isolate; overflow: hidden; margin: 16px 0 8px; padding: 16px; border-radius: 16px; border: 1px solid rgba(214,188,120,.45); color: inherit;
+    background: radial-gradient(120% 90% at 0% 0%, rgba(110,220,170,.22), transparent 60%), radial-gradient(90% 80% at 100% 100%, rgba(111,208,255,.16), transparent 62%),
+      linear-gradient(160deg, rgba(22,64,52,.6), rgba(16,22,40,.55));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.08), 0 10px 28px rgba(0,0,0,.3); }
+  .clp-lt::before { content: ''; position: absolute; inset: -40% -25%; z-index: -1; pointer-events: none;
+    background: radial-gradient(38% 28% at 22% 72%, rgba(255,255,255,.08), transparent 70%), radial-gradient(34% 26% at 76% 28%, rgba(160,255,210,.1), transparent 70%),
+      radial-gradient(30% 22% at 55% 95%, rgba(140,200,255,.08), transparent 70%);
+    animation: clp-lt-mist 14s ease-in-out infinite alternate; }
+  .clp-lt-head { display: flex; gap: 14px; align-items: center; }
+  .clp-lt-head strong { display: block; width: max-content; max-width: 100%; font: 900 19px/1.3 "Kaiti SC", STKaiti, KaiTi, serif; letter-spacing: .2em; color: #ffd36b;
+    background: linear-gradient(90deg, #fff3c4, #ffd36b 28%, #9ff0c8 52%, #ffd36b 76%, #fff3c4) 0 0 / 220% 100%; -webkit-background-clip: text; background-clip: text; -webkit-text-fill-color: transparent;
+    filter: drop-shadow(0 0 8px rgba(150,240,200,.35)); animation: clp-rank-shine 5s linear infinite; }
+  .clp-lt-desc { display: block; margin-top: 5px; font-size: 12.5px; line-height: 1.7; color: rgba(236,248,240,.86); }
+  .clp-lt-emb { position: relative; flex: 0 0 auto; width: 60px; height: 60px; border-radius: 50%;
+    background: radial-gradient(circle at 50% 36%, #2f6a55 0%, #173a30 58%, #0b1d18 100%);
+    box-shadow: 0 0 0 1px rgba(255,226,150,.32), 0 0 18px rgba(95,210,160,.45), inset 0 0 14px rgba(120,255,200,.22); animation: clp-lt-breathe 2.8s ease-in-out infinite; }
+  .clp-lt-aura { position: absolute; inset: -3px; border-radius: 50%; pointer-events: none;
+    background: conic-gradient(from 0deg, #ffd36b, #7fe0b0 25%, #6fd0ff 50%, #c39bff 75%, #ffd36b);
+    -webkit-mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px)); mask: radial-gradient(farthest-side, transparent calc(100% - 2.5px), #000 calc(100% - 2px));
+    filter: drop-shadow(0 0 3px rgba(255,215,120,.7)); animation: clp-lt-spin 6s linear infinite; }
+  .clp-lt-runes { position: absolute; inset: 5px; border-radius: 50%; border: 1px dashed rgba(255,226,150,.4); pointer-events: none; animation: clp-lt-spin 20s linear infinite reverse; }
+  .clp-lt-isle { position: absolute; left: 0; top: -1px; width: 60px; height: 60px; overflow: visible; filter: drop-shadow(0 3px 4px rgba(0,0,0,.4)); animation: clp-lt-bob 4.2s ease-in-out infinite; }
+  .clp-lt-cloud { animation: clp-lt-drift 6s ease-in-out infinite alternate; }
+  .clp-lt-cloud.is-b { animation-duration: 8s; animation-delay: -3s; }
+  .clp-lt-bud, .clp-lt-halo { animation: clp-lt-glow 2.4s ease-in-out infinite; }
+  .clp-lt-fall { stroke-dasharray: 2 3; animation: clp-lt-fall 1s linear infinite; }
+  .clp-lt-qi { position: absolute; bottom: 16px; left: 50%; width: 3px; height: 3px; border-radius: 50%; pointer-events: none; opacity: 0;
+    background: #c8ffe3; box-shadow: 0 0 6px 1px rgba(150,255,210,.9); animation: clp-lt-rise 3s ease-in infinite; }
+  .clp-lt-qi.is-b { left: 33%; animation-delay: 1s; background: #ffe9a8; box-shadow: 0 0 6px 1px rgba(255,220,130,.9); }
+  .clp-lt-qi.is-c { left: 67%; animation-delay: 2s; }
+  .clp-lt-go { position: relative; overflow: hidden; display: flex; align-items: center; justify-content: center; gap: 9px; width: 100%; box-sizing: border-box;
+    margin-top: 14px; min-height: 48px; padding: 10px 20px; border: 1.5px solid transparent; border-radius: 999px; cursor: pointer;
+    background: linear-gradient(120deg, #1d6a53, #3aa87e 30%, #63d3a2 50%, #3aa87e 70%, #1d6a53) padding-box,
+      conic-gradient(from var(--clp-lt-a), #ffe7a3, #7fe0b0, #6fd0ff, #c39bff, #ffe7a3) border-box;
+    background-size: 220% 100%, 100% 100%;
+    color: #fffef6 !important; font: 800 15.5px/1.2 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; letter-spacing: .14em;
+    text-decoration: none !important; text-shadow: 0 1px 2px rgba(0,50,35,.5);
+    box-shadow: 0 0 16px rgba(95,210,160,.45), 0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.35);
+    animation: clp-lt-flow 5s linear infinite, clp-lt-border 4s linear infinite, clp-lt-pulse 2.8s ease-in-out infinite; transition: transform .18s ease, filter .18s ease; }
+  .clp-lt-go::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(110deg, transparent 35%, rgba(255,255,255,.55) 50%, transparent 65%) -160% 0 / 220% 100% no-repeat; animation: clp-sweep 3.2s ease-in-out .8s infinite; }
+  .clp-lt-go:hover { transform: translateY(-1px); filter: brightness(1.08) saturate(1.12); }
+  .clp-lt-go:active { transform: translateY(0) scale(.98); }
+  .clp-lt-go:focus-visible { outline: 2px solid #ffe7a3; outline-offset: 3px; }
+  .clp-lt-go svg { flex: 0 0 auto; width: 20px; height: 20px; fill: none; stroke: currentColor; stroke-width: 1.8; stroke-linecap: round; stroke-linejoin: round; filter: drop-shadow(0 0 4px rgba(200,255,225,.8)); }
+  .clp-lt-go svg .is-leaf { fill: rgba(200,255,220,.55); }
+  .clp-lt-arrow { display: inline-block; transition: transform .2s ease; }
+  .clp-lt-go:hover .clp-lt-arrow { transform: translateX(4px); }
+  .clp-lt-tag { padding: 1px 8px; border: 1px solid rgba(255,231,163,.6); border-radius: 999px; background: rgba(255,231,163,.2); color: #fff3c4;
+    font: 700 11.5px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-style: normal; letter-spacing: .08em; text-shadow: none; }
+  .clp-lt-star { position: absolute; width: 9px; height: 9px; pointer-events: none; background: #fff6c8; opacity: 0;
+    clip-path: polygon(50% 0, 61% 39%, 100% 50%, 61% 61%, 50% 100%, 39% 61%, 0 50%, 39% 39%); animation: clp-lt-twinkle 2.4s ease-in-out infinite; }
+  .clp-lt-star.is-a { left: 9%; top: 18%; }
+  .clp-lt-star.is-b { right: 8%; bottom: 16%; width: 7px; height: 7px; animation-delay: 1.2s; }
+  .clp-lt-lock, .clp-lt-note { margin: 12px 0 0; font-size: 12.5px; line-height: 1.7; color: rgba(236,248,240,.8); }
+  .clp-lt-lock { padding: 9px 12px; border: 1px dashed rgba(214,188,120,.5); border-radius: 12px; background: rgba(0,0,0,.18); }
   .clp-lt-note a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  @keyframes clp-lt-mist { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
+  @keyframes clp-lt-spin { to { transform: rotate(1turn); } }
+  @keyframes clp-lt-bob { 0%, 100% { transform: translateY(1.5px); } 50% { transform: translateY(-1.5px); } }
+  @keyframes clp-lt-drift { from { transform: translateX(-1.5px); } to { transform: translateX(2px); } }
+  @keyframes clp-lt-glow { 0%, 100% { opacity: .5; } 50% { opacity: 1; } }
+  @keyframes clp-lt-breathe { 0%, 100% { box-shadow: 0 0 0 1px rgba(255,226,150,.32), 0 0 14px rgba(95,210,160,.35), inset 0 0 14px rgba(120,255,200,.2); }
+    50% { box-shadow: 0 0 0 1px rgba(255,226,150,.45), 0 0 26px rgba(120,240,190,.7), inset 0 0 18px rgba(150,255,215,.35); } }
+  @keyframes clp-lt-fall { to { stroke-dashoffset: -5; } }
+  @keyframes clp-lt-rise { 0% { opacity: 0; transform: translate(-50%, 0) scale(.6); } 25% { opacity: 1; } 100% { opacity: 0; transform: translate(-50%, -30px) scale(1.1); } }
+  @keyframes clp-lt-flow { to { background-position: -220% 0, 0 0; } }
+  @keyframes clp-lt-border { to { --clp-lt-a: 1turn; } }
+  @keyframes clp-lt-pulse { 0%, 100% { box-shadow: 0 0 14px rgba(95,210,160,.4), 0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.35); }
+    50% { box-shadow: 0 0 26px rgba(120,240,190,.75), 0 8px 22px rgba(0,0,0,.35), inset 0 1px 0 rgba(255,255,255,.35); } }
+  @keyframes clp-lt-twinkle { 0%, 100% { opacity: 0; transform: scale(.4) rotate(0deg); } 50% { opacity: 1; transform: scale(1) rotate(45deg); } }
+  @media (prefers-reduced-motion: reduce) {
+    .clp-lt::before, .clp-lt-head strong, .clp-lt-emb, .clp-lt-halo, .clp-lt-aura, .clp-lt-runes, .clp-lt-isle, .clp-lt-cloud, .clp-lt-bud, .clp-lt-fall, .clp-lt-go, .clp-lt-go::after { animation: none; }
+    .clp-lt-qi, .clp-lt-star { display: none; }
+  }
   .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 10px; margin-left: auto; }
   .clp-v2 .clp-head .clp-link { color: var(--clp-link); font-size: 13px; }
   .clp-v2 .clp-sub { margin-top: 3px; color: var(--clp-head-sub); font-size: 12.5px; }
@@ -4203,6 +4270,25 @@
     }
     return sectRole;
   }
+  // 云间灵田图标：阵法圈里的浮空灵田（灵田四块、山石、瀑布、灵芽、云朵），动效见样式表 .clp-lt-*
+  const LT_EMBLEM = `<span class="clp-lt-emb" aria-hidden="true"><i class="clp-lt-aura"></i><i class="clp-lt-runes"></i>
+    <svg class="clp-lt-isle" viewBox="0 0 56 56" focusable="false"><defs>
+      <linearGradient id="clpLtTop" x1="0" y1="0" x2="1" y2="1"><stop offset="0" stop-color="#d4f7b8"/><stop offset=".5" stop-color="#6cc785"/><stop offset="1" stop-color="#2f7f57"/></linearGradient>
+      <linearGradient id="clpLtRock" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#8d7d69"/><stop offset="1" stop-color="#2f2720"/></linearGradient>
+      <radialGradient id="clpLtGlow"><stop offset="0" stop-color="#fff6c4" stop-opacity=".95"/><stop offset=".45" stop-color="#ffd36b" stop-opacity=".45"/><stop offset="1" stop-color="#ffd36b" stop-opacity="0"/></radialGradient></defs>
+      <path d="M9 28 L28 37 L47 28 L41 38 L32 48 L24 48 L15 38 Z" fill="url(#clpLtRock)"/>
+      <path d="M9 28 L28 19 L47 28 L28 37 Z" fill="url(#clpLtTop)"/>
+      <path d="M9 28 L28 19 L47 28" stroke="#eaffd8" stroke-width=".8" stroke-linejoin="round" opacity=".7" fill="none"/>
+      <path d="M18.5 23.5 L37.5 32.5 M18.5 32.5 L37.5 23.5" stroke="#2c6b48" stroke-width="1" opacity=".55" fill="none"/>
+      <path class="clp-lt-fall" d="M40.5 31.5 V43" stroke="#c4f1ff" stroke-width="1.6" stroke-linecap="round" fill="none"/>
+      <path d="M28 28 V21" stroke="#2c6b48" stroke-width="1.4" stroke-linecap="round" fill="none"/>
+      <path d="M28 23 C24 22 23 19 23.5 17.5 C26 18 27.5 20 28 23 Z M28 22 C31.5 20.5 33 18 32.5 16 C30 16.8 28.5 19 28 22 Z" fill="#8be89a"/>
+      <circle class="clp-lt-halo" cx="28" cy="15.5" r="7" fill="url(#clpLtGlow)"/>
+      <circle class="clp-lt-bud" cx="28" cy="15.5" r="2" fill="#fff1b8"/>
+      <g class="clp-lt-cloud" fill="#fff" opacity=".85"><ellipse cx="11" cy="42" rx="6" ry="2.4"/><ellipse cx="14.5" cy="40.6" rx="3.6" ry="2.6"/></g>
+      <g class="clp-lt-cloud is-b" fill="#fff" opacity=".7"><ellipse cx="45" cy="45" rx="5" ry="2"/><ellipse cx="42.5" cy="43.8" rx="3" ry="2.2"/></g>
+    </svg><i class="clp-lt-qi"></i><i class="clp-lt-qi is-b"></i><i class="clp-lt-qi is-c"></i></span>`;
+  const LT_SPROUT = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M12 21v-9"/><path class="is-leaf" d="M12 13c-4.5 0-7-3-7-7 4 0 7 2.5 7 7z"/><path class="is-leaf" d="M12 11c0-4.5 2.8-7 7-7 0 3.8-2.6 7-7 7z"/></svg>';
   function lingtianBlock(mine) {
     const open = Boolean(sectRole && sectRole.lingtian);
     const href = `/lingtian/index.html?room=${encodeURIComponent(identity.classroom)}`;
@@ -4210,9 +4296,9 @@
     const member = Boolean(mine && (Live.SECTS || []).some((item) => item.key === mine.sect));
     const observer = '测试身份只看不交换：坊市、卡牌坊市只能看，不能买卖；可以拜访道友，不能偷采；不能捐献宗门材料。道友和同门都看不到王不凡，也不计入任何统计。';
     if (!open) return PREVIEW ? `<p class="clp-lt-note">云间灵田：本课程还没有开放，学生面板里看不到入口（在教师工作台“云间灵田”里开放）。${member ? `老师可以先 <a href="${href}" target="_blank" data-cl-lingtian>进入云间灵田试玩</a>。${observer}` : '老师可以先在上面替王不凡挑一个宗门，再进入云间灵田试玩。'}</p>` : '';
-    return `<div class="clp-lt"><div class="clp-lt-head"><span class="clp-lt-emb" aria-hidden="true">田</span><div><strong>云间灵田</strong>
-      <span>开辟自己的灵田：种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。浇水、锄草和偷菜时会抽到修炼场的题，答对才能继续。</span></div></div>
-      ${member ? `<a class="clp-lt-go" href="${href}" target="_blank" data-cl-lingtian>进入云间灵田${PREVIEW ? '（测试）' : ''}</a>${PREVIEW ? `<p class="clp-lt-note">${observer}</p>` : ''}`
+    return `<div class="clp-lt"><div class="clp-lt-head">${LT_EMBLEM}<div><strong>云间灵田</strong>
+      <span class="clp-lt-desc">开辟自己的灵田：种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。浇水、锄草和偷菜时会抽到修炼场的题，答对才能继续。</span></div></div>
+      ${member ? `<a class="clp-lt-go" href="${href}" target="_blank" data-cl-lingtian><i class="clp-lt-star is-a" aria-hidden="true"></i><i class="clp-lt-star is-b" aria-hidden="true"></i>${LT_SPROUT}<span>进入云间灵田</span>${PREVIEW ? '<em class="clp-lt-tag">测试</em>' : ''}<span class="clp-lt-arrow" aria-hidden="true">→</span></a>${PREVIEW ? `<p class="clp-lt-note">${observer}</p>` : ''}`
         : `<p class="clp-lt-lock">拜入宗门以后才能开辟自己的灵田（散修不能）。${PREVIEW ? '测试页：先在上面替王不凡挑一个宗门。' : ''}</p>`}</div>`;
   }
   const sectModal = document.createElement('div');
