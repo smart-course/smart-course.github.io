@@ -3709,7 +3709,7 @@
     const stream = new Blob([bytes]).stream().pipeThrough(new DecompressionStream('gzip'));
     return JSON.parse(await new Response(stream).text());
   }
-  // 两份题库都带在工作台里：修炼场题库（ck_practice_*）与题目解答（ck_explain_*，学生递交后、结丹以上可展开）
+  // 三份题库都带在工作台里：修炼场题库（ck_practice_*）、题目解答（ck_explain_*，学生递交后、筑基以上可展开）、回温题库（ck_review_*，2026-11-18）
   const BANKS = [
     { field: 'practice', name: '修炼场题库', versions: 'ck_practice_versions', sql: 'cloudbase-pg-20261022-修炼场.sql',
       load: (u) => ['ck_practice_load', { p_course: course.slug, p_unit: u.unit, p_title: u.title, p_order: u.order, p_version: u.version, p_items: u.items }],
@@ -3717,6 +3717,10 @@
     { field: 'explain', name: '题目解答', versions: 'ck_explain_versions', sql: 'cloudbase-pg-20261022-题目解答.sql',
       load: (u) => ['ck_explain_load', { p_course: course.slug, p_unit: u.unit, p_version: u.version, p_items: u.items }],
       clear: (unit) => ['ck_explain_load', { p_course: course.slug, p_unit: unit, p_version: 'gone', p_items: [] }] },
+    // 回温题库（2026-11-18）：课堂选择类题目的题干、选项和参考答案，学生在案例页出门测后面的“回温”里重做自己做错的题（见 tools/review_bank.py）
+    { field: 'review', name: '回温题库', versions: 'ck_review_versions', sql: 'cloudbase-pg-20261118-回温.sql',
+      load: (u) => ['ck_review_load', { p_course: course.slug, p_unit: u.unit, p_version: u.version, p_items: u.items }],
+      clear: (unit) => ['ck_review_load', { p_course: course.slug, p_unit: unit, p_version: 'gone', p_items: [] }] },
   ];
   async function syncBank(bank, force) {
     const pack = course[bank.field];
@@ -3748,7 +3752,7 @@
     const status = $('[data-practice-status]');
     if (!backend || (!force && practiceSynced.has(course.slug))) return;
     practiceSynced.add(course.slug);
-    if (status) status.textContent = '正在核对修炼场题库和题目解答……';
+    if (status) status.textContent = '正在核对修炼场题库、题目解答和回温题库……';
     const lines = [];
     for (const bank of BANKS) lines.push(await syncBank(bank, force));
     if (status) status.textContent = `${lines.filter(Boolean).join('；')}（${clock(Date.now())}）。`;

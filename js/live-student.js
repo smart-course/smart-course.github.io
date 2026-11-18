@@ -1399,6 +1399,259 @@
   });
   applyRealmGates(gateLevel);
   if (worksheet && joined && !OFFLINE && !AUDIT) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）；旁听不计
+  if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
+
+  // ---------- 回温（2026-11-18 用户：“在‘出门测’后面再设置一个‘回温’板块，可以让学生复习课堂、修炼场和云间灵田中做错的题目。”） ----------
+  // 放在出门测后面（政经：课后自修里出门测那一块的后面；习经：本页最后一个出门测的后面），滚到这里才读后台（ck_my_review）：
+  // 汇集本人在课堂、修炼场、云间灵田做错的题（政经课后自修的出门测、温故要等下一次课开课、讲评过以后才进来），逐题重做（ck_review_answer）。
+  // 答对就移出清单；答错了给答案和讲解（课堂题要到筑基，同“展开解答”），这一题先锁上、过一会儿再来做。不加修为。离线版、旁听没有回温。
+  // 写成函数声明：在本段之前就被调用（样式和常量都放在函数里，免得还没定义）
+  function setupReview() {
+    const SRC = { class: '课堂', self: '课后自修', practice: '修炼场', lingtian: '云间灵田' };
+    const ORDER = ['class', 'self', 'practice', 'lingtian'];
+    const STEP = 10;
+    const exits = worksheet ? [document.querySelector('[data-xl-block="exit"]')] : $$('section.quiz-set.is-exit');
+    const anchor = exits.filter(Boolean).pop();
+    if (!anchor || document.querySelector('[data-review]')) return;
+    const css = document.createElement('style');
+    css.textContent = `
+  .clp-hw { margin: 22px 0 10px; padding: 1.1em 1.1em 1em; border: 1px solid #e5d3b3; border-left: 5px solid #c4862c; border-radius: 14px;
+    background: linear-gradient(135deg, #fffaf0, #fdf3e2); color: #3b3020; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.7; text-align: left; }
+  .clp-hw-head { display: flex; gap: 12px; align-items: flex-start; }
+  .clp-hw-mark { flex: 0 0 auto; display: grid; place-items: center; width: 2.5em; height: 2.5em; border-radius: 12px; background: linear-gradient(160deg, #e8a948, #b5701e);
+    color: #fffaf0; font: 800 1.2em/1 "Kaiti SC", STKaiti, KaiTi, serif; box-shadow: 0 4px 12px rgba(181,112,30,.3); }
+  .clp-hw-kicker { display: inline-block; padding: 0 .6em; border-radius: 999px; background: #f3dfbd; color: #8a5414; font-size: .8em; font-weight: 700; letter-spacing: .12em; }
+  .clp-hw-head h3 { margin: .2em 0 .25em; font-size: 1.2em; line-height: 1.4; color: #5a3a10; }
+  .clp-hw-head p { margin: 0; font-size: .9em; color: #6b5a40; }
+  .clp-hw-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; margin: .9em 0 0; }
+  .clp-hw-stat { font-size: .88em; color: #7a6040; }
+  .clp-hw-stat b { color: #8a4d12; }
+  .clp-hw-tabs { display: flex; flex-wrap: wrap; gap: 6px; margin-left: auto; }
+  .clp-hw-tabs button, .clp-hw-btn { padding: .2em .85em; border: 1px solid #e0c79d; border-radius: 999px; background: #fffdf8; color: #6b4a1a; font: inherit; font-size: .85em; line-height: 1.6; cursor: pointer; white-space: nowrap; }
+  .clp-hw-tabs button[aria-pressed="true"] { border-color: #b5701e; background: #b5701e; color: #fff; }
+  .clp-hw-list { display: grid; gap: 12px; margin-top: .9em; }
+  .clp-hw-state { margin: .3em 0; color: #7a6040; font-size: .92em; }
+  .clp-hw-card { padding: .9em .95em .8em; border: 1px solid #ead9bb; border-radius: 12px; background: #fff; }
+  .clp-hw-card.is-done { border-color: #bcd9c9; background: #f4faf6; }
+  .clp-hw-tag { margin: 0 0 .4em; font-size: .78em; color: #9a7442; line-height: 1.6; }
+  .clp-hw-tag b { display: inline-block; margin-right: .5em; padding: 0 .5em; border-radius: 6px; color: #fff; background: #b5701e; font-weight: 700; }
+  .clp-hw-tag b.is-class { background: #2f6f73; }
+  .clp-hw-tag b.is-self { background: #7a5ab5; }
+  .clp-hw-tag b.is-practice { background: #3a8a6b; }
+  .clp-hw-tag b.is-lingtian { background: #5b8f3a; }
+  .clp-hw-scene { margin: 0 0 .45em; padding: .5em .7em; border-radius: 8px; background: #f7f1e6; font-size: .92em; color: #4a3d2a; white-space: pre-line; }
+  .clp-hw-q { margin: 0 0 .55em; font-weight: 700; white-space: pre-line; }
+  .clp-hw-opts { display: grid; gap: 6px; }
+  .clp-hw-opt { display: flex; gap: .55em; align-items: flex-start; width: 100%; box-sizing: border-box; padding: .5em .7em; border: 1px solid #e6d6ba; border-radius: 10px;
+    background: #fffdf9; color: inherit; font: inherit; font-size: .95em; line-height: 1.6; text-align: left; cursor: pointer; }
+  .clp-hw-opt b { flex: 0 0 auto; display: grid; place-items: center; min-width: 1.5em; height: 1.5em; margin-top: .05em; border-radius: 50%; background: #f3e6cf; color: #7a5414; font-size: .8em; }
+  .clp-hw-opt[aria-pressed="true"] { border-color: #b5701e; background: #fbefdc; box-shadow: inset 0 0 0 1px #b5701e; }
+  .clp-hw-opt.is-right { border-color: #3a8a5b; background: #eaf6ee; box-shadow: inset 0 0 0 1px #3a8a5b; }
+  .clp-hw-opt.is-right b { background: #3a8a5b; color: #fff; }
+  .clp-hw-opt.is-wrong { border-color: #c0613f; background: #fbece6; }
+  .clp-hw-opt.is-wrong b { background: #c0613f; color: #fff; }
+  .clp-hw-opt:disabled { cursor: default; }
+  .clp-hw-mine { margin: .45em 0 0; font-size: .82em; color: #9a7442; }
+  .clp-hw-act { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: .7em; }
+  .clp-hw-go { padding: .35em 1.2em; border: 0; border-radius: 999px; background: linear-gradient(180deg, #d99a3e, #b5701e); color: #fff; font: inherit; font-size: .92em; font-weight: 700; cursor: pointer; }
+  .clp-hw-go:disabled { opacity: .45; cursor: default; }
+  .clp-hw-msg { margin: .5em 0 0; font-size: .9em; }
+  .clp-hw-msg.is-ok { color: #2f7a55; font-weight: 700; }
+  .clp-hw-msg.is-bad { color: #a4492d; font-weight: 700; }
+  .clp-hw-why { margin: .45em 0 0; padding: .45em .7em; border-left: 3px solid #d9b77a; border-radius: 0 8px 8px 0; background: #fbf6ec; font-size: .88em; color: #4a3d2a; }
+  .clp-hw-why p { margin: .15em 0; }
+  .clp-hw-more { margin-top: .9em; text-align: center; }
+  @media (max-width: 520px) { .clp-hw { padding: .9em .8em; } .clp-hw-tabs { margin-left: 0; } }`;
+    document.head.appendChild(css);
+    const box = document.createElement('section');
+    box.className = 'clp-hw';
+    box.id = 'huiwen';
+    box.setAttribute('data-review', '');
+    box.innerHTML = `<header class="clp-hw-head"><span class="clp-hw-mark" aria-hidden="true">温</span><div><span class="clp-hw-kicker">回温</span>
+      <h3>把做错的题再做一遍</h3>
+      <p>这里汇集你在课堂、修炼场和云间灵田里做错的题${worksheet ? '（课后自修的出门测、温故，等下一次课讲评以后才进来）' : ''}。重做答对了，就从清单里移走；答错了，看看答案和讲解，过一会儿再来做。回温不加修为，是帮你把易错点补牢。</p></div></header>
+      <div class="clp-hw-bar"><span class="clp-hw-stat" data-hw-stat></span><div class="clp-hw-tabs" data-hw-tabs></div></div>
+      <div class="clp-hw-list" data-hw-list><p class="clp-hw-state">滚到这里时读取你的错题……</p></div>
+      <div class="clp-hw-more" data-hw-more hidden><button type="button" class="clp-hw-btn" data-hw-next>再来 ${STEP} 道</button></div>`;
+    anchor.insertAdjacentElement('afterend', box);
+    const list = box.querySelector('[data-hw-list]');
+    const tabs = box.querySelector('[data-hw-tabs]');
+    const stat = box.querySelector('[data-hw-stat]');
+    const more = box.querySelector('[data-hw-more]');
+    let data = null;
+    let filter = 'all';
+    let shown = STEP;
+    let loading = false;
+    const settled = new Map();   // 这次打开页面后作答过的题：id → 结果（答对的留在原处显示“已移出”，答错的锁上）
+    const room = () => Number(identity.classroom) || identity.classroom;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    const optionsOf = (item) => {
+      const body = item.body || {};
+      if (item.src === 'class') return (body.options || []).map((pair) => ({ v: String(pair[0]), t: String(pair[1]) }));
+      if (item.kind === 'judge') return [{ v: 'true', t: '说得对' }, { v: 'false', t: '说得不对' }];
+      return (body.options || []).map((text, i) => ({ v: String(i), t: String(text) }));
+    };
+    const judgeLike = (opts) => opts.length === 2 && opts.every((o) => /说得(不)?对/.test(o.t));
+    const letter = (opts, i) => (judgeLike(opts) ? (/不对/.test(opts[i].t) ? '✗' : '✓') : String.fromCharCode(65 + i));
+    const labelOf = (opts, value) => String(value == null ? '' : value).split(',').filter(Boolean).map((v) => {
+      const i = opts.findIndex((o) => o.v === v);
+      return i < 0 ? '' : `${judgeLike(opts) ? '' : `${letter(opts, i)}. `}${opts[i].t.replace(/^[✓✗]\s*/, '')}`;
+    }).filter(Boolean).join('；');
+    // 出处：课堂题“案例05 … · 概念 1 · … · 辨一辨”；修炼场题“案例16 …／案例05 … · 情境辨析”（政经课后自修的题另带概念名）
+    const where = (item) => {
+      const body = item.body || {};
+      if (item.src === 'class') return [body.title, body.part].filter(Boolean).map(esc).join(' · ');
+      if (item.src === 'self') return [item.title, body.part, body.concept].filter(Boolean).map(esc).join(' · ');   // 本案例的课后自修（温故另注明温习的是哪一案例的概念）
+      const named = /^案例/.test(body.concept || '');
+      return [body.case || (named ? body.concept : item.title), body.part, !named && body.concept ? body.concept : ''].filter(Boolean).map(esc).join(' · ');
+    };
+    function counts() {
+      const out = { all: 0 };
+      (data ? data.items : []).forEach((item) => { if (settled.has(item.id) && settled.get(item.id).correct) return; out.all += 1; out[item.src] = (out[item.src] || 0) + 1; });
+      return out;
+    }
+    function paintBar() {
+      const c = counts();
+      const done = (Number(data && data.done) || 0) + Array.from(settled.values()).filter((r) => r.correct && !r.counted).length;
+      stat.innerHTML = `待回温 <b>${c.all}</b> 道 · 已回温 <b>${done}</b> 道`;
+      const keys = ['all', ...ORDER.filter((key) => c[key])];
+      if (!keys.includes(filter)) filter = 'all';
+      tabs.innerHTML = keys.length > 2 ? keys.map((key) => `<button type="button" data-hw-tab="${key}" aria-pressed="${key === filter}">${key === 'all' ? '全部' : SRC[key]} ${c[key] || 0}</button>`).join('') : '';
+    }
+    function card(item) {
+      const body = item.body || {};
+      const opts = optionsOf(item);
+      const multi = item.kind === 'multi';
+      const prompt = item.src === 'class' ? body.prompt : body.prompt || '';
+      const done = settled.get(item.id);
+      return `<article class="clp-hw-card${done && done.correct ? ' is-done' : ''}" data-hw-item="${esc(item.id)}">
+        <p class="clp-hw-tag"><b class="is-${esc(item.src)}">${esc(SRC[item.src] || '')}</b>${where(item)}</p>
+        ${body.scene ? `<p class="clp-hw-scene">${esc(body.scene)}</p>` : ''}
+        <p class="clp-hw-q">${multi ? '（多选）' : ''}${esc(prompt)}</p>
+        <div class="clp-hw-opts">${opts.map((o, i) => `<button type="button" class="clp-hw-opt" data-hw-opt="${esc(o.v)}" aria-pressed="false"><b>${letter(opts, i)}</b><span>${esc(o.t.replace(/^[✓✗]\s*/, ''))}</span></button>`).join('')}</div>
+        ${item.mine != null && item.mine !== '' ? `<p class="clp-hw-mine">上次选的：${esc(labelOf(opts, item.mine) || '（记录不全）')}</p>` : ''}
+        <div class="clp-hw-act"><button type="button" class="clp-hw-go" data-hw-go disabled>提交</button></div>
+        <div data-hw-say></div></article>`;
+    }
+    function render() {
+      if (!data) return;
+      paintBar();
+      const pool = data.items.filter((item) => filter === 'all' || item.src === filter);
+      if (!pool.length) {
+        list.innerHTML = `<p class="clp-hw-state">${data.items.length ? '这一类没有要回温的题。' : '目前没有要回温的题。课堂、修炼场和云间灵田里做错的题，会自动出现在这里。'}${data.preview ? '（测试页：课堂作答只在这台设备上，这里只有王不凡在修炼场和云间灵田做错的题。）' : ''}</p>`;
+        more.hidden = true;
+        return;
+      }
+      list.innerHTML = pool.slice(0, shown).map(card).join('');
+      pool.slice(0, shown).forEach((item) => { const result = settled.get(item.id); if (result) paintResult(list.querySelector(`[data-hw-item="${CSS.escape(item.id)}"]`), item, result); });
+      more.hidden = pool.length <= shown;
+    }
+    async function load() {
+      if (loading) return;
+      loading = true;
+      try {
+        const value = await backend.rpc('ck_my_review', { p_classroom: room() });
+        const res = (Array.isArray(value) ? value[0] : value) || {};
+        if (res.status === 'login') { list.innerHTML = '<p class="clp-hw-state">这台设备还没有通过本堂课的登录核对，看不到回温：请回首页用课堂码重新登录。</p>'; return; }
+        if (res.status !== 'ok') throw new Error(res.status || 'failed');
+        data = { items: Array.isArray(res.items) ? res.items : [], done: Number(res.done) || 0, realm: Number(res.realm) || 0, need: Number(res.need) || 1, preview: Boolean(res.preview) };
+        settled.forEach((result) => { result.counted = true; });
+        render();
+      } catch (problem) {
+        list.innerHTML = `<p class="clp-hw-state">${missing(problem) ? '回温还没有开通（老师后台尚未更新）。' : '没能读取你的错题，请检查网络后点“刷新”再试。'} <button type="button" class="clp-hw-btn" data-hw-reload>刷新</button></p>`;
+      } finally {
+        loading = false;
+      }
+    }
+    function say(el, cls, text) {
+      const host = el.querySelector('[data-hw-say]');
+      host.innerHTML = `<p class="clp-hw-msg ${cls}">${esc(text)}</p>`;
+      return host;
+    }
+    function paintResult(el, item, result) {
+      if (!el) return;
+      const opts = optionsOf(item);
+      el.querySelectorAll('[data-hw-opt]').forEach((button) => {
+        const v = button.dataset.hwOpt;
+        button.setAttribute('aria-pressed', String(String(result.picked).split(',').includes(v)));
+        button.classList.toggle('is-right', Boolean(result.ok && result.ok.includes(v)));
+        button.classList.toggle('is-wrong', !result.correct && String(result.picked).split(',').includes(v) && !(result.ok && result.ok.includes(v)));
+        button.disabled = Boolean(result.correct || result.open);
+      });
+      const go = el.querySelector('[data-hw-go]');
+      if (go) go.hidden = Boolean(result.correct || result.open);
+      const host = say(el, result.correct ? 'is-ok' : 'is-bad', result.correct ? '答对了！这道题已经移出回温清单。'
+        : result.open ? '还是不对。看看答案和讲解，这道题还留在回温清单里，过一会儿再来做一遍。'
+          : `还是不对，再想想。达到「${(REALMS[data.need] || {}).name || '筑基'}」以后能看到课堂题的答案和讲解。`);
+      const lines = [];
+      if (result.open && result.ok && result.ok.length) lines.push(`参考答案：${labelOf(opts, result.ok.join(','))}`);
+      if (result.answer && !lines.length) lines.push(`参考答案：${result.answer}`);
+      (result.lines || []).forEach((line) => lines.push(line));
+      if (result.explain) lines.push(result.explain);
+      if (result.open && lines.length) host.insertAdjacentHTML('beforeend', `<div class="clp-hw-why">${lines.map((line) => `<p>${esc(line)}</p>`).join('')}</div>`);
+    }
+    async function submit(el) {
+      const item = data && data.items.find((x) => x.id === el.dataset.hwItem);
+      if (!item) return;
+      const picked = Array.from(el.querySelectorAll('[data-hw-opt][aria-pressed="true"]')).map((b) => b.dataset.hwOpt);
+      if (!picked.length) return;
+      const go = el.querySelector('[data-hw-go]');
+      go.disabled = true;
+      say(el, '', '正在核对……');
+      let res;
+      try {
+        const value = await backend.rpc('ck_review_answer', { p_classroom: room(), p_id: item.id, p_answer: picked.join(',') });
+        res = (Array.isArray(value) ? value[0] : value) || {};
+      } catch (problem) {
+        say(el, 'is-bad', missing(problem) ? '回温还没有开通（老师后台尚未更新）。' : '网络不通，没能提交，请稍后再试。');
+        go.disabled = false;
+        return;
+      }
+      if (res.status === 'none') {
+        say(el, 'is-ok', '这道题已经不在你的回温清单里了（可能已经答对过）。');
+        data.items = data.items.filter((x) => x.id !== item.id);
+        setTimeout(render, 1600);
+        return;
+      }
+      if (res.status !== 'ok') {
+        say(el, 'is-bad', res.status === 'busy' ? '今天回温做得太多了，明天再来。' : res.status === 'login' ? '请回首页用课堂码重新登录后再做。' : '没能提交，请稍后再试。');
+        go.disabled = false;
+        return;
+      }
+      const result = { correct: Boolean(res.correct), open: Boolean(res.open), picked: picked.join(','), ok: Array.isArray(res.ok) ? res.ok.map(String) : null,
+        answer: res.answer || '', lines: Array.isArray(res.lines) ? res.lines : [], explain: res.explain || '', counted: false };
+      settled.set(item.id, result);
+      if (result.correct) el.classList.add('is-done');
+      paintResult(el, item, result);
+      paintBar();
+      if (!result.correct && !result.open) go.disabled = false;
+    }
+    box.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const tab = event.target.closest('[data-hw-tab]');
+      if (tab) { filter = tab.dataset.hwTab; shown = STEP; render(); return; }
+      if (event.target.closest('[data-hw-next]')) { shown += STEP; render(); return; }
+      if (event.target.closest('[data-hw-reload]')) { list.innerHTML = '<p class="clp-hw-state">正在读取……</p>'; load(); return; }
+      const opt = event.target.closest('[data-hw-opt]');
+      const el = event.target.closest('[data-hw-item]');
+      if (opt && el && !opt.disabled) {
+        const item = data && data.items.find((x) => x.id === el.dataset.hwItem);
+        if (!item) return;
+        if (item.kind === 'multi') opt.setAttribute('aria-pressed', String(opt.getAttribute('aria-pressed') !== 'true'));
+        else el.querySelectorAll('[data-hw-opt]').forEach((b) => b.setAttribute('aria-pressed', String(b === opt)));
+        const go = el.querySelector('[data-hw-go]');
+        if (go) go.disabled = !el.querySelector('[data-hw-opt][aria-pressed="true"]');
+        return;
+      }
+      if (event.target.closest('[data-hw-go]') && el) submit(el);
+    });
+    if ('IntersectionObserver' in window) {
+      const seen = new IntersectionObserver((entries) => {
+        if (entries.some((entry) => entry.isIntersecting)) { seen.disconnect(); load(); }
+      }, { rootMargin: '400px 0px' });
+      seen.observe(box);
+    } else load();
+  }
 
   // ---------- 政经“课后自修”计分（2026-10-22）：主动回忆、温故、讲给别人听交到修炼场后台（ck_practice_essay / answer），计入修炼场每日上限 ----------
   // 都写成函数声明：setupSelfStudy 在本段之前就被调用
@@ -4479,7 +4732,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261111-ch8-pe' : '20261112-tk-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261118-huiwen-pe' : '20261118-huiwen-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
