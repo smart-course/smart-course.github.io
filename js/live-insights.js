@@ -90,6 +90,17 @@
   .ins-table th, .ins-table td { padding: 4px 8px; border-bottom: 1px solid ${C.grid}; text-align: left; white-space: nowrap; }
   .ins-table .ins-scroll { max-height: 260px; overflow: auto; }
   .ins-empty { margin: 18px 0; color: ${C.muted}; font-size: 14px; text-align: center; }
+  /* 长序列分段看（2026-11-18）：图下一条滑块，两头 ‹ › 按钮，右边写这一段的起止 */
+  .ins-window-plot { touch-action: pan-y; }
+  .ins-window-plot.is-moved * { animation: none !important; }   /* 拖动时不重放出场动画，免得闪 */
+  .ins-window-bar { display: flex; align-items: center; gap: 8px; margin: 6px 2px 2px; }
+  .ins-window-bar input[type=range] { flex: 1 1 auto; min-width: 80px; margin: 0; accent-color: ${TONE.blue}; cursor: ew-resize; }
+  .ins-window-step { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0 0 2px; border: 1px solid rgba(70,51,34,.2); border-radius: 50%;
+    background: #fff; color: ${C.ink}; font: 700 18px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  .ins-window-step:hover:not([disabled]) { border-color: ${TONE.blue}; color: ${TONE.blue}; }
+  .ins-window-step[disabled] { opacity: .35; cursor: default; }
+  .ins-window-label { flex: 0 0 auto; color: ${C.ink2}; font-size: 12.5px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+  @media (max-width: 640px) { .ins-window-bar { flex-wrap: wrap; } .ins-window-label { flex: 1 0 100%; text-align: center; } }
   .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
   .ins-sec::before { content: ""; display: inline-block; width: 6px; height: 20px; margin-right: 10px; border-radius: 3px; background: linear-gradient(180deg, #FF0F6B, #8E44FF); vertical-align: -4px; }
   .ins-sec small { margin-left: 8px; color: ${C.muted}; font-size: 13px; font-weight: 600; }
@@ -362,11 +373,11 @@
 
   // 竖柱（按天）：data＝[{ key, label, value, lines: [] }]；只给最高的一根标数值
   function columns(host, cardEl, data, opts = {}) {
-    if (!data.length || !data.some((d) => d.value > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    if (!data.length || (!(opts.yMax > 0) && !data.some((d) => d.value > 0))) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const W = widthOf(host);
     const H = opts.height || 220;
     const color = opts.color || TONE.blue;
-    const ticks = niceTicks(Math.max(...data.map((d) => d.value)));
+    const ticks = niceTicks(Math.max(opts.yMax || 0, ...data.map((d) => d.value)));
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 18, b: 26 };
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
@@ -715,13 +726,13 @@
   // 折线／面积图（随时间、随课次的走势）：rows＝[{ label, tick（轴上的字，可以是 [日期, 名称] 两行）, values: [], short（标在点上的字）, lines }]，series＝[{ name, color }]。
   // 只标最高、最低和最后一个点，其余看纵轴、悬停和数据表；竖线跟着指针走，提示框列出这一点的所有系列
   function lines(host, cardEl, rows, series, opts = {}) {
-    if (!rows.length || !rows.some((d) => d.values.some((v) => v > 0))) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    if (!rows.length || (!(opts.yMax > 0) && !rows.some((d) => d.values.some((v) => v > 0)))) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     if (series.length > 1) keys(host, series.map((item) => ({ ...item, line: true })));
     const W = widthOf(host);
     const H = opts.height || 230;
     const unit = opts.unit || '';
     const shownOf = (v) => `${fmt(v)}${unit}`;
-    const ticks = opts.ticks || niceTicks(Math.max(...rows.flatMap((d) => d.values.filter((v) => v != null))));
+    const ticks = opts.ticks || niceTicks(Math.max(opts.yMax || 0, ...rows.flatMap((d) => d.values.filter((v) => v != null))));
     const top = ticks[ticks.length - 1] || 1;
     const tickText = (t) => `${fmt(t)}${opts.tickUnit || ''}`;
     const twoLines = rows.some((d) => Array.isArray(d.tick));
@@ -917,8 +928,8 @@
 
   // 日历热力图（一列一周，看有没有天天坚持）：days＝[{ day: 'YYYY-MM-DD', value, lines }]，连续的日期；颜色越深越多，0 为中性灰
   function calendar(host, cardEl, days, opts = {}) {
-    const max = Math.max(0, ...days.map((d) => d.value));
-    if (!(max > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    const max = Math.max(0, opts.yMax || 0, ...days.map((d) => d.value));
+    if (!(max > 0) || !days.length) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const W = widthOf(host);
     const firstDow = (new Date(`${days[0].day}T00:00:00Z`).getUTCDay() + 6) % 7;   // 周一＝0
     const weeks = Math.ceil((firstDow + days.length) / 7);
@@ -1007,11 +1018,11 @@
   // opts.onPick(key)：点一根柱子（或 Tab 到它按回车）选中；opts.picked：当前选中的那根，加浅金底、标出合计。放大看时不能点选
   function stackedColumns(host, cardEl, rows, series, opts = {}) {
     const totals = rows.map((d) => d.values.reduce((t, v) => t + (Number(v) || 0), 0));
-    if (!rows.length || !totals.some((t) => t > 0)) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
+    if (!rows.length || (!(opts.yMax > 0) && !totals.some((t) => t > 0))) { empty(host, opts.empty || '这段时间还没有数据。'); return; }
     const unit = opts.unit || '';
     const W = widthOf(host);
     const H = opts.height || 230;
-    const ticks = niceTicks(Math.max(...totals));
+    const ticks = niceTicks(Math.max(opts.yMax || 0, ...totals));
     const top = ticks[ticks.length - 1] || 1;
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 22, b: 26 };
     const pw = W - m.l - m.r;
@@ -1129,6 +1140,82 @@
     try { overlay.querySelector('.ins-zoom-x').focus({ preventScroll: true }); } catch (error) { /* 忽略 */ }
     return { overlay, stage, close };
   }
+  // 长序列（按天、按课）分段看（2026-11-18 用户：“每天有多少同学在学，增加一个左右滑动的滑轮，可以查看之前所有天数的情况，其它类似的图表也一样”）：
+  // 一次画 size 个，下面一条滑块（两头 ‹ › 按钮）左右拖看更早的；图上用触控板左右滑、手指左右划也能挪。draw(box, slice, cardEl) 画这一段，
+  // 纵轴请按全部数据定（传 yMax），拖动时刻度不跳。opts.state 记住拖到哪了：放大看时接着这一段，放大看里也能拖
+  function windowed(host, cardEl, items, size, draw, opts = {}) {
+    const n = items.length;
+    const win = Math.max(1, Math.min(n, Math.round(size) || n));
+    const state = opts.state || (opts.state = {});
+    const paintIn = (box, slice) => {
+      const was = replaying;
+      if (cardEl.closest && cardEl.closest('.ins-zoom-stage')) replaying = true;   // 放大看里拖动：不登记、不再加“放大”按钮
+      try { draw(box, slice, cardEl); } finally { replaying = was; }
+    };
+    if (n <= win) { const box = document.createElement('div'); host.appendChild(box); paintIn(box, items); return { redraw: () => { box.textContent = ''; paintIn(box, items); }, go() {} }; }
+    const wrap = document.createElement('div');
+    wrap.className = 'ins-window';
+    const plot = document.createElement('div');
+    plot.className = 'ins-window-plot';
+    const bar = document.createElement('div');
+    bar.className = 'ins-window-bar';
+    const maxStart = n - win;
+    let start = Number.isInteger(state.start) ? Math.max(0, Math.min(maxStart, state.start)) : maxStart;
+    const back = document.createElement('button');
+    back.type = 'button'; back.className = 'ins-window-step'; back.textContent = '‹'; back.setAttribute('aria-label', '往前，看更早的');
+    const slider = document.createElement('input');
+    slider.type = 'range'; slider.min = '0'; slider.max = String(maxStart); slider.step = '1'; slider.value = String(start);
+    slider.setAttribute('aria-label', opts.aria || '左右拖动，看更早或更近的');
+    const next = document.createElement('button');
+    next.type = 'button'; next.className = 'ins-window-step'; next.textContent = '›'; next.setAttribute('aria-label', '往后，看更近的');
+    const label = document.createElement('span');
+    label.className = 'ins-window-label';
+    label.setAttribute('aria-live', 'polite');
+    bar.append(back, slider, next, label);
+    wrap.append(plot, bar);
+    host.appendChild(wrap);
+    const name = (item) => (opts.labelOf ? opts.labelOf(item) : String(item.label || ''));
+    const paint = () => {
+      plot.textContent = '';
+      const slice = items.slice(start, start + win);
+      paintIn(plot, slice);
+      label.textContent = `${name(slice[0])} — ${name(slice[slice.length - 1])}${start === maxStart ? '（最近）' : ''} · 共 ${n} ${opts.unitName || '天'}`;
+      back.disabled = start === 0;
+      next.disabled = start === maxStart;
+    };
+    const go = (to) => {
+      const target = Math.max(0, Math.min(maxStart, Math.round(to)));
+      if (target === start) return;
+      start = target; state.start = start; slider.value = String(start);
+      plot.classList.add('is-moved');
+      paint();
+    };
+    slider.addEventListener('input', () => go(Number(slider.value)));
+    const page = Math.max(1, Math.floor(win / 2));
+    back.addEventListener('click', () => go(start - page));
+    next.addEventListener('click', () => go(start + page));
+    let acc = 0;
+    plot.addEventListener('wheel', (event) => {
+      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+      event.preventDefault();
+      acc += event.deltaX;
+      const per = Math.max(10, plot.clientWidth / win);
+      const step = Math.trunc(acc / per);
+      if (step) { acc -= step * per; go(start + step); }
+    }, { passive: false });
+    let touchX = null;
+    plot.addEventListener('touchstart', (event) => { touchX = event.touches[0].clientX; }, { passive: true });
+    plot.addEventListener('touchmove', (event) => {
+      if (touchX == null) return;
+      const per = Math.max(10, plot.clientWidth / win);
+      const step = Math.trunc((touchX - event.touches[0].clientX) / per);
+      if (step) { touchX -= step * per; go(start + step); }
+    }, { passive: true });
+    plot.addEventListener('touchend', () => { touchX = null; });
+    paint();
+    return { redraw: paint, go };
+  }
+
   // 图表卡片：画图函数（columns、bars……）每画一次就登记在卡片上（画在哪个容器、哪几个节点、用什么数据）；
   // 放大时复制整张卡片，按登记重新画一遍（悬停提示照常可用），再整体按比例放大到铺满屏幕，文字跟着变大
   let seq = 0;
@@ -1216,7 +1303,7 @@
 
   window.ClassLiveInsights = {
     addStyle, card, tiles, section, keys, tableView, empty, colors: C, tones: TONE, cat: CAT, catExt: CAT_EXT, ramps: RAMPS, rateColor, lightbox, openZoom,
-    stackedColumns: record(stackedColumns), splitBars: record(splitBars),
+    stackedColumns: record(stackedColumns), splitBars: record(splitBars), windowed: record(windowed),
     lines: record(lines), treemap: record(treemap), waffle: record(waffle), segmented: record(segmented), calendar: record(calendar), radar: record(radar), meter: record(meter),
     columns: record(columns), bars: record(bars), heatmap: record(heatmap), donut: record(donut), diverging: record(diverging),
     dumbbell: record(dumbbell), scatter: record(scatter), compare: record(compare), grouped: record(grouped),

@@ -1034,3 +1034,10 @@ body.game-app.game-booting .garden-topline { display: none; }
 @media (max-width: 450px) {
   .game-app .game-dock { justify-content: flex-start; }
 }
+/* 智慧课堂 2026-11-18 用户：“偷菜的按钮选中的跟未选中的要能体现出差别”：原来的选中样式被上面 .game-app .neighbor-strip .neighbor-tab 盖掉，
+   选中和没选中一模一样。选中的道友（正在拜访的那一位）改为深青绿底、浅色字、内圈亮边，头像反白；没选中的保持浅色，悬停时边框加深 */
+.neighbor-tab.active, .game-app .neighbor-strip .neighbor-tab.active { border-color: #436b39; background: linear-gradient(180deg, #7ba866, #527d45); color: #fffbe9; font-weight: 600;
+  box-shadow: inset 0 0 0 2px #fffce88c, 0 4px 12px #2f4a2a42; }
+.neighbor-tab.active .avatar, .game-app .neighbor-strip .neighbor-tab.active .avatar { background: #fffbe9 !important; color: #4a7540 !important; box-shadow: 0 0 0 1.5px #d6ebc2; }
+.neighbor-tab.active small, .game-app .neighbor-strip .neighbor-tab.active small { color: #e9f3dc; }
+.game-app .neighbor-strip .neighbor-tab:not(.active):hover { border-color: #95b07c; background: #fffef4; }

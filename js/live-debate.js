@@ -124,7 +124,7 @@
   // 辩论流程：三步都只在本机计时，最后一步停止辩后投票的递交、公布结果
   const FLOW = [
     { key: 'prep', label: '选立场 · 论据卡', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），再选 2 张论据卡，都点“递交”' },
-    { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生取昵称进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
+    { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
     { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `票多的一方聊天室里的同学各加 ${DB.win} 修为，点赞前三各加 ${DB.likes} 修为` },
   ];
@@ -163,7 +163,9 @@
       + '<span class="dbb-status" data-dbb-status role="status"></span></div></div>';
     const status = (text, ok) => { const el = board.querySelector('[data-dbb-status]'); el.textContent = text || ''; el.classList.toggle('is-ok', Boolean(ok)); };
     const tally = () => ({ pro: ((data && data.pro) || {}).votes || 0, con: ((data && data.con) || {}).votes || 0 });
-    const leaderName = (m) => `${esc(m.nick)}${reveal && m.name ? `（${esc(m.name)}）` : ''}`;
+    // 2026-11-18 起辩论赛实名：显示名就是姓名（同名加学号末两位），“揭晓姓名”只给以前用昵称进入的补上姓名
+    const realOf = (m) => (reveal && m.name && !String(m.nick || '').startsWith(String(m.name).replace(/\s+/g, '').slice(0, 7)) ? m.name : '');
+    const leaderName = (m) => `${esc(m.nick)}${realOf(m) ? `（${esc(realOf(m))}）` : ''}`;
 
     // ---------- 本机计时 ----------
     const localKey = () => (room ? `classlive-debate-flow:${room.id}:${no}` : '');
@@ -199,7 +201,7 @@
       }
       const leaders = (data && data.leaders) || [];
       lead.innerHTML = `<h5>全场点赞前三 · 各加 ${DB.likes} 修为</h5>${leaders.length
-        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(m.nick)}</b><small><i>${SIDE[m.side] || ''}</i>${reveal && m.name ? ` · ${esc(m.name)}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
+        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(m.nick)}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
         : '<p class="dbb-empty">还没有人被点赞。两方聊天室里的发言被点赞后，这里按点赞数排出前三（正反两方合起来算）。</p>'}`;
       // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”：
       // 两方的列表只建一次，刷新时只更新变化的行（ClassLive.syncFeed），滑动位置不会被 4 秒一次的刷新打断
@@ -214,7 +216,7 @@
         box.parentElement.querySelector('[data-dbb-count]').textContent = `${d.members} 人 · ${d.posts} 条发言`;
         box.parentElement.querySelector('[data-dbb-none]').hidden = rows.length > 0;
         box.hidden = !rows.length;
-        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${reveal && h.name ? `<small>${esc(h.name)}</small>` : ''}</b><span>${esc(h.text)}</span>`
+        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${realOf(h) ? `<small>${esc(realOf(h))}</small>` : ''}</b><span>${esc(h.text)}</span>`
           + `<time>${esc(window.ClassLive.feedClock(h.at))}</time>${h.likes ? `<em>♥ ${h.likes}</em>` : ''}<button type="button" data-dbb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button>`);
       });
       board.querySelector('[data-dbb-reveal]').textContent = reveal ? '收起姓名' : '揭晓姓名';

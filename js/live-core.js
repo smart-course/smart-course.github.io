@@ -131,7 +131,7 @@
   const PK = { points: 5 };
   // 时间轴排排站·全班分队（2026-11-11）：得分高的一队每人加 points 修为（额外奖励，与 cloudbase-pg.sql 的 ck_tl_finish 一致）；seconds＝每题默认作答秒数
   const TIMELINE = { points: 1, seconds: 10 };
-  // 辩论赛（2026-10-28 起聊天室；2026-11-05 两门课简化、取消 3v3）：① 选立场、论据卡 → ② 取昵称进本方聊天室发言、点赞 → ③ 辩后投票。
+  // 辩论赛（2026-10-28 起聊天室；2026-11-05 两门课简化、取消 3v3）：① 选立场、论据卡 → ② 进本方聊天室发言、点赞（2026-11-18 起实名，不再取昵称）→ ③ 辩后投票。
   // 昵称 2—nickMax 字，每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；学生页每 poll 毫秒刷新。
   // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes，辩后投票票多一方聊天室里的同学各加 win（同一人相加）
   const DEBATE = { likes: 5, win: 5, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
@@ -1130,10 +1130,13 @@
             if (mem) return { status: 'ok', side: mem.side, nick: mem.nick };
             const side = me.test ? (['pro', 'con'].includes(params.p_side) ? params.p_side : null) : voted();
             if (!side) return { status: 'pick' };
-            const nick = String(params.p_nick || '').replace(/\s+/g, '');
-            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
-            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
-            if (members.some((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            // 2026-11-18 起实名（同 cloudbase-pg.sql 的 ck_debate_join）：用登录时的姓名，同名的加学号末两位（还重复加末四位）；p_nick 不再使用
+            const real = String(me.name || '').replace(/\s+/g, '').slice(0, 12) || `同学${String(sid).slice(-4)}`;
+            const used = (nick) => members.some((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.nick.toLowerCase() === nick.toLowerCase());
+            let nick = real;
+            if (used(nick)) nick = `${real.slice(0, 9)}·${String(sid).slice(-2)}`;
+            if (used(nick)) nick = `${real.slice(0, 7)}·${String(sid).slice(-4)}`;
+            if (used(nick)) return { status: 'taken' };
             members.push({ id: nextId(members), classroom: Number(classroom), case_no: no, side, sid, name: me.name, nick, joined_at: new Date().toISOString() });
             write('debatemembers', members);
             return { status: 'ok', side, nick };
@@ -2716,6 +2719,7 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['辩论聊天室实名', '辩论赛的聊天室改为实名：递交辩前票以后点“进入聊天室”就以真实姓名进入，不用再取昵称；发言、成员名单和点赞前三都显示姓名（同名的同学名字后加学号末两位）。', '2026-11-18'],
         ['参悟 · 卡背依据', '云间灵田“道藏参悟”去掉了作答前的“看看卡背提示”：先自己判断，点“确认我的判断”以后，对错和卡背依据一起显示；答错了可以对照依据再想一次。', '2026-11-18'],
         ['宗门弹幕', '拜入宗门的同学，投屏上的弹幕外框是本宗的颜色（枫霞谷枫红、玄月宗玄紫、灵犀山青绿、星澜宫星蓝）；宗主的弹幕带一圈炫彩流光。', '2026-11-18'],
         ['云间灵田 · 卡住修好了', '修好了做过“参悟”以后灵田一直显示“有操作待确认，请同步云端”（参悟里是“这次研习结果正在确认”）、什么也做不了的问题。如果你还看到这条提示，点一下“同步云端”（参悟里是“同步进度”）就恢复了；同一次操作只会结算一次，不会重复。', '2026-11-18'],

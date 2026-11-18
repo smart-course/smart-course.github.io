@@ -313,6 +313,11 @@
   .dbr-nick button, .dbr-form button { flex: 0 0 auto; padding: 10px 18px; border: 0; border-radius: 9px; background: #23655f; color: #fff; font-weight: 800; font-size: 15px; line-height: 1; cursor: pointer; }
   .is-con .dbr-nick button, .dbr-room.is-con .dbr-form button { background: #a4492d; }
   .dbr-nick button[disabled], .dbr-form button[disabled] { opacity: .55; cursor: default; }
+  /* 辩论赛实名（2026-11-18）：进入前显示聊天室里用的名字 */
+  .dbr-real { align-items: center; }
+  .dbr-realname { flex: 1 1 auto; min-width: 0; padding: 9px 12px; border: 1.5px dashed rgba(35,101,95,.4); border-radius: 9px; background: #f3faf8; color: #1d4f4a; font-weight: 800; font-size: 16px; line-height: 1.4;
+    overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .is-con .dbr-realname { border-color: rgba(164,73,45,.4); background: #fbf2ed; color: #7a3420; }
   .dbr-hint { margin: 8px 0 0; color: #6d6259; font-size: 13px; }
   .dbr-state { margin: 6px 0 0; min-height: 1em; color: #6d6259; font-size: 13.5px; } .dbr-state[data-state="error"] { color: #a4492d; font-weight: 700; }
   .dbr-room { border-radius: 14px; border: 1.5px solid rgba(35,101,95,.4); background: #fbfdfc; overflow: hidden; }
@@ -2845,39 +2850,48 @@
         stop();
         box.innerHTML = '<p class="dbr-note">先在上面“① 选立场”选好并点“递交”：递交后自动带你进入本方聊天室。</p>';
       }
-      function showNick(state) {
-        if (mode === 'nick') return;
-        mode = 'nick';
+      // 2026-11-18 用户：“辩论赛的聊天室，学生发言还是实名制吧”：不再取昵称，点“进入聊天室”以真实姓名进入（后台 ck_debate_join 用登录时的姓名，
+      //   同名的加学号末两位）。后台还是旧版（还没执行 20261118 辩论实名 SQL）时会要求昵称：退回原来的取昵称方式，不卡住学生
+      let legacyJoin = false;   // 后台还是旧版：这台设备之后都按取昵称进入
+      function showNick(state, legacy = legacyJoin) {
+        if (mode === (legacy ? 'nick-legacy' : 'nick')) return;
+        mode = legacy ? 'nick-legacy' : 'nick';
         stop();
-        box.innerHTML = `<div class="dbr-join is-${esc(state.side || 'pro')}">
-          <p class="dbr-lead">你站在<b>${SIDE[state.side]}</b>：取一个昵称，进入${SIDE[state.side]}聊天室。${state.test ? '（测试页按本机递交的辩前票）' : ''}</p>
+        const side = state.side;
+        box.innerHTML = legacy ? `<div class="dbr-join is-${esc(side || 'pro')}">
+          <p class="dbr-lead">你站在<b>${SIDE[side]}</b>：取一个昵称，进入${SIDE[side]}聊天室。${state.test ? '（测试页按本机递交的辩前票）' : ''}</p>
           <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
           <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-dbr-state role="status"></p></div>`
+          : `<div class="dbr-join is-${esc(side || 'pro')}">
+          <p class="dbr-lead">你站在<b>${SIDE[side]}</b>：以实名进入${SIDE[side]}聊天室。${state.test ? '（测试页按本机递交的辩前票）' : ''}</p>
+          <form class="dbr-nick dbr-real"><span class="dbr-realname" title="聊天室里显示的名字">${esc(identity.name || '')}</span><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">发言、成员名单和点赞前三都显示你的真实姓名（同名的同学名字后加学号末两位），请文明发言；进入后不能更改。</p>
           <p class="dbr-state" data-dbr-state role="status"></p></div>`;
-        const side = state.side;
         box.querySelector('form').addEventListener('submit', async (event) => {
           event.preventDefault();
           const input = box.querySelector('input');
-          const nick = input.value.replace(/\s+/g, '');
-          if (nick.length < 2) { say(`昵称至少 2 个字。`, 'error'); return; }
+          const nick = input ? input.value.replace(/\s+/g, '') : '';
+          if (legacy && nick.length < 2) { say(`昵称至少 2 个字。`, 'error'); return; }
           const button = box.querySelector('form button');
           button.disabled = true;
           try {
-            const res = await call('ck_debate_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_side: side });
-            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+            const res = await call('ck_debate_join', { p_classroom: roomId, p_case: no, p_nick: legacy ? nick : '', p_side: side });
+            const why = { taken: legacy ? '这个昵称已经有人用了，换一个吧。' : '没有进去，请再点一次。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
               closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交辩前票，才能进入本方聊天室。', login: '请回首页用课堂码重新登录。' };
             if (res.status === 'ok') { mode = ''; await refresh(); return; }
+            if (!legacy && (res.status === 'bad_nick' || res.status === 'own_name')) { legacyJoin = true; showNick(state, true); return; }   // 后台还是旧版：先取昵称
             say(why[res.status] || '没有进去，请再试一次。', 'error');
           } catch (problem) {
             console.warn('[辩论聊天室]', problem);
             say(missing(problem) ? '辩论聊天室还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
           } finally {
-            button.disabled = false;
+            if (button.isConnected) button.disabled = false;
           }
         });
       }
       // 聊天室（2026-10-29 用户：“要能显示聊天室里面人的名字，你可以参照网上的一些聊天室来设计一下”）：仿群聊——左边成员名单（昵称、在线、点赞），
-      // 右边消息气泡（头像取昵称第一个字，自己的靠右）。同学之间仍只看到昵称。
+      // 右边消息气泡（头像取名字第一个字，自己的靠右）。2026-11-18 起辩论赛实名：新进入的同学显示真实姓名，以前用昵称进入的照旧显示昵称。
       // 2026-11-05 取消 3v3：顶部一行显示全场（两方合起来）点赞前三的昵称，他们各加修为；辩后投票票多一方聊天室里的同学也加修为
       function showRoom() {
         if (mode !== 'room') {
