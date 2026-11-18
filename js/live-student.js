@@ -1402,7 +1402,9 @@
   if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
 
   // ---------- 回温（2026-11-18 用户：“在‘出门测’后面再设置一个‘回温’板块，可以让学生复习课堂、修炼场和云间灵田中做错的题目。”） ----------
-  // 放在出门测后面（政经：课后自修里出门测那一块的后面；习经：本页最后一个出门测的后面），滚到这里才读后台（ck_my_review）：
+  // 位置：习经放在本页最后一个出门测的后面；政经（2026-11-18 用户：“政经的回温放到‘本堂作业递交情况’后面，回温的题目不计入递交情况中”）放在整个“课后自修”之后——
+  // 本段比“本堂作业递交情况”先运行：先接在课后自修后面，递交情况卡片随后插在课后自修与回温之间。滚到这里才读后台（ck_my_review）。
+  // 回温的题不在本页的题目清单（questions）里：“本堂作业递交情况”、面板的“已递交 x/y 题”和“下一道未递交”都不算它；作答只记在 ck_review_log，不交作业。
   // 汇集本人在课堂、修炼场、云间灵田做错的题（政经课后自修的出门测、温故要等下一次课开课、讲评过以后才进来），逐题重做（ck_review_answer）。
   // 答对就移出清单；答错了给答案和讲解（课堂题要到筑基，同“展开解答”），这一题先锁上、过一会儿再来做。不加修为。离线版、旁听没有回温。
   // 写成函数声明：在本段之前就被调用（样式和常量都放在函数里，免得还没定义）
@@ -1410,7 +1412,8 @@
     const SRC = { class: '课堂', self: '课后自修', practice: '修炼场', lingtian: '云间灵田' };
     const ORDER = ['class', 'self', 'practice', 'lingtian'];
     const STEP = 10;
-    const exits = worksheet ? [document.querySelector('[data-xl-block="exit"]')] : $$('section.quiz-set.is-exit');
+    const exits = worksheet ? [document.querySelector('.clp-subm') || document.querySelector('#practice [data-xl]') || document.querySelector('[data-xl-block="exit"]')]
+      : $$('section.quiz-set.is-exit');
     const anchor = exits.filter(Boolean).pop();
     if (!anchor || document.querySelector('[data-review]')) return;
     const css = document.createElement('style');
@@ -1469,7 +1472,7 @@
     box.setAttribute('data-review', '');
     box.innerHTML = `<header class="clp-hw-head"><span class="clp-hw-mark" aria-hidden="true">温</span><div><span class="clp-hw-kicker">回温</span>
       <h3>把做错的题再做一遍</h3>
-      <p>这里汇集你在课堂、修炼场和云间灵田里做错的题${worksheet ? '（课后自修的出门测、温故，等下一次课讲评以后才进来）' : ''}。重做答对了，就从清单里移走；答错了，看看答案和讲解，过一会儿再来做。回温不加修为，是帮你把易错点补牢。</p></div></header>
+      <p>这里汇集你在课堂、修炼场和云间灵田里做错的题${worksheet ? '（课后自修的出门测、温故，等下一次课讲评以后才进来）' : ''}。重做答对了，就从清单里移走；答错了，看看答案和讲解，过一会儿再来做。回温的题不算本堂作业，不计入递交情况，也不加修为，是帮你把易错点补牢。</p></div></header>
       <div class="clp-hw-bar"><span class="clp-hw-stat" data-hw-stat></span><div class="clp-hw-tabs" data-hw-tabs></div></div>
       <div class="clp-hw-list" data-hw-list><p class="clp-hw-state">滚到这里时读取你的错题……</p></div>
       <div class="clp-hw-more" data-hw-more hidden><button type="button" class="clp-hw-btn" data-hw-next>再来 ${STEP} 道</button></div>`;
