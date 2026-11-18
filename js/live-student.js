@@ -301,6 +301,35 @@
   .clp-ex-ans { margin: 0; }
   .clp-ex-ans b { display: inline-block; margin-right: 8px; padding: 0 8px; border-radius: 6px; background: #a4492d; color: #fff; font-size: 12.5px; }
   .clp-ex-note { margin: 0; color: #6d6259; }
+  /* 政经“先想一想”解答里的概念讲解（筑基以上） */
+  .clp-ex-learn { margin-top: 12px; padding: 12px 14px; border: 1px solid #b9cfc6; border-radius: 10px; background: #f1f7f4; }
+  .clp-ex-learn-h { margin: 0 0 8px; color: #23655f; font-weight: 800; font-size: 15.5px; }
+  .clp-ex-learn dl { margin: 0; }
+  .clp-ex-learn dl > div { padding: 8px 0; border-bottom: 1px solid rgba(35,101,95,.15); }
+  .clp-ex-learn dl > div:last-child { border-bottom: 0; }
+  .clp-ex-learn dt { color: #23655f; font-weight: 800; }
+  .clp-ex-learn dd { margin: 2px 0 0; }
+  .clp-ex-formula { display: block; margin-top: 6px; padding: 6px 10px; border-radius: 8px; background: #fff; font-weight: 700; }
+  .clp-ex-eg { display: block; margin-top: 4px; color: #4a4038; }
+  .clp-ex-eg b, .clp-ex-board b, .clp-ex-a b { margin-right: 8px; color: #23655f; }
+  .clp-ex-board { margin: 10px 0 0; padding: 10px 12px; border-radius: 8px; background: #2f4a42; color: #eef3ea; }
+  .clp-ex-board b { display: block; margin: 0 0 2px; color: #d9c48f; font-size: 12.5px; }
+  .clp-ex-example { margin-top: 10px; padding: 10px 12px; border: 1.5px solid #d6c79c; border-radius: 10px; background: #fffdf6; }
+  .clp-ex-tag { display: inline-block; margin: 0; padding: 1px 9px; border-radius: 999px; background: #a4492d; color: #fff; font-weight: 700; font-size: 12.5px; }
+  .clp-ex-q { margin: 8px 0 4px; font-weight: 700; }
+  .clp-ex-a { margin: 0 0 4px; padding: 6px 10px; border-radius: 8px; background: #eef3ea; }
+  .clp-ex-h { margin: 8px 0 2px; color: #23655f; font-weight: 700; }
+  .clp-ex-example ol { margin: 0; padding-left: 20px; }
+  .clp-ex-case { margin: 6px 0 0; padding: 6px 10px; border-left: 3px solid #95ac97; background: #f3f6f0; }
+  .clp-ex-tip { margin: 8px 0 0; color: #a4492d; font-weight: 700; }
+  .clp-ex-scroll { overflow-x: auto; }
+  .clp-ex-table { width: 100%; margin-top: 4px; border-collapse: collapse; background: #fff; font-size: 14px; }
+  .clp-ex-table th, .clp-ex-table td { padding: 5px 8px; border: 1px solid rgba(70,51,34,.18); text-align: left; vertical-align: top; }
+  .clp-ex-table th { background: #2f4a42; color: #eef3ea; }
+  .clp-ex-book { margin-top: 10px; }
+  .clp-ex-book summary { width: fit-content; color: #23655f; font-weight: 700; cursor: pointer; }
+  .clp-ex-book blockquote { margin: 8px 0 0; padding: 8px 12px; border-left: 3px solid #95ac97; border-radius: 0 8px 8px 0; background: #f3f6f0; }
+  .clp-ex-book cite { display: block; margin-top: 4px; color: #6d6259; font-style: normal; font-size: 12.5px; }
   .clp-xl-state { margin: 6px 0 0; color: #6d6259; font-size: 14px; }
   .clp-xl-state[data-state="ok"] { color: #8a5a1a; font-weight: 700; }
   .clp-xl-send { margin-top: 8px; padding: 7px 16px; border: 0; border-radius: 9px; background: #a4492d; color: #fff; font: 700 14.5px/1.4 -apple-system, "PingFang SC", sans-serif; cursor: pointer; }
@@ -1363,7 +1392,26 @@
     none: '这道题是开放题，没有标准解答，请对照课堂讲评。', todo: '后台还没收到你这道题的递交：递交成功后再来看解答。',
     locked: '达到「筑基」境界才能看解答：老师结算修为后，境界会更新。', login: '请回首页用课堂码重新登录后再看解答。',
   };
-  const explainHtml = (body) => `${body.answer ? `<p class="clp-ex-ans"><b>参考答案</b>${esc(body.answer)}</p>` : ''}${(body.lines || []).length ? `<ul>${body.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}`;
+  // 政经“先想一想”的解答还带这个概念的讲解（2026-11-19 用户：“概念题后面的答案，概念定义的解释那部分学生如果达到筑基了，在学生端也显示”）：
+  // 讲解版投屏的“学习概念”一步——要点与定义、公式、教案板书、典型题解析、教材原文（tools/explain_bank.py 的 pe_learn）
+  const exTable = (t) => (t && Array.isArray(t.head) ? `<div class="clp-ex-scroll"><table class="clp-ex-table"><thead><tr>${t.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>`
+    + `<tbody>${(t.rows || []).map((r) => `<tr>${r.map((x) => `<td>${esc(x)}</td>`).join('')}</tr>`).join('')}</tbody></table></div>` : '');
+  const learnHtml = (L) => {
+    if (!L || !Array.isArray(L.points)) return '';
+    const points = L.points.map((p) => `<div><dt>${esc(p.term)}</dt><dd>${esc(p.text)}${(p.formula || []).length ? `<span class="clp-ex-formula">${p.formula.map(esc).join('<br>')}</span>` : ''}`
+      + `${p.example ? `<span class="clp-ex-eg"><b>代入本案例</b>${esc(p.example)}</span>` : ''}</dd></div>`).join('');
+    const ex = L.example;
+    const example = ex ? `<div class="clp-ex-example"><p class="clp-ex-tag">${esc(ex.title || '典型题解析')}</p><p class="clp-ex-q">${esc(ex.question)}</p><p class="clp-ex-a"><b>答案</b>${esc(ex.answer)}</p>`
+      + (ex.reasons || []).map((r, i) => `<p class="clp-ex-h">${'一二三四五六'[i] || i + 1}、${esc(r.head)}</p><ol>${(r.items || []).map((x) => `<li>${esc(x)}</li>`).join('')}</ol>`).join('')
+      + (ex.table ? `<p class="clp-ex-h">${esc(ex.table.title || '举例')}</p>${exTable(ex.table)}` : '') + (ex.case ? `<p class="clp-ex-case">${esc(ex.case)}</p>` : '')
+      + (ex.contrast ? `<p class="clp-ex-h">容易混淆的情况</p>${exTable(ex.contrast)}` : '') + (ex.tip ? `<p class="clp-ex-tip">${esc(ex.tip)}</p>` : '') + '</div>' : '';
+    const book = (L.textbook || []).length ? `<details class="clp-ex-book"><summary>查看教材原文</summary>${L.textbook.map((t) => `<blockquote>${esc(t.quote)}<cite>${esc(t.cite || '')}</cite></blockquote>`).join('')}</details>` : '';
+    return `<div class="clp-ex-learn"><p class="clp-ex-learn-h">概念讲解 · ${esc(L.name || '')}</p><dl>${points}</dl>`
+      + `${L.board ? `<p class="clp-ex-board"><b>${esc(L.board_label || '教案板书')}</b>${esc(L.board)}</p>` : ''}${example}${book}</div>`;
+  };
+  const explainHtml = (body) => `${body.answer ? `<p class="clp-ex-ans"><b>参考答案</b>${esc(body.answer)}</p>` : ''}${(body.lines || []).length ? `<ul>${body.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}${learnHtml(body.learn)}`;
+  const withLearn = (q) => worksheet && /\.discover$/.test(q.key);   // 政经“先想一想”：解答里有概念讲解
+  const explainLabel = (q) => (withLearn(q) ? '展开解答与概念讲解' : '展开解答');
   function paintExplain(q) {
     if (!canExplain || !q.bar || !q.bar.classList.contains('is-locked')) return;
     let box = q.bar.querySelector('.clp-ex');
@@ -1379,12 +1427,13 @@
     if (button.dataset.busy) return;
     button.disabled = !open;
     button.classList.toggle('is-locked', !open);
-    button.textContent = open ? (box.querySelector('.clp-ex-body').hidden ? '展开解答' : '收起解答') : '🔒 解答：达到「筑基」境界解锁';
+    button.textContent = open ? (box.querySelector('.clp-ex-body').hidden ? explainLabel(q) : '收起解答')
+      : withLearn(q) ? '🔒 解答与概念讲解：达到「筑基」境界解锁' : '🔒 解答：达到「筑基」境界解锁';
   }
   async function toggleExplain(q, box) {
     const body = box.querySelector('.clp-ex-body');
     const button = box.querySelector('.clp-ex-btn');
-    if (!body.hidden) { body.hidden = true; button.textContent = '展开解答'; return; }
+    if (!body.hidden) { body.hidden = true; button.textContent = explainLabel(q); return; }
     if (!q.explained) {
       button.dataset.busy = '1';
       button.disabled = true;
