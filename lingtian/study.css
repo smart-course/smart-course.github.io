@@ -278,3 +278,6 @@
 .cards-host .sy-overlay,.cards-host .sy-event-art.is-complete svg{animation:none}
 .cards-host .sy-button,.cards-host .sy-option,.cards-host .sy-daily-ring circle{transition:none}
 }
+/* 智慧课堂 2026-11-18：去掉作答前的“看看卡背提示”，卡背依据随“确认我的判断”的结果一起显示 */
+.cards-host .sy-question-note{font-size:12px;line-height:1.6;color:#8a805c;letter-spacing:.5px}
+.cards-host .sy-feedback blockquote b{display:block;margin-bottom:3px;font-size:11px;font-weight:500;letter-spacing:2px;color:#8a805c}

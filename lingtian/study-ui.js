@@ -22,7 +22,7 @@
   const date=value=>value?new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'numeric',day:'numeric'}).format(new Date(value)):'稍后安排';
   function create(options){
     const engine=options.engine;
-    let panel='today',challenge=null,feedback=null,choice=null,hinted=false,working=false,error='',notice='',dailyMode=false,epoch=0,lastCourse=null,filter='all',search='',source='study';
+    let panel='today',challenge=null,feedback=null,choice=null,hinted=false,earnedEvidence=null,working=false,error='',notice='',dailyMode=false,epoch=0,lastCourse=null,filter='all',search='',source='study';
     let seen=new Set(),teacherClassId='',teacherCards=null,teacherMessage='',teacherBusy=false,sessionOrigin=null,lastExport=null;
     let overlayNode=null,overlayMarkup='',overlayChallenge=null;
     let signatureSnapshot,signatureClassroom,signatureCourse,signatureData='',signatureLocal='',signatureVersion=0;
@@ -38,8 +38,8 @@
     const owns=id=>count(engine.cards?.inventory?.[id])>0||list(engine.cards?.discovered).includes(id);
     function resetForCourse(){
       const next=engine.cards?.courseId;
-      if(next!==lastCourse){lastCourse=next;epoch++;challenge=null;feedback=null;choice=null;hinted=false;working=false;error='';notice='';search='';filter='all';teacherCards=null;teacherClassId='';teacherMessage='';if(lastExport)URL.revokeObjectURL(lastExport.url);lastExport=null;}
-      if(challenge&&!enabled(challenge.cardId)){epoch++;challenge=null;feedback=null;choice=null;hinted=false;working=false;notice='授课范围已更新；已有参悟记录保留，请选择本期卡牌继续。';}
+      if(next!==lastCourse){lastCourse=next;epoch++;challenge=null;feedback=null;choice=null;hinted=false;earnedEvidence=null;working=false;error='';notice='';search='';filter='all';teacherCards=null;teacherClassId='';teacherMessage='';if(lastExport)URL.revokeObjectURL(lastExport.url);lastExport=null;}
+      if(challenge&&!enabled(challenge.cardId)){epoch++;challenge=null;feedback=null;choice=null;hinted=false;earnedEvidence=null;working=false;notice='授课范围已更新；已有参悟记录保留，请选择本期卡牌继续。';}
     }
     function signature(force=false){
       resetForCourse();const snapshot=engine.study,courseId=engine.cards?.courseId,s=snapshot?.courseId===courseId?snapshot:null,classroom=engine.studyClassroom;
@@ -51,7 +51,7 @@
         if(data!==signatureData){signatureData=data;signatureVersion++;}
         signatureSnapshot=snapshot;signatureClassroom=classroom;signatureCourse=courseId;
       }
-      const local=JSON.stringify([!s?.available&&!!engine.studyLoading,engine.studyError,panel,challenge,feedback,choice,hinted,working,error,notice,filter,search,teacherClassId,teacherCards,teacherMessage,teacherBusy,lastExport]);
+      const local=JSON.stringify([!s?.available&&!!engine.studyLoading,engine.studyError,panel,challenge,feedback,choice,hinted,earnedEvidence,working,error,notice,filter,search,teacherClassId,teacherCards,teacherMessage,teacherBusy,lastExport]);
       if(local!==signatureLocal){signatureLocal=local;signatureVersion++;}
       return signatureVersion;
     }
@@ -166,9 +166,9 @@
     }
     function overlay(){
       if(!challenge)return '';
-      const c=card(challenge.cardId),item=content()?.cards?.[challenge.cardId],q=list(item?.questions).find(v=>v.id===challenge.questionId);
+      const c=card(challenge.cardId),item=content()?.cards?.[challenge.cardId];
       const result=feedback,correct=!!result?.correct,loading=working||engine.busy,remaining=list(state()?.daily?.cardIds).filter(id=>!list(state()?.daily?.completedIds).includes(id));
-      return '<section class="sy-overlay" role="region" aria-label="道藏参悟" data-study-overlay tabindex="-1"><div class="sy-session-top"><div><span class="sy-eyebrow">'+(dailyMode?(list(state()?.daily?.cardIds).length===3?'今日三签':'今日参悟'):'随心研习')+' · '+E(TYPES[challenge.kind]||'读懂一张卡')+'</span><h3>'+E(c?.title||'藏真一问')+'</h3></div><button type="button" class="sy-session-close" data-study-action="close-session" aria-label="收起参悟，返回卡牌">'+icon('close')+'</button></div><div class="sy-session-content"><aside class="sy-session-aside"><div class="sy-session-card">'+cardImage(challenge.cardId)+'</div>'+stageMarkup(challenge.cardId)+'<p>'+E(challenge.hook||item?.hook||'带着一个问题，再读一遍。')+'</p><small>一道小题，一次新的理解。</small></aside><main class="sy-question"><div class="sy-event-art '+(correct?'is-complete':'')+'">'+sceneArt(challenge.scene,correct)+'</div><span class="sy-eyebrow">'+E({market:'坊市见闻',garden:'灵田小事',sect:'宗门议事',letter:'山外来信'}[challenge.scene]||'藏真小事')+'</span><h4 id="study-question-title">'+E(challenge.prompt)+'</h4><div class="sy-options" role="group" aria-labelledby="study-question-title">'+list(challenge.options).map((v,i)=>'<button type="button" class="sy-option '+(choice===i?'is-selected ':'')+(result&&result.answer===i?'is-answer ':'')+(result&&!correct&&choice===i?'is-wrong':'')+'" data-study-action="choose" '+attr('choice',i)+' aria-pressed="'+(choice===i)+'"'+(loading||result?' disabled':'')+'><b>'+String.fromCharCode(65+i)+'</b><span>'+E(v)+'</span>'+(result&&result.answer===i?icon('check'):'')+'</button>').join('')+'</div>'+(!result?'<div class="sy-question-actions">'+button('submit',loading?'正在记录…':'确认我的判断','','primary',choice===null||loading||!!engine.pending)+button('hint',hinted?'已查看提示':'看看卡背提示','','quiet',loading||hinted)+'</div>':'')+(hinted&&!result?'<aside class="sy-hint"><strong>卡背依据</strong><p>'+E(q?.evidence||c?.definition||'')+'</p><small>这次记为带提示练习，之后还有独立温习的机会。</small></aside>':'')+(result?'<section class="sy-feedback '+(correct?'is-correct':'is-retry')+'" role="status"><span class="sy-feedback-seal">'+(correct?'悟':'思')+'</span><div><h5>'+(correct?(result.independent?'这一次，你自己想明白了':'循着提示，也读懂了一层'):'差一点，再看关键的关系')+'</h5><p>'+E(result.explanation)+'</p><blockquote>'+E(result.evidence)+'</blockquote><small>'+(correct?(result.stageAfter>result.stageBefore?'个人参悟：'+STAGES[result.stageBefore||0]+' → '+STAGES[result.stageAfter||0]:result.independent?'已记下这次独立练习。隔一段时间再试一题，理解会更稳。':'本次已完成练习，后续温习将再检验独立理解。'):'可以查看依据后重新判断，不扣灵石和修为。')+'</small></div></section><div class="sy-result-actions">'+(correct?button(dailyMode&&remaining.length?'next-daily':'finish-session',dailyMode&&remaining.length?'下一张 · 继续参悟':dailyMode?'今日参悟完成':'完成这次研习','','primary',loading):button('retry','再想一次','','primary',loading))+button('read-evidence','回卡背读一读','','quiet',loading)+'</div>':'')+noticeMarkup()+'</main></div><footer class="sy-session-footer"><span>'+E(course()?.name||'')+'</span><span>'+(dailyMode?'今日 '+list(state()?.daily?.completedIds).length+' / '+list(state()?.daily?.cardIds).length+' 张':'随时可结束 · 已完成记录会保留')+'</span></footer></section>';
+      return '<section class="sy-overlay" role="region" aria-label="道藏参悟" data-study-overlay tabindex="-1"><div class="sy-session-top"><div><span class="sy-eyebrow">'+(dailyMode?(list(state()?.daily?.cardIds).length===3?'今日三签':'今日参悟'):'随心研习')+' · '+E(TYPES[challenge.kind]||'读懂一张卡')+'</span><h3>'+E(c?.title||'藏真一问')+'</h3></div><button type="button" class="sy-session-close" data-study-action="close-session" aria-label="收起参悟，返回卡牌">'+icon('close')+'</button></div><div class="sy-session-content"><aside class="sy-session-aside"><div class="sy-session-card">'+cardImage(challenge.cardId)+'</div>'+stageMarkup(challenge.cardId)+'<p>'+E(challenge.hook||item?.hook||'带着一个问题，再读一遍。')+'</p><small>一道小题，一次新的理解。</small></aside><main class="sy-question"><div class="sy-event-art '+(correct?'is-complete':'')+'">'+sceneArt(challenge.scene,correct)+'</div><span class="sy-eyebrow">'+E({market:'坊市见闻',garden:'灵田小事',sect:'宗门议事',letter:'山外来信'}[challenge.scene]||'藏真小事')+'</span><h4 id="study-question-title">'+E(challenge.prompt)+'</h4><div class="sy-options" role="group" aria-labelledby="study-question-title">'+list(challenge.options).map((v,i)=>'<button type="button" class="sy-option '+(choice===i?'is-selected ':'')+(result&&result.answer===i?'is-answer ':'')+(result&&!correct&&choice===i?'is-wrong':'')+'" data-study-action="choose" '+attr('choice',i)+' aria-pressed="'+(choice===i)+'"'+(loading||result?' disabled':'')+'><b>'+String.fromCharCode(65+i)+'</b><span>'+E(v)+'</span>'+(result&&result.answer===i?icon('check'):'')+'</button>').join('')+'</div>'+(!result?'<div class="sy-question-actions">'+button('submit',loading?'正在记录…':'确认我的判断','','primary',choice===null||loading||!!engine.pending)+'<small class="sy-question-note">确认以后，对错和卡背依据一起显示</small></div>':'')+(earnedEvidence&&!result?'<aside class="sy-hint"><strong>卡背依据</strong><p>'+E(earnedEvidence)+'</p><small>上一次作答后给出的依据；这次记为带提示练习，之后还有独立温习的机会。</small></aside>':'')+(result?'<section class="sy-feedback '+(correct?'is-correct':'is-retry')+'" role="status"><span class="sy-feedback-seal">'+(correct?'悟':'思')+'</span><div><h5>'+(correct?(result.independent?'这一次，你自己想明白了':'循着提示，也读懂了一层'):'差一点，再看关键的关系')+'</h5><p>'+E(result.explanation)+'</p>'+(result.evidence?'<blockquote><b>卡背依据</b>'+E(result.evidence)+'</blockquote>':'')+'<small>'+(correct?(result.stageAfter>result.stageBefore?'个人参悟：'+STAGES[result.stageBefore||0]+' → '+STAGES[result.stageAfter||0]:result.independent?'已记下这次独立练习。隔一段时间再试一题，理解会更稳。':'本次已完成练习，后续温习将再检验独立理解。'):'可以查看依据后重新判断，不扣灵石和修为。')+'</small></div></section><div class="sy-result-actions">'+(correct?button(dailyMode&&remaining.length?'next-daily':'finish-session',dailyMode&&remaining.length?'下一张 · 继续参悟':dailyMode?'今日参悟完成':'完成这次研习','','primary',loading):button('retry','再想一次','','primary',loading))+button('read-evidence','回卡背读一读','','quiet',loading)+'</div>':'')+noticeMarkup()+'</main></div><footer class="sy-session-footer"><span>'+E(course()?.name||'')+'</span><span>'+(dailyMode?'今日 '+list(state()?.daily?.completedIds).length+' / '+list(state()?.daily?.cardIds).length+' 张':'随时可结束 · 已完成记录会保留')+'</span></footer></section>';
     }
     // Keep the full-screen study surface mounted while its answer state changes.
     // Replacing it on every engine notification restarts entry animations and
@@ -227,7 +227,7 @@
     async function begin(id,mode='practice'){
       if(!card(id)||card(id).courseId!==course()?.id||!enabled(id))return;
       const r=await perform(()=>engine.beginStudy(id,mode));
-      if(r?.ok&&r.challenge){if(r.courseId&&r.courseId!==engine.study?.courseId||card(r.challenge.cardId)?.courseId!==course()?.id){await load();return;}challenge=r.challenge;feedback=r.feedback||r.challenge.feedback||null;choice=null;hinted=!!r.challenge.hinted;dailyMode=mode==='daily';source=mode;change();global.requestAnimationFrame?.(()=>options.host?.querySelector('[data-study-overlay]')?.focus({preventScroll:true}));}
+      if(r?.ok&&r.challenge){if(r.courseId&&r.courseId!==engine.study?.courseId||card(r.challenge.cardId)?.courseId!==course()?.id){await load();return;}challenge=r.challenge;feedback=r.feedback||r.challenge.feedback||null;choice=null;hinted=!!r.challenge.hinted;earnedEvidence=null;dailyMode=mode==='daily';source=mode;change();global.requestAnimationFrame?.(()=>options.host?.querySelector('[data-study-overlay]')?.focus({preventScroll:true}));}
     }
     async function recordRead(id,from='card'){
       const day=state()?.daily?.day||new Date((engine.now?.()||Date.now())+28800000).toISOString().slice(0,10),key=course()?.id+':'+id+':'+day;
@@ -235,7 +235,7 @@
       if(!engine.markStudyRead||seen.has(key)&&!needsHint||blocked()||!card(id))return;
       seen.add(key);try{const r=await engine.markStudyRead(id,from);if(!r?.ok)seen.delete(key);}catch{seen.delete(key);}change();
     }
-    function closeSession(){challenge=null;feedback=null;choice=null;hinted=false;error='';change();global.requestAnimationFrame?.(()=>{const host=options.host,original=sessionOrigin?[...host.querySelectorAll('[data-study-action]')].find(el=>el.dataset.studyAction===sessionOrigin.action&&(!sessionOrigin.cardId||el.dataset.cardId===sessionOrigin.cardId)&&!el.disabled):null;const target=original||host?.querySelector('[data-study-action="practice"]')||host?.querySelector('[data-study-action="start-daily"]')||host?.querySelector('[data-cards-close]');target?.focus({preventScroll:true});});}
+    function closeSession(){challenge=null;feedback=null;choice=null;hinted=false;earnedEvidence=null;error='';change();global.requestAnimationFrame?.(()=>{const host=options.host,original=sessionOrigin?[...host.querySelectorAll('[data-study-action]')].find(el=>el.dataset.studyAction===sessionOrigin.action&&(!sessionOrigin.cardId||el.dataset.cardId===sessionOrigin.cardId)&&!el.disabled):null;const target=original||host?.querySelector('[data-study-action="practice"]')||host?.querySelector('[data-study-action="start-daily"]')||host?.querySelector('[data-cards-close]');target?.focus({preventScroll:true});});}
     function download(report,teacher=false){
       const heading=teacher?'班级研习概况':'我的道藏复习册',m=report.metrics||{};
       const items=list(report.cards),percentage=value=>typeof value==='number'?Math.round(value*100)+'%':'尚无有效样本';
@@ -250,7 +250,7 @@
       if(['start-daily','daily','practice','topic-start','resume'].includes(action))sessionOrigin={action,cardId:id||null};
       if(action==='close-session'||action==='finish-session'){closeSession();if(action==='finish-session'&&dailyMode){panel='today';options.onOpen?.();}return true;}
       if(action==='choose'){choice=Number(target.dataset.choice);change();return true;}
-      if(action==='retry'){feedback=null;choice=null;hinted=true;change();return true;}
+      if(action==='retry'){earnedEvidence=feedback?.evidence||earnedEvidence;feedback=null;choice=null;hinted=true;change();return true;}
       if(action==='open'){panel='today';options.onOpen?.();void load();return true;}
       if(action==='panel'){panel=target.dataset.panel;notice='';error='';change();if(panel==='classroom'&&state()?.teacher?.available&&!engine.studyClassroom)void readTeacher();return true;}
       if(action==='show-topics'){panel='topics';change();return true;}
@@ -264,7 +264,7 @@
       if(action==='resume'){await begin(id,list(state()?.daily?.cardIds).includes(id)?'daily':'practice');return true;}
       if(action==='practice'||action==='topic-start'||action==='daily'){if(!enabled(id)){notice='这张卡本期未启用，仍可自由阅读。';change();return true;}await begin(id,action==='daily'&&!list(state()?.daily?.completedIds).includes(id)?'daily':'practice');return true;}
       if(action==='replace'){await perform(()=>engine.replaceDailyStudy(id));return true;}
-      if(action==='hint'&&challenge){const r=await perform(()=>engine.studyHint(challenge.id));if(r?.ok){hinted=true;change();}return true;}
+      
       if(action==='submit'&&challenge&&choice!==null){const r=await perform(()=>engine.submitStudy(challenge.id,choice));if(r?.ok&&r.feedback){feedback=r.feedback;hinted=hinted||!r.feedback.independent;change();global.requestAnimationFrame?.(()=>options.host?.querySelector('.sy-feedback')?.scrollIntoView?.({block:'nearest',behavior:global.matchMedia?.('(prefers-reduced-motion: reduce)').matches?'auto':'smooth'}));}return true;}
       if(action==='wish'||action==='display'){
         const field=action==='wish'?'wishes':'displayCards',ids=list(state()?.[field]),next=ids.includes(id)?ids.filter(v=>v!==id):ids.concat(id);

@@ -9,6 +9,8 @@
  * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
  * 习经辩论质询的弹幕带“【正方】/【反方】”（学生端按本人的辩前投票自动加上），投屏上显示为彩色标签。
  * 匿名（课堂的 danmaku_anon，工作台或左下角控件切换）：投屏只显示内容、不显示姓名；弹幕记录里照常有发送人。
+ * 宗门（2026-11-18）：弹幕框外一圈宗门色（本班同学的宗门读 ck_sect_members），宗主一圈炫彩流光（宗主与后台 ck_sect_leaders() 同一规则在本页算出）；
+ *   散修、没拜入宗门的不加；匿名时也显示（只显示颜色，与境界辉边一样）；弹幕墙同样加框。试用特效里可以选宗门、宗主预览。
  * 修为境界（教师结算后存于 ck_realms，本页按学号读取）：显示姓名时姓名前加境界称号，姓名颜色与称号一致（素石灰→青玉绿→金丹金→紫霄紫→化神七彩流光，
  *   还没有境界的按炼气）；弹幕字色：每升一个境界多解锁两种（炼气白灰→筑基蓝绿→结丹金红→元婴粉紫→化神流光），发送人自选、投屏按境界核对；
  * 恭喜突破：每 20 秒读一次全班境界，课上有人境界提升（老师结算后），页面最上方正中显示一行“恭喜某某突破至某境界”，3 秒，新的直接替换。
@@ -268,6 +270,45 @@
     75% { box-shadow: 0 0 14px rgba(127,216,255,.6); } 100% { box-shadow: 0 0 12px rgba(255,211,107,.6); } }
   @keyframes dm-demo-textflow { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
   @media (prefers-reduced-motion: reduce) { .dm-demo-field, .dm-demo-field::before, .dm-demo-field input { animation: none !important; } }
+  /* 宗门（2026-11-18 用户：“不同宗门的弹幕发言，弹幕框边上一圈为宗门的特征颜色。如果是宗主的话，带炫彩特效。”）：
+     弹幕框外一圈宗门色（与境界并存：元婴辉边、化神七彩边框在框上，宗门色在外一圈）；宗主一圈炫彩流光——宗门色、金、白、霓彩旋转，外晕一明一暗。
+     正文弹幕墙（白底）：宗门色边框加一圈淡色；宗主边框同样旋转流光。散修和没拜入宗门的不加 */
+  @property --dm-spin { syntax: '<angle>'; inherits: false; initial-value: 0deg; }
+  @keyframes dm-spin { to { --dm-spin: 360deg; } }
+  @keyframes dm-lord-glow { 0%, 100% { box-shadow: 0 0 10px var(--dm-sg), 0 0 18px rgba(255, 214, 110, .35); } 50% { box-shadow: 0 0 22px var(--dm-sg), 0 0 42px rgba(255, 214, 110, .7); } }
+  @keyframes dm-lord-shine { 0% { background-position: 130% 0; } 60%, 100% { background-position: -30% 0; } }
+  @keyframes dm-lord-star { 0%, 100% { opacity: .15; transform: scale(.45) rotate(0deg); } 50% { opacity: 1; transform: scale(1.2) rotate(90deg); } }
+  @keyframes dm-lord-halo { 0%, 100% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 8px var(--dm-sg), 0 4px 12px rgba(35, 101, 95, .16); }
+    50% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 20px var(--dm-sg), 0 0 30px rgba(224, 169, 46, .45), 0 4px 12px rgba(35, 101, 95, .16); } }
+  .dm-item.has-sect::before { content: ''; position: absolute; inset: -5px; border: 2.5px solid var(--dm-sc); border-radius: 27px; pointer-events: none;
+    box-shadow: 0 0 10px var(--dm-sg), inset 0 0 6px var(--dm-sg); }
+  .dm-item.is-lord::before { inset: -7px; padding: 3.5px; border: 0; border-radius: 29px; box-shadow: none;
+    background: conic-gradient(from var(--dm-spin), var(--dm-sc), #ffd36b, #fff8e0, #ff8fc4, var(--dm-sg), #8fe9ff, #b98cff, #ffd36b, var(--dm-sc));
+    -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
+    filter: saturate(1.3) brightness(1.08); animation: dm-spin 1.8s linear infinite; }
+  /* 宗主：外晕一明一暗，整条弹幕每隔一会儿扫过一道光，环边两颗星芒闪烁 */
+  .dm-item.is-lord::after { content: ''; position: absolute; inset: 0; border-radius: 22px; pointer-events: none;
+    background: linear-gradient(105deg, transparent 38%, rgba(255, 255, 255, .42) 48%, rgba(255, 240, 200, .18) 54%, transparent 64%) 0 0 / 260% 100% no-repeat;
+    animation: dm-lord-glow 1.6s ease-in-out infinite, dm-lord-shine 2.6s ease-in-out infinite; }
+  .dm-lord-star { position: absolute; z-index: 2; color: #fff6c8; font-size: .62em; font-style: normal; font-weight: 400; line-height: 1; pointer-events: none;
+    text-shadow: 0 0 6px #ffd36b, 0 0 12px var(--dm-sg); animation: dm-lord-star 1.4s ease-in-out infinite; }
+  .dm-lord-star.is-a { top: -.78em; right: 1.1em; }
+  .dm-lord-star.is-b { bottom: -.76em; left: 1.4em; animation-delay: .7s; }
+  .dm-bubble.has-sect { border: 2px solid var(--dm-sc); box-shadow: 0 0 0 3px var(--dm-sa), 0 4px 12px rgba(35, 101, 95, .16); }
+  .dm-bubble.is-pro { --dm-bg: #eef6f4; }
+  .dm-bubble.is-con { --dm-bg: #fbefea; }
+  .dm-bubble.is-lord { border-width: 2.5px; border-color: transparent; animation: dm-spin 1.8s linear infinite, dm-lord-halo 1.6s ease-in-out infinite;
+    background: linear-gradient(var(--dm-bg, #fff), var(--dm-bg, #fff)) padding-box,
+      conic-gradient(from var(--dm-spin), var(--dm-sc), #e0a92e, #fff1b8, var(--dm-sc), #ff7fbf, #5cc8ff, #e0a92e, var(--dm-sc)) border-box;
+    box-shadow: 0 0 0 3px var(--dm-sa), 0 0 16px var(--dm-sg), 0 4px 12px rgba(35, 101, 95, .16); }
+  .dm-bubble.is-lord.is-pop { animation: dm-pop .6s cubic-bezier(.2, 1.4, .4, 1) both, dm-spin 1.8s linear infinite, dm-lord-halo 1.6s ease-in-out infinite; }
+  .dm-bubble .dm-lord-star { font-size: 13px; }
+  .dm-bubble .dm-lord-star.is-a { top: -9px; right: 20px; }
+  .dm-bubble .dm-lord-star.is-b { top: auto; bottom: -8px; left: 22px; }
+  .dm-demo-sects .dm-demo-btn::before { content: ''; display: inline-block; width: .7em; height: .7em; margin-right: .35em; border: 1px solid rgba(255,255,255,.5); border-radius: 50%;
+    background: var(--dm-sc, transparent); vertical-align: -.05em; }
+  .dm-demo-sects .dm-demo-btn[aria-pressed="true"] { outline: 2px solid #fff4e0; outline-offset: 2px; background: rgba(255,255,255,.18); }
+  @media (prefers-reduced-motion: reduce) { .dm-item.is-lord::before, .dm-item.is-lord::after, .dm-bubble.is-lord, .dm-lord-star { animation: none !important; } }
   @media print { .dm-stage, .dm-bar, .dm-demo { display: none !important; } }
   `;
   document.head.appendChild(style);
@@ -384,6 +425,7 @@
     const badge = document.createElement('span');
     badge.className = 'dm-liked';
     badge.innerHTML = '师<br>赞';
+    paintSect(item, doc);
     item.dataset.dmId = id;
     if (doc.demoLiked) item.dataset.demoLiked = '1';   // 试用弹幕的朱印只在本机，后台点赞刷新（markLiked）不清掉
     item.classList.toggle('is-liked', liked.has(id) || Boolean(doc.demoLiked));
@@ -411,6 +453,56 @@
   // 学生版测试页的“王不凡”（学号 WBF0001，不在点名册上；10-22 以前叫“韩天尊”HTZ0001）按化神显示
   const realmFor = (doc) => (doc.demo ? { realm: doc.demoRealm, stage: 1 } : ['WBF0001', 'HTZ0001'].includes(sidKey(doc.sid)) ? { realm: 4, stage: 2 } : realmMap.get(sidKey(doc.sid)) || null);
   const realmName = (level) => (REALMS[level] ? REALMS[level].name : '');
+  // 宗门（2026-11-18）：本班同学拜入的宗门读 ck_sect_members（老师账号可读，每分钟一次）；宗主与后台 ck_sect_leaders() 同一规则——
+  //   本课程每个宗门一位：在读班级（班级还在、近 200 天开过课堂）的弟子里，元婴以上（realm ≥ 3）修为最高者，同分先拜入者、再按学号。
+  //   学生版测试页的王不凡按测试页替他选的宗门（记在这台电脑上），不算宗主
+  const SECT_LIST = (window.ClassLive.SECTS || []);
+  const SECTS = new Map(SECT_LIST.map((sect) => [sect.key, sect]));
+  const timeOf = (value) => Date.parse(String(value || '').replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1')) || 0;
+  const hexA = (hex, alpha) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`; };
+  let sectMap = new Map(), lordSet = new Set(), sectSig = '', activeClasses = null, activeAt = 0;
+  async function loadSects() {
+    if (!room || !SECTS.size) return;
+    try {
+      const classId = Number(room.class_id) || 0, now = Date.now();
+      if (!activeClasses || now - activeAt > 600000) {   // 在读班级 10 分钟查一次
+        const [classes, rooms] = await Promise.all([backend.fetchAll('classes', { course: config.course }), backend.fetchAll('classrooms', { course: config.course })]);
+        const exists = new Set(classes.map((row) => Number(row.id)));
+        activeClasses = new Set(rooms.filter((row) => exists.has(Number(row.class_id)) && timeOf(row.created_at) > now - 200 * 86400000).map((row) => Number(row.class_id)));
+        activeAt = now;
+      }
+      const rows = await backend.fetchAll('sectmembers', { course: config.course });
+      const nextMap = new Map(rows.filter((row) => (Number(row.class_id) || 0) === classId && SECTS.has(row.sect)).map((row) => [sidKey(row.sid), row.sect]));
+      const nextLords = new Set();
+      SECTS.forEach((sect, key) => {
+        const top = rows.filter((row) => row.sect === key && Number(row.realm) >= 3 && activeClasses.has(Number(row.class_id)))
+          .sort((a, b) => Number(b.points) - Number(a.points) || timeOf(a.joined_at) - timeOf(b.joined_at) || (String(a.sid) < String(b.sid) ? -1 : String(a.sid) > String(b.sid) ? 1 : 0))[0];
+        if (top && (Number(top.class_id) || 0) === classId) nextLords.add(sidKey(top.sid));
+      });
+      sectMap = nextMap;
+      lordSet = nextLords;
+      const sig = JSON.stringify([[...nextMap], [...nextLords]]);
+      if (sig !== sectSig) { sectSig = sig; wallShown.clear(); renderWalls(wallRows); }   // 弹幕墙按新的宗门重画
+    } catch (error) { /* 读不到宗门（例如还没有宗门数据表）时不加框 */ }
+  }
+  const previewSect = () => { try { return localStorage.getItem(`lingtian-preview-sect:${config.course}`) || ''; } catch (error) { return ''; } };
+  const sectFor = (doc) => {
+    if (doc.demo) return doc.demoSect && SECTS.has(doc.demoSect) ? { sect: SECTS.get(doc.demoSect), lord: Boolean(doc.demoLord) } : null;
+    const sid = sidKey(doc.sid);
+    const key = ['WBF0001', 'HTZ0001'].includes(sid) ? previewSect() : sectMap.get(sid);
+    return key && SECTS.has(key) ? { sect: SECTS.get(key), lord: lordSet.has(sid) } : null;
+  };
+  const paintSect = (el, doc) => {
+    const info = sectFor(doc);
+    el.classList.toggle('has-sect', Boolean(info));
+    el.classList.toggle('is-lord', Boolean(info && info.lord));
+    el.querySelectorAll(':scope > .dm-lord-star').forEach((star) => star.remove());
+    if (!info) return;
+    if (info.lord) ['is-a', 'is-b'].forEach((spot) => { const star = document.createElement('i'); star.className = `dm-lord-star ${spot}`; star.textContent = '✦'; star.setAttribute('aria-hidden', 'true'); el.append(star); });
+    el.style.setProperty('--dm-sc', info.sect.color);
+    el.style.setProperty('--dm-sg', hexA(info.sect.glow, 0.85));
+    el.style.setProperty('--dm-sa', hexA(info.sect.color, 0.2));
+  };
   // 境界每 20 秒读一次；课上老师结算后，有人境界提升就在页面最上方正中恭喜（见 congratulate）
   let realmClass = null;   // 上一次读到的境界属于哪个班（换了班级不算提升）
   async function loadRealms() {
@@ -497,23 +589,29 @@
   demo.hidden = true;
   demo.setAttribute('data-ix', '');
   demo.setAttribute('role', 'dialog');
-  demo.setAttribute('aria-label', '试用境界特效与法宝');
+  demo.setAttribute('aria-label', '试用境界、宗门特效与法宝');
   ['click', 'keydown', 'keyup', 'pointerdown', 'mousedown', 'wheel'].forEach((type) => demo.addEventListener(type, (event) => event.stopPropagation()));
-  const demoState = { level: 3, color: {} };
+  const demoState = { level: 3, color: {}, sect: '' };
   let demoSeq = 0;
-  demo.innerHTML = `<h4><span>试用境界特效与法宝</span><button type="button" data-demo-close aria-label="关闭">×</button></h4>
+  demo.innerHTML = `<h4><span>试用境界、宗门特效与法宝</span><button type="button" data-demo-close aria-label="关闭">×</button></h4>
     <p>只在这台电脑的投屏上播放：不写入弹幕记录、不计修为，学生看不到。</p>
     <div class="dm-demo-row" data-demo-realms><b>境界</b>${REALMS.map((realm) => `<button type="button" class="dm-title is-r${realm.level}" data-demo-level="${realm.level}">${esc(realm.name)}</button>`).join('')}</div>
     <div class="dm-demo-row dm-demo-colors" data-demo-colors><b>字色</b></div>
+    <div class="dm-demo-row dm-demo-sects" data-demo-sects><b>宗门</b><button type="button" class="dm-demo-btn" data-demo-sect="">不入宗门</button>${SECT_LIST.map((sect) => `<button type="button" class="dm-demo-btn" data-demo-sect="${esc(sect.key)}" style="--dm-sc:${esc(sect.color)}">${esc(sect.name)}</button>`).join('')}
+      <label class="dm-demo-check"><input type="checkbox" data-demo-lord>宗主（炫彩）</label></div>
     <div class="dm-demo-row"><b>内容</b><span class="dm-demo-field" data-demo-field><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></span></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
-      <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button></div>
+      <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button><button type="button" class="dm-demo-btn" data-demo-sectall>一键演示四大宗门</button></div>
     <div class="dm-demo-row"><b>突破</b><button type="button" class="dm-demo-btn" data-demo-ascend="3">突破元婴</button><button type="button" class="dm-demo-btn" data-demo-ascend="4">突破化神</button></div>
     <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small>（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
   document.body.appendChild(demo);
   const demoText = demo.querySelector('[data-demo-text]');
   function paintDemo() {
     demo.querySelectorAll('[data-demo-level]').forEach((button) => button.setAttribute('aria-pressed', String(Number(button.dataset.demoLevel) === demoState.level)));
+    demo.querySelectorAll('[data-demo-sect]').forEach((button) => button.setAttribute('aria-pressed', String(button.dataset.demoSect === demoState.sect)));
+    const lordBox = demo.querySelector('[data-demo-lord]');
+    lordBox.disabled = !demoState.sect;
+    if (!demoState.sect) lordBox.checked = false;
     // 内容框：与学生面板的输入框一样，随境界换边框流光，选了字色就预览字色
     const field = demo.querySelector('[data-demo-field]');
     const chosen = window.ClassLive.colorFor(demoState.level, demoState.color[demoState.level]);
@@ -541,9 +639,9 @@
       box.appendChild(button);
     });
   }
-  const sendDemo = (level, text, colorId, likedSeal) => {
+  const sendDemo = (level, text, colorId, likedSeal, sect = demoState.sect, lord = Boolean(demoState.sect) && demo.querySelector('[data-demo-lord]').checked) => {
     demoSeq += 1;
-    launch({ id: `demo-${demoSeq}`, demo: true, demoRealm: level, demoLiked: likedSeal, name: '示例同学', sid: 'DEMO', text, color: colorId || null }, true);
+    launch({ id: `demo-${demoSeq}`, demo: true, demoRealm: level, demoLiked: likedSeal, demoSect: sect || '', demoLord: Boolean(sect && lord), name: '示例同学', sid: 'DEMO', text, color: colorId || null }, true);
   };
   demo.addEventListener('click', (event) => {
     const levelButton = event.target.closest('[data-demo-level]');
@@ -558,6 +656,18 @@
       return;
     }
     if (levelButton) { demoState.level = Number(levelButton.dataset.demoLevel); paintDemo(); return; }
+    const sectButton = event.target.closest('[data-demo-sect]');
+    if (sectButton) { demoState.sect = sectButton.dataset.demoSect; paintDemo(); return; }
+    if (event.target.closest('[data-demo-sectall]')) {
+      // 四大宗门各发两条：弟子（筑基，宗门色外框）、宗主（元婴，炫彩流光）
+      const lines = [];
+      SECT_LIST.forEach((sect) => {
+        lines.push([1, `${sect.name}弟子 · 弹幕框外一圈${sect.name}的宗门色`, sect.key, false]);
+        lines.push([3, `${sect.name}宗主 · 炫彩流光`, sect.key, true]);
+      });
+      lines.forEach(([level, text, key, lord], i) => setTimeout(() => sendDemo(level, text, null, false, key, lord), i * 600));
+      return;
+    }
     if (colorButton) { demoState.color[demoState.level] = colorButton.dataset.demoColor; paintDemo(); return; }
     if (event.target.closest('[data-demo-send]')) {
       sendDemo(demoState.level, demoText.value.trim() || '试用弹幕', demoState.color[demoState.level], demo.querySelector('[data-demo-liked]').checked);
@@ -872,6 +982,7 @@
           const isNew = wallsPrimed && !before.includes(String(doc.id));
           fresh = fresh || isNew;
           bubble.className = (isNew ? 'dm-bubble is-pop' : 'dm-bubble') + (tag.side ? (tag.side === '正方' ? ' is-pro' : tag.side === '反方' ? ' is-con' : ' is-role') : '');
+          paintSect(bubble, doc);
           const who = document.createElement('b');
           const realm = realmFor(doc);
           who.className = `is-r${realm ? realm.realm : 0}`;
@@ -1122,12 +1233,15 @@
     }
     await pollRoom();
     await loadRealms();
+    await loadSects();
     await pollDanmaku();
     setInterval(pollDanmaku, POLL_MS);
     setInterval(loadRealms, 20000);
+    setInterval(loadSects, 60000);
     setInterval(async () => {
       if (await pollRoom()) {
         await loadRealms();
+        await loadSects();
         // 换了课堂或弹幕模式：重新整理循环列表，已有弹幕不当作新弹幕
         pool.length = 0;
         inPool.clear();
