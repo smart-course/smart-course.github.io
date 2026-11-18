@@ -453,7 +453,7 @@
     if (result.ok) scene?.playAction?.('unlock', index);
   }
   function sessionDetail() {
-    return engine.online ? (engine.authRequired ? '登录已过期，待确认操作已保留' : engine.accountChanged ? '登录身份已变化，请刷新身份后继续' : engine.busy ? '正在确认操作…' : engine.pending ? '有操作待确认，请同步云端' : engine.connected ? '云端保存 · 灵草与丹药可进入共市' : '连接中断 · 恢复网络后可同步') : '离线独立存档 · 道友为模拟 NPC · 不参与云端交易';
+    return engine.online ? (engine.authRequired ? (engine.blockedReason || (engine.pending ? '登录已过期，待确认操作已保留' : '登录已过期，请重新进入')) :engine.accountChanged ? '登录身份已变化，请刷新身份后继续' : engine.busy ? '正在确认操作…' : engine.pending ? '有操作待确认，请同步云端' : engine.connected ? '云端保存 · 灵草与丹药可进入共市' : '连接中断 · 恢复网络后可同步') : '离线独立存档 · 道友为模拟 NPC · 不参与云端交易';
   }
   function renderTop() {
     const mainPage = activePage === 'journey' ? 'journey' : mode;

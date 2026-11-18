@@ -9,6 +9,7 @@
     let serverAnchor = 0, monotonicAnchor = performance.now(), lastPoll = 0, pending = null;
     let farms = [], nextFarmCursor = null, activeFarmerId = null, pendingChallenge = null, farmHistory = [];
     let farmBatch = null, pendingQuiz = null, api = null;   // 智慧课堂：今天刷到的这一批道友；浇水锄草刷新时抽到、还没答的修炼场题
+    let blockedReason = '';   // 智慧课堂：服务器 403 拒绝整个会话的原因（被销号、老师关了灵田等），顶部横幅显示它而不是“登录已过期”
     const quizBridge = quiz => { pendingQuiz = quiz || null; if (quiz && api) global.LingtianBridge?.onQuiz?.(quiz, api); };
     let farmsLoaded = false, farmLoading = 0, farmError = '', questionBank = null;
     let sect = null, sectLoaded = false, sectLoading = false, sectError = '', sectActive = false;
@@ -132,7 +133,14 @@
           lastError = error;
           if(error.code==='account_mismatch') { accountChanged=true; connected=false; changed(); message('登录身份已变化，旧操作仍绑定原账户。请刷新页面后继续。','error'); return {ok:false,code:error.code,message:error.message}; }
           if(error.code==='study_teacher_required'){rememberPending(null);studyError=error.message;changed();message(error.message,'error');return {ok:false,message:error.message,code:error.code};}
-          if(error.status===401 || error.status===403) { authRequired=true; connected=false; changed(); message('登录状态需要更新，待确认操作已保留。请重新登录后同步。','error'); return {ok:false,pending:true,message:error.message,code:error.code}; }
+          // 智慧课堂 2026-11-18 修：403 是服务器明确不让做（测试身份只看不交换、被销号、老师关了灵田等），这次操作不会生效，
+          // 不保留待确认。以前把 403 当成“登录过期”留着，王不凡点了偷采后一直卡在“有操作待确认”，读取也全停了
+          if(error.status===403) {
+            rememberPending(null);
+            if(['banned','lingtian_closed','sect_required','student_only','teacher_required'].includes(error.code)) { blockedReason=error.message||''; authRequired=true; connected=false; }
+            changed(); message(error.message||'这项操作不被允许。','error'); return {ok:false,message:error.message,code:error.code};
+          }
+          if(error.status===401) { authRequired=true; connected=false; changed(); message('登录状态需要更新，待确认操作已保留。请重新登录后同步。','error'); return {ok:false,pending:true,message:error.message,code:error.code}; }
           if(error.status===429) { connected=false; changed(); message('操作较频繁，待确认请求已保留。请稍后同步云端。','info'); return {ok:false,pending:true,message:error.message,code:error.code}; }
           if (error.status && error.status<500) {
             rememberPending(null); message(error.message,'error');
@@ -180,7 +188,7 @@
           if (studyActive) await readStudy();
           lastPoll=performance.now(); return true;
         }
-        catch (error) { const wasConnected=connected; connected=false; if(error.status===401 || error.status===403){authRequired=true;message('登录已过期，请重新登录后继续。','error');}else if(error.code==='account_mismatch'){accountChanged=true;message('登录身份已变化，请刷新页面后继续。','error');}else if(wasConnected)message('云端连接暂时中断，进度仍保存在服务器。恢复网络后可同步。','info'); changed(); return false; }
+        catch (error) { const wasConnected=connected; connected=false; if(error.status===403){authRequired=true;blockedReason=error.message||'';message(error.message||'暂时不能进入云间灵田。','error');}else if(error.status===401){authRequired=true;message('登录已过期，请重新登录后继续。','error');}else if(error.code==='account_mismatch'){accountChanged=true;message('登录身份已变化，请刷新页面后继续。','error');}else if(wasConnected)message('云端连接暂时中断，进度仍保存在服务器。恢复网络后可同步。','info'); changed(); return false; }
       })().finally(()=>{polling=null;});
       return polling;
     }
@@ -202,7 +210,7 @@
           return data;
         } catch (error) {
           farmError=error.message || '道友名册暂未加载，请稍后重试。';
-          if(error.status===401 || error.status===403) { authRequired=true; connected=false; }
+          if(error.status===401 || error.status===403) { authRequired=true; connected=false; if(error.status===403) blockedReason=error.message||''; }
           if(error.code==='account_mismatch') { accountChanged=true; connected=false; }
           message(farmError,'info'); return null;
         } finally { farmLoading--; farmReads.delete(path); changed(); }
@@ -230,7 +238,7 @@
           return data;
         } catch (error) {
           if (path === sectReadPath) sectError = error.message || '宗门账簿暂未连接，请稍后重试。';
-          if (error.status === 401 || error.status === 403) { authRequired = true; connected = false; }
+          if (error.status === 401 || error.status === 403) { authRequired = true; connected = false; if (error.status === 403) blockedReason = error.message || ''; }
           if (error.code === 'account_mismatch') { accountChanged = true; connected = false; }
           return null;
         } finally { sectReads.delete(path); sectLoading = sectReads.has(sectReadPath); changed(); }
@@ -256,7 +264,7 @@
           hydrateCards(data,path); return data;
         } catch (error) {
           if (path === cardsReadPath) cardsError = error.message || '道藏暂未连通，请稍后重试。';
-          if (error.status === 401 || error.status === 403) { authRequired = true; connected = false; }
+          if (error.status === 401 || error.status === 403) { authRequired = true; connected = false; if (error.status === 403) blockedReason = error.message || ''; }
           if (error.code === 'account_mismatch') { accountChanged = true; connected = false; }
           return null;
         } finally { cardReads.delete(path); cardsLoading = cardReads.has(cardsReadPath); changed(); }
@@ -273,7 +281,7 @@
       studyLoading=true;studyError='';changed();
       const operation=(async()=>{
         try{const data=await request(path);if(!hydrate(data))return null;hydrateStudy(data);return data;}
-        catch(error){studyError=error.message||'参悟记录暂未连通，请稍后重试。';if(error.status===401||(error.status===403&&error.code!=='study_teacher_required')){authRequired=true;connected=false;}if(error.code==='account_mismatch'){accountChanged=true;connected=false;}return null;}
+        catch(error){studyError=error.message||'参悟记录暂未连通，请稍后重试。';if(error.status===401||(error.status===403&&error.code!=='study_teacher_required')){authRequired=true;connected=false;if(error.status===403)blockedReason=error.message||'';}if(error.code==='account_mismatch'){accountChanged=true;connected=false;}return null;}
         finally{studyReads.delete(path);studyLoading=studyReads.size>0;changed();}
       })();studyReads.set(path,operation);return operation;
     }
@@ -284,6 +292,7 @@
       get accountKey(){return accountKey;},
       get accountChanged(){return accountChanged;},
       get authRequired(){return authRequired;},
+      get blockedReason(){return blockedReason;},
       get revision(){return revision;},
       get connected(){return connected;},
       get busy(){return busy;},

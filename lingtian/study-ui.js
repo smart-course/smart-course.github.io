@@ -79,7 +79,7 @@
     function noticeMarkup(showExport=false){
       let text=error||engine.studyError;
       if(engine.pending)text='这次研习结果正在确认，请先同步进度。';
-      if(engine.accountChanged||engine.authRequired)text='登录状态已变化，请返回灵田重新连接。';
+      if(engine.accountChanged||engine.authRequired)text=(!engine.accountChanged&&engine.blockedReason)||'登录状态已变化，请返回灵田重新连接。';
       const memory=state()?.memoryOnly?'<p class="sy-muted sy-memory">当前记录仅保留在本次运行，建议导出完整练习存档。</p>':'';
       return (text?'<div class="sy-notice" role="alert"><p>'+E(text)+'</p>'+button(engine.pending?'sync':'reload',engine.pending?'同步进度':'重新读取')+'</div>':notice?'<p class="sy-notice sy-success" role="status">'+E(notice)+'</p>':'')+(showExport&&lastExport?'<p class="sy-export-ready"><a class="sy-button sy-button-secondary" data-study-download href="'+E(lastExport.url)+'" download="'+E(lastExport.name)+'">保存'+E(lastExport.title)+'</a><small>下载后可直接阅读，也可打印为 PDF。</small></p>':'')+memory;
     }
