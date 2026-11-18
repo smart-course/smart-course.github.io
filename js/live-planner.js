@@ -4,6 +4,8 @@
  *   日程：月历上显示每天的课（按课表和“第 1 周周一”推算）和自己记下的安排（ck_teacher_events）；点日期新建，点安排修改、完成或删除；
  *         类别选“放假停课”的安排会把当天的课划掉。
  *   设置：学期名称、第 1 周周一、周数、上午／下午／晚上各几节、每节起止时间（ck_teacher_settings 的 planner）。
+ *   课表调整（2026-11-18）：选某一周后点课块设置这一周不上课（原因）、期中考试，拖动课块只调这一周的时间；班级卡片里设期中、期末考试
+ *         （ck_teacher_settings 的 adjust，按学期存）；日程、校历、导出 Word 都按调整显示。日程月历显示农历、传统节日和节气（本文件“农历”一节）。
  * 本文件先于 live-teacher.js 加载：live-teacher 登录后调用 ClassLivePlanner.ready(backend, courses)；新建班级表单用 ClassLivePlanner.editor()，
  * “导出与清理 → 班级”用 ClassLivePlanner.editClass()。
  */
@@ -53,6 +55,121 @@
   const cnDate = (d) => `${d.getMonth() + 1} 月 ${d.getDate()} 日 · 星期${WEEKDAYS[weekday(d) - 1]}`;
   const firstMonday = (year, month) => { const d = new Date(year, month, 1); return addDays(d, (8 - weekday(d)) % 7); };
   // 按今天猜学期：8 月到次年 1 月是第一学期（9 月第一个周一开学），2—7 月是第二学期（3 月第一个周一开学）
+
+  // ---------------- 农历（2026-11-18 用户：“日程中加入农历的信息，比如农历新年等”）----------------
+  // 按北京时间推算：朔用 Meeus《天文算法》第 49 章（误差在秒级），节气用太阳视黄经，置闰按 GB/T 33661-2017（含冬至的月为十一月；
+  // 两个十一月之间有 13 个月时，第一个不含中气的月为闰月）。不用浏览器自带的农历（Intl chinese）：朔接近午夜时它会差一天，
+  // 如把 2027 年春节算成 2 月 7 日（应为 2 月 6 日）、2030 年算成 2 月 2 日（应为 2 月 3 日）。2020—2035 年每年春节、闰月、节气已核对
+  const Lunar = (() => {
+    const RAD = Math.PI / 180;
+    const sin = (deg) => Math.sin(deg * RAD);
+    const norm = (deg) => ((deg % 360) + 360) % 360;
+    const deltaT = (year) => 69 + Math.max(0, year - 2025) * 0.3;   // ΔT（秒）：近年约 69 秒
+    function newMoonJDE(k) {
+      const T = k / 1236.85, T2 = T * T, T3 = T2 * T, T4 = T3 * T;
+      let jde = 2451550.09766 + 29.530588861 * k + 0.00015437 * T2 - 0.00000015 * T3 + 0.00000000073 * T4;
+      const E = 1 - 0.002516 * T - 0.0000074 * T2;
+      const M = 2.5534 + 29.1053567 * k - 0.0000014 * T2 - 0.00000011 * T3;
+      const Mp = 201.5643 + 385.81693528 * k + 0.0107582 * T2 + 0.00001238 * T3 - 0.000000058 * T4;
+      const F = 160.7108 + 390.67050284 * k - 0.0016118 * T2 - 0.00000227 * T3 + 0.000000011 * T4;
+      const Om = 124.7746 - 1.56375588 * k + 0.0020672 * T2 + 0.00000215 * T3;
+      jde += -0.4072 * sin(Mp) + 0.17241 * E * sin(M) + 0.01608 * sin(2 * Mp) + 0.01039 * sin(2 * F) + 0.00739 * E * sin(Mp - M)
+        - 0.00514 * E * sin(Mp + M) + 0.00208 * E * E * sin(2 * M) - 0.00111 * sin(Mp - 2 * F) - 0.00057 * sin(Mp + 2 * F)
+        + 0.00056 * E * sin(2 * Mp + M) - 0.00042 * sin(3 * Mp) + 0.00042 * E * sin(M + 2 * F) + 0.00038 * E * sin(M - 2 * F)
+        - 0.00024 * E * sin(2 * Mp - M) - 0.00017 * sin(Om) - 0.00007 * sin(Mp + 2 * M) + 0.00004 * sin(2 * Mp - 2 * F)
+        + 0.00004 * sin(3 * M) + 0.00003 * sin(Mp + M - 2 * F) + 0.00003 * sin(2 * Mp + 2 * F) - 0.00003 * sin(Mp + M + 2 * F)
+        + 0.00003 * sin(Mp - M + 2 * F) - 0.00002 * sin(Mp - M - 2 * F) - 0.00002 * sin(3 * Mp + M) + 0.00002 * sin(4 * Mp);
+      [[299.77 + 0.107408 * k - 0.009173 * T2, 0.000325], [251.88 + 0.016321 * k, 0.000165], [251.83 + 26.651886 * k, 0.000164],
+        [349.42 + 36.412478 * k, 0.000126], [84.66 + 18.206239 * k, 0.00011], [141.74 + 53.303771 * k, 0.000062], [207.14 + 2.453732 * k, 0.00006],
+        [154.84 + 7.30686 * k, 0.000056], [34.52 + 27.261239 * k, 0.000047], [207.19 + 0.121824 * k, 0.000042], [291.34 + 1.844379 * k, 0.00004],
+        [161.72 + 24.198154 * k, 0.000037], [239.56 + 25.513099 * k, 0.000035], [331.55 + 3.592518 * k, 0.000023]].forEach(([a, c]) => { jde += c * sin(a); });
+      return jde;
+    }
+    function sunLongitude(jde) {
+      const T = (jde - 2451545) / 36525;
+      const L0 = 280.46646 + 36000.76983 * T + 0.0003032 * T * T;
+      const M = 357.52911 + 35999.05029 * T - 0.0001537 * T * T;
+      const C = (1.914602 - 0.004817 * T - 0.000014 * T * T) * sin(M) + (0.019993 - 0.000101 * T) * sin(2 * M) + 0.000289 * sin(3 * M);
+      return norm(L0 + C - 0.00569 - 0.00478 * sin(125.04 - 1934.136 * T));
+    }
+    function termJDE(lon, guess) {
+      let jd = guess;
+      for (let i = 0; i < 8; i += 1) { const diff = ((lon - sunLongitude(jd) + 540) % 360) - 180; jd += diff / 0.98564736; if (Math.abs(diff) < 1e-7) break; }
+      return jd;
+    }
+    const bjDay = (jde) => Math.floor(jde - deltaT(2000 + (jde - 2451545) / 365.25) / 86400 + 8 / 24 + 0.5);   // 北京时间的日序号
+    function jdn(y, m, d) {
+      const a = Math.floor((14 - m) / 12), yy = y + 4800 - a, mm = m + 12 * a - 3;
+      return d + Math.floor((153 * mm + 2) / 5) + 365 * yy + Math.floor(yy / 4) - Math.floor(yy / 100) + Math.floor(yy / 400) - 32045;
+    }
+    const yearOfJdn = (n) => { const a = n + 32044, b = Math.floor((4 * a + 3) / 146097), c = a - Math.floor(146097 * b / 4), d = Math.floor((4 * c + 3) / 1461), e = c - Math.floor(1461 * d / 4), m = Math.floor((5 * e + 2) / 153); return 100 * b + d - 4800 + Math.floor(m / 10); };
+    const NAMES = ['春分', '清明', '谷雨', '立夏', '小满', '芒种', '夏至', '小暑', '大暑', '立秋', '处暑', '白露', '秋分', '寒露', '霜降', '立冬', '小雪', '大雪', '冬至', '小寒', '大寒', '立春', '雨水', '惊蛰'];
+    const termCache = new Map();
+    function termsOf(year) {   // 这一公历年里的 24 个节气（北京日序号；mid＝中气）
+      if (termCache.has(year)) return termCache.get(year);
+      const list = [];
+      for (let i = -5; i < 24; i += 1) {
+        const idx = (i + 24) % 24;
+        const day = bjDay(termJDE(idx * 15, jdn(year, 3, 20) + i * 15.2184 - 0.5));
+        if (yearOfJdn(day) === year) list.push({ name: NAMES[idx], day, mid: idx % 2 === 0 });
+      }
+      termCache.set(year, list);
+      return list;
+    }
+    const winterSolstice = (year) => bjDay(termJDE(270, jdn(year, 12, 21) - 0.5));
+    function newMoonOnOrBefore(day) {
+      let k = Math.floor((day - 2451550.1) / 29.530588861);
+      while (bjDay(newMoonJDE(k + 1)) <= day) k += 1;
+      while (bjDay(newMoonJDE(k)) > day) k -= 1;
+      return k;
+    }
+    const hasMidTerm = (a, b) => { for (let y = yearOfJdn(a); y <= yearOfJdn(b); y += 1) if (termsOf(y).some((x) => x.mid && x.day >= a && x.day < b)) return true; return false; };
+    const suiCache = new Map();
+    function suiOf(year) {   // 从上一年冬至所在月（十一月）到今年冬至所在月之前的各月：起止日序号、月序、是否闰月
+      if (suiCache.has(year)) return suiCache.get(year);
+      const k0 = newMoonOnOrBefore(winterSolstice(year - 1)), k1 = newMoonOnOrBefore(winterSolstice(year));
+      const starts = [];
+      for (let k = k0; k <= k1 + 1; k += 1) starts.push(bjDay(newMoonJDE(k)));
+      const count = k1 - k0;
+      let leapAt = -1;
+      if (count === 13) for (let i = 0; i < 13; i += 1) if (!hasMidTerm(starts[i], starts[i + 1])) { leapAt = i; break; }
+      const list = [];
+      let num = 11;
+      for (let i = 0; i < count; i += 1) { const leap = i === leapAt; if (i > 0 && !leap) num = num % 12 + 1; list.push({ start: starts[i], end: starts[i + 1], num, leap }); }
+      suiCache.set(year, list);
+      return list;
+    }
+    const MONTHS = ['正月', '二月', '三月', '四月', '五月', '六月', '七月', '八月', '九月', '十月', '冬月', '腊月'];
+    const DAYS = ['初一', '初二', '初三', '初四', '初五', '初六', '初七', '初八', '初九', '初十', '十一', '十二', '十三', '十四', '十五',
+      '十六', '十七', '十八', '十九', '二十', '廿一', '廿二', '廿三', '廿四', '廿五', '廿六', '廿七', '廿八', '廿九', '三十'];
+    const FESTIVALS = { '1-1': '春节', '1-15': '元宵节', '2-2': '龙抬头', '5-5': '端午节', '7-7': '七夕', '7-15': '中元节', '8-15': '中秋节', '9-9': '重阳节', '12-8': '腊八节', '12-23': '小年' };
+    const cache = new Map();
+    function of(date) {
+      const y = date.getFullYear(), m = date.getMonth() + 1, d = date.getDate(), key = `${y}-${m}-${d}`;
+      if (cache.has(key)) return cache.get(key);
+      let out = null;
+      try {
+        const day = jdn(y, m, d);
+        const month = suiOf(y + 1).concat(suiOf(y)).find((mo) => day >= mo.start && day < mo.end);
+        if (month) {
+          const dayNo = day - month.start + 1;
+          const first = (suiOf(y).find((mo) => mo.num === 1 && !mo.leap) || {}).start;
+          const ly = first && day >= first ? y : y - 1;
+          let festival = month.leap ? '' : FESTIVALS[`${month.num}-${dayNo}`] || '';
+          if (!month.leap && month.num === 12 && day === month.end - 1) festival = '除夕';
+          const term = (termsOf(y).find((x) => x.day === day) || {}).name || '';
+          const monthName = `${month.leap ? '闰' : ''}${MONTHS[month.num - 1]}`;
+          out = { month: month.num, day: dayNo, leap: month.leap, monthName, dayName: DAYS[dayNo - 1], festival, term,
+            yearName: `${'甲乙丙丁戊己庚辛壬癸'[((ly - 4) % 10 + 10) % 10]}${'子丑寅卯辰巳午未申酉戌亥'[((ly - 4) % 12 + 12) % 12]}`,
+            zodiac: '鼠牛虎兔龙蛇马羊猴鸡狗猪'[((ly - 4) % 12 + 12) % 12], label: festival || term || (dayNo === 1 ? monthName : DAYS[dayNo - 1]) };
+        }
+      } catch (error) { out = null; }
+      cache.set(key, out);
+      return out;
+    }
+    return { of };
+  })();
+
   function guessTerm(now = today()) {
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
@@ -108,6 +225,7 @@
     editing: null,       // 正在修改的安排 id
     flash: '',           // 上传课表的结果
     calendar: { years: {}, current: '' },   // 校历（各学年）
+    adjust: { terms: {} },                  // 课表调整（某周不上课、期中考试、调课、期末考试；见下面“课表调整”）
     schoolTerm: null,    // 校历正在看的学期
     editors: new Set(),
   };
@@ -152,23 +270,107 @@
       klass.schedule.slots.forEach((slot, i) => {
         const from = Math.max(1, Number(slot.from) || 1);
         const to = Math.max(from, Number(slot.to) || from);
-        out.push({ klass, plan: klass.schedule, slot, key: `${klass.id}:${i}`, day: Number(slot.day) || 1, from, to, room: slot.room || klass.schedule.room || '', c, s });
+        out.push({ klass, plan: klass.schedule, slot, slotIndex: i, key: `${klass.id}:${i}`, day: Number(slot.day) || 1, from, to, room: slot.room || klass.schedule.room || '', c, s });
       });
     });
     return out;
   }
+  // ---------------- 课表调整（2026-11-18）----------------
+  // 用户：“课表中，每周的课程可以单独设置不上课的情况，比如第九周是运动会，我可以设置为不上课。第十周是随堂期中考试，增加期中考试的按钮选项，
+  //   我可以自己设置哪周是期中考试。期末考试的日期也可以自行添加。然后还要考虑到调课的情况，比如我可以把第十周2648班的课从第7-8节调到第9-10节，
+  //   但是其它周保持不变，能不能做一个拖动的效果？直接从7-8节拖动到9-10节。”
+  // 存在工作台设置 adjust（ck_teacher_settings，30000 字节以内，按学期）：{ terms: { 学期名: { items, finals } } }
+  //   items：某班的某段上课时间（slot＝第几段）在某一周的例外——off 不上课（原因）、exam 'midterm' 期中考试、at 这一周调到 { day, from, to }
+  //   finals：期末考试 { klass, date, from, to, start, end, room, note }（节次或时间都可以空着）
+  const ADJ_NOT_READY = '后台还没有“课表调整”：请先在云开发控制台执行 tools/cloudbase-pg-20261118-课表调整.sql，之后才能保存不上课、期中考试、调课和期末考试。';
+  const hhmm = (v) => (/^\d{2}:\d{2}$/.test(String(v || '')) ? String(v) : '');
+  function normalizeAdjust(value) {
+    const out = { terms: {} };
+    const terms = value && typeof value === 'object' && value.terms && typeof value.terms === 'object' ? value.terms : {};
+    Object.keys(terms).slice(0, 12).forEach((term) => {
+      const t = terms[term] || {};
+      const items = (Array.isArray(t.items) ? t.items : []).filter((a) => a && a.klass != null && Number(a.week) >= 1).slice(0, 300).map((a) => {
+        const at = a.at && Number(a.at.day) >= 1 && Number(a.at.day) <= 7 && Number(a.at.from) >= 1
+          ? { day: Number(a.at.day), from: Number(a.at.from), to: Math.max(Number(a.at.from), Number(a.at.to) || Number(a.at.from)) } : null;
+        return { klass: String(a.klass), slot: Math.max(0, Number(a.slot) || 0), week: Number(a.week), off: clip(a.off, 20), exam: a.exam === 'midterm' ? 'midterm' : '', at };
+      }).filter((a) => a.off || a.exam || a.at);
+      const finals = (Array.isArray(t.finals) ? t.finals : []).filter((f) => f && f.klass != null && parseDay(f.date)).slice(0, 60).map((f) => ({
+        klass: String(f.klass), date: String(f.date).slice(0, 10), from: Math.max(0, Number(f.from) || 0), to: Math.max(Number(f.from) || 0, Number(f.to) || 0),
+        start: hhmm(f.start), end: hhmm(f.end), room: clip(f.room, 40), note: clip(f.note, 60) }));
+      if (items.length || finals.length) out.terms[clip(term, 40)] = { items, finals };
+    });
+    return out;
+  }
+  const adjOf = (term) => state.adjust.terms[term] || { items: [], finals: [] };
+  const sameOcc = (a, klassId, slot, week) => String(a.klass) === String(klassId) && Number(a.slot) === Number(slot) && Number(a.week) === Number(week);
+  const adjAt = (term, klassId, slot, week) => adjOf(term).items.find((a) => sameOcc(a, klassId, slot, week)) || null;
+  const adjError = (error) => (missingError(error) || /设置不正确/.test(String((error && error.message) || error)) ? ADJ_NOT_READY : `保存失败：${(error && error.message) || error}`);
+  // 保存调整：fn 在副本上改这一学期的 { items, finals }；超过后台上限时先提示
+  async function saveAdjust(term, fn) {
+    const next = JSON.parse(JSON.stringify(state.adjust));
+    const t = next.terms[term] || { items: [], finals: [] };
+    fn(t);
+    t.items = t.items.filter((a) => a.off || a.exam || a.at);
+    if (t.items.length || t.finals.length) next.terms[term] = t; else delete next.terms[term];
+    const value = normalizeAdjust(next);
+    if (new TextEncoder().encode(JSON.stringify(value)).length > 29000) throw new Error('调整记录太多，超过保存上限，请先删掉一些已经过去的调课或停课。');
+    await state.backend.rpc('ck_save_teacher_setting', { p_key: 'adjust', p_value: value });
+    state.adjust = value;
+  }
+  const putOcc = (t, klassId, slot, week, patch) => {
+    let a = t.items.find((x) => sameOcc(x, klassId, slot, week));
+    if (!a) { a = { klass: String(klassId), slot: Number(slot), week: Number(week), off: '', exam: '', at: null }; t.items.push(a); }
+    Object.assign(a, patch);
+  };
+  // 某一周的课（已按调整处理）：off 不上课的原因、exam 期中考试、moved 调来的（orig＝原来的时间）、away 调走后留在原处的影子
+  function weekSessions(term, week) {
+    const out = [];
+    sessionsOf(term).forEach((item) => {
+      if (!inWeek(item.plan, item.slot, week)) return;
+      const adj = adjAt(term, item.klass.id, item.slotIndex, week);
+      const base = { ...item, week, adj, off: adj && adj.off ? adj.off : '', exam: adj && !adj.off ? adj.exam : '' };
+      if (adj && adj.at && !adj.off) {
+        out.push({ ...base, away: true, exam: '' });
+        out.push({ ...base, moved: true, day: adj.at.day, from: adj.at.from, to: Math.max(adj.at.from, adj.at.to), orig: { day: item.day, from: item.from, to: item.to } });
+      } else out.push(base);
+    });
+    return out;
+  }
+  // 期末考试（本学期、这一天）：带班级和颜色
+  function finalsOn(term, key) {
+    const ref = new Map(sessionsOf(term).map((item) => [String(item.klass.id), item]));
+    return adjOf(term).finals.filter((f) => f.date === key).map((f) => {
+      const r = ref.get(String(f.klass));
+      const klass = r ? r.klass : findClass(f.klass);
+      return klass ? { klass, final: f, from: f.from, to: f.to, c: r ? r.c : '#8e3434', s: r ? r.s : '#f6e1e1', room: f.room || (r ? r.room : ''), key: `final:${f.klass}` } : null;
+    }).filter(Boolean);
+  }
+  const finalTime = (f) => (f.from ? `${periodText(f.from, f.to || f.from)}${timeOf(f.from, f.to || f.from) ? ` ${timeOf(f.from, f.to || f.from)}` : ''}` : f.start ? `${f.start}${f.end ? `—${f.end}` : ''}` : '时间待定');
+  const atText = (at) => `星期${WEEKDAYS[at.day - 1]} ${periodText(at.from, at.to)}`;
+  // 一个班本学期的调整，写成一句话（班级卡片、校历、Word 用）
+  function adjSummary(term, klassId) {
+    const items = adjOf(term).items.filter((a) => String(a.klass) === String(klassId)).sort((a, b) => a.week - b.week || a.slot - b.slot);
+    const parts = items.map((a) => `第 ${a.week} 周${a.off ? `不上课（${a.off}）` : [a.exam ? '期中考试' : '', a.at ? `调到${atText(a.at)}` : ''].filter(Boolean).join('、')}`);
+    adjOf(term).finals.filter((f) => String(f.klass) === String(klassId)).forEach((f) => { const d = parseDay(f.date); parts.push(`期末考试 ${md(d)}（周${WEEKDAYS[weekday(d) - 1]}）${finalTime(f)}${f.room ? ` · ${f.room}` : ''}`); });
+    return parts;
+  }
+
   const weekOf = (date) => Math.floor(dayDiff(date, parseDay(state.settings.start)) / 7) + 1;
   const currentWeek = () => { const w = weekOf(today()); return w >= 1 && w <= state.settings.weeks ? w : null; };
   // 某一天的课（只算当前学期）
   // 调休上班（校历）：这天上“周几”的课，周次按被占用的那一天算（如 9/20 周日补国庆假期里 10/6 周二的课）
-  function classesOn(date) {
-    const work = schoolDay(ymd(date)).work;
+  // 2026-11-18 起按课表调整：某周不上课的带 off（原因）、期中考试带 exam、调来的带 moved；调走的影子只在 opts.away 时给；期末考试按日期加进来（带 final）
+  function classesOn(date, opts = {}) {
+    const key = ymd(date);
+    const work = schoolDay(key).work;
     const source = work ? makeupSource(work) : null;
     const week = weekOf(source ? source.date : date);
-    if (week < 1 || week > state.settings.weeks) return [];
+    const finals = finalsOn(state.settings.term, key);
+    const order = (a, b) => (a.from || 0) - (b.from || 0) || String((a.final && a.final.start) || '').localeCompare(String((b.final && b.final.start) || ''));
+    if (week < 1 || week > state.settings.weeks) return finals.sort(order);
     const day = work ? Number(work.as) : weekday(date);
-    return sessionsOf(state.settings.term).filter((item) => item.day === day && inWeek(item.plan, item.slot, week))
-      .map((item) => (work ? { ...item, makeup: work, makeupFrom: source ? ymd(source.date) : '' } : item)).sort((a, b) => a.from - b.from);
+    return weekSessions(state.settings.term, week).filter((item) => item.day === day && (opts.away || !item.away))
+      .map((item) => (work ? { ...item, makeup: work, makeupFrom: source ? ymd(source.date) : '' } : item)).concat(finals).sort(order);
   }
   const eventsOn = (key) => state.events.filter((item) => String(item.day).slice(0, 10) === key)
     .sort((a, b) => String(a.start_time || '99').localeCompare(String(b.start_time || '99')) || Number(a.id) - Number(b.id));
@@ -386,6 +588,8 @@
       if (row) state.settings = normalize(row.value);
       const cal = settings.value.find((item) => item.key === 'calendar');
       if (cal) state.calendar = normalizeCalendar(cal.value);
+      const adj = settings.value.find((item) => item.key === 'adjust');
+      state.adjust = adj ? normalizeAdjust(adj.value) : { terms: {} };
     }
     if (classes.status === 'fulfilled') state.classes = classes.value;
     if (events.status === 'fulfilled') state.events = events.value;
@@ -442,11 +646,17 @@
       for (let i = 0; i < n; i += 1) { rowOf[p] = r; rows.push('minmax(64px, auto)'); r += 1; p += 1; }
     });
     const dayCol = (d) => 2 + d;
+    // 选了某一周（本学期）：按课表调整排（不上课、期中考试、调课、期末考试），课块可以拖到别的时间（只调这一周）
+    const weekMode = Boolean(week) && isCurrent;
+    const occ = weekMode ? weekSessions(state.term, week) : null;
+    const weekFinals = weekMode ? Array.from({ length: 7 }, (_, i) => finalsOn(state.term, ymd(addDays(monday, i))).map((f) => ({ ...f, day: i + 1 }))).flat() : [];
     const head = Array.from({ length: days }, (_, i) => {
       const date = monday ? addDays(monday, i) : null;
       const isToday = date && ymd(date) === todayKey;
       const off = date && holidayOn(ymd(date));
-      return `<div class="pl-tt-day${isToday ? ' is-today' : ''}${off ? ' is-off' : ''}" style="grid-column:${dayCol(i + 1)};grid-row:1">星期${WEEKDAYS[i]}${date ? `<small>${md(date)}${off ? ' · 停课' : ''}</small>` : ''}</div>`;
+      const loose = weekFinals.filter((f) => f.day === i + 1 && !(f.from >= 1));
+      return `<div class="pl-tt-day${isToday ? ' is-today' : ''}${off ? ' is-off' : ''}" style="grid-column:${dayCol(i + 1)};grid-row:1">星期${WEEKDAYS[i]}${date ? `<small>${md(date)}${off ? ' · 停课' : ''}</small>` : ''}`
+        + `${loose.map((f) => `<button type="button" class="pl-tt-final-tag" data-pl-exam="${esc(f.klass.id)}" title="${esc(`期末考试 · ${titleOf(f.klass)} · ${f.klass.name}\n${finalTime(f.final)}${f.room ? ` · ${f.room}` : ''}`)}">期末 ${esc(f.klass.name)}${f.final.start ? ` ${esc(f.final.start)}` : ''}</button>`).join('')}</div>`;
     }).join('');
     let cells = '';
     let k0 = -1;
@@ -461,7 +671,7 @@
       cells += `<div class="pl-tt-num" style="grid-column:2;grid-row:${rowOf[q]}"><b>${q}</b><small>${esc(t.from)}${t.from || t.to ? '<br>' : ''}${esc(t.to)}</small></div>`;
       for (let d = 1; d <= days; d += 1) {
         const date = monday ? ymd(addDays(monday, d - 1)) : '';
-        cells += `<div class="pl-tt-cell${date === todayKey ? ' is-today' : ''}${q === state.settings.sections.slice(0, k + 1).reduce((a, b) => a + b, 0) ? ' is-end' : ''}" style="grid-column:${dayCol(d)};grid-row:${rowOf[q]}"></div>`;
+        cells += `<div class="pl-tt-cell${date === todayKey ? ' is-today' : ''}${q === state.settings.sections.slice(0, k + 1).reduce((a, b) => a + b, 0) ? ' is-end' : ''}" style="grid-column:${dayCol(d)};grid-row:${rowOf[q]}"${weekMode ? ` data-pl-cell="${d}:${q}"` : ''}></div>`;
       }
     }
     const breaks = breakRows.map((b) => {
@@ -470,29 +680,58 @@
       return `<div class="pl-tt-break" style="grid-column:1 / -1;grid-row:${b.row}"><span>${b.name}${end && next && end.to && next.from ? ` ${end.to}—${next.from}` : ''}</span></div>`;
     }).join('');
     let blocks = '';
+    const adjTerm = adjOf(state.term);
+    const source = weekMode ? occ.concat(weekFinals.filter((f) => f.from >= 1)) : sessions;
     for (let d = 1; d <= days; d += 1) {
-      clusters(sessions.filter((item) => item.day === d && item.from <= periodCount())).forEach((group) => {
+      clusters(source.filter((item) => item.day === d && item.from <= periodCount())).forEach((group) => {
         group.items.forEach((item) => {
           const to = Math.min(item.to, periodCount());
+          const style = `grid-column:${dayCol(d)};grid-row:${rowOf[item.from]} / ${(rowOf[to] || rowOf[item.from]) + 1};--c:${item.c};--s:${item.s};--lane:${item.lane};--lanes:${group.lanes}`;
+          if (item.final) {   // 期末考试（写了节次的）
+            blocks += `<button type="button" class="pl-tt-block is-final" data-pl-exam="${esc(item.klass.id)}" style="${style}"
+              title="${esc(`期末考试 · ${titleOf(item.klass)} · ${item.klass.name}\n${finalTime(item.final)}${item.room ? ` · ${item.room}` : ''}\n点击修改考试安排`)}">
+              <em>期末</em><b>期末考试</b><span class="pl-tt-class">${esc(item.klass.name)}</span>
+              ${item.room ? `<span class="pl-tt-room">${ICONS.pin}${esc(item.room)}</span>` : ''}<small>${esc(titleOf(item.klass))}</small></button>`;
+            return;
+          }
           const active = !week || inWeek(item.plan, item.slot, week);
           const date = monday ? ymd(addDays(monday, d - 1)) : '';
-          const off = active && date && holidayOn(date);
-          const note = !active ? '本周不上' : off ? '放假停课' : '';
+          const holiday = active && date && holidayOn(date);
           const tags = [weekRange(slotWeeks(item.plan, item.slot)), PARITY[item.slot.parity]].filter(Boolean).join(' · ');
-          blocks += `<button type="button" class="pl-tt-block${active && !off ? '' : ' is-idle'}${group.lanes > 1 ? ' is-clash' : ''}" data-pl-edit="${esc(item.klass.id)}"
-            style="grid-column:${dayCol(d)};grid-row:${rowOf[item.from]} / ${(rowOf[to] || rowOf[item.from]) + 1};--c:${item.c};--s:${item.s};--lane:${item.lane};--lanes:${group.lanes}"
-            title="${esc(`${titleOf(item.klass)} · ${item.klass.name}\n${periodText(item.from, item.to)} ${timeOf(item.from, item.to)}\n点击修改上课时间`)}">
+          if (weekMode) {
+            const offWhy = item.off || (holiday && !item.moved ? '放假停课' : '');
+            const note = item.away ? `已调到${atText(item.adj.at)}` : offWhy ? (item.off ? `不上课 · ${item.off}` : offWhy) : item.moved ? `调课 · 原星期${WEEKDAYS[item.orig.day - 1]}${periodText(item.orig.from, item.orig.to)}` : '';
+            const drag = !item.away && !offWhy;
+            blocks += `<button type="button" class="pl-tt-block${offWhy || item.away ? ' is-idle' : ''}${item.away ? ' is-away' : ''}${item.moved ? ' is-moved' : ''}${item.exam ? ' is-exam' : ''}${group.lanes > 1 ? ' is-clash' : ''}"
+              data-pl-occ="${esc(item.klass.id)}|${item.slotIndex}" data-len="${item.to - item.from + 1}"${drag ? ' draggable="true"' : ''} style="${style}"
+              title="${esc(`${titleOf(item.klass)} · ${item.klass.name}\n第 ${week} 周 ${periodText(item.from, item.to)} ${timeOf(item.from, item.to)}${note ? `\n${note}` : ''}\n${drag ? '拖到别的时间可以只调这一周；' : ''}点击设置这一周：不上课、期中考试、调课`)}">
+              <em>${item.exam ? '期中' : esc(tagOf(item.klass))}</em>
+              <b>${esc(titleOf(item.klass))}</b>
+              <span class="pl-tt-class">${esc(item.klass.name)}${rosterCount(item.klass) ? `<i>${rosterCount(item.klass)} 人</i>` : ''}</span>
+              ${item.room ? `<span class="pl-tt-room">${ICONS.pin}${esc(item.room)}</span>` : ''}
+              <small>${item.exam ? '<span class="pl-tt-exam">期中考试</span>' : ''}${note ? `<strong>${esc(note)}</strong>` : esc(tags)}</small>
+            </button>`;
+            return;
+          }
+          // 全部周次：照常显示，附上这段课本学期的调整（如“第9周停 · 第10周期中”）
+          const marks = adjTerm.items.filter((a) => String(a.klass) === String(item.klass.id) && a.slot === item.slotIndex).sort((a, b) => a.week - b.week)
+            .map((a) => `第${a.week}周${a.off ? '停' : a.exam ? (a.at ? '期中·调' : '期中') : '调'}`);
+          const note = !active ? '本周不上' : holiday ? '放假停课' : '';
+          blocks += `<button type="button" class="pl-tt-block${active && !holiday ? '' : ' is-idle'}${group.lanes > 1 ? ' is-clash' : ''}" data-pl-edit="${esc(item.klass.id)}" style="${style}"
+            title="${esc(`${titleOf(item.klass)} · ${item.klass.name}\n${periodText(item.from, item.to)} ${timeOf(item.from, item.to)}${marks.length ? `\n本学期调整：${marks.join('，')}` : ''}\n点击修改上课时间；选某一周可以单独设置那一周`)}">
             <em>${esc(tagOf(item.klass))}</em>
             <b>${esc(titleOf(item.klass))}</b>
             <span class="pl-tt-class">${esc(item.klass.name)}${rosterCount(item.klass) ? `<i>${rosterCount(item.klass)} 人</i>` : ''}</span>
             ${item.room ? `<span class="pl-tt-room">${ICONS.pin}${esc(item.room)}</span>` : ''}
-            <small>${esc(tags)}${note ? `<strong>${note}</strong>` : ''}</small>
+            <small>${esc(tags)}${note ? `<strong>${note}</strong>` : ''}${marks.length ? `<span class="pl-tt-marks">${esc(marks.slice(0, 4).join(' · '))}${marks.length > 4 ? ' …' : ''}</span>` : ''}</small>
           </button>`;
         });
       });
     }
-    const clash = sessions.some((a) => sessions.some((b) => a !== b && a.day === b.day && a.from <= b.to && b.from <= a.to
-      && (!week || (inWeek(a.plan, a.slot, week) && inWeek(b.plan, b.slot, week)))));
+    const live = weekMode ? occ.filter((item) => !item.away && !item.off) : null;
+    const clash = weekMode ? live.some((a) => live.some((b) => a !== b && a.day === b.day && a.from <= b.to && b.from <= a.to))
+      : sessions.some((a) => sessions.some((b) => a !== b && a.day === b.day && a.from <= b.to && b.from <= a.to
+        && (!week || (inWeek(a.plan, a.slot, week) && inWeek(b.plan, b.slot, week)))));
     const weekNav = isCurrent ? `<div class="pl-weeknav">
         <button type="button" class="pl-icon" data-pl-week="-1" aria-label="上一周"${week <= 1 ? ' disabled' : ''}>${ICONS.prev}</button>
         <select data-pl-week-select aria-label="选择周次"><option value="0"${!week ? ' selected' : ''}>全部周次</option>${Array.from({ length: state.settings.weeks }, (_, i) => `<option value="${i + 1}"${week === i + 1 ? ' selected' : ''}>第 ${i + 1} 周${nowWeek === i + 1 ? '（本周）' : ''}</option>`).join('')}</select>
@@ -515,6 +754,8 @@
           <button type="button" class="tw-secondary pl-btn" data-pl-print>打印</button>
         </div>
       </div>
+      ${weekMode ? `<p class="pl-hint-line">第 ${week} 周：<b>拖动课块</b>可以只调这一周的上课时间（其他周不变）；<b>点课块</b>设置这一周不上课、期中考试；期末考试在下面各班卡片里添加。</p>`
+        : isCurrent ? '<p class="pl-hint-line">选一周（上方“第几周”）后，可以拖动课块只调那一周，点课块设置那一周不上课、期中考试。</p>' : ''}
       ${clash ? '<p class="pl-warn">有两个班的上课时间重叠（并排显示的格子），请核对。</p>' : ''}
       <div class="pl-tt-wrap"><div class="pl-tt" style="--days:${days};grid-template-rows:auto ${rows.join(' ')}">
         <div class="pl-tt-corner" style="grid-column:1 / span 2;grid-row:1">${week ? `第 ${week} 周` : '节次'}</div>
@@ -527,7 +768,9 @@
           <div><em>${esc(tagOf(item.klass))}</em><b>${esc(item.klass.name)}</b><small>${esc(titleOf(item.klass))}${rosterCount(item.klass) ? ` · ${rosterCount(item.klass)} 人` : ''}${item.klass.extra ? ' · 不在本网站上课' : ''}</small></div>
           <p>${summaryHtml(item.klass.schedule)}</p>
           <p class="pl-class-times">${item.klass.schedule.slots.map((slot) => `周${WEEKDAYS[slot.day - 1]} ${timeOf(Number(slot.from), Number(slot.to))}`).filter((t) => /\d/.test(t)).join('　')}</p>
-          <button type="button" class="pl-link" data-pl-edit="${esc(item.klass.id)}">${item.klass.extra ? '修改这门课' : '修改上课时间'}</button>
+          ${(() => { const parts = adjSummary(state.term, item.klass.id); return parts.length ? `<ul class="pl-class-adj">${parts.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''; })()}
+          <span class="pl-class-acts"><button type="button" class="pl-link" data-pl-edit="${esc(item.klass.id)}">${item.klass.extra ? '修改这门课' : '修改上课时间'}</button>
+          <button type="button" class="pl-link" data-pl-exam="${esc(item.klass.id)}">期中、期末考试</button></span>
         </article>`).join('')}
         <button type="button" class="pl-class-add" data-pl-extra-add><b>＋ 添加其他课程</b><span>不在本网站上课的课（如研究生课），也可以排进课表和日程</span></button></div>
       ${pending.length ? `<h2 class="pl-h2">还没有填写上课时间的班级</h2>
@@ -596,7 +839,10 @@
     const title = O.para(`教师课表（${state.term}${week ? ` · 第 ${week} 周` : ''}）`, 'title');
     const info = s.dept || s.teacher || s.staff ? O.para(`教师所属部门：${s.dept}　　教师：${s.teacher}　　教师工号：${s.staff}`, 'subtitle') : '';
     const note = O.para(`本课表按教师工作台填写的上课时间生成，仅供参考，准确信息以学校教务系统为准。打印日期：${now.getFullYear()}/${now.getMonth() + 1}/${now.getDate()}`, 'note');
-    const blob = O.docx(title + info + note + grid + O.para('上课班级', 'h', { pageBreak: true }) + list, { landscape: true });
+    // 课表调整与考试安排（2026-11-18）：某周不上课、期中考试、调课、期末考试，按班级列出
+    const adjRows = classes.map((klass) => { const parts = adjSummary(state.term, klass.id); return parts.length ? [titleOf(klass), klass.name, parts.join('；')] : null; }).filter(Boolean);
+    const adjTable = adjRows.length ? O.para('课表调整与考试安排', 'h') + O.table([['课程', '班级', '调整与考试']].concat(adjRows), [2900, 2300, 8700]) : '';
+    const blob = O.docx(title + info + note + grid + O.para('上课班级', 'h', { pageBreak: true }) + list + adjTable, { landscape: true });
     O.save(blob, `教师课表_${state.term.replace(/\s+/g, '')}${week ? `_第${week}周` : ''}.docx`);
   }
 
@@ -1072,7 +1318,7 @@
       + `${y.preset ? '按 10 月 28 日提供的校历图片录入，核对后可在“修改校历”里改。' : ''}校历上的放假和调休会自动用到“课表”和“日程”。`;
     // 各班这一学期每次课：上课、停课（放假）、调课（放假那天的课调到调休上班日）
     const classes = linked ? Array.from(new Map(sessionsOf(state.settings.term).map((item) => [String(item.klass.id), item])).values()) : [];
-    const record = new Map(classes.map((item) => [String(item.klass.id), { item, on: [], off: [], moved: [], extra: [] }]));
+    const record = new Map(classes.map((item) => [String(item.klass.id), { item, on: [], off: [], moved: [], extra: [], exam: [], shift: [], finals: [] }]));
     const cells = [];
     if (t) {
       for (let w = 0; w < t.weeks; w += 1) {
@@ -1091,10 +1337,17 @@
             const entry = { date: key, week: weekOf(item.makeupFrom ? parseDay(item.makeupFrom) : date), item };
             let cls = '';
             let note = '';
-            if (off && !item.makeup) { if (moved) { cls = 'is-moved'; note = `调到 ${md(parseDay(moved.date))}`; } else { cls = 'is-off'; note = `${holiday.name}停课`; rec && rec.off.push({ ...entry, why: holiday.name }); } }
+            // 课表调整（2026-11-18）：期末考试、某周不上课、期中考试、调课
+            if (item.final) { rec && rec.finals.push(entry); return `<span class="sc-cls is-final" style="--c:${item.c};--s:${item.s}" title="${esc(`期末考试 · ${titleOf(item.klass)} ${item.klass.name} ${finalTime(item.final)}${item.room ? ` · ${item.room}` : ''}`)}">${esc(tagOf(item.klass))}<i>期末</i></span>`; }
+            if (off && !item.makeup && !item.moved) { if (moved) { cls = 'is-moved'; note = `调到 ${md(parseDay(moved.date))}`; } else { cls = 'is-off'; note = `${holiday.name}停课`; rec && rec.off.push({ ...entry, why: holiday.name }); } }
+            else if (item.off) { cls = 'is-off'; note = `不上课：${item.off}`; rec && rec.off.push({ ...entry, why: item.off }); }
             else if (item.makeup) { cls = 'is-makeup'; note = `补 ${md(parseDay(item.makeupFrom || key))} 的课`; rec && rec.on.push(entry); rec && rec.extra.push(entry); }
             else rec && rec.on.push(entry);
-            return `<span class="sc-cls ${cls}" style="--c:${item.c};--s:${item.s}" title="${esc(`${titleOf(item.klass)} ${item.klass.name} ${periodText(item.from, item.to)}${note ? `（${note}）` : ''}`)}">${esc(tagOf(item.klass))}${item.from}-${item.to}${cls === 'is-makeup' ? '<i>补</i>' : ''}</span>`;
+            if (!item.off && !(off && !item.makeup && !item.moved)) {
+              if (item.exam) { cls += ' is-exam'; note = [note, '期中考试'].filter(Boolean).join('，'); rec && rec.exam.push(entry); }
+              if (item.moved) { cls += ' is-shift'; note = [note, `调课：原星期${WEEKDAYS[item.orig.day - 1]}${periodText(item.orig.from, item.orig.to)}`].filter(Boolean).join('，'); rec && rec.shift.push(entry); }
+            }
+            return `<span class="sc-cls ${cls}" style="--c:${item.c};--s:${item.s}" title="${esc(`${titleOf(item.klass)} ${item.klass.name} ${periodText(item.from, item.to)}${note ? `（${note}）` : ''}`)}">${esc(tagOf(item.klass))}${item.from}-${item.to}${cls === 'is-makeup' ? '<i>补</i>' : item.exam ? '<i>期中</i>' : item.moved ? '<i>调</i>' : ''}</span>`;
           }).join('');
           const first = d === 0 && w === 0;
           const dateText = date.getDate() === 1 || first ? `${date.getMonth() + 1}/${date.getDate()}` : String(date.getDate());
@@ -1118,16 +1371,20 @@
         const on = rec.on.some((e) => e.week === wk);
         const off = rec.off.some((e) => e.week === wk);
         const mk = rec.extra.some((e) => e.week === wk);
+        if (rec.finals.some((e) => e.week === wk)) return 'final';
+        if (rec.exam.some((e) => e.week === wk)) return 'exam';
         return on ? (mk ? 'makeup' : 'on') : off ? 'off' : '';
       });
       const offText = rec.off.map((e) => `第 ${e.week} 周 ${md(parseDay(e.date))} ${e.why}`).join('；');
-      const moveText = rec.extra.map((e) => `第 ${e.week} 周的课调到 ${md(parseDay(e.date))}`).join('；');
+      const moveText = rec.extra.map((e) => `第 ${e.week} 周的课调到 ${md(parseDay(e.date))}`).concat(rec.shift.map((e) => `第 ${e.week} 周调到${atText(e.item.adj.at)}`)).join('；');
+      const examText = rec.exam.map((e) => `期中考试 第 ${e.week} 周 ${md(parseDay(e.date))}`).concat(rec.finals.map((e) => `期末考试 ${md(parseDay(e.date))} ${finalTime(e.item.final)}`)).join('；');
       return `<article class="sc-course" style="--c:${item.c};--s:${item.s}">
         <header><em>${esc(tagOf(item.klass))}</em><b>${esc(item.klass.name)}</b><small>${esc(titleOf(item.klass))}</small></header>
-        <div class="sc-strip" aria-label="各周上课情况">${status.map((s, i) => `<i class="${s ? `is-${s}` : ''}" title="第 ${i + 1} 周：${{ on: '上课', makeup: '上课（调休补课）', off: '放假停课', '': '不上课' }[s]}"><span>${i + 1}</span></i>`).join('')}</div>
+        <div class="sc-strip" aria-label="各周上课情况">${status.map((s, i) => `<i class="${s ? `is-${s}` : ''}" title="第 ${i + 1} 周：${{ on: '上课', makeup: '上课（调休补课）', off: '停课', exam: '期中考试', final: '期末考试', '': '不上课' }[s]}"><span>${i + 1}</span></i>`).join('')}</div>
         <p>上课 <b>${rec.on.length}</b> 次${rec.off.length ? `，停课 <b class="is-off">${rec.off.length}</b> 次` : ''}${rec.extra.length ? `，调课 ${rec.extra.length} 次` : ''}。</p>
         ${offText ? `<p class="sc-why">停课：${esc(offText)}</p>` : ''}
         ${moveText ? `<p class="sc-why is-move">调课：${esc(moveText)}</p>` : ''}
+        ${examText ? `<p class="sc-why is-exam">考试：${esc(examText)}</p>` : ''}
       </article>`;
     }).join('');
     const termHolidays = t ? (y.holidays || []).filter((h) => { const [a, b] = termRange(t); return parseDay(h.to) >= a && parseDay(h.from) <= b; }) : [];
@@ -1154,7 +1411,7 @@
         </div></div>
         <aside class="sc-side">
           ${linked ? `<section class="sc-card"><h3>各班上课的周次</h3>${summary || '<p class="pl-quiet">课表里还没有排课。</p>'}
-            <p class="sc-key"><i class="is-on"></i>上课 <i class="is-off"></i>放假停课 <i class="is-makeup"></i>调休补课</p></section>` : ''}
+            <p class="sc-key"><i class="is-on"></i>上课 <i class="is-off"></i>停课 <i class="is-makeup"></i>调休补课 <i class="is-exam"></i>期中考试 <i class="is-final"></i>期末考试</p></section>` : ''}
           <section class="sc-card"><h3>本学期的节假日</h3>${termHolidays.length ? `<ul class="sc-hols">${termHolidays.map((h) => `<li class="is-${h.type}"><b>${esc(h.name)}</b><span>${md(parseDay(h.from))}${h.to !== h.from ? `—${md(parseDay(h.to))}` : ''} · ${HOLIDAY_TYPES[h.type] || ''}</span></li>`).join('')}</ul>` : '<p class="pl-quiet">没有。</p>'}
             ${(y.workdays || []).filter((w) => t && parseDay(w.date) >= termRange(t)[0] && parseDay(w.date) <= termRange(t)[1]).map((w) => `<p class="sc-workline">${md(parseDay(w.date))}（周${WEEKDAYS[weekday(parseDay(w.date)) - 1]}）上班，补周${WEEKDAYS[Number(w.as) - 1]}课程</p>`).join('')}</section>
           ${(y.notes || []).length ? `<section class="sc-card"><h3>校历说明</h3><ul class="sc-notes">${y.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>` : ''}
@@ -1383,6 +1640,13 @@
   state.calendar = normalizeCalendar(null);
 
   // ---------------- 日程 ----------------
+  // 农历：日期旁写农历日（初一写月份），节日、节气单独着色（2026-11-18）
+  function lunarTag(date) {
+    const l = Lunar.of(date);
+    if (!l) return '';
+    const kind = l.festival ? ' is-fest' : l.term ? ' is-term' : l.day === 1 ? ' is-month' : '';
+    return `<span class="pl-cal-lunar${kind}" title="${esc(`农历${l.yearName}年（${l.zodiac}年）${l.monthName}${l.dayName}${l.festival ? ` · ${l.festival}` : ''}${l.term ? ` · ${l.term}` : ''}`)}">${esc(l.label)}</span>`;
+  }
   function renderCalendar(body) {
     const now = today();
     if (!state.month) state.month = new Date(now.getFullYear(), now.getMonth(), 1);
@@ -1390,7 +1654,7 @@
     const month = state.month;
     const start = addDays(month, 1 - weekday(month));
     const todayKey = ymd(now);
-    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始）和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
+    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始；课表里单独设置的不上课、期中考试、调课和期末考试也会显示）、农历和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
     const cells = Array.from({ length: 42 }, (_, i) => {
       const date = addDays(start, i);
       const key = ymd(date);
@@ -1402,9 +1666,11 @@
       const school = [sh && (sh.type !== 'break' || key === sh.from || weekday(date) === 1) ? `<li class="pl-cal-ev is-school is-${sh.type}" title="${esc(`校历：${sh.name}`)}">${esc(sh.name)}</li>` : '',
         sw ? `<li class="pl-cal-ev is-school is-work" title="校历：调休上班">上班·补周${WEEKDAYS[Number(sw.as) - 1]}</li>` : ''].filter(Boolean);
       const items = school.concat(events.map((item) => { const kind = kindOf(item.color); return `<li class="pl-cal-ev${item.done ? ' is-done' : ''}" style="--c:${kind.c};--s:${kind.s}" title="${esc([item.start_time, item.title].filter(Boolean).join(' '))}">${item.start_time ? `<time>${esc(item.start_time)}</time>` : ''}${esc(item.title)}</li>`; })
-        .concat(classes.map((item) => `<li class="pl-cal-class${off && !item.makeup ? ' is-off' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}${item.makeup ? '（调休补课）' : ''}`)}"><time>${item.from}-${item.to}</time>${esc(item.klass.name)}${item.makeup ? '·补' : ''}</li>`)));
+        .concat(classes.map((item) => (item.final
+          ? `<li class="pl-cal-class is-final" style="--c:${item.c};--s:${item.s}" title="${esc(`期末考试 · ${titleOf(item.klass)} ${item.klass.name}\n${finalTime(item.final)}${item.room ? ` · ${item.room}` : ''}`)}"><i>期末</i>${esc(item.klass.name)}</li>`
+          : `<li class="pl-cal-class${(off && !item.makeup) || item.off ? ' is-off' : ''}${item.exam ? ' is-exam' : ''}${item.moved ? ' is-moved' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}${item.makeup ? '（调休补课）' : ''}${item.off ? `\n不上课：${item.off}` : ''}${item.exam ? '\n期中考试' : ''}${item.moved ? `\n调课（原星期${WEEKDAYS[item.orig.day - 1]}${periodText(item.orig.from, item.orig.to)}）` : ''}`)}">${item.exam ? '<i>期中</i>' : item.moved ? '<i>调</i>' : ''}<time>${item.from}-${item.to}</time>${esc(item.klass.name)}${item.makeup ? '·补' : ''}</li>`))));
       return `<button type="button" class="pl-cal-cell${date.getMonth() !== month.getMonth() ? ' is-out' : ''}${key === todayKey ? ' is-today' : ''}${key === state.day ? ' is-picked' : ''}${weekday(date) >= 6 ? ' is-weekend' : ''}${off ? ' is-holiday' : ''}" data-pl-day="${key}">
-        <span class="pl-cal-date"><b>${date.getDate()}</b>${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
+        <span class="pl-cal-date"><b>${date.getDate()}</b>${lunarTag(date)}${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
         <ul>${items.slice(0, 4).join('')}${items.length > 4 ? `<li class="pl-cal-more">还有 ${items.length - 4} 项</li>` : ''}</ul>
       </button>`;
     }).join('');
@@ -1432,10 +1698,11 @@
     if (!side) return;
     const date = parseDay(state.day) || today();
     const key = ymd(date);
-    const classes = classesOn(date);
+    const classes = classesOn(date, { away: true });
     const events = eventsOn(key);
     const off = holidayOn(key);
     const week = weekOf(date);
+    const lunar = Lunar.of(date);
     const editing = state.editing ? state.events.find((item) => String(item.id) === String(state.editing)) : null;
     const form = editing || { day: key, start_time: '', end_time: '', title: '', note: '', color: 'teal', done: false };
     const upcoming = [];
@@ -1443,15 +1710,18 @@
       const d = addDays(today(), i);
       const k = ymd(d);
       const list = eventsOn(k).filter((item) => !item.done).map((item) => ({ time: item.start_time || '', text: item.title, kind: kindOf(item.color) }))
-        .concat(holidayOn(k) ? [] : classesOn(d).map((item) => ({ time: (state.settings.times[item.from - 1] || {}).from || '', text: `${tagOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`, kind: { c: item.c, s: item.s }, cls: true })));
+        .concat(holidayOn(k) ? [] : classesOn(d).filter((item) => !item.off).map((item) => ({ time: item.final ? item.final.start || (state.settings.times[item.from - 1] || {}).from || '' : (state.settings.times[item.from - 1] || {}).from || '', text: `${item.final ? '期末考试 ' : item.exam ? '期中考试 ' : ''}${tagOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}`, kind: { c: item.c, s: item.s }, cls: true })));
       if (list.length) upcoming.push({ d, k, list: list.sort((a, b) => String(a.time || '99').localeCompare(String(b.time || '99'))) });
     }
     side.innerHTML = `
       <section class="pl-day">
-        <header><b>${cnDate(date)}</b><small>${week >= 1 && week <= state.settings.weeks ? `第 ${week} 周` : ''}${off ? ' · 放假停课' : ''}</small></header>
-        ${classes.length ? `<ul class="pl-day-classes">${classes.map((item) => `<li class="${off ? 'is-off' : ''}" style="--c:${item.c};--s:${item.s}">
+        <header><b>${cnDate(date)}</b><small>${week >= 1 && week <= state.settings.weeks ? `第 ${week} 周` : ''}${off ? ' · 放假停课' : ''}</small>${lunar ? `<small class="pl-day-lunar">农历${esc(lunar.yearName)}年 ${esc(lunar.monthName)}${esc(lunar.dayName)}${lunar.festival ? ` · <b>${esc(lunar.festival)}</b>` : ''}${lunar.term ? ` · <b>${esc(lunar.term)}</b>` : ''}</small>` : ''}</header>
+        ${classes.length ? `<ul class="pl-day-classes">${classes.map((item) => (item.final
+          ? `<li class="is-final" style="--c:${item.c};--s:${item.s}"><time>${esc(finalTime(item.final))}</time>
+            <div><b>期末考试 · ${esc(titleOf(item.klass))}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}${item.final.note ? ` · ${esc(item.final.note)}` : ''}</span></div></li>`
+          : `<li class="${(off && !item.makeup) || item.off || item.away ? 'is-off' : ''}${item.exam ? ' is-exam' : ''}" style="--c:${item.c};--s:${item.s}">
           <time>${periodText(item.from, item.to)}<small>${timeOf(item.from, item.to)}</small></time>
-          <div><b>${esc(titleOf(item.klass))}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}</span></div></li>`).join('')}</ul>` : ''}
+          <div><b>${item.exam ? '期中考试 · ' : ''}${esc(titleOf(item.klass))}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}</span>${item.off ? `<span class="pl-day-why">不上课：${esc(item.off)}</span>` : ''}${item.away ? `<span class="pl-day-why">这一周调到${esc(atText(item.adj.at))}</span>` : ''}${item.moved ? `<span class="pl-day-why is-move">调课：原星期${WEEKDAYS[item.orig.day - 1]}${periodText(item.orig.from, item.orig.to)}</span>` : ''}</div></li>`)).join('')}</ul>` : ''}
         ${events.length ? `<ul class="pl-day-events">${events.map((item) => { const kind = kindOf(item.color); return `<li class="${item.done ? 'is-done' : ''}${String(item.id) === String(state.editing) ? ' is-editing' : ''}" style="--c:${kind.c};--s:${kind.s}">
           <label class="pl-done" title="${item.done ? '标为未完成' : '标为完成'}"><input type="checkbox" data-pl-done="${esc(item.id)}"${item.done ? ' checked' : ''}><span></span></label>
           <div><b>${esc(item.title)}</b><small>${[item.start_time && `${item.start_time}${item.end_time ? `—${item.end_time}` : ''}`, kind.label].filter(Boolean).map(esc).join(' · ')}</small>${item.note ? `<p>${esc(item.note)}</p>` : ''}</div>
@@ -1585,12 +1855,246 @@
     return plan;
   }
 
+  // ---------------- 课表调整：这一周的这次课（点课块）、期中期末考试（班级卡片）、拖动调课 ----------------
+  const occDialog = document.createElement('dialog');
+  occDialog.className = 'tw-dialog pl-dialog pl-occ-dialog';
+  document.body.appendChild(occDialog);
+  let occCtx = null;
+  const REASONS = ['运动会', '节假日', '出差', '学校活动', '调停'];
+  function sessionOf(klassId, slot) { return sessionsOf(state.term).find((s) => String(s.klass.id) === String(klassId) && s.slotIndex === Number(slot)) || null; }
+  function openOccurrence(klassId, slot) {
+    const week = state.week;
+    const item = sessionOf(klassId, slot);
+    if (!item || !week) return;
+    const adj = adjAt(state.term, klassId, slot, week) || { off: '', exam: '', at: null };
+    const date = addDays(parseDay(state.settings.start), (week - 1) * 7 + item.day - 1);
+    const len = item.to - item.from + 1;
+    const at = adj.at || { day: item.day, from: item.from, to: item.to };
+    const kind = adj.off ? 'off' : adj.exam ? 'exam' : 'normal';
+    occCtx = { item, week, len };
+    occDialog.innerHTML = `<form method="dialog" data-occ-form>
+      <h2>第 ${week} 周 · ${esc(item.klass.name)}</h2>
+      <p class="tw-hint">${esc(titleOf(item.klass))} · 原定星期${WEEKDAYS[item.day - 1]}（${md(date)}）${periodText(item.from, item.to)} ${esc(timeOf(item.from, item.to))}${item.room ? ` · ${esc(item.room)}` : ''}。<b>这里只改这一周</b>，其他周照常。</p>
+      <fieldset class="pl-occ-kind"><legend>这一周的这次课</legend>
+        ${[['normal', '照常上课'], ['off', '不上课'], ['exam', '期中考试']].map(([v, l]) => `<label><input type="radio" name="kind" value="${v}"${kind === v ? ' checked' : ''}><span>${l}</span></label>`).join('')}
+      </fieldset>
+      <div class="pl-occ-off" data-occ-off>
+        <label>不上课的原因<input type="text" name="off" maxlength="20" value="${esc(adj.off || '运动会')}"></label>
+        <div class="pl-occ-chips">${REASONS.map((r) => `<button type="button" class="pl-chip" data-occ-reason="${r}">${r}</button>`).join('')}</div>
+        <label class="pl-check"><input type="checkbox" name="all"> 这一周所有班级的课都不上（如全校运动会）</label>
+      </div>
+      <div class="pl-occ-move" data-occ-move>
+        <span>这一周的上课时间</span>
+        <label>星期<select name="day">${WEEKDAYS.map((w, i) => `<option value="${i + 1}"${at.day === i + 1 ? ' selected' : ''}>${w}</option>`).join('')}</select></label>
+        <label>第<select name="from">${Array.from({ length: Math.max(1, periodCount() - len + 1) }, (_, i) => `<option value="${i + 1}"${at.from === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}</select>节起，共 ${len} 节</label>
+        <small>也可以直接在课表上把课块拖到新的时间。</small>
+      </div>
+      <p class="tw-error" data-occ-error role="alert"></p>
+      <div class="tw-actions">
+        <button type="submit" class="tw-primary">保存</button>
+        ${adj.off || adj.exam || adj.at ? '<button type="button" class="tw-secondary" data-occ-reset>恢复原安排</button>' : ''}
+        <button type="button" class="tw-secondary" data-occ-term>修改全学期的上课时间</button>
+        <button type="button" class="tw-secondary" data-occ-cancel>取消</button>
+      </div></form>`;
+    const form = $('[data-occ-form]', occDialog);
+    const sync = () => { const k = form.kind.value; $('[data-occ-off]', occDialog).hidden = k !== 'off'; $('[data-occ-move]', occDialog).hidden = k === 'off'; };
+    form.addEventListener('change', sync);
+    sync();
+    occDialog.showModal();
+  }
+  occDialog.addEventListener('click', async (event) => {
+    const t = event.target;
+    const reason = t.closest('[data-occ-reason]');
+    if (reason) { $('[name="off"]', occDialog).value = reason.dataset.occReason; return; }
+    if (t.closest('[data-occ-cancel]')) { occDialog.close(); return; }
+    if (t.closest('[data-occ-term]')) { const klass = occCtx && occCtx.item.klass; occDialog.close(); if (klass && klass.extra) editExtra(klass.extra); else if (klass) editClass(klass, () => render()); return; }
+    if (t.closest('[data-occ-reset]') && occCtx) {
+      const { item, week } = occCtx;
+      try {
+        await saveAdjust(state.term, (tt) => { tt.items = tt.items.filter((a) => !sameOcc(a, item.klass.id, item.slotIndex, week)); });
+        occDialog.close();
+        state.flash = `${item.klass.name} 第 ${week} 周已恢复原安排。`;
+        render();
+      } catch (error) { $('[data-occ-error]', occDialog).textContent = adjError(error); }
+    }
+  });
+  occDialog.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    if (!occCtx) return;
+    const { item, week, len } = occCtx;
+    const form = event.target;
+    const kind = form.kind.value;
+    const off = String(form.off.value || '').trim().slice(0, 20) || '不上课';
+    const day = Number(form.day.value) || item.day;
+    const from = Number(form.from.value) || item.from;
+    const moved = !(day === item.day && from === item.from);
+    const at = moved ? { day, from, to: from + len - 1 } : null;
+    let count = 1;
+    try {
+      await saveAdjust(state.term, (tt) => {
+        if (kind === 'off' && form.all.checked) {
+          const all = weekSessions(state.term, week).filter((s) => !s.away);
+          count = all.length;
+          all.forEach((s) => putOcc(tt, s.klass.id, s.slotIndex, week, { off, exam: '', at: null }));
+        } else if (kind === 'off') putOcc(tt, item.klass.id, item.slotIndex, week, { off, exam: '', at: null });
+        else putOcc(tt, item.klass.id, item.slotIndex, week, { off: '', exam: kind === 'exam' ? 'midterm' : '', at });
+      });
+      occDialog.close();
+      state.flash = kind === 'off' ? `第 ${week} 周${count > 1 ? `全部 ${count} 次课` : ` ${item.klass.name} 的课`}设为不上课（${off}）。`
+        : `${item.klass.name} 第 ${week} 周${kind === 'exam' ? '设为期中考试' : '照常上课'}${at ? `，调到${atText(at)}` : ''}；其他周不变。`;
+      render();
+    } catch (error) { $('[data-occ-error]', occDialog).textContent = adjError(error); }
+  });
+
+  // 期中、期末考试（班级卡片“期中、期末考试”，或课表上的期末考试）
+  const examDialog = document.createElement('dialog');
+  examDialog.className = 'tw-dialog pl-dialog pl-exam-dialog';
+  document.body.appendChild(examDialog);
+  let examKlass = null;
+  function openExams(klassId) {
+    const klass = findClass(klassId);
+    if (!klass) return;
+    const mine = sessionsOf(state.term).filter((s) => String(s.klass.id) === String(klassId));
+    const adj = adjOf(state.term);
+    const mids = adj.items.filter((a) => String(a.klass) === String(klassId) && a.exam === 'midterm').sort((a, b) => a.week - b.week);
+    const mid = mids[0] || null;
+    const fin = adj.finals.find((f) => String(f.klass) === String(klassId)) || { date: '', from: 0, to: 0, start: '', end: '', room: '', note: '' };
+    const weeks = Array.from({ length: state.settings.weeks }, (_, i) => i + 1).filter((w) => mine.some((s) => inWeek(s.plan, s.slot, w)));
+    const monday = (w) => addDays(parseDay(state.settings.start), (w - 1) * 7);
+    examKlass = klass;
+    const periods = (sel) => `<option value="0">—</option>${Array.from({ length: periodCount() }, (_, i) => `<option value="${i + 1}"${sel === i + 1 ? ' selected' : ''}>${i + 1}</option>`).join('')}`;
+    examDialog.innerHTML = `<form method="dialog" data-plx-form>
+      <h2>${esc(klass.name)} · 期中、期末考试</h2>
+      <p class="tw-hint">${esc(titleOf(klass))}。期中考试一般是随堂考：选哪一周，那一周的这次课就标成“期中考试”；期末考试写日期，节次或时间可以先空着。</p>
+      <fieldset class="pl-exam-box"><legend>期中考试（随堂）</legend>
+        <label>在第<select name="midWeek"><option value="0">不设</option>${weeks.map((w) => `<option value="${w}"${mid && mid.week === w ? ' selected' : ''}>${w} 周（${md(monday(w))} 起）</option>`).join('')}</select></label>
+        ${mine.length > 1 ? `<label>这一周的<select name="midSlot">${mine.map((s) => `<option value="${s.slotIndex}"${mid && mid.slot === s.slotIndex ? ' selected' : ''}>星期${WEEKDAYS[s.day - 1]} ${periodText(s.from, s.to)}</option>`).join('')}</select></label>` : ''}
+        ${mids.length > 1 ? `<small>现在标了 ${mids.length} 次期中考试（${mids.map((a) => `第 ${a.week} 周`).join('、')}），保存后只留这里选的一次。</small>` : ''}
+      </fieldset>
+      <fieldset class="pl-exam-box"><legend>期末考试</legend>
+        <label>日期<input type="date" name="date" value="${esc(fin.date)}"></label>
+        <div class="pl-ev-row">
+          <label>节次<select name="from">${periods(fin.from)}</select></label><label>到<select name="to">${periods(fin.to)}</select></label>
+          <label>或时间<input type="time" name="start" value="${esc(fin.start)}"></label><label>到<input type="time" name="end" value="${esc(fin.end)}"></label>
+        </div>
+        <label>地点<input type="text" name="room" maxlength="40" value="${esc(fin.room)}" placeholder="选填，例如 明理楼北203"></label>
+        <label>备注<input type="text" name="note" maxlength="60" value="${esc(fin.note)}" placeholder="选填，例如 开卷、带计算器"></label>
+      </fieldset>
+      <p class="tw-error" data-plx-error role="alert"></p>
+      <div class="tw-actions"><button type="submit" class="tw-primary">保存</button>${fin.date ? '<button type="button" class="tw-secondary" data-plx-clear>删除期末考试</button>' : ''}<button type="button" class="tw-secondary" data-plx-cancel>取消</button></div>
+    </form>`;
+    examDialog.showModal();
+  }
+  async function saveExams(form, clearFinal) {
+    const id = String(examKlass.id);
+    const midWeek = Number(form.midWeek.value) || 0;
+    const mine = sessionsOf(state.term).filter((s) => String(s.klass.id) === id);
+    const midSlot = form.midSlot ? Number(form.midSlot.value) : (mine[0] ? mine[0].slotIndex : 0);
+    const date = clearFinal ? '' : String(form.date.value || '');
+    let from = Number(form.from.value) || 0;
+    let to = Number(form.to.value) || from;
+    if (to < from) [from, to] = [to, from];
+    if (!from) to = 0;
+    await saveAdjust(state.term, (tt) => {
+      tt.items.forEach((a) => { if (String(a.klass) === id && a.exam === 'midterm') a.exam = ''; });
+      if (midWeek) putOcc(tt, id, midSlot, midWeek, { exam: 'midterm', off: '' });
+      tt.finals = tt.finals.filter((f) => String(f.klass) !== id);
+      if (date) tt.finals.push({ klass: id, date, from, to, start: hhmm(form.start.value), end: hhmm(form.end.value), room: clip(form.room.value, 40), note: clip(form.note.value, 60) });
+    });
+  }
+  examDialog.addEventListener('click', async (event) => {
+    if (event.target.closest('[data-plx-cancel]')) { examDialog.close(); return; }
+    if (event.target.closest('[data-plx-clear]')) {
+      try { await saveExams($('[data-plx-form]', examDialog), true); examDialog.close(); state.flash = `${examKlass.name} 的期末考试已删除。`; render(); }
+      catch (error) { $('[data-plx-error]', examDialog).textContent = adjError(error); }
+    }
+  });
+  examDialog.addEventListener('submit', async (event) => {
+    event.preventDefault();
+    try {
+      await saveExams(event.target, false);
+      examDialog.close();
+      state.flash = `${examKlass.name} 的考试安排已保存。`;
+      render();
+    } catch (error) { $('[data-plx-error]', examDialog).textContent = adjError(error); }
+  });
+
+  // 拖动调课：选了某一周时，把课块拖到别的格子＝只把这一周的这次课调过去（拖回原处＝恢复）
+  let drag = null;
+  let dropKey = '';
+  const cellAt = (x, y) => (document.elementsFromPoint ? document.elementsFromPoint(x, y) : []).find((el) => el.matches && el.matches('[data-pl-cell]')) || null;
+  function dropTarget(cell) {
+    const [d, p] = cell.dataset.plCell.split(':').map(Number);
+    return { day: d, from: Math.max(1, Math.min(p, periodCount() - drag.len + 1)) };
+  }
+  function markDrop(cell) {
+    const key = cell && drag ? cell.dataset.plCell : '';
+    if (key === dropKey) return;
+    dropKey = key;
+    $$('.pl-tt-cell.is-drop', view).forEach((el) => el.classList.remove('is-drop'));
+    if (!key) return;
+    const target = dropTarget(cell);
+    for (let q = target.from; q < target.from + drag.len; q += 1) { const el = $(`[data-pl-cell="${target.day}:${q}"]`, view); if (el) el.classList.add('is-drop'); }
+  }
+  function endDrag() {
+    drag = null;
+    dropKey = '';
+    view.classList.remove('is-pl-dragging');
+    $$('.is-dragging, .is-drop', view).forEach((el) => el.classList.remove('is-dragging', 'is-drop'));
+  }
+  async function moveOccurrence(info, day, from) {
+    const item = sessionOf(info.klass, info.slot);
+    if (!item) return;
+    const to = from + info.len - 1;
+    const back = day === item.day && from === item.from;
+    try {
+      await saveAdjust(state.term, (tt) => {
+        const a = tt.items.find((x) => sameOcc(x, info.klass, info.slot, info.week));
+        if (back && !a) return;
+        putOcc(tt, info.klass, info.slot, info.week, { at: back ? null : { day, from, to }, off: '' });
+      });
+      state.flash = back ? `${item.klass.name} 第 ${info.week} 周的课恢复原来的时间。` : `${item.klass.name} 第 ${info.week} 周的课调到${atText({ day, from, to })}；其他周不变。`;
+    } catch (error) { state.flash = adjError(error); }
+    render();
+  }
+  view.addEventListener('dragstart', (event) => {
+    const block = event.target.closest && event.target.closest('[data-pl-occ][draggable="true"]');
+    if (!block || !state.week) return;
+    const [klass, slot] = block.dataset.plOcc.split('|');
+    drag = { klass, slot: Number(slot), len: Number(block.dataset.len) || 1, week: state.week };
+    event.dataTransfer.effectAllowed = 'move';
+    try { event.dataTransfer.setData('text/plain', block.dataset.plOcc); } catch (error) { /* 忽略 */ }
+    requestAnimationFrame(() => { block.classList.add('is-dragging'); view.classList.add('is-pl-dragging'); });
+  });
+  view.addEventListener('dragover', (event) => {
+    if (!drag) return;
+    const cell = cellAt(event.clientX, event.clientY);
+    markDrop(cell);
+    if (!cell) return;
+    event.preventDefault();
+    event.dataTransfer.dropEffect = 'move';
+  });
+  view.addEventListener('drop', (event) => {
+    if (!drag) return;
+    event.preventDefault();
+    const cell = cellAt(event.clientX, event.clientY);
+    const info = drag;
+    const target = cell ? dropTarget(cell) : null;
+    endDrag();
+    if (target) moveOccurrence(info, target.day, target.from);
+  });
+  view.addEventListener('dragend', endDrag);
+
   // ---------------- 事件 ----------------
   view.addEventListener('click', (event) => {
     const t = event.target;
     if (t.closest('[data-pl-close]')) { close(); return; }
     const tab = t.closest('[data-pl-tab]');
     if (tab) { state.tab = tab.dataset.plTab; state.editing = null; state.flash = ''; render(); return; }
+    const occBlock = t.closest('[data-pl-occ]');
+    if (occBlock) { const [klass, slot] = occBlock.dataset.plOcc.split('|'); openOccurrence(klass, Number(slot)); return; }
+    const exam = t.closest('[data-pl-exam]');
+    if (exam) { openExams(exam.dataset.plExam); return; }
     const edit = t.closest('[data-pl-edit]');
     if (edit) {
       const klass = findClass(edit.dataset.plEdit);

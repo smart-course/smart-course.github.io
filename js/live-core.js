@@ -2100,7 +2100,9 @@
         }
         if (name === 'ck_save_teacher_setting') {
           teacherOnly();
-          if (!['planner', 'calendar'].includes(params.p_key) || !params.p_value) throw new Error('设置不正确');
+          // 2026-11-18 加 adjust（课表调整），同 cloudbase-pg.sql：planner 8000 字节以内，calendar、adjust 30000 字节以内
+          if (!['planner', 'calendar', 'adjust'].includes(params.p_key) || !params.p_value
+            || new TextEncoder().encode(JSON.stringify(params.p_value)).length > (params.p_key === 'planner' ? 8000 : 30000)) throw new Error('设置不正确');
           const rows = read('teachersettings').filter((row) => row.key !== params.p_key);
           rows.push({ key: params.p_key, value: params.p_value, updated_at: new Date().toISOString() });
           write('teachersettings', rows);
