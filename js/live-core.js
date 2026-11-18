@@ -857,10 +857,13 @@
             if (mem) return { status: 'ok', role: mem.side, nick: mem.nick };
             const role = me.test ? (DISCUSS.roles.includes(params.p_role) ? params.p_role : null) : chosen();
             if (!role) return { status: 'pick' };
-            const nick = String(params.p_nick || '').replace(/\s+/g, '');
-            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
-            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
-            if (members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            // 2026-11-18 起实名（同 cloudbase-pg.sql 的 ck_disc_join / ck_biz_join）：登录时的姓名，同名加学号末两位（还重复加末四位）；p_nick 不再使用
+            const real = String(me.name || '').replace(/\s+/g, '').slice(0, 12) || `同学${String(sid).slice(-4)}`;
+            const used = (value) => members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === value.toLowerCase());
+            let nick = real;
+            if (used(nick)) nick = `${real.slice(0, 9)}·${String(sid).slice(-2)}`;
+            if (used(nick)) nick = `${real.slice(0, 7)}·${String(sid).slice(-4)}`;
+            if (used(nick)) return { status: 'taken' };
             members.push({ id: nextId(members), classroom: Number(classroom), case_no: roomNo, side: role, sid, name: me.name, nick, joined_at: new Date().toISOString() });
             write('debatemembers', members);
             return { status: 'ok', role, nick };
@@ -991,10 +994,13 @@
             if (mem) return { status: 'ok', role: mem.side, nick: mem.nick };
             const role = me.test ? (BIZ.roles.includes(params.p_role) ? params.p_role : null) : chosen();
             if (!role) return { status: 'pick' };
-            const nick = String(params.p_nick || '').replace(/\s+/g, '');
-            if (nick.length < 2 || nick.length > DEBATE.nickMax) return { status: 'bad_nick' };
-            if (nick.includes(String(me.name).replace(/\s+/g, ''))) return { status: 'own_name' };
-            if (members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === nick.toLowerCase())) return { status: 'taken' };
+            // 2026-11-18 起实名（同 cloudbase-pg.sql 的 ck_disc_join / ck_biz_join）：登录时的姓名，同名加学号末两位（还重复加末四位）；p_nick 不再使用
+            const real = String(me.name || '').replace(/\s+/g, '').slice(0, 12) || `同学${String(sid).slice(-4)}`;
+            const used = (value) => members.some((m) => same(m) && m.case_no === roomNo && m.nick.toLowerCase() === value.toLowerCase());
+            let nick = real;
+            if (used(nick)) nick = `${real.slice(0, 9)}·${String(sid).slice(-2)}`;
+            if (used(nick)) nick = `${real.slice(0, 7)}·${String(sid).slice(-4)}`;
+            if (used(nick)) return { status: 'taken' };
             members.push({ id: nextId(members), classroom: Number(classroom), case_no: roomNo, side: role, sid, name: me.name, nick, joined_at: new Date().toISOString() });
             write('debatemembers', members);
             return { status: 'ok', role, nick };
@@ -2719,6 +2725,7 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['经营沙盘、分组讨论实名', '经营沙盘和分组讨论的本组聊天室也改为实名：递交角色以后点“进入聊天室”就以真实姓名进入，不用再取昵称；发言和成员名单都显示姓名（同名的同学名字后加学号末两位）。', '2026-11-18'],
         ['辩论聊天室实名', '辩论赛的聊天室改为实名：递交辩前票以后点“进入聊天室”就以真实姓名进入，不用再取昵称；发言、成员名单和点赞前三都显示姓名（同名的同学名字后加学号末两位）。', '2026-11-18'],
         ['参悟 · 卡背依据', '云间灵田“道藏参悟”去掉了作答前的“看看卡背提示”：先自己判断，点“确认我的判断”以后，对错和卡背依据一起显示；答错了可以对照依据再想一次。', '2026-11-18'],
         ['宗门弹幕', '拜入宗门的同学，投屏上的弹幕外框是本宗的颜色（枫霞谷枫红、玄月宗玄紫、灵犀山青绿、星澜宫星蓝）；宗主的弹幕带一圈炫彩流光。', '2026-11-18'],

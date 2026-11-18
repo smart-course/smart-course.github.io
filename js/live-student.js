@@ -3042,31 +3042,41 @@
         mode = 'pick';
         roomBox.innerHTML = '<p class="dbr-note">先在上面“① 选角色”选好并点“递交”：递交后自动带你进入本组聊天室。</p>';
       }
-      function showNick(role, test) {
-        if (mode === 'nick') return;
-        mode = 'nick';
-        roomBox.innerHTML = `<div class="dbr-join is-pro">
+      // 2026-11-18 用户：“经营沙盘和分组讨论的聊天室都实名吧”：不再取昵称，点“进入聊天室”以真实姓名进入（同名加学号末两位）；
+      //   后台还是旧版（还没执行 20261118 讨论沙盘实名 SQL）时退回取昵称，不卡住学生
+      let legacyJoin = false;
+      function showNick(role, test, legacy = legacyJoin) {
+        if (mode === (legacy ? 'nick-legacy' : 'nick')) return;
+        mode = legacy ? 'nick-legacy' : 'nick';
+        roomBox.innerHTML = legacy ? `<div class="dbr-join is-pro">
           <p class="dbr-lead">你在<b>${esc(ROLE[role])}组</b>：取一个昵称，进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
           <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
           <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-bz-state role="status"></p></div>`
+          : `<div class="dbr-join is-pro">
+          <p class="dbr-lead">你在<b>${esc(ROLE[role])}组</b>：以实名进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
+          <form class="dbr-nick dbr-real"><span class="dbr-realname" title="聊天室里显示的名字">${esc(identity.name || '')}</span><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">发言和成员名单都显示你的真实姓名（同名的同学名字后加学号末两位），请文明发言；进入后不能更改。</p>
           <p class="dbr-state" data-bz-state role="status"></p></div>`;
         roomBox.querySelector('form').addEventListener('submit', async (event) => {
           event.preventDefault();
-          const nick = roomBox.querySelector('input').value.replace(/\s+/g, '');
-          if (nick.length < 2) { say(roomBox, '昵称至少 2 个字。', 'error'); return; }
+          const input = roomBox.querySelector('input');
+          const nick = input ? input.value.replace(/\s+/g, '') : '';
+          if (legacy && nick.length < 2) { say(roomBox, '昵称至少 2 个字。', 'error'); return; }
           const button = roomBox.querySelector('form button');
           button.disabled = true;
           try {
-            const res = await call('ck_biz_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_role: role });
-            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+            const res = await call('ck_biz_join', { p_classroom: roomId, p_case: no, p_nick: legacy ? nick : '', p_role: role });
+            const why = { taken: legacy ? '这个昵称已经有人用了，换一个吧。' : '没有进去，请再点一次。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
               closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交角色，才能进入本组聊天室。', login: '请回首页用课堂码重新登录。' };
             if (res.status === 'ok') { mode = ''; await tick(true); return; }
+            if (!legacy && (res.status === 'bad_nick' || res.status === 'own_name')) { legacyJoin = true; showNick(role, test, true); return; }   // 后台还是旧版：先取昵称
             say(roomBox, why[res.status] || '没有进去，请再试一次。', 'error');
           } catch (problem) {
             console.warn('[经营沙盘]', problem);
             say(roomBox, missing(problem) ? '经营沙盘还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
           } finally {
-            button.disabled = false;
+            if (button.isConnected) button.disabled = false;
           }
         });
       }
@@ -3266,33 +3276,43 @@
       function showPick() {
         if (mode === 'pick') return;
         mode = 'pick';
-        roomBox.innerHTML = '<p class="dbr-note">先在上面“① 选角色 · 进组”选好你代表的一方并点“递交”：递交后在这里取昵称，进入本组聊天室。</p>';
+        roomBox.innerHTML = '<p class="dbr-note">先在上面“① 选角色 · 进组”选好你代表的一方并点“递交”：递交后在这里以实名进入本组聊天室。</p>';
       }
-      function showNick(role, test) {
-        if (mode === 'nick') return;
-        mode = 'nick';
-        roomBox.innerHTML = `<div class="dbr-join dsc-join is-${esc(role)}">
+      // 2026-11-18 用户：“经营沙盘和分组讨论的聊天室都实名吧”：不再取昵称，点“进入聊天室”以真实姓名进入（同名加学号末两位）；
+      //   后台还是旧版时退回取昵称
+      let legacyJoin = false;
+      function showNick(role, test, legacy = legacyJoin) {
+        if (mode === (legacy ? 'nick-legacy' : 'nick')) return;
+        mode = legacy ? 'nick-legacy' : 'nick';
+        roomBox.innerHTML = legacy ? `<div class="dbr-join dsc-join is-${esc(role)}">
           <p class="dbr-lead">你在<b>${esc(roleName(role))}组</b>：取一个昵称，进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
           <form class="dbr-nick"><input type="text" maxlength="${DB.nickMax}" placeholder="昵称（2—${DB.nickMax} 个字）" aria-label="聊天室昵称" autocomplete="off"><button type="submit">进入聊天室</button></form>
           <p class="dbr-hint">聊天室里同学看不到你是谁（老师能看到，请文明发言）；不能用自己的名字，进入后不能再改。</p>
+          <p class="dbr-state" data-ds-state role="status"></p></div>`
+          : `<div class="dbr-join dsc-join is-${esc(role)}">
+          <p class="dbr-lead">你在<b>${esc(roleName(role))}组</b>：以实名进入本组聊天室。${test ? '（测试页按本机递交的角色）' : ''}</p>
+          <form class="dbr-nick dbr-real"><span class="dbr-realname" title="聊天室里显示的名字">${esc(identity.name || '')}</span><button type="submit">进入聊天室</button></form>
+          <p class="dbr-hint">发言、成员名单和本组发言人都显示你的真实姓名（同名的同学名字后加学号末两位），请文明发言；进入后不能更改。</p>
           <p class="dbr-state" data-ds-state role="status"></p></div>`;
         roomBox.querySelector('form').addEventListener('submit', async (event) => {
           event.preventDefault();
-          const nick = roomBox.querySelector('input').value.replace(/\s+/g, '');
-          if (nick.length < 2) { say('昵称至少 2 个字。', 'error'); return; }
+          const input = roomBox.querySelector('input');
+          const nick = input ? input.value.replace(/\s+/g, '') : '';
+          if (legacy && nick.length < 2) { say('昵称至少 2 个字。', 'error'); return; }
           const button = roomBox.querySelector('form button');
           button.disabled = true;
           try {
-            const res = await call('ck_disc_join', { p_classroom: roomId, p_case: no, p_nick: nick, p_roles: roles, p_role: role });
-            const why = { taken: '这个昵称已经有人用了，换一个吧。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
+            const res = await call('ck_disc_join', { p_classroom: roomId, p_case: no, p_nick: legacy ? nick : '', p_roles: roles, p_role: role });
+            const why = { taken: legacy ? '这个昵称已经有人用了，换一个吧。' : '没有进去，请再点一次。', own_name: '昵称里不能有你自己的名字（同学会认出你）。', bad_nick: `昵称要 2—${DB.nickMax} 个字。`,
               closed: '这个课堂已经停止，聊天室关闭了。', pick: '先递交角色，才能进入本组聊天室。', login: '请回首页用课堂码重新登录。' };
             if (res.status === 'ok') { mode = ''; await tick(true); return; }
+            if (!legacy && (res.status === 'bad_nick' || res.status === 'own_name')) { legacyJoin = true; showNick(role, test, true); return; }   // 后台还是旧版：先取昵称
             say(why[res.status] || '没有进去，请再试一次。', 'error');
           } catch (problem) {
             console.warn('[分组讨论]', problem);
             say(missing(problem) ? '分组讨论的聊天室还没有开通（老师后台尚未更新）。' : '网络不通，请稍后再试。', 'error');
           } finally {
-            button.disabled = false;
+            if (button.isConnected) button.disabled = false;
           }
         });
       }

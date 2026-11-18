@@ -1232,3 +1232,15 @@
 
 /* Academic-year scope stays readable on narrow screens. */
 .dz-curriculum-note{display:flex;flex-wrap:wrap;align-items:center;gap:6px 14px;line-height:1.6}.dz-curriculum-note strong{white-space:nowrap}.dz-curriculum-note small{flex-basis:100%;color:var(--dz-muted,#788772)}
+/* 智慧课堂 2026-11-18 用户：“有同学抽的卡牌会显示背面的文字”：苹果手机（Safari、微信内置浏览器）把背面里可上下滑动的知识正文单独绘制，
+   不受 backface-visibility 控制，透到正面来（镜像的背面文字）。改为不朝向读者的那一面直接 visibility:hidden（所有浏览器都认）；
+   翻面时在转过 90°（缓动 cubic-bezier(.2,.65,.2,1) 下约在 15%、0.12 秒）的那一刻交换两面 */
+.cards-host .dz-inspect-rotor[data-detail-side="front"]:not(.is-turning) .dz-inspect-back,
+.cards-host .dz-inspect-rotor[data-detail-side="back"]:not(.is-turning) .dz-inspect-front { visibility:hidden; }
+.cards-host .dz-inspect-rotor.is-turning[data-detail-side="back"] .dz-inspect-back,
+.cards-host .dz-inspect-rotor.is-turning[data-detail-side="front"] .dz-inspect-front { animation:dz-face-in .8s linear both; }
+.cards-host .dz-inspect-rotor.is-turning[data-detail-side="back"] .dz-inspect-front,
+.cards-host .dz-inspect-rotor.is-turning[data-detail-side="front"] .dz-inspect-back { animation:dz-face-out .8s linear both; }
+@keyframes dz-face-in { 0%,15% { visibility:hidden; } 15.2%,100% { visibility:visible; } }
+@keyframes dz-face-out { 0%,15% { visibility:visible; } 15.2%,100% { visibility:hidden; } }
+@media(prefers-reduced-motion:reduce){ .cards-host .dz-inspect-face { animation:none!important; } }

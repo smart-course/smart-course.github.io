@@ -94,6 +94,8 @@
     let last = '';
     let busy = false;
     let reveal = false;
+    // 2026-11-18 起分组讨论实名：显示名就是姓名（同名加学号末两位），“揭晓姓名”只给以前用昵称进入的补上姓名
+    const realOf = (m) => (reveal && m && m.name && !String(m.nick || '').startsWith(String(m.name).replace(/\s+/g, '').slice(0, 7)) ? m.name : '');
     let picks = null;       // 老师手动改过的“采纳”组；null＝按票数自动算
     let published = null;   // 刚公布的结果 { list }
 
@@ -139,13 +141,13 @@
         const lead = leaders.find((l) => l.side === key) || ((d.top || [])[0] && d.top[0].likes > 0 ? d.top[0] : null);
         const leadBox = col.querySelector('[data-dsb-lead]');
         leadBox.className = `dsb-lead${lead ? '' : ' is-none'}`;
-        leadBox.innerHTML = lead ? `<b>发言人</b> ${esc(lead.nick)}${reveal && lead.name ? `（${esc(lead.name)}）` : ''} <em>♥ ${lead.likes}</em> <small>· ${lead.posts} 条</small>`
+        leadBox.innerHTML = lead ? `<b>发言人</b> ${esc(lead.nick)}${realOf(lead) ? `（${esc(realOf(lead))}）` : ''} <em>♥ ${lead.likes}</em> <small>· ${lead.posts} 条</small>`
           : '还没有人被点赞：点赞最多的就是本组发言人';
         const box = col.querySelector(`[data-dsb-feed="${key}"]`);
         const rows = d.all || [];
         col.querySelector('[data-dsb-none]').hidden = rows.length > 0;
         box.hidden = !rows.length;
-        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${reveal && h.name ? `<small>${esc(h.name)}</small>` : ''}</b>`
+        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${realOf(h) ? `<small>${esc(realOf(h))}</small>` : ''}</b>`
           + `<time>${esc(window.ClassLive.feedClock(h.at))}</time>${h.likes ? `<em>♥ ${h.likes}</em>` : ''}<button type="button" data-dsb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button><span>${esc(h.text)}</span>`);
       });
       board.querySelector('[data-dsb-reveal]').textContent = reveal ? '收起姓名' : '揭晓姓名';
