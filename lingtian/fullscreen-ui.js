@@ -14,7 +14,7 @@
     // so cancelling a pending browser request still unwinds a late success.
     let active = persistent, nativeWanted = false, destroyed = false, intent = 0, claimed = false, lastNative = false;
     let requestTask = null, exitTask = null, lockTask = null, lockIntent = -1;
-    let orientationLocked = false, resizeFrame = 0, lastSnapshot = '';
+    let orientationLocked = false, resizeFrame = 0, settleTimer = 0, lastSnapshot = '';
 
     const fullscreenElement = () => document.fullscreenElement || document.webkitFullscreenElement || document.webkitCurrentFullScreenElement || null;
     const native = () => claimed && fullscreenElement() === target;
@@ -44,6 +44,9 @@
     function resize() {
       if (destroyed) return;
       emit();
+      // 智慧课堂（2026-11-18）：有的手机浏览器转屏后过一会儿才更新窗口宽高；最后一次变化 400ms 后再核对一次横竖
+      global.clearTimeout(settleTimer);
+      settleTimer = global.setTimeout(() => { settleTimer = 0; if (!destroyed) { emit(); options.onResize?.(); } }, 400);
       if (resizeFrame) return;
       const run = () => { resizeFrame = 0; if (!destroyed) { emit(); options.onResize?.(); } };
       if (typeof global.requestAnimationFrame === 'function') resizeFrame = global.requestAnimationFrame(run);
@@ -199,6 +202,7 @@
         const settled = exit();
         while (listeners.length) listeners.pop()();
         if (resizeFrame) global.cancelAnimationFrame?.(resizeFrame);
+        global.clearTimeout(settleTimer); settleTimer = 0;
         resizeFrame = 0; finishCleanup();
         return settled;
       }

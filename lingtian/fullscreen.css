@@ -513,6 +513,14 @@ body.game-app.game-booting .garden-topline { display: none; }
 .fullscreen-orientation h2 { margin: 0; font: 25px/1.5 var(--serif, serif); letter-spacing: 1px; }
 .fullscreen-orientation p { margin: 0; color: #78846a; font-size: 13px; line-height: 1.9; }
 .fullscreen-orientation button { min-height: 46px; width: 100%; padding: 11px 16px; border: 1px solid #b8c9a6; border-radius: 13px; background: #5c7e56; color: #fffdf1; font-size: 13px; touch-action: manipulation; }
+/* 智慧课堂（2026-11-18）：转不过来的手机说明原因，并可以“先竖着玩” */
+.fullscreen-orientation .fullscreen-orientation-tip { padding: 10px 12px; border: 1px dashed #c8d4b6; border-radius: 12px; background: #f6f8ea; color: #5b6f4f; font-size: 12.5px; line-height: 1.8; text-align: left; }
+.fullscreen-orientation .fullscreen-orientation-tip:empty { display: none; }
+.fullscreen-orientation .fullscreen-orientation-status { color: #9a5a2e; font-size: 12.5px; line-height: 1.8; }
+.fullscreen-orientation .fullscreen-orientation-status[hidden] { display: none; }
+.fullscreen-orientation-actions { display: grid; gap: 9px; width: 100%; }
+.fullscreen-orientation button.is-quiet { background: #fffdf1; color: #4f7149; }
+.fullscreen-orientation .fullscreen-orientation-note { color: #8b927b; font-size: 11.5px; line-height: 1.7; }
 
 @media (max-width: 1050px) {
   body.game-app { --hud-profile-width: 205px; --hud-dock-height: 72px; }
@@ -1041,3 +1049,32 @@ body.game-app.game-booting .garden-topline { display: none; }
 .neighbor-tab.active .avatar, .game-app .neighbor-strip .neighbor-tab.active .avatar { background: #fffbe9 !important; color: #4a7540 !important; box-shadow: 0 0 0 1.5px #d6ebc2; }
 .neighbor-tab.active small, .game-app .neighbor-strip .neighbor-tab.active small { color: #e9f3dc; }
 .game-app .neighbor-strip .neighbor-tab:not(.active):hover { border-color: #95b07c; background: #fffef4; }
+
+/* 智慧课堂（2026-11-18）：转不过来的手机可以“先竖着玩”。竖屏时整理灵田界面：
+   “我的灵田”和时间的天时卡放在最上面一整行（用户：“我的灵田和显示时间的那个卡片放在最上面”），头像、按钮、灵石、今日修行整体下移一行（改 --hud-top）；
+   地点标签原来同时有 top 和 bottom，被拉成一长条挡住半块灵田；收获按钮压在工具栏上；底栏九个入口放不下。 */
+@media (max-width: 600px) and (orientation: portrait) {
+  body.game-app { --hud-title-top: max(10px, env(safe-area-inset-top, 0px)); --hud-title-height: 62px; --hud-top: calc(var(--hud-title-top) + var(--hud-title-height) + 8px); }
+  .game-app .game-center-title { top: var(--hud-title-top); left: var(--hud-left); right: var(--hud-right); width: auto; min-height: var(--hud-title-height); padding: 5px 14px; transform: none; }
+  .game-app .game-sky-heading small { font-size: 9px; }
+  .game-app #environment-chip-clock { font-size: 24px; }
+  .game-app .garden-topline .location-chip { top: calc(var(--hud-top) + 170px); bottom: auto; max-width: min(224px, calc(100vw - var(--hud-left) - var(--hud-right) - 70px)); }
+  .game-app .field-quickbar { width: calc(100vw - var(--hud-left) - var(--hud-right) - 70px); }
+  .game-app .garden-toolbar .garden-actions { left: auto; right: var(--hud-right); bottom: var(--hud-clear-bottom); flex-direction: column; align-items: center; gap: 6px; }
+  .game-app .game-dock button { --dock-cell: min(40px, calc((100vw - var(--hud-left) - var(--hud-right) - 8px) / 9)); flex-basis: var(--dock-cell); width: var(--dock-cell); min-width: var(--dock-cell); }
+  /* 提示条从最上面出来（盖住天时卡几秒），不再压在开卡动画和灵田中间；右边让出道藏的关闭按钮 */
+  .game-app #toast-stack { top: var(--hud-title-top); left: var(--hud-left); right: calc(var(--hud-right) + 52px); width: auto; max-width: none; }
+}
+@media (max-width: 600px) and (max-height: 700px) and (orientation: portrait) {
+  /* 矮屏手机：地点标签收起，“今日修行”只留标题和进度，少挡灵岛 */
+  .game-app .garden-topline .location-chip { display: none; }
+  .game-app .game-quest-peek > small,
+  .game-app .game-quest-peek .game-quest-activity-hint { display: none; }
+  .game-app .game-quest-peek { min-height: 0; padding-block: 6px; gap: 1px; }
+}
+@media (max-width: 400px) and (orientation: portrait) {
+  .game-app .field-quickbar .seed-card h3 { font-size: 11px; }
+}
+@media (max-width: 370px) and (orientation: portrait) {
+  .game-app .field-quickbar .seed-card h3 { font-size: 10px; }
+}

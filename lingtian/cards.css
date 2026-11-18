@@ -1244,3 +1244,19 @@
 @keyframes dz-face-in { 0%,15% { visibility:hidden; } 15.2%,100% { visibility:visible; } }
 @keyframes dz-face-out { 0%,15% { visibility:visible; } 15.2%,100% { visibility:hidden; } }
 @media(prefers-reduced-motion:reduce){ .cards-host .dz-inspect-face { animation:none!important; } }
+
+/* 智慧课堂（2026-11-18）：竖屏开卡——“全卷已览”的三张卡原来挤成一排（约 109 像素宽，卡图只剩一条细带），
+   竖屏改为两列大卡、第三张居中，卡面和卡册一样完整（章节、卡图、名称、一句定义） */
+@media (max-width:559px) and (orientation:portrait) {
+ .cards-host .dz-result-grid { grid-template-columns:repeat(2,minmax(0,1fr));width:min(380px,100%);gap:16px 14px; }
+ .cards-host .dz-result-grid>:nth-child(3):last-child { grid-column:1 / -1;justify-self:center;width:calc(50% - 7px); }
+ .cards-host .dz-result-grid .dz-card-inner { padding:8px; }
+ .cards-host .dz-result-grid .dz-card-top { justify-content:space-between;min-height:0; }
+ .cards-host .dz-result-grid .dz-card-top>span { display:block; }
+ .cards-host .dz-result-grid .dz-card-title { font-size:15px;letter-spacing:.5px; }
+ .cards-host .dz-result-grid .dz-card-definition { display:-webkit-box;font-size:8.5px; }
+ .cards-host .dz-result-grid .dz-card-foot { font-size:7px;margin-top:0; }
+ .cards-host .dz-result-grid .dz-card-foot>b { font-size:9px; }
+ .cards-host .dz-result-grid .dz-card-foot>b>i { display:inline; }
+ .cards-host .dz-result-grid .dz-card-count { font-size:10px; }
+}

@@ -29,6 +29,9 @@
   let fullscreenPanel = '', activityTab = 'quests', fullscreenResizeFrame = 0;
   let activeJourneyTab = 'commissions', gameWindow = '', journeyReturnTrigger = null;
   let cardsReturnWindow = null, cardsReturnTrigger = null;
+  // 智慧课堂（2026-11-18）：手机转不过来时可以“先竖着玩”，记在本机，以后不再弹横屏提示（横过手机仍会自动展开）
+  const PORTRAIT_PLAY_KEY = 'lingtian-portrait-play';
+  let portraitPlay = (() => { try { return localStorage.getItem(PORTRAIT_PLAY_KEY) === '1'; } catch (_) { return false; } })();
   let journeyReturnView = { page: 'garden', mode: 'home', neighborId: 'qingyao' };
   const gameWindowInert = new Map();
   const mobileLayout = () => window.matchMedia('(max-width: 760px), (max-width: 960px) and (max-height: 520px)').matches;
@@ -1047,7 +1050,8 @@
     if (economy.handleClick(event)) return;
     if (farmUI.handleClick(event)) return;
     const b = event.target.closest('button'); if (!b || b.disabled) return;
-    if (b.dataset.fullscreenAction === 'enter') return fullscreenUI?.enter();
+    if (b.dataset.fullscreenAction === 'portrait') return choosePortraitPlay();
+    if (b.dataset.fullscreenAction === 'enter') return b.closest('#fullscreen-orientation') ? tryAutoLandscape() : fullscreenUI?.enter();
     if (b.dataset.fullscreenAction === 'exit') return fullscreenUI?.exit();
     if (b.dataset.fullscreenAction === 'toggle') return fullscreenUI?.toggle();
     if (b.hasAttribute('data-fullscreen-closepanel')) return setFullscreenPanel('',true);
@@ -1307,9 +1311,38 @@
     const rotate = $('fullscreen-orientation');
     // Card reading supports either orientation. Restore the scene's existing
     // landscape prompt only after its card overlay has fully closed.
-    const required = document.body.dataset.phonePortrait === 'true' && !cardsUI?.isOpen();
-    if (required && !rotate.open) { rotate.showModal(); rotate.querySelector('button')?.focus({preventScroll:true}); }
+    // 智慧课堂（2026-11-18）：微信等 App 里的网页、锁了方向的手机转不过来，学生会一直卡在这里；点过“先竖着玩”的手机不再弹出
+    const required = document.body.dataset.phonePortrait === 'true' && !portraitPlay && !cardsUI?.isOpen();
+    if (required && !rotate.open) { $('fullscreen-orientation-status').hidden = true; rotate.showModal(); rotate.querySelector('button')?.focus({preventScroll:true}); }
     else if (!required && rotate.open) rotate.close();
+  }
+  // 横屏提示：按手机和打开方式说清楚为什么转不过来、怎么打开
+  function orientationTip() {
+    const ua = navigator.userAgent || '';
+    const apple = /iPhone|iPod/i.test(ua);
+    if (/MicroMessenger/i.test(ua)) return '在微信里打开的网页，默认不跟着手机转：请在微信“我 → 设置 → 通用”里打开“横屏模式”，再把手机横过来。';
+    if (/\bQQ\/|DingTalk|Weibo|AlipayClient|Lark|Feishu|wxwork/i.test(ua)) return '在 App 里打开的网页可能不跟着手机转：可以点右上角菜单，改用手机浏览器打开（要重新登录一次）。';
+    if (apple) return '苹果手机：从屏幕右上角向下轻扫打开控制中心，关掉“竖排方向锁定”（锁形图标），再把手机横过来。';
+    return '安卓手机：下拉通知栏，打开“自动旋转”（有的手机叫“屏幕旋转”），再把手机横过来。';
+  }
+  function choosePortraitPlay() {
+    portraitPlay = true;
+    try { localStorage.setItem(PORTRAIT_PLAY_KEY,'1'); } catch (_) {}
+    syncCardOrientationPrompt();
+    syncGardenRendering(); resizeFullscreenScenes();
+    focusMainPage();
+    toast('已改为竖屏游玩。想看完整山景时，把手机横过来就会自动展开。','info');
+  }
+  async function tryAutoLandscape() {
+    const status = $('fullscreen-orientation-status');
+    status.hidden = true;
+    try { await fullscreenUI?.enter(); } catch (_) {}
+    // 自动横屏要浏览器支持（苹果手机、微信里的网页都不支持）；转不过来时说明原因，不让学生干等
+    await new Promise(resolve => setTimeout(resolve,900));
+    if ($('fullscreen-orientation').open && document.body.dataset.phonePortrait === 'true') {
+      status.textContent = '这个浏览器没能自动横屏。可以按上面的方法打开旋转后横过手机，或者点“先竖着玩”。';
+      status.hidden = false;
+    }
   }
   function onFullscreenChange(state) {
     const wasNative = document.body.dataset.fullscreenNative === 'true';
@@ -1357,6 +1390,7 @@
     }
     return openNamed(command);
   }
+  $('fullscreen-orientation-tip').textContent = orientationTip();
   $('fullscreen-orientation').addEventListener('cancel',event => { event.preventDefault(); });
   document.addEventListener('keydown',event => {
     if (event.defaultPrevented || $('game-dialog').open || $('fullscreen-orientation').open) return;

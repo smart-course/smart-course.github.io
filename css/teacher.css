@@ -1142,3 +1142,16 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .sc-key i.is-final { background: #b23c3c; }
 .sc-why.is-exam { color: #8a6418; }
 @media print { .pl-hint-line { display: none; } }
+/* 日程：节假日（2026-11-18）：校历放假标“休”，调休上班标“班” */
+.pl-cal-badge { flex: 0 0 auto; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 5px; font-size: 11px; font-style: normal; font-weight: 800; line-height: 1; }
+.pl-cal-badge.is-rest { background: #fbeaea; color: #b23c3c; }
+.pl-cal-badge.is-work { background: #e8edf3; color: #4a5f78; }
+.pl-day header .pl-day-lunar b.is-term { color: var(--teal); }
+.pl-cal-date:has(.pl-cal-badge) { gap: 3px; }
+@media (max-width: 640px) {
+  /* 手机上格子窄：农历和节日另起一行，不被日期、“休”挤掉 */
+  .pl-cal-date { flex-wrap: wrap; row-gap: 0; }
+  .pl-cal-lunar { flex-basis: 100%; font-size: 10px; line-height: 1.3; }
+  .pl-cal-cell { position: relative; }
+  .pl-cal-badge { position: absolute; top: 3px; right: 3px; width: 14px; height: 14px; border-radius: 4px; font-size: 9.5px; }
+}

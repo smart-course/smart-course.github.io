@@ -170,6 +170,22 @@
     return { of };
   })();
 
+  // 节假日（2026-11-18 用户：“最好把节假日也加进去”）：公历节日、母亲节（五月第二个星期日）、父亲节（六月第三个星期日）、清明节；
+  // 农历节日在 Lunar 里。放不放假、哪天调休上班，以“校历”为准（法定假日每年由国务院公布，这里不自己推算）
+  const SOLAR_FESTIVALS = { '1-1': '元旦', '3-8': '妇女节', '3-12': '植树节', '5-1': '劳动节', '5-4': '青年节', '6-1': '儿童节',
+    '7-1': '建党节', '8-1': '建军节', '9-10': '教师节', '10-1': '国庆节' };
+  function festivalsOf(date) {
+    const m = date.getMonth() + 1, d = date.getDate(), sunday = date.getDay() === 0;
+    const lunar = Lunar.of(date);
+    const list = [];
+    if (lunar && lunar.festival) list.push(lunar.festival);
+    if (lunar && lunar.term === '清明') list.push('清明节');
+    if (SOLAR_FESTIVALS[`${m}-${d}`]) list.push(SOLAR_FESTIVALS[`${m}-${d}`]);
+    if (sunday && m === 5 && d > 7 && d <= 14) list.push('母亲节');
+    if (sunday && m === 6 && d > 14 && d <= 21) list.push('父亲节');
+    return { lunar, list, term: lunar && lunar.term && !(lunar.term === '清明' && list.includes('清明节')) ? lunar.term : '' };
+  }
+
   function guessTerm(now = today()) {
     const y = now.getFullYear();
     const m = now.getMonth() + 1;
@@ -1641,11 +1657,21 @@
 
   // ---------------- 日程 ----------------
   // 农历：日期旁写农历日（初一写月份），节日、节气单独着色（2026-11-18）
+  // 节日优先于节气，节气优先于农历日；同一天有两个节日时日期旁写第一个，鼠标停留时全部列出
   function lunarTag(date) {
-    const l = Lunar.of(date);
-    if (!l) return '';
-    const kind = l.festival ? ' is-fest' : l.term ? ' is-term' : l.day === 1 ? ' is-month' : '';
-    return `<span class="pl-cal-lunar${kind}" title="${esc(`农历${l.yearName}年（${l.zodiac}年）${l.monthName}${l.dayName}${l.festival ? ` · ${l.festival}` : ''}${l.term ? ` · ${l.term}` : ''}`)}">${esc(l.label)}</span>`;
+    const { lunar: l, list, term } = festivalsOf(date);
+    if (!l && !list.length) return '';
+    const kind = list.length ? ' is-fest' : term ? ' is-term' : l.day === 1 ? ' is-month' : '';
+    const label = list[0] || term || l.label;
+    const title = [l ? `农历${l.yearName}年（${l.zodiac}年）${l.monthName}${l.dayName}` : '', ...list, term].filter(Boolean).join(' · ');
+    return `<span class="pl-cal-lunar${kind}" title="${esc(title)}">${esc(label)}</span>`;
+  }
+  // 休／班：校历上的放假（不含寒暑假）和调休上班
+  function restBadge(key) {
+    const { holiday, work } = schoolDay(key);
+    if (work) return '<i class="pl-cal-badge is-work" title="调休上班">班</i>';
+    if (holiday && holiday.type === 'off') return `<i class="pl-cal-badge is-rest" title="${esc(`放假：${holiday.name}`)}">休</i>`;
+    return '';
   }
   function renderCalendar(body) {
     const now = today();
@@ -1654,7 +1680,7 @@
     const month = state.month;
     const start = addDays(month, 1 - weekday(month));
     const todayKey = ymd(now);
-    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始；课表里单独设置的不上课、期中考试、调课和期末考试也会显示）、农历和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
+    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始；课表里单独设置的不上课、期中考试、调课和期末考试也会显示）、农历、节日（校历上的放假标“休”、调休上班标“班”）和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
     const cells = Array.from({ length: 42 }, (_, i) => {
       const date = addDays(start, i);
       const key = ymd(date);
@@ -1670,7 +1696,7 @@
           ? `<li class="pl-cal-class is-final" style="--c:${item.c};--s:${item.s}" title="${esc(`期末考试 · ${titleOf(item.klass)} ${item.klass.name}\n${finalTime(item.final)}${item.room ? ` · ${item.room}` : ''}`)}"><i>期末</i>${esc(item.klass.name)}</li>`
           : `<li class="pl-cal-class${(off && !item.makeup) || item.off ? ' is-off' : ''}${item.exam ? ' is-exam' : ''}${item.moved ? ' is-moved' : ''}" style="--c:${item.c};--s:${item.s}" title="${esc(`${periodText(item.from, item.to)} ${timeOf(item.from, item.to)} ${titleOf(item.klass)} ${item.klass.name}${item.room ? ` · ${item.room}` : ''}${item.makeup ? '（调休补课）' : ''}${item.off ? `\n不上课：${item.off}` : ''}${item.exam ? '\n期中考试' : ''}${item.moved ? `\n调课（原星期${WEEKDAYS[item.orig.day - 1]}${periodText(item.orig.from, item.orig.to)}）` : ''}`)}">${item.exam ? '<i>期中</i>' : item.moved ? '<i>调</i>' : ''}<time>${item.from}-${item.to}</time>${esc(item.klass.name)}${item.makeup ? '·补' : ''}</li>`))));
       return `<button type="button" class="pl-cal-cell${date.getMonth() !== month.getMonth() ? ' is-out' : ''}${key === todayKey ? ' is-today' : ''}${key === state.day ? ' is-picked' : ''}${weekday(date) >= 6 ? ' is-weekend' : ''}${off ? ' is-holiday' : ''}" data-pl-day="${key}">
-        <span class="pl-cal-date"><b>${date.getDate()}</b>${lunarTag(date)}${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
+        <span class="pl-cal-date"><b>${date.getDate()}</b>${restBadge(key)}${lunarTag(date)}${weekday(date) === 1 && week >= 1 && week <= state.settings.weeks ? `<small>第${week}周</small>` : ''}</span>
         <ul>${items.slice(0, 4).join('')}${items.length > 4 ? `<li class="pl-cal-more">还有 ${items.length - 4} 项</li>` : ''}</ul>
       </button>`;
     }).join('');
@@ -1702,7 +1728,7 @@
     const events = eventsOn(key);
     const off = holidayOn(key);
     const week = weekOf(date);
-    const lunar = Lunar.of(date);
+    const { lunar, list: fests, term: termName } = festivalsOf(date);
     const editing = state.editing ? state.events.find((item) => String(item.id) === String(state.editing)) : null;
     const form = editing || { day: key, start_time: '', end_time: '', title: '', note: '', color: 'teal', done: false };
     const upcoming = [];
@@ -1715,7 +1741,7 @@
     }
     side.innerHTML = `
       <section class="pl-day">
-        <header><b>${cnDate(date)}</b><small>${week >= 1 && week <= state.settings.weeks ? `第 ${week} 周` : ''}${off ? ' · 放假停课' : ''}</small>${lunar ? `<small class="pl-day-lunar">农历${esc(lunar.yearName)}年 ${esc(lunar.monthName)}${esc(lunar.dayName)}${lunar.festival ? ` · <b>${esc(lunar.festival)}</b>` : ''}${lunar.term ? ` · <b>${esc(lunar.term)}</b>` : ''}</small>` : ''}</header>
+        <header><b>${cnDate(date)}</b><small>${week >= 1 && week <= state.settings.weeks ? `第 ${week} 周` : ''}${off ? ' · 放假停课' : ''}</small>${lunar || fests.length ? `<small class="pl-day-lunar">${[lunar ? esc(`农历${lunar.yearName}年 ${lunar.monthName}${lunar.dayName}`) : '', ...fests.map((f) => `<b>${esc(f)}</b>`), termName ? `<b class="is-term">${esc(termName)}</b>` : ''].filter(Boolean).join(' · ')}</small>` : ''}</header>
         ${classes.length ? `<ul class="pl-day-classes">${classes.map((item) => (item.final
           ? `<li class="is-final" style="--c:${item.c};--s:${item.s}"><time>${esc(finalTime(item.final))}</time>
             <div><b>期末考试 · ${esc(titleOf(item.klass))}</b><span>${esc(item.klass.name)}${item.room ? ` · ${esc(item.room)}` : ''}${item.final.note ? ` · ${esc(item.final.note)}` : ''}</span></div></li>`
