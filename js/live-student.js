@@ -180,6 +180,30 @@
   .clp-toast { position: fixed; z-index: 2147483001; left: 50%; top: 18px; transform: translateX(-50%); max-width: calc(100vw - 32px); padding: 12px 18px; border-radius: 12px;
     color: #3b1d00; background: linear-gradient(100deg, #f3e3ff, #fff3c8); box-shadow: 0 10px 30px rgba(0,0,0,.25); font: 800 15px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   /* 隐藏彩蛋的弹出提示（2026-11-05）：建议被采纳、点笑脸、一周登录满 3 天加修为 */
+  /* 老师回复了匿名建议（2026-11-19）：打开页面时弹出，点“关闭”才关；可以回复老师 */
+  .clp-fbr { box-sizing: border-box; width: min(560px, calc(100vw - 24px)); max-height: calc(100dvh - 32px); padding: 0; border: 0; border-radius: 18px; background: #fffdf8; color: #2a2118; box-shadow: 0 24px 60px rgba(40, 24, 8, .32); }
+  .clp-fbr::backdrop { background: rgba(20, 14, 8, .45); }
+  .clp-fbr-inner { display: grid; gap: 14px; max-height: calc(100dvh - 32px); overflow: auto; padding: 22px 22px 18px; box-sizing: border-box; }
+  .clp-fbr h2 { margin: 0; font-size: 20px; line-height: 1.4; color: #23655f; }
+  .clp-fbr-note { margin: -6px 0 0; color: #7a6f63; font-size: 13px; line-height: 1.6; }
+  .clp-fbr-item { display: grid; gap: 10px; padding: 14px; border: 1px solid rgba(70, 51, 34, .14); border-radius: 14px; background: #fff; }
+  .clp-fbr-mine { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: baseline; margin: 0; font-weight: 800; font-size: 14px; color: #6d6259; }
+  .clp-fbr-mine small { font-weight: 400; color: #8a7f74; }
+  .clp-fbr-item blockquote { margin: 0; padding: 8px 12px; border-left: 3px solid #c9b48a; border-radius: 0 8px 8px 0; background: #faf5ea; font-size: 15px; line-height: 1.75; white-space: pre-wrap; }
+  .clp-fbr-chat { display: grid; gap: 8px; }
+  .clp-fbr-bubble { max-width: 86%; padding: 8px 12px; border-radius: 14px; font-size: 15px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .clp-fbr-bubble b { display: block; font-size: 12px; opacity: .75; }
+  .clp-fbr-bubble small { display: block; margin-top: 2px; font-size: 11px; opacity: .7; }
+  .clp-fbr-bubble.is-teacher { justify-self: start; border-bottom-left-radius: 4px; background: #e4efeb; color: #173f3b; }
+  .clp-fbr-bubble.is-teacher.is-new { box-shadow: 0 0 0 2px rgba(35, 101, 95, .35); }
+  .clp-fbr-bubble.is-me { justify-self: end; border-bottom-right-radius: 4px; background: #f5e7df; color: #5a2a17; }
+  .clp-fbr-form { display: grid; grid-template-columns: 1fr auto; gap: 8px; align-items: end; }
+  .clp-fbr-form textarea { box-sizing: border-box; width: 100%; min-height: 64px; padding: 8px 10px; border: 1px solid rgba(70, 51, 34, .25); border-radius: 10px; font: inherit; font-size: 15px; resize: vertical; }
+  .clp-fbr-form button, .clp-fbr-close { min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: #23655f; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+  .clp-fbr-form button[disabled] { opacity: .55; cursor: default; }
+  .clp-fbr-status { grid-column: 1 / -1; min-height: 1em; margin: 0; color: #23655f; font-size: 13px; }
+  .clp-fbr-status.is-error { color: #a4492d; }
+  .clp-fbr-close { justify-self: end; min-width: 120px; background: #6d6259; }
   .clp-egg { position: fixed; inset: 0; z-index: 2147483002; display: grid; place-items: center; padding: 16px; background: rgba(20,14,8,.38); animation: clp-egg-in .25s ease; }
   .clp-egg-card { position: relative; box-sizing: border-box; width: min(420px, 100%); padding: 22px 22px 18px; border-radius: 16px; text-align: center; color: #3b1d00;
     background: linear-gradient(140deg, #fff7d6, #f3e3ff); box-shadow: 0 18px 50px rgba(0,0,0,.3); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
@@ -3499,6 +3523,68 @@
       if (points > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points}点，勇敢的人先享受世界^_^`, true);
     }).catch(() => {});   // 后台还没有这个函数（未执行 SQL）时安静跳过
   });
+  // 老师回复了匿名建议（2026-11-19 用户：“对学生的建议，除点赞外，再增加一个回复的功能，回复后在学生下次登陆的时候弹出回复的对话框，学生点击关闭才关闭显示。
+  // 同时学生也可以在该对话框中回复我的回复，同时也同步到教师控制台中。”）：ck_my_feedback_threads 取有老师新回复的建议（本班各课堂），
+  // 弹出对话框，按 Esc 不关、只有点“关闭”才关（关闭时 ck_seen_feedback_replies 记为已看，不关下次打开页面还会弹出）；ck_answer_feedback 回复老师
+  if (!OFFLINE && !LOCAL_ONLY && joined) checkedIn.then((status) => {
+    if (status !== 'ok') return;
+    const room = Number(identity.classroom) || identity.classroom;
+    backend.rpc('ck_my_feedback_threads', { p_classroom: room }).then((got) => {
+      const row = Array.isArray(got) ? got[0] : got;
+      const threads = row && Array.isArray(row.threads) ? row.threads : [];
+      if (threads.length) showFeedbackReplies(threads, room);
+    }).catch(() => {});   // 后台还没有这组函数（未执行 SQL）时安静跳过
+  });
+  function showFeedbackReplies(threads, room) {
+    const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const bubble = (r) => `<div class="clp-fbr-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
+    const dialog = document.createElement('dialog');
+    dialog.className = 'clp-fbr';
+    dialog.setAttribute('aria-label', '老师回复了你的匿名建议');
+    dialog.innerHTML = `<div class="clp-fbr-inner"><h2>老师回复了你的匿名建议</h2>
+      <p class="clp-fbr-note">这段往来只有你能看到，老师仍然不知道建议是谁写的。想说什么可以直接回复老师；看完点最下面的“关闭”。</p>
+      ${threads.map((t) => `<section class="clp-fbr-item" data-fbr="${esc(t.id)}">
+        <p class="clp-fbr-mine">你的建议<small>${esc(String(t.created_on || ''))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
+        <blockquote>${esc(t.text)}</blockquote>
+        <div class="clp-fbr-chat">${(t.replies || []).map(bubble).join('')}</div>
+        <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><p class="clp-fbr-status" role="status"></p></form>
+      </section>`).join('')}
+      <button type="button" class="clp-fbr-close" data-fbr-close>关闭</button></div>`;
+    dialog.addEventListener('cancel', (event) => event.preventDefault());   // 只有点“关闭”才关
+    dialog.addEventListener('submit', async (event) => {
+      event.preventDefault();
+      const form = event.target;
+      const item = form.closest('[data-fbr]');
+      const box = form.querySelector('textarea');
+      const say = form.querySelector('.clp-fbr-status');
+      const text = box.value.trim();
+      say.classList.remove('is-error');
+      if (!text) { say.classList.add('is-error'); say.textContent = '先写好要回复的话。'; return; }
+      const button = form.querySelector('button');
+      button.disabled = true;
+      say.textContent = '';
+      try {
+        const got = await backend.rpc('ck_answer_feedback', { p_classroom: room, p_id: Number(item.dataset.fbr) || item.dataset.fbr, p_text: text });
+        const res = Array.isArray(got) ? got[0] : got;
+        if (!res || res.status !== 'ok') throw new Error(res && res.status === 'login' ? '登录已过期，请刷新页面重新进入课堂' : '没有发出去');
+        item.querySelector('.clp-fbr-chat').insertAdjacentHTML('beforeend', bubble(res.reply || { by_teacher: false, text, created_at: new Date().toISOString() }));
+        box.value = '';
+        say.textContent = '已发给老师。';
+      } catch (problem) {
+        say.classList.add('is-error');
+        say.textContent = `没有发出去：${(problem && problem.message) || problem}`;
+      } finally {
+        button.disabled = false;
+      }
+    });
+    dialog.querySelector('[data-fbr-close]').addEventListener('click', () => {
+      backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: threads.map((t) => Number(t.id) || t.id) }).catch(() => {});
+      dialog.close();
+      dialog.remove();
+    });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  }
 
   // 在线状态：页面在前台（没有切走、手机没锁屏）时每 45 秒向后台报一次“在线”，老师在工作台加入名单里看到小绿灯；
   // 后台还没有 ck_ping（未执行 SQL）时安静停止；旁听不报在线（工作台小绿灯、猜词抽人只看点名册上的同学）

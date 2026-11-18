@@ -118,6 +118,10 @@
     if (!grid || !grid.rows.length) return { ...result, warning: '没有找到校历表格，只从说明文字里读出了放假和调休；请在下方补上各学期第 1 周的日期。' };
     const termStarts = [0];
     grid.rows.forEach(([a], i) => { if (i > 0 && grid.termBreak(a)) termStarts.push(i); });
+    // 没有“学期”一列的校历（2026-11-19 学生离线版用别的学校的校历测出）：最左一列每行都有横线，会被当成每周一个学期；
+    // 认出的学期多半只有一行时，当作整张表是一个学期
+    const termLengths = termStarts.map((s, k) => (termStarts[k + 1] === undefined ? grid.rows.length : termStarts[k + 1]) - s);
+    if (termStarts.length > 3 && termLengths.filter((n) => n <= 1).length > termLengths.length / 2) termStarts.splice(1);
     // 认数字用原图放大 3 倍；认汉字（节日、周次）离格线远一点、黑白二值化、四周留白，放大 4 倍（短词才认得出，如“元旦”）
     const cellImage = (c, r, clean) => { const [a, b] = grid.rows[r]; const m = clean ? 4 : 2;
       return crop(grid.days[c] + m, a + m, grid.days[c + 1] - grid.days[c] - 2 * m, b - a - 2 * m, clean ? 4 : 3, clean); };
@@ -129,6 +133,15 @@
         digits.push((await ocr(cellImage(c, r), 'digits')).replace(/\s+/g, ''));
         progress(0.15 + 0.6 * (digits.length / total), `识别表格日期（${digits.length}/${total} 格）`);
       }
+    }
+    // 表头（一、二……日）和日期行一样高时会被当成第一周：开头几行一个数字都没认出，就是表头，去掉（2026-11-19）
+    let skip = 0;
+    while (skip < 2 && skip < grid.rows.length - 1 && digits.slice(skip * 7, skip * 7 + 7).every((t) => !/\d/.test(t))) skip += 1;
+    if (skip) {
+      grid.rows = grid.rows.slice(skip);
+      digits.splice(0, skip * 7);
+      const shifted = termStarts.map((s) => s - skip).filter((s) => s > 0);
+      termStarts.splice(0, termStarts.length, 0, ...shifted);
     }
     const votes = new Map();
     digits.forEach((t, i) => {
@@ -144,6 +157,16 @@
     if (!firstDate && info.starts.length) firstDate = new Date(info.starts[0].replace(/-/g, '/'));
     if (!firstDate) return { ...result, warning: '没有认出表格里的日期；请在下方填好各学期第 1 周的日期。' };
     firstDate = addDays(firstDate, -((firstDate.getDay() + 6) % 7));
+    // 表头的“一、二……日”只按数字认时会被硬认成数字：第一行和应有的日期几乎都对不上、第二行对得上，就把第一行当表头去掉
+    const rowHits = (r) => digits.slice(r * 7, r * 7 + 7).filter((t, c) => { const day = addDays(firstDate, r * 7 + c);
+      return t === String(day.getDate()) || t === `${day.getMonth() + 1}/${day.getDate()}`; }).length;
+    while (grid.rows.length > 1 && rowHits(0) <= 2 && rowHits(1) >= 4) {
+      grid.rows = grid.rows.slice(1);
+      digits.splice(0, 7);
+      firstDate = addDays(firstDate, 7);
+      const shifted = termStarts.map((s) => s - 1).filter((s) => s > 0);
+      termStarts.splice(0, termStarts.length, 0, ...shifted);
+    }
     // 第二遍：和应有日期对不上的格子，只用节假日用字再认一次，认出节日名称的才算节假日（认错的数字不会被当成节日）
     const odd = digits.map((t, i) => {
       const day = addDays(firstDate, i);

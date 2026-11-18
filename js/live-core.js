@@ -7,7 +7,8 @@
  * 函数：ck_join（学生凭课堂码进入）、ck_publish / ck_set_current / ck_set_open（教师管理课堂）、
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
  *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为）、
- *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、ck_my_roster_no（本人在点名册里的编号）、
+ *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
+ *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_my_lingen（学生面板“灵根八相”：本人八项与全班平均）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
@@ -1959,6 +1960,52 @@
           const sent = new Set(read('homework').filter((doc) => String(doc.classroom) === String(room.id) && doc.payload && doc.payload.exam !== undefined).map((doc) => sidKey(doc.sid)));
           return { status: 'ok', done: roster.filter((key) => sent.has(key)).length, total: roster.length };
         }
+        // 学生打开章节页时取“建议被采纳”的通知（本班各课堂），取过即记为已通知
+        if (name === 'ck_my_notices') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login', adopt: 0 };
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const authors = read('fbauthors');
+          let adopt = 0;
+          authors.forEach((row) => {
+            if (row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid) && row.points > row.notified) {
+              adopt += row.points - row.notified;
+              row.notified = row.points;
+            }
+          });
+          write('fbauthors', authors);
+          return { status: 'ok', adopt };
+        }
+        if (['ck_my_feedback_threads', 'ck_answer_feedback', 'ck_seen_feedback_replies'].includes(name)) {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return name === 'ck_my_feedback_threads' ? { status: 'login', threads: [] } : { status: 'login' };
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const mine = new Set(read('fbauthors').filter((row) => row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid))
+            .map((row) => String(row.feedback_id)));
+          const replies = read('fbreplies');
+          if (name === 'ck_my_feedback_threads') {
+            const threads = read('feedback').filter((f) => mine.has(String(f.id)) && replies.some((r) => String(r.feedback_id) === String(f.id) && r.by_teacher && !r.seen_at))
+              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text,
+                replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
+            return { status: 'ok', threads };
+          }
+          if (name === 'ck_answer_feedback') {
+            if (!mine.has(String(params.p_id))) throw new Error('只能回复自己的建议');
+            const text = String(params.p_text || '').trim();
+            if (!text || text.length > 500) throw new Error('回复请写 1—500 字');
+            const row = { id: Date.now(), feedback_id: params.p_id, by_teacher: false, text, created_at: new Date().toISOString(), seen_at: null };
+            replies.push(row);
+            write('fbreplies', replies);
+            return { status: 'ok', reply: { id: row.id, by_teacher: false, text, created_at: row.created_at, seen: false } };
+          }
+          const ids = new Set((params.p_ids || []).map(String));
+          let seen = 0;
+          replies.forEach((r) => { if (ids.has(String(r.feedback_id)) && mine.has(String(r.feedback_id)) && r.by_teacher && !r.seen_at) { r.seen_at = new Date().toISOString(); seen += 1; } });
+          write('fbreplies', replies);
+          return { status: 'ok', seen };
+        }
         teacherOnly();
         // 学生版测试页：教师以“王不凡”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
         if (name === 'ck_test_danmaku') {
@@ -2212,22 +2259,30 @@
           write('bonus', list);
           return { status: 'ok', adopted: points };
         }
-        // 学生打开章节页时取“建议被采纳”的通知（本班各课堂），取过即记为已通知
-        if (name === 'ck_my_notices') {
-          const uid = await this.ensureAnonymous();
-          const me = myCheckin(uid, params.p_classroom);
-          if (!me) return { status: 'login', adopt: 0 };
-          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
-          const authors = read('fbauthors');
-          let adopt = 0;
-          authors.forEach((row) => {
-            if (row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid) && row.points > row.notified) {
-              adopt += row.points - row.notified;
-              row.notified = row.points;
-            }
-          });
-          write('fbauthors', authors);
-          return { status: 'ok', adopt };
+        // 匿名建议的回复（2026-11-19，同 cloudbase-pg-20261119-建议回复.sql）：老师回复、读回复、撤回；作者取有新回复的建议、回复老师、点关闭记为已看
+        if (name === 'ck_reply_feedback') {
+          teacherOnly();
+          if (!read('feedback').some((row) => String(row.id) === String(params.p_id))) throw new Error('这条建议已经删除');
+          if (!read('fbauthors').some((row) => String(row.feedback_id) === String(params.p_id))) return { status: 'no_author' };
+          const text = String(params.p_text || '').trim();
+          if (!text || text.length > 500) throw new Error('回复请写 1—500 字');
+          const rows = read('fbreplies');
+          const row = { id: Date.now(), feedback_id: params.p_id, by_teacher: true, text, created_at: new Date().toISOString(), seen_at: null };
+          rows.push(row);
+          write('fbreplies', rows);
+          return { status: 'ok', reply: row };
+        }
+        if (name === 'ck_feedback_replies_for') {
+          teacherOnly();
+          const ids = new Set((params.p_ids || []).map(String));
+          return read('fbreplies').filter((row) => ids.has(String(row.feedback_id))).sort((a, b) => Number(a.id) - Number(b.id));
+        }
+        if (name === 'ck_delete_feedback_reply') {
+          teacherOnly();
+          const rows = read('fbreplies');
+          const keep = rows.filter((row) => !(String(row.id) === String(params.p_id) && row.by_teacher));
+          write('fbreplies', keep);
+          return { status: keep.length < rows.length ? 'ok' : 'gone' };
         }
         // 修为境界：教师结算后整班替换；学生只能查本人（按本人这次登录在本课堂的学号）；法宝按境界和“每次课一件”核对
         if (name === 'ck_save_realms') {
@@ -2727,6 +2782,8 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['匿名建议可以收到回复', '老师回复了你的匿名建议以后，你下次打开课程页面会弹出对话框：能看到老师的回复，也可以在对话框里继续回复老师。这段往来只有你能看到，老师仍然不知道建议是谁写的；看完点“关闭”，不关的话下次打开还会弹出。', '2026-11-19'],
+        ...(config.course === 'political-economy' ? [['本节课重点', '每个案例最后的“概念小结”页最前面新增“本节课重点”：一段话串起这节课，列出重点和难点，再给三道重点问答——先用自己的话答一答，答不上来就点“回看”复习对应的概念。', '2026-11-19']] : []),
         ['云间灵田 · 手机竖屏也能玩', '手机转不过来的时候（比如在微信里打开，或者手机锁了方向），灵田不会再卡在“横置手机，展开山景”：点“先竖着玩”，就能竖着种田、答题和交易。提示里也写了怎么打开旋转——在微信里打开的，到微信“我 → 设置 → 通用”里打开“横屏模式”。竖屏时“我的灵田”和时间放在最上面；开卡后的“全卷已览”改为两列大卡，卡图和名称看得更清楚。以后把手机横过来，会自动展开完整山景。', '2026-11-18'],
         ['经营沙盘、分组讨论实名', '经营沙盘和分组讨论的本组聊天室也改为实名：递交角色以后点“进入聊天室”就以真实姓名进入，不用再取昵称；发言和成员名单都显示姓名（同名的同学名字后加学号末两位）。', '2026-11-18'],
         ['辩论聊天室实名', '辩论赛的聊天室改为实名：递交辩前票以后点“进入聊天室”就以真实姓名进入，不用再取昵称；发言、成员名单和点赞前三都显示姓名（同名的同学名字后加学号末两位）。', '2026-11-18'],

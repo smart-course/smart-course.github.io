@@ -1043,7 +1043,7 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-lt-switch { display: inline-flex; align-items: center; gap: 8px; font-weight: 700; cursor: pointer; }
 .tw-lt-switch input { width: 18px; height: 18px; }
 .tw-lt-pcts { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 12px 0 4px; }
-.tw-lt-pcts label { display: inline-flex; align-items: center; gap: 6px; }
+.tw-lt-pcts label:not(.tw-lt-pct) { display: inline-flex; align-items: center; gap: 6px; }
 .tw-lt-pcts input { width: 72px; }
 .tw-lt-chapter-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(240px, 1fr)); gap: 8px; margin: 10px 0; }
 .tw-lt-chapter { display: flex; align-items: flex-start; gap: 8px; padding: 8px 10px; border: 1px solid var(--line, #e2dccd); border-radius: 10px; cursor: pointer; line-height: 1.55; }
@@ -1155,3 +1155,41 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
   .pl-cal-cell { position: relative; }
   .pl-cal-badge { position: absolute; top: 3px; right: 3px; width: 14px; height: 14px; border-radius: 4px; font-size: 9.5px; }
 }
+/* 回复匿名建议（2026-11-19）：建议下面的往来回复、“回复”按钮（作者回复了你时标红）、回复对话框 */
+.tw-fb-thread { display: grid; gap: 4px; margin-top: 8px; padding-top: 6px; border-top: 1px dashed rgba(70, 51, 34, .18); }
+.tw-fb-thread p { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; margin: 0; font-size: 14px; line-height: 1.6; }
+.tw-fb-thread p b { flex: 0 0 auto; padding: 0 7px; border-radius: 999px; font-size: 12px; line-height: 1.7; }
+.tw-fb-thread p.is-teacher b { background: var(--teal-soft); color: var(--teal); }
+.tw-fb-thread p.is-student b { background: #f5e7df; color: var(--rust); }
+.tw-fb-thread p span { flex: 1 1 12em; min-width: 0; white-space: pre-wrap; }
+.tw-fb-thread p small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+.tw-fb-thread.is-dialog { max-height: 260px; overflow: auto; margin: 0 0 12px; padding: 8px 10px; border: 1px solid rgba(70, 51, 34, .14); border-radius: 10px; background: #fffdf8; }
+.tw-fb-thread .tw-link { padding: 0; border: 0; background: none; color: var(--rust); font-size: 12px; cursor: pointer; }
+.tw-fb-reply { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; margin-right: 6px; padding: 4px 10px; border: 1px solid rgba(35, 101, 95, .35); border-radius: 999px; background: #fff; color: var(--teal); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
+.tw-fb-reply i { min-width: 18px; padding: 0 5px; border-radius: 999px; background: var(--teal-soft); font-style: normal; font-size: 12px; text-align: center; }
+.tw-fb-reply.is-new { border-color: var(--rust); color: var(--rust); box-shadow: 0 0 0 3px rgba(164, 73, 45, .12); }
+.tw-fb-reply.is-new i { background: #f5e7df; }
+.tw-fb-reply:hover { background: var(--teal-soft); }
+.tw-reply-dialog { max-width: 620px; }
+.tw-reply-box { display: grid; gap: 6px; margin-bottom: 6px; font-weight: 700; }
+.tw-reply-box textarea { width: 100%; min-height: 96px; resize: vertical; }
+/* 云间灵田“开放与抽题”（2026-11-19）：开关＋下拉框；数据统计用学情分析的图，学生明细收在下面 */
+.tw-switch { display: inline-flex; align-items: center; gap: 12px; margin: 4px 0 14px; cursor: pointer; }
+.tw-switch input { position: absolute; opacity: 0; width: 1px; height: 1px; }
+.tw-switch-track { position: relative; flex: 0 0 auto; width: 54px; height: 30px; border-radius: 999px; background: #d9d0c3; box-shadow: inset 0 1px 3px rgba(40, 28, 16, .25); transition: background .2s; }
+.tw-switch-track i { position: absolute; top: 3px; left: 3px; width: 24px; height: 24px; border-radius: 50%; background: #fffdf8; box-shadow: 0 2px 5px rgba(40, 28, 16, .3); transition: transform .2s; }
+.tw-switch input:checked + .tw-switch-track { background: linear-gradient(135deg, #2f7d6f, #23655f); }
+.tw-switch input:checked + .tw-switch-track i { transform: translateX(24px); }
+.tw-switch input:focus-visible + .tw-switch-track { outline: 3px solid rgba(35, 101, 95, .35); outline-offset: 2px; }
+.tw-switch-text { display: grid; gap: 2px; }
+.tw-switch-text b { font-size: 16px; }
+.tw-switch-text small { color: var(--muted); font-size: 13px; }
+.tw-switch input:checked ~ .tw-switch-text small { color: var(--teal); }
+.tw-lt-pcts { display: grid; grid-template-columns: repeat(auto-fit, minmax(200px, 1fr)); gap: 10px; margin-bottom: 12px; }
+.tw-lt-pcts .tw-lt-pct { display: grid; align-content: start; gap: 6px; padding: 12px 14px; border: 1px solid rgba(70, 51, 34, .14); border-radius: 12px; background: #fffdf8; }
+.tw-lt-pct > span { font-weight: 800; font-size: 15px; }
+.tw-lt-pcts .tw-lt-pct select { width: 100%; min-height: 40px; padding: 6px 38px 6px 12px; border: 1px solid rgba(70, 51, 34, .22); border-radius: 10px; background-color: #fff; font: inherit; font-size: 15px; font-weight: 700; color: var(--ink); }
+.tw-lt-pct small { color: var(--muted); font-size: 12.5px; line-height: 1.6; }
+.tw-lt-charts { margin-top: 8px; }
+.tw-lt-detail { margin-top: 14px; }
+.tw-lt-detail > summary { cursor: pointer; padding: 8px 0; color: var(--teal); font-weight: 800; }

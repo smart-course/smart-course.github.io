@@ -1045,6 +1045,7 @@
     try {
       feedbackRows = (await backend.fetchAll('feedback', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)));
       feedbackProblem = '';
+      await loadReplies();
     } catch (error) {
       console.error(error);
       feedbackRows = [];
@@ -1066,12 +1067,20 @@
     }
     rows = Array.isArray(rows) ? rows : [];
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
-    const many = rooms.length > 1;
+    // 2026-11-19 用户：“把每堂课的笑脸数量汇总即可，不用出现具体日期”——按课堂把各天加起来（每人每天一票，所以记“人次”）
+    const total = new Map();
+    rows.forEach((row) => {
+      const key = String(row.classroom);
+      const t = total.get(key) || { up: 0, down: 0 };
+      t.up += Number(row.up) || 0;
+      t.down += Number(row.down) || 0;
+      total.set(key, t);
+    });
+    const order = rooms.map((room) => String(room.id)).filter((id) => total.has(id)).concat(Array.from(total.keys()).filter((id) => !rooms.some((room) => String(room.id) === id)));
     box.hidden = false;
-    box.innerHTML = '<b>这堂课感觉怎么样</b>' + (rows.map((row) => {
-      const up = Number(row.up) || 0;
-      const down = Number(row.down) || 0;
-      return `<span>${esc(String(row.day || '').slice(5))}${many ? ` ${esc(roomName.get(String(row.classroom)) || '')}` : ''}：😊 ${up} 人 · ☹️ ${down} 人${up + down ? `<small>（笑脸 ${Math.round(up * 100 / (up + down))}%）</small>` : ''}</span>`;
+    box.innerHTML = '<b>这堂课感觉怎么样</b>' + (order.map((id) => {
+      const { up, down } = total.get(id);
+      return `<span>${esc(roomName.get(id) || '这堂课')}：😊 ${up} 人次 · ☹️ ${down} 人次${up + down ? `<small>（笑脸 ${Math.round(up * 100 / (up + down))}%）</small>` : ''}</span>`;
     }).join('') || '<small>还没有同学选。学生在建议箱上方点笑脸或不高兴的脸，每人每天一票、可以改。</small>');
   }
   // 建议是针对一堂课的：习经一个案例（两课时）就是一次课，政经一个案例一次课，用案例标明是哪次课
@@ -1085,9 +1094,10 @@
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.filter((doc) => !query || String(doc.text || '').includes(query)).sort((a, b) => Number(b.id) - Number(a.id));
     const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
-    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${liked ? `（已点赞 ${liked} 条）` : ''}${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。${adoptNote}` : '');
+    const waiting = feedbackRows.filter((doc) => awaitingReply(doc.id)).length;
+    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${liked ? `（已点赞 ${liked} 条）` : ''}${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
     $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
-      <td class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}</td><td class="tw-col-action tw-fb-actions">${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
+      <td class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}${threadHtml(doc.id)}</td><td class="tw-col-action tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
       || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</td></tr>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
@@ -1127,6 +1137,100 @@
   // 点赞采纳（2026-11-05 用户：“对于匿名建议，教师工作台老师也可以进行点赞(在删除按钮左边增加一个点赞按钮)，然后有一个弹出框可以选择加不同修为分（5、10、20），
   // 学生下次登陆的时候弹出一条信息”）：后台 ck_adopt_feedback 按另记的提交者给作者加修为（ck_bonus kind adopt，计入“额外加分”），
   // 老师仍看不到是谁写的；作者下次打开章节页时弹出“建议已被采纳”。可以改分或取消点赞；11-05 之前提交的建议没有记作者，不能加
+  // 回复匿名建议（2026-11-19 用户：“对学生的建议，除点赞外，再增加一个回复的功能，回复后在学生下次登陆的时候弹出回复的对话框，学生点击关闭才关闭显示。
+  // 同时学生也可以在该对话框中回复我的回复，同时也同步到教师控制台中。”）：后台 ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply，
+  // 往来回复显示在建议下面；作者点“关闭”以后显示“作者已看到”；作者回复了你（最后一条是作者的）时“回复”按钮标红。11-05 之前的建议没有记作者，不能回复
+  let feedbackReplies = new Map();
+  let repliesMissing = false;
+  async function loadReplies() {
+    const ids = feedbackRows.map((doc) => Number(doc.id) || doc.id);
+    if (!ids.length) { feedbackReplies = new Map(); return; }
+    try {
+      const rows = await backend.rpc('ck_feedback_replies_for', { p_ids: ids });
+      const map = new Map();
+      (Array.isArray(rows) ? rows : []).forEach((row) => { const key = String(row.feedback_id); if (!map.has(key)) map.set(key, []); map.get(key).push(row); });
+      feedbackReplies = map;
+      repliesMissing = false;
+    } catch (error) {
+      if (missingFunction(error)) repliesMissing = true; else console.warn('[建议回复]', error);
+    }
+  }
+  const replyTime = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+  const repliesOf = (id) => feedbackReplies.get(String(id)) || [];
+  const awaitingReply = (id) => { const list = repliesOf(id); return list.length > 0 && !list[list.length - 1].by_teacher; };
+  function threadLine(r, removable) {
+    return `<p class="${r.by_teacher ? 'is-teacher' : 'is-student'}"><b>${r.by_teacher ? '我' : '作者'}</b><span>${esc(r.text)}</span>`
+      + `<small>${esc(replyTime(r.created_at))}${r.by_teacher ? (r.seen_at ? ' · 作者已看到' : ' · 作者还没看到') : ''}</small>`
+      + (removable && r.by_teacher ? `<button type="button" class="tw-link" data-reply-remove="${esc(r.id)}">撤回</button>` : '') + '</p>';
+  }
+  function threadHtml(id) {
+    const list = repliesOf(id);
+    return list.length ? `<div class="tw-fb-thread">${list.map((r) => threadLine(r, false)).join('')}</div>` : '';
+  }
+  function replyButton(doc) {
+    const list = repliesOf(doc.id);
+    const waiting = awaitingReply(doc.id);
+    return `<button type="button" class="tw-fb-reply${waiting ? ' is-new' : ''}" data-fb-reply="${esc(doc.id)}"
+      title="${waiting ? '作者回复了你，点开看看' : '回复这条建议：作者下次打开课程页面时会弹出你的回复'}">回复${list.length ? `<i>${list.length}</i>` : ''}</button>`;
+  }
+  const replyDialog = $('[data-reply-dialog]');
+  let replyId = '';
+  const replySay = (text) => { replyDialog.querySelector('[data-reply-error]').textContent = text || ''; };
+  function paintReplyThread() {
+    const list = repliesOf(replyId);
+    replyDialog.querySelector('[data-reply-thread]').innerHTML = list.length ? list.map((r) => threadLine(r, true)).join('') : '<p class="tw-hint">还没有往来回复。</p>';
+  }
+  function openReply(id) {
+    const doc = feedbackRows.find((item) => String(item.id) === String(id));
+    if (!doc) return;
+    replyId = String(id);
+    replyDialog.querySelector('[data-reply-text]').textContent = String(doc.text || '');
+    replyDialog.querySelector('[data-reply-input]').value = '';
+    paintReplyThread();
+    replySay(repliesMissing ? '后台还没有回复功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261119-建议回复.sql。' : '');
+    if (typeof replyDialog.showModal === 'function') replyDialog.showModal(); else replyDialog.setAttribute('open', '');
+    replyDialog.querySelector('[data-reply-input]').focus();
+  }
+  async function sendReply() {
+    const input = replyDialog.querySelector('[data-reply-input]');
+    const text = input.value.trim();
+    if (!text) { replySay('先写好回复。'); return; }
+    const button = replyDialog.querySelector('[data-reply-send]');
+    button.disabled = true;
+    replySay('');
+    try {
+      const result = await backend.rpc('ck_reply_feedback', { p_id: Number(replyId) || replyId, p_text: text });
+      const row = Array.isArray(result) ? result[0] : result;
+      if (row && row.status === 'no_author') { replySay('这条是 11 月 5 日之前提交的建议，后台没有记作者，回复送不到写建议的同学那里。'); return; }
+      input.value = '';
+      await loadReplies();
+      paintReplyThread();
+      renderFeedback();
+    } catch (error) {
+      console.error(error);
+      replySay(missingFunction(error) ? '后台还没有回复功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261119-建议回复.sql。' : `没有发出去：${error.message || error}`);
+    } finally {
+      button.disabled = false;
+    }
+  }
+  replyDialog.addEventListener('click', async (event) => {
+    if (event.target.closest('[data-reply-close]')) { replyDialog.close(); return; }
+    if (event.target.closest('[data-reply-send]')) { sendReply(); return; }
+    const remove = event.target.closest('[data-reply-remove]');
+    if (remove && window.confirm('撤回这条回复？作者还没看到的就不会再弹出；已经看到的，作者那里也不再显示。')) {
+      remove.disabled = true;
+      try {
+        await backend.rpc('ck_delete_feedback_reply', { p_id: Number(remove.dataset.replyRemove) || remove.dataset.replyRemove });
+        await loadReplies();
+        paintReplyThread();
+        renderFeedback();
+      } catch (error) {
+        console.error(error);
+        replySay(`撤回失败：${error.message || error}`);
+      }
+    }
+  });
+  replyDialog.querySelector('[data-reply-input]').addEventListener('keydown', (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); sendReply(); } });
   const LIKE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3z"/><path d="M7 10l4-7a2.5 2.5 0 0 1 3 3l-1 4h5.5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 21H7"/></svg>';
   function likeButton(doc) {
     const points = Number(doc.adopted) || 0;
@@ -1187,6 +1291,8 @@
   // 打开“匿名建议”标签时每 20 秒刷新一次
   setInterval(() => { if (state.room && !$('[data-panel="feedback"]').hidden) loadFeedback(); }, 20000);
   $('[data-fb-rows]').addEventListener('click', async (event) => {
+    const replyBtn = event.target.closest('[data-fb-reply]');
+    if (replyBtn) { openReply(replyBtn.dataset.fbReply); return; }
     const like = event.target.closest('[data-fb-like]');
     if (like) { openAdopt(like.dataset.fbLike); return; }
     const trash = event.target.closest('[data-fb-delete]');
@@ -1207,10 +1313,11 @@
   $('[data-fb-export]').addEventListener('click', () => {
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
-      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), doc.text, Number(doc.adopted) || '']);
+      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), doc.text, Number(doc.adopted) || '',
+        repliesOf(doc.id).map((r) => `${r.by_teacher ? '老师' : '作者'}（${replyTime(r.created_at)}）：${r.text}`).join('\n')]);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
-      csv([['序号', '日期', '课堂', '哪次课', '建议', '点赞加修为'], ...rows]));
+      csv([['序号', '日期', '课堂', '哪次课', '建议', '点赞加修为', '往来回复'], ...rows]));
   });
 
   // ---------------- 期中考查：批阅与导出（2026-10-28 用户：“期中考查作业要可以一键导出为word文档，导出的文档中包含学生的学号、姓名等信息。
@@ -1482,6 +1589,22 @@
     const now = Number(ltYearNow().slice(0, 4));
     select.innerHTML = [now - 1, now, now + 1].map((y) => `<option value="${y}-${y + 1}"${y === now ? ' selected' : ''}>${y}—${y + 1} 学年</option>`).join('');
   }
+  // 开放与抽题（2026-11-19 用户：“云间灵田的开放与抽题，能不能做得美观一些？比如改成开关按钮，设置概率用下拉框？”）：
+  // 开放用开关，旁边写清现在的状态；三个概率用下拉框（0%—100%，每档 5%），保存时照旧读 value
+  function ltPct(selector, value) {
+    const select = $(selector);
+    if (!select) return;
+    if (!select.options.length) {
+      select.innerHTML = Array.from({ length: 21 }, (_, i) => i * 5).map((v) => `<option value="${v}">${v === 0 ? '不抽题（0%）' : `${v}%`}</option>`).join('');
+    }
+    const v = String(Math.max(0, Math.min(100, Math.round(Number(value) || 0))));
+    if (!Array.from(select.options).some((o) => o.value === v)) select.insertAdjacentHTML('beforeend', `<option value="${v}">${v}%</option>`);
+    select.value = v;
+  }
+  function ltSwitchNote() {
+    const note = $('[data-lt-enabled-note]');
+    if (note) note.textContent = $('[data-lt-enabled]').checked ? '已开放：拜入宗门的学生在面板“宗门”里能看到“进入云间灵田”' : '未开放：学生面板“宗门”里看不到入口';
+  }
   async function ltLoad() {
     if (!backend || lt.loading) return;   // 正在读的那一次还没完：不重复读
     lt.loading = true;
@@ -1493,9 +1616,10 @@
       const set = row.settings || {};
       if (!lt.dirty) {   // 开放与抽题概率改了还没保存：刷新时不覆盖
         $('[data-lt-enabled]').checked = !!set.enabled;
-        $('[data-lt-water]').value = set.water_quiz_pct ?? 30;
-        $('[data-lt-clear]').value = set.clear_quiz_pct ?? 30;
-        $('[data-lt-steal]').value = set.steal_quiz_pct ?? 40;
+        ltPct('[data-lt-water]', set.water_quiz_pct ?? 30);
+        ltPct('[data-lt-clear]', set.clear_quiz_pct ?? 30);
+        ltPct('[data-lt-steal]', set.steal_quiz_pct ?? 40);
+        ltSwitchNote();
       }
       lt.players = Array.isArray(row.players) ? row.players : [];
       lt.loaded = true;
@@ -1514,18 +1638,18 @@
     if (!box) return;
     const word = ($('[data-lt-search]').value || '').trim();
     const rows = lt.players.filter((p) => (!state.klass || String(p.class_id) === String(state.klass.id)) && (!word || [p.sid, p.name, p.alias].some((v) => String(v || '').includes(word))));
-    const when = (value) => (value ? new Date(millis(value)).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
     // 道号：被销号的显示原来的道号（划掉）；“（还没起道号）”＝游戏给的默认道号或恢复后还没重新起
     const aliasOf = (p) => (p.banned ? `<s>${esc(p.banned_alias || '')}</s> <b class="tw-sec-bad">已销号</b>`
       : !p.alias || /^(道友|已销号)·[0-9A-F]{6,8}$/.test(p.alias) ? '（还没起道号）' : esc(p.alias));
     const rejects = (p) => (Number(p.rejects) ? `${Number(p.rejects)} 次 · 最近：${esc(p.last_reject || '')}` : '');
-    box.innerHTML = rows.map((p) => `<tr><td>${esc(p.sid)}</td><td>${esc(p.name)}</td><td>${aliasOf(p)}</td><td>${esc(ltSectName(p.sect))}</td><td>${esc(LT_REALMS[Number(p.realm) || 0])}</td><td>${p.banned ? `<s>${Number(p.qi_points || 0).toFixed(1)}</s>` : Number(p.qi_points || 0).toFixed(1)}</td><td>${Number(p.steals) || 0}</td><td>${esc(when(p.last_seen))}</td><td>${rejects(p)}</td><td>${p.banned
+    box.innerHTML = rows.map((p) => `<tr><td>${esc(p.sid)}</td><td>${esc(p.name)}</td><td>${aliasOf(p)}</td><td>${esc(ltSectName(p.sect))}</td><td>${esc(LT_REALMS[Number(p.realm) || 0])}</td><td>${rejects(p)}</td><td>${p.banned
       ? `<button type="button" class="tw-secondary" data-lt-unban="${esc(p.actor_id)}">恢复</button>`
       : `<button type="button" class="tw-secondary" data-lt-ban="${esc(p.actor_id)}">销号</button>`}</td></tr>`).join('')
-      || `<tr><td colspan="10" class="empty">${state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'}</td></tr>`;
+      || `<tr><td colspan="7" class="empty">${state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'}</td></tr>`;
     ltStatsRender();
     const banned = rows.filter((p) => p.banned).length;
-    $('[data-lt-summary]').textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}已有 ${rows.length} 位同学开辟灵田${banned ? `（其中 ${banned} 位已销号）` : ''}；服丹折算的网站修为合计 ${rows.filter((p) => !p.banned).reduce((sum, p) => sum + Number(p.qi_points || 0), 0).toFixed(1)}。`;
+    // 2026-11-19 用户：“‘谁是谁’中的有些内容不要跟前面数据分析的内容重复”：服丹折算修为、偷菜次数、最近进入都在上面的数据统计里，这里只管道号对照和销号
+    $('[data-lt-summary]').textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}已有 ${rows.length} 位同学开辟灵田${banned ? `（其中 ${banned} 位已销号）` : ''}。灵石、偷菜、服丹折算修为、最近进入等见上面的“数据统计”。`;
   }
   // ---------- 数据统计（2026-11-15 用户：“教师工作台中的云间灵田还要能看到学生灵石数量等数据统计”） ----------
   // 数字直接读游戏存档（学生每做一步都会存），不是估算；全班汇总只算当前班级里进过灵田的同学
@@ -1606,10 +1730,65 @@
       { label: '万象道藏', value: `开包 ${ltFmt(sum('packs'))} 个`, note: `人均收集 ${avg(sum('cards')).toFixed(1)} 种卡牌` },
     ];
   }
+  // 数据统计的图（2026-11-19 用户：“数据统计改成类似于学情分析的图表形式”）：用学情分析的同一套图（live-insights.js），每张图下面可切换成表格
+  function ltStatsCharts(rows) {
+    const box = $('[data-lt-stats-charts]');
+    const I = window.ClassLiveInsights;
+    if (!box) return;
+    box.textContent = '';
+    if (!I) { box.textContent = '图表脚本没有加载，请刷新页面再试。'; return; }
+    I.addStyle();
+    if (!rows.length) { I.empty(box, state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'); return; }
+    const T = I.tones;
+    const sum = (key, list = rows) => list.reduce((total, p) => total + ltNum(p[key]), 0);
+    const tiles = ltStatsSummary(rows);
+    const pick = (label) => tiles.find((t) => t.label === label);
+    I.tiles(box, ['开辟灵田', '近 7 天来过', '灵田答题正确率', '灵石（人均）'].map(pick).filter(Boolean));
+    const grid = document.createElement('div');
+    grid.className = 'ins-grid';
+    box.appendChild(grid);
+    const add = (title, sub, wide) => { const c = I.card(grid, title, sub, wide); const host = document.createElement('div'); c.appendChild(host); return [c, host]; };
+    // 1 大家在灵田里做什么
+    const ACTS = [['种植', 'plant'], ['浇水', 'water'], ['锄草', 'clear'], ['收获', 'harvest'], ['偷菜成功', 'stealOk'], ['偷菜失败', 'stealFail'], ['被偷', 'stolen'],
+      ['炼成丹药', 'brew'], ['服丹', 'pillsTaken'], ['坊市成交', 'trades'], ['开卡包', 'packs']];
+    const acts = ACTS.map(([label, key]) => ({ label, value: sum(key), people: rows.filter((p) => ltNum(p[key]) > 0).length }));
+    const [c1, h1] = add('大家在灵田里做什么', '全班累计次数；悬停看有几位同学做过。', true);
+    I.bars(h1, c1, acts.map((d) => ({ label: d.label, value: d.value, lines: [d.label, `${d.people} 人做过`] })), { unit: ' 次', aria: '灵田里各项操作的次数横条图' });
+    I.tableView(c1, ['项目', '次数', '做过的人数'], acts.map((d) => [d.label, d.value, d.people]));
+    // 2 灵石最多的同学
+    const rich = rows.filter((p) => !p.banned).sort((a, b) => b.stones - a.stones || String(a.sid).localeCompare(String(b.sid))).slice(0, 10);
+    const [c2, h2] = add('灵石最多的同学', `前 ${rich.length} 位（已销号的不计）；悬停看道号、开垦和收获。`);
+    I.bars(h2, c2, rich.map((p) => ({ label: p.name, value: p.stones, lines: [`${p.name}（${p.aliasText}）`, `开垦 ${p.plots} 块 · 收获 ${p.harvest} 次`] })), { unit: ' 灵石', labelMax: 120, aria: '灵石最多的同学横条图' });
+    I.tableView(c2, ['姓名', '道号', '灵石', '开垦', '收获'], rich.map((p) => [p.name, p.aliasText, p.stones, p.plots, p.harvest]));
+    // 3 灵田答题
+    const right = sum('quizRight'), asked = sum('quizTotal');
+    const [c3, h3] = add('灵田答题', `浇水、锄草、换道友名单和守田阵法抽到的修炼场题，共 ${ltFmt(asked)} 道。`);
+    I.donut(h3, c3, [{ label: '答对', value: right, color: T.green }, { label: '答错', value: Math.max(0, asked - right), color: T.red }],
+      { unit: ' 道', center: asked ? `${Math.round(right * 100 / asked)}%` : '—', centerSub: '正确率', empty: '还没有同学在灵田里答过题。', aria: '灵田答题正确率环形图' });
+    // 4 开垦了几块灵田
+    const plotBins = [['0 块', 0, 0], ['1—5 块', 1, 5], ['6—10 块', 6, 10], ['11—15 块', 11, 15], ['16—20 块', 16, 20], ['21—25 块', 21, 25]]
+      .map(([label, lo, hi]) => ({ key: label, label, value: rows.filter((p) => p.plots >= lo && p.plots <= hi).length }));
+    const [c4, h4] = add('开垦了几块灵田', '每人最多 25 块；柱子是人数。');
+    I.columns(h4, c4, plotBins.map((d) => ({ ...d, lines: [d.label, `${d.value} 人`] })), { unit: ' 人', color: T.green, aria: '开垦块数分布柱状图' });
+    I.tableView(c4, ['开垦', '人数'], plotBins.map((d) => [d.label, d.value]));
+    // 5 来灵田的天数
+    const dayBins = [['1 天', 1, 1], ['2—3 天', 2, 3], ['4—7 天', 4, 7], ['8—14 天', 8, 14], ['15 天以上', 15, Infinity]]
+      .map(([label, lo, hi]) => ({ label, value: rows.filter((p) => p.days >= lo && p.days <= hi).length }));
+    const [c5, h5] = add('来灵田的天数', '在灵田里操作过的天数，颜色越深来得越多。');
+    I.segmented(h5, c5, dayBins.map((d, i) => ({ ...d, color: (I.ramps.online || [])[i] || T.blue, lines: [d.label, `${d.value} 人`] })), { unit: ' 人', aria: '来灵田的天数分段条' });
+    I.tableView(c5, ['天数', '人数'], dayBins.map((d) => [d.label, d.value]));
+    // 6 各宗门
+    const players = lt.players.filter((p) => !state.klass || String(p.class_id) === String(state.klass.id));
+    const SECT_TONE = { fengxia: T.red, xuanyue: T.purple, lingxi: T.green, xinglan: T.blue };
+    const sects = (((window.ClassLive && window.ClassLive.SECTS) || [])).map((sect) => ({ label: sect.name, value: players.filter((p) => p.sect === sect.key).length, color: SECT_TONE[sect.key] || sect.color }));
+    const [c6, h6] = add('各宗门开辟灵田的人数', '拜入宗门才能开辟灵田；按“谁是谁”里的宗门统计。');
+    I.donut(h6, c6, sects, { unit: ' 人', center: String(players.length), centerSub: '人', aria: '各宗门开辟灵田人数环形图' });
+    I.tableView(c6, ['宗门', '人数'], sects.map((d) => [d.label, d.value]));
+  }
   function ltStatsRender() {
-    const tiles = $('[data-lt-stats-tiles]'), head = $('[data-lt-stats-head]'), body = $('[data-lt-stats-rows]'), status = $('[data-lt-stats-status]');
-    if (!tiles || !head || !body) return;
-    if (lt.statsError) { status.textContent = lt.statsError; tiles.innerHTML = ''; body.innerHTML = ''; return; }
+    const head = $('[data-lt-stats-head]'), body = $('[data-lt-stats-rows]'), status = $('[data-lt-stats-status]');
+    if (!head || !body) return;
+    if (lt.statsError) { status.textContent = lt.statsError; $('[data-lt-stats-charts]').textContent = ''; body.innerHTML = ''; return; }
     if (!lt.stats) return;
     const rows = ltStatRows();
     const { key, dir } = lt.sort;
@@ -1620,8 +1799,8 @@
       const order = col.text ? String(x || '').localeCompare(String(y || ''), 'zh-CN') : ltNum(x) - ltNum(y);
       return order * dir || String(a.sid).localeCompare(String(b.sid));
     });
-    status.textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}：统计到 ${clock(lt.statsAt)}，数字直接读游戏存档。点表头可以排序。`;
-    tiles.innerHTML = ltStatsSummary(rows).map((tile) => `<div class="tw-stat"><b>${esc(tile.value)}</b><span>${esc(tile.label)}</span><small>${esc(tile.note)}</small></div>`).join('');
+    status.textContent = `${state.klass ? `本班（${state.klass.name}）` : '本课程'}：统计到 ${clock(lt.statsAt)}，数字直接读游戏存档。悬停在图上看详细数字；每人一行的明细在最下面“学生明细”里。`;
+    ltStatsCharts(rows);
     head.innerHTML = `<tr>${LT_STAT_COLS.map((item) => `<th${item.tip ? ` title="${esc(item.tip)}"` : ''}><button type="button" class="tw-lt-sort${item.key === key ? ' is-on' : ''}" data-lt-sort="${item.key}">${esc(item.label)}<i aria-hidden="true">${item.key === key ? (dir < 0 ? '▼' : '▲') : ''}</i></button></th>`).join('')}</tr>`;
     const when = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '');
     body.innerHTML = rows.map((p) => `<tr${p.banned ? ' class="is-banned"' : ''}><td class="tw-nowrap">${esc(p.sid)}</td><td class="tw-nowrap">${esc(p.name)}</td>`
@@ -1735,6 +1914,8 @@
     // 2026-11-18 用户：“教师工作台点击‘云间灵田’后自动刷新内容”：每次点开都重读开放设置、谁是谁和数据统计（开放设置改了没保存的不覆盖）
     ltTab.addEventListener('click', () => { ltLoad(); });
     ['[data-lt-enabled]', '[data-lt-water]', '[data-lt-clear]', '[data-lt-steal]'].forEach((sel) => { const input = $(sel); if (input) ['input', 'change'].forEach((type) => input.addEventListener(type, () => { lt.dirty = true; })); });
+    $('[data-lt-enabled]').addEventListener('change', ltSwitchNote);
+    ltPct('[data-lt-water]', 30); ltPct('[data-lt-clear]', 30); ltPct('[data-lt-steal]', 40);
     $('[data-lt-save]').addEventListener('click', ltSave);
     $('[data-lt-reload]').addEventListener('click', ltLoad);
     $('[data-lt-search]').addEventListener('input', ltRender);
@@ -4104,6 +4285,59 @@
     $('[data-ins-status]').textContent = '';
     $$('[data-learn-status]').forEach((el) => { el.textContent = ''; });
   }
+  // 学情分析隐藏姓名（2026-11-19 用户：“学情分析里面可以设置一个按钮，可以一键打开/隐藏图表中学生姓名等个人信息，这样方便我向第三方展示学情”）：
+  //   打开后，图表、悬停提示、表格、放大图里的姓名换成“学生01、学生02……”（按学号顺序编号，每次一样），学号换成“••••”。
+  //   先在数据上换（图表的标签和提示都从 people 这张表取名字），再在页面上兜底替换（学号、可能漏网的姓名，包括之后悬停出现的提示和放大图）；
+  //   状态记在本机，刷新后保持。“导出学习数据（Excel）”是给老师自己用的，不受影响
+  const insPrivacy = { on: (() => { try { return localStorage.getItem('teacher:ins-privacy') === '1'; } catch (error) { return false; } })(), swap: new Map(), re: null };
+  function privacyMap(people, roster) {
+    insPrivacy.swap = new Map();
+    insPrivacy.re = null;
+    if (!insPrivacy.on) return;
+    const sids = Array.from(people.keys()).sort((a, b) => String(a).localeCompare(String(b), 'zh-CN', { numeric: true }));
+    sids.forEach((sid, i) => {
+      const alias = `学生${String(i + 1).padStart(sids.length >= 100 ? 3 : 2, '0')}`;
+      const real = String(people.get(sid) || '').trim();
+      if (real.length >= 2) insPrivacy.swap.set(real, alias);
+      people.set(sid, alias);
+    });
+    (roster || []).forEach((person) => { const real = String(person.name || '').trim(); if (real.length >= 2 && !insPrivacy.swap.has(real)) insPrivacy.swap.set(real, '某同学'); });
+    (roster || []).map((person) => String(person.sid || '').trim()).concat(sids).forEach((sid) => { if (sid.length >= 3) insPrivacy.swap.set(sid, '••••'); });
+    const keys = Array.from(insPrivacy.swap.keys()).sort((a, b) => b.length - a.length).map((k) => k.replace(/[.*+?^${}()|[\]\\]/g, '\\$&'));
+    insPrivacy.re = keys.length ? new RegExp(keys.join('|'), 'g') : null;
+  }
+  const maskText = (text) => (insPrivacy.re && text ? text.replace(insPrivacy.re, (m) => insPrivacy.swap.get(m) || m) : text);
+  function maskNode(node) {
+    if (!insPrivacy.on || !insPrivacy.re || !node) return;
+    if (node.nodeType === 3) { const t = maskText(node.nodeValue); if (t !== node.nodeValue) node.nodeValue = t; return; }
+    if (node.nodeType !== 1) return;
+    ['title', 'aria-label', 'data-tip'].forEach((name) => { const v = node.getAttribute(name); if (v) { const t = maskText(v); if (t !== v) node.setAttribute(name, t); } });
+    const walker = document.createTreeWalker(node, NodeFilter.SHOW_ELEMENT | NodeFilter.SHOW_TEXT);
+    for (let n = walker.nextNode(); n; n = walker.nextNode()) {
+      if (n.nodeType === 3) { const t = maskText(n.nodeValue); if (t !== n.nodeValue) n.nodeValue = t; }
+      else ['title', 'aria-label', 'data-tip'].forEach((name) => { const v = n.getAttribute(name); if (v) { const t = maskText(v); if (t !== v) n.setAttribute(name, t); } });
+    }
+  }
+  // 之后才出现的内容（悬停提示、放大图）也替换：学情分析区域和放大图（挂在 body 上的 .ins-zoom）
+  const inInsights = (n) => { const el = n && (n.nodeType === 1 ? n : n.parentElement); return Boolean(el && el.closest('[data-ins-root], .ins-zoom')); };
+  const privacyWatch = new MutationObserver((list) => {
+    if (!insPrivacy.on) return;
+    list.forEach((m) => {
+      if (m.type === 'childList') m.addedNodes.forEach((n) => { if (inInsights(n)) maskNode(n); });
+      else if (inInsights(m.target)) maskNode(m.target);
+    });
+  });
+  const watchPrivacy = () => {
+    privacyWatch.disconnect();
+    if (insPrivacy.on) privacyWatch.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label', 'data-tip'] });
+  };
+  function paintPrivacyButton() {
+    const button = $('[data-ins-privacy]');
+    if (!button) return;
+    button.setAttribute('aria-pressed', String(insPrivacy.on));
+    button.textContent = insPrivacy.on ? '显示姓名' : '隐藏姓名';
+    document.body.classList.toggle('is-ins-private', insPrivacy.on);
+  }
   async function renderInsights(force) {
     const root = $('[data-ins-root]');
     const I = window.ClassLiveInsights;
@@ -4134,6 +4368,7 @@
     const realmRows = L.realms.filter((r) => inRoster(r.sid));
     const people = new Map(core.map((person) => [sidKey(person.sid), person.name]));
     if (!core.length) acts.forEach((a) => { if (!people.has(a.sid)) people.set(a.sid, a.name); });
+    privacyMap(people, L.roster);   // 打开“隐藏姓名”时，图表从这张表取到的都是“学生01……”
     const total = people.size || 1;
     const keepY = window.scrollY;
     root.style.minHeight = `${root.offsetHeight}px`;   // 先撑住原来的高度，重画时页面不变短、不跳
@@ -4142,7 +4377,7 @@
     requestAnimationFrame(() => { root.style.minHeight = ''; if (Math.abs(window.scrollY - keepY) > 2) window.scrollTo(0, keepY); });
     const scopeText = room ? `课堂“${room.name}”` : `${state.klass.name}全部课堂`;
     const extraCount = L.roster.length - core.length;
-    status.textContent = `${scopeText} · ${span ? `最近 ${span} 天` : '全部时间'} · 点名册 ${core.length} 人${core.length ? '' : '（还没上传点名册，按有记录的同学统计）'}${extraCount ? `（班外允许加入的 ${extraCount} 人不计入）` : ''}。数据读于 ${clock(Date.now())}。`;
+    status.textContent = `${scopeText} · ${span ? `最近 ${span} 天` : '全部时间'} · 点名册 ${core.length} 人${core.length ? '' : '（还没上传点名册，按有记录的同学统计）'}${extraCount ? `（班外允许加入的 ${extraCount} 人不计入）` : ''}。数据读于 ${clock(Date.now())}。${insPrivacy.on ? ' · 已隐藏姓名和学号（学生按学号顺序编为“学生01、学生02……”）' : ''}`;
     if (!acts.length) { I.empty(root, '这段时间还没有学习记录。'); return; }
     // 按天
     const firstDay = isoDay(span ? fromMs : acts[0].ms);
@@ -4717,6 +4952,15 @@
   $('[data-ins-scope]').addEventListener('change', () => renderInsights(false));
   $('[data-ins-range]').addEventListener('change', () => renderInsights(false));
   $('[data-ins-refresh]').addEventListener('click', () => renderInsights(true));
+  $('[data-ins-privacy]').addEventListener('click', () => {
+    insPrivacy.on = !insPrivacy.on;
+    try { localStorage.setItem('teacher:ins-privacy', insPrivacy.on ? '1' : '0'); } catch (error) { /* 忽略 */ }
+    paintPrivacyButton();
+    watchPrivacy();
+    renderInsights(false);
+  });
+  paintPrivacyButton();
+  watchPrivacy();
   let insResize = 0;
   window.addEventListener('resize', () => { clearTimeout(insResize); insResize = setTimeout(() => { if (!$('[data-panel="insight"]').hidden) renderInsights(false); }, 300); });
   $$('[data-learn-export]').forEach((button) => button.addEventListener('click', () => exportLearning(button)));
