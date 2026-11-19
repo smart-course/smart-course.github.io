@@ -1235,7 +1235,7 @@
   function likeButton(doc) {
     const points = Number(doc.adopted) || 0;
     return `<button type="button" class="tw-fb-like${points ? ' is-on' : ''}" data-fb-like="${esc(doc.id)}" aria-pressed="${points ? 'true' : 'false'}"
-      title="${points ? `已点赞采纳，给作者加了 ${points} 修为（点一下可改分或取消）` : '点赞采纳：给写这条建议的同学加修为'}">${LIKE_ICON}<span>${points ? `+${points}` : '赞'}</span></button>`;
+      title="${points ? `已点赞采纳，选的是 +${points} 修为（同一位同学 7 天内靠点赞最多得 20；点一下可改分或取消）` : '点赞采纳：给写这条建议的同学加修为'}">${LIKE_ICON}<span>${points ? `+${points}` : '赞'}</span></button>`;
   }
   const adoptDialog = $('[data-adopt-dialog]');
   let adoptId = '';
@@ -1267,8 +1267,9 @@
       }
       const doc = feedbackRows.find((item) => String(item.id) === adoptId);
       if (doc) doc.adopted = points;
+      // 2026-11-20 起同一位同学 7 天内靠点赞最多得 20 修为：后台只告诉这里“已记下”，不说实际加了多少（否则能看出几条建议出自同一个人）
       adoptNote = points
-        ? `刚才的点赞：给写这条建议的同学加了 ${points} 修为（“修为境界”重新结算后计入），作者下次打开页面时会看到提示。`
+        ? `刚才的点赞已记下：按 +${points} 修为加给写这条建议的同学（“修为境界”重新结算后计入），作者下次打开页面时会看到提示。同一位同学 7 天内靠点赞最多得 20 修为，超出的部分后台自动不计。`
         : '刚才已取消点赞，作者的这份修为已撤回。';
       adoptDialog.close();
       renderFeedback();

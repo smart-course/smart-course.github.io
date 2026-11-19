@@ -6,13 +6,15 @@
     if(!T||!parent)return null;
     const root=new T.Group();root.name='spirit-study-corner';root.position.set(-6.45,.24,-10.1);root.rotation.y=Math.PI*.18;root.visible=false;parent.add(root);
     let signature='',generation=0,disposed=false,hovered=null;
-    // 智慧课堂 2026-11-19：卡框可点（看不见的点击框，手机上也好点中）；地品 SSR、天品 UR 的卡框加光晕、底座光环和升腾的灵光
+    // 智慧课堂 2026-11-19：卡框可点（看不见的点击框，手机上也好点中）；地品 SSR、天品 UR 的卡框加光晕、底座光环和灵光
+    // 2026-11-20 用户：“展示牌上也是一样，不要像太阳的这种，而是要以边框为基准，随机向外散发光芒”——去掉卡框背后那张带放射光线、会转的光晕，
+    //   换成贴着卡框一圈的柔光（不转，只呼吸）；灵光不再从下往上升，改成在卡框边上随机一处生出、沿外法线带一点随机偏角向外飘散淡出，飘完换一处
     const pickTargets=[],effects=[],frames=new Map();
     const GRADES={
       SSR:{name:'地品',trim:0xe2b65a,glow:0x8a5a14,glowIntensity:.7,ink:'#8a6420',paper:['#fbf3d6','#efdcaa'],border:['#a57a2c','#f3d27e','#fff6d2','#c99a3e','#f0cd78'],
-        core:'rgba(255,236,176,.95)',mid:'rgba(255,198,96,.42)',rays:['rgba(255,226,150,'],rings:[0xffcf6e],sparks:[0xffe7a3,0xffcd66],count:7,halo:.8},
+        core:'rgba(255,236,176,.95)',mid:'rgba(255,198,96,.42)',rays:['rgba(255,226,150,'],rings:[0xffcf6e],sparks:[0xffe7a3,0xffcd66],count:16,halo:.8},
       UR:{name:'天品',trim:0xf3d993,glow:0x5f3c96,glowIntensity:.6,ink:'#6a4b8e',paper:['#f8f1de','#efe3f6','#e1f2ec'],border:['#d4a75a','#fff3c6','#9fe3d6','#d8a6f4','#f5d48a'],
-        core:'rgba(255,246,214,.95)',mid:'rgba(208,166,255,.40)',rays:['rgba(255,226,150,','rgba(150,236,220,','rgba(222,176,255,'],rings:[0xffe0a0,0xc79dff],sparks:[0xffeaa8,0xa8f0e2,0xe6bdff],count:11,halo:.9}
+        core:'rgba(255,246,214,.95)',mid:'rgba(208,166,255,.40)',rays:['rgba(255,226,150,','rgba(150,236,220,','rgba(222,176,255,'],rings:[0xffe0a0,0xc79dff],sparks:[0xffeaa8,0xa8f0e2,0xe6bdff],count:24,halo:.9}
     };
     const geometries=new Set(),materials=new Set(),textures=new Set();
     const tones={jade:0x789f87,dark:0x476956,paper:0xe9dfbc,gold:0xbda066,wood:0x8d8665};
@@ -62,16 +64,24 @@
       ctx.fillStyle=edge;for(const [cx,cy] of [[24,24],[488,24],[24,656],[488,656]]){ctx.beginPath();ctx.moveTo(cx,cy-13);ctx.lineTo(cx+13,cy);ctx.lineTo(cx,cy+13);ctx.lineTo(cx-13,cy);ctx.closePath();ctx.fill();}
     }
     function glowTexture(size,paint){const result=canvasTexture(size,size,paint);return result?.texture||null;}
+    // 贴着卡框一圈的柔光：贴图比卡框四周各大出 GLOW_PAD，中间画一个和卡框一样大的发光边框（多描几遍、由宽到窄），没有放射光线
+    const GLOW_PAD=.34,CARD_W=1.16,CARD_H=1.54;
     function haloTexture(grade){
-      return glowTexture(256,ctx=>{
-        const core=ctx.createRadialGradient(128,128,0,128,128,128);core.addColorStop(0,grade.core);core.addColorStop(.38,grade.mid);core.addColorStop(1,'rgba(0,0,0,0)');
-        ctx.fillStyle=core;ctx.fillRect(0,0,256,256);ctx.globalCompositeOperation='lighter';
-        const rays=grade.rays.length>1?18:12;
-        for(let i=0;i<rays;i++){
-          ctx.save();ctx.translate(128,128);ctx.rotate(i/rays*Math.PI*2);
-          const ray=ctx.createLinearGradient(0,0,0,-128),tone=grade.rays[i%grade.rays.length];ray.addColorStop(0,tone+'.55)');ray.addColorStop(1,tone+'0)');
-          ctx.fillStyle=ray;ctx.beginPath();ctx.moveTo(-7,0);ctx.lineTo(0,-126);ctx.lineTo(7,0);ctx.closePath();ctx.fill();ctx.restore();
-        }
+      const W=256,H=Math.round(256*(CARD_H+GLOW_PAD*2)/(CARD_W+GLOW_PAD*2));
+      const result=canvasTexture(W,H,ctx=>{
+        const px=W*GLOW_PAD/(CARD_W+GLOW_PAD*2),py=H*GLOW_PAD/(CARD_H+GLOW_PAD*2);
+        const tones=grade.rays.map(tone=>tone+'1)');
+        const stroke=ctx.createLinearGradient(0,0,W,H);tones.concat(tones[0]).forEach((color,i,list)=>stroke.addColorStop(i/(list.length-1),color));
+        ctx.lineJoin='round';ctx.strokeStyle=stroke;ctx.shadowColor=grade.mid;
+        for(const [width,blur,alpha] of [[26,34,.22],[14,22,.38],[6,12,.7]]){ctx.globalAlpha=alpha;ctx.lineWidth=width;ctx.shadowBlur=blur;ctx.strokeRect(px,py,W-px*2,H-py*2);}
+        ctx.globalAlpha=1;
+      });
+      return result?.texture||null;
+    }
+    function dotTexture(){
+      return glowTexture(64,ctx=>{
+        const glow=ctx.createRadialGradient(32,32,0,32,32,32);glow.addColorStop(0,'rgba(255,255,255,1)');glow.addColorStop(.3,'rgba(255,255,255,.7)');glow.addColorStop(1,'rgba(255,255,255,0)');
+        ctx.fillStyle=glow;ctx.fillRect(0,0,64,64);
       });
     }
     function sparkTexture(){
@@ -86,9 +96,9 @@
     function gradeEffects(frame,grade){
       const halo=haloTexture(grade);
       if(halo){
-        const geometry=new T.PlaneGeometry(2.45,2.9);geometries.add(geometry);
-        const plane=new T.Mesh(geometry,glowMaterial({map:halo,opacity:grade.halo}));plane.position.set(0,.76,-.13);plane.renderOrder=-1;plane.castShadow=plane.receiveShadow=false;frame.add(plane);
-        effects.push({kind:'halo',object:plane,base:grade.halo,phase:Math.random()*6,spin:grade.rays.length>1?.11:.07});
+        const geometry=new T.PlaneGeometry(CARD_W+GLOW_PAD*2,CARD_H+GLOW_PAD*2);geometries.add(geometry);
+        const plane=new T.Mesh(geometry,glowMaterial({map:halo,opacity:grade.halo}));plane.position.set(0,.74,-.09);plane.renderOrder=-1;plane.castShadow=plane.receiveShadow=false;frame.add(plane);
+        effects.push({kind:'halo',object:plane,base:grade.halo,phase:Math.random()*6});
       }
       grade.rings.forEach((color,i)=>{
         const geometry=new T.RingGeometry(.19+i*.035,.29+i*.035,48);geometries.add(geometry);
@@ -96,12 +106,21 @@
         effects.push({kind:'ring',object:ring,base:.85,phase:i*1.7,spin:i%2?-.7:.55});
       });
       if(reducedMotion)return;
-      const spark=sparkTexture();if(!spark)return;
+      const spark=sparkTexture(),dot=dotTexture();if(!spark||!dot)return;
       for(let i=0;i<grade.count;i++){
-        const material=new T.SpriteMaterial({map:spark,color:grade.sparks[i%grade.sparks.length],transparent:true,depthWrite:false,opacity:0,toneMapped:false});materials.add(material);
-        const sprite=new T.Sprite(material),side=i%2?1:-1;sprite.scale.setScalar(.12);frame.add(sprite);
-        effects.push({kind:'spark',object:sprite,x:side*(.36+Math.random()*.3),z:.06+Math.random()*.22,phase:i/grade.count+Math.random()*.08,speed:.16+Math.random()*.1,size:.13+Math.random()*.1});
+        const material=new T.SpriteMaterial({map:i%3===1?spark:dot,color:grade.sparks[i%grade.sparks.length],transparent:true,depthWrite:false,opacity:0,toneMapped:false});materials.add(material);
+        const sprite=new T.Sprite(material);sprite.scale.setScalar(.1);frame.add(sprite);
+        effects.push({kind:'edge',object:sprite,star:i%3===1,start:null});
       }
+    }
+    // 卡框边上随机一处（按周长均匀取点）和这一处的外法线，再偏一个随机角度；远近、大小、快慢随机
+    function edgeSpawn(e,t,first){
+      const hw=CARD_W/2,y0=-.03,r=Math.random()*(CARD_W*2+CARD_H*2);let x,y,nx,ny;
+      if(r<CARD_W){x=-hw+r;y=y0+CARD_H;nx=0;ny=1;}else if(r<CARD_W+CARD_H){x=hw;y=y0+CARD_H-(r-CARD_W);nx=1;ny=0;}
+      else if(r<CARD_W*2+CARD_H){x=hw-(r-CARD_W-CARD_H);y=y0;nx=0;ny=-1;}else{x=-hw;y=y0+(r-CARD_W*2-CARD_H);nx=-1;ny=0;}
+      const a=(Math.random()-.5)*1.4,c=Math.cos(a),k=Math.sin(a);
+      e.x=x;e.y=y;e.dx=nx*c-ny*k;e.dy=nx*k+ny*c;e.far=.2+Math.random()*.3;e.size=(e.star?.19:.11)*(.6+Math.random()*.8);e.life=1.5+Math.random()*1.6;
+      e.z=.085+Math.random()*.05;e.start=first?t-Math.random()*e.life:t;
     }
     function lamp(group,x,y,z,lit=true,scale=1){const g=new T.Group();g.position.set(x,y,z);g.scale.setScalar(scale);group.add(g);cyl(.18,.23,.08,tones.dark,g,0,0,0);cyl(.07,.09,.72,tones.wood,g,0,.38,0);cyl(.22,.27,.08,tones.gold,g,0,.77,0);mesh(new T.CylinderGeometry(.18,.18,.35,8),mat(lit?0xf0d98c:0xa4b29a,{emissive:lit?0xd6b569:0x000000,emissiveIntensity:lit?.34:0}),g,0,.99,0);cyl(.28,.22,.14,tones.jade,g,0,1.24,0);cyl(.04,.10,.15,tones.gold,g,0,1.38,0);}
     function rewardObject(reward){
@@ -134,9 +153,17 @@
       if(disposed||!root.visible||!effects.length)return false;
       for(const e of effects){
         if(e.kind==='trim'){e.object.emissiveIntensity=e.base*(.7+.6*(.5+.5*Math.sin(t*1.8+e.phase)));continue;}
-        if(e.kind==='halo'){e.object.material.opacity=e.base*(.78+.22*Math.sin(t*1.3+e.phase));e.object.rotation.z=t*e.spin;}
+        if(e.kind==='halo'){e.object.material.opacity=e.base*(.72+.28*Math.sin(t*1.3+e.phase));}
         else if(e.kind==='ring'){e.object.rotation.z=t*e.spin;e.object.material.opacity=e.base*(.7+.3*Math.sin(t*2.1+e.phase));}
-        else{const u=(t*e.speed+e.phase)%1,rise=Math.sin(u*Math.PI);e.object.position.set(e.x+Math.sin(t*.9+e.phase*6.3)*.07,-.25+u*2.05,e.z);e.object.material.opacity=rise*.95;e.object.scale.setScalar(e.size*(.55+.45*rise));}
+        else{
+          // 沿卡框边随机向外的灵光：先快后慢地飘出去，开头很快亮起、随后渐隐、越飘越小；飘完一轮换一处
+          if(e.start===null)edgeSpawn(e,t,true);
+          let age=t-e.start;
+          if(age>=e.life||age<0){const over=age>0?age-e.life:0;edgeSpawn(e,t,false);e.start=t-over%e.life;age=t-e.start;}   // 隔了很久才画下一帧（页面切到后台再回来）也各飘各的，不会一起从头开始
+          const u=age/e.life;
+          const out=1-(1-u)*(1-u),d=e.far*out,fade=u<.14?u/.14:1-(u-.14)/.86;
+          e.object.position.set(e.x+e.dx*d,e.y+e.dy*d,e.z+out*.05);e.object.material.opacity=Math.max(0,fade)*.95;e.object.scale.setScalar(e.size*(1.05-.55*u));
+        }
       }
       return true;
     }

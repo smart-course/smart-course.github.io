@@ -136,6 +136,10 @@
   // 昵称 2—nickMax 字，每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；学生页每 poll 毫秒刷新。
   // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes，辩后投票票多一方聊天室里的同学各加 win（同一人相加）
   const DEBATE = { likes: 5, win: 5, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
+  // 2026-11-20 辩论赛每一步的计时同步到学生页：沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live（表 ck_debate_matches，线上一直在，不用再执行 SQL），
+  // 阶段名只能用旧的那几个，这里对照：选立场 · 论据卡＝pro_open，聊天室＝free，辩后投票＝vote，公布结果＝done
+  // 2026-11-20 加“自由讨论”一步（用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点”），借用阶段名 con_open
+  const DEBATE_STAGE = { prep: 'pro_open', talk: 'con_open', chat: 'free', vote: 'vote', result: 'done' };
   // 经营沙盘（2026-11-03，习经案例 08 第二课时）：四个角色组聊天室沿用辩论聊天室（房间＝案例号＋b，side＝r1—r4）；
   // 经营合格时四位代表各 rep、本方指标最高的角色组里发过言的同学各 top（同一人相加，不超过 20；后台 ck_set_biz_awards 发放）；学生页每 poll 毫秒刷新
   const BIZ = { rep: 10, top: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
@@ -147,7 +151,9 @@
   const FEEDBACK = { points: 5, min: 10 };
   // 隐藏彩蛋（2026-11-05，学生页“更新说明”里不写，让学生自己发现）：老师点赞采纳匿名建议可选的修为 adopt、点笑脸 mood（每人每天一次）、
   // 一周（周一至周日）登录满 days 天 week（每周一次）。后台 ck_adopt_feedback / ck_set_mood / ck_checkin_today 写死同样的数
-  const EGG = { adopt: [5, 10, 20], mood: 5, week: 10, days: 3 };
+  // 2026-11-20 点赞上限（用户：“同一位同学，上一次被点赞后，一个礼拜的时间内，最多获得20修为值……因为老师不知道是谁评论，又要防止刷分”）：
+  // 同一位同学 adoptDays 天内靠点赞实际得到的修为合计不超过 adoptCap（后台 ck_adopt_recount 写死同样的数）
+  const EGG = { adopt: [5, 10, 20], adoptCap: 20, adoptDays: 7, mood: 5, week: 10, days: 3 };
   // 匿名建议箱的文字、样式和卡片（2026-11-05 起学生页与投屏页共用。用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）：
   // texts(worksheet) 政经（概念学习页）叫“匿名建议和提问箱”；html(FB, teacher) teacher＝投屏页：同样的笑脸、输入框和“匿名提交”，一律不能用
   const FEEDBACK_BOX = {
@@ -1039,6 +1045,37 @@
           const uid = await this.ensureAnonymous();
           const teacher = Boolean(localStorage.getItem(prefix + 'teacher'));
           const rooms = read('classrooms');
+          // 计时同步（2026-11-20；规则同 cloudbase-pg.sql 的 ck_debate_control / ck_debate_live）
+          if (name === 'ck_debate_live' || name === 'ck_debate_control') {
+            const matches = read('debatematches');
+            const same = (m) => String(m.classroom) === String(params.p_classroom) && m.case_no === params.p_case;
+            const leftOf = (m) => (m.paused_left != null ? m.paused_left : Math.max(0, m.stage_secs - Math.floor((Date.now() - Date.parse(m.stage_at)) / 1000)));
+            const stateOf = (m) => (m ? { status: 'ok', stage: m.stage, secs: m.stage_secs, left: leftOf(m), paused: m.paused_left != null, args: { pro: [], con: [] }, says: [] } : { status: 'none' });
+            if (name === 'ck_debate_live') return stateOf(matches.find(same));
+            teacherOnly();
+            const action = params.p_action;
+            const at = matches.findIndex(same);
+            if (action === 'lock') {
+              const row = { classroom: Number(params.p_classroom) || params.p_classroom, case_no: params.p_case, stage: 'ready', stage_at: new Date().toISOString(), stage_secs: 0, paused_left: null };
+              if (at >= 0) matches[at] = row; else matches.push(row);
+            } else if (action === 'reset') {
+              if (at >= 0) matches.splice(at, 1);
+            } else {
+              const m = matches[at];
+              if (!m) throw new Error('请先选定论点与辩手');
+              const gone = Math.floor((Date.now() - Date.parse(m.stage_at)) / 1000);
+              if (action === 'stage') Object.assign(m, { stage: params.p_stage, stage_at: new Date().toISOString(), stage_secs: Math.min(1800, Math.max(0, Number(params.p_secs) || 0)), paused_left: null });
+              else if (action === 'pause') { if (m.paused_left == null) m.paused_left = leftOf(m); }
+              else if (action === 'resume') { if (m.paused_left != null) Object.assign(m, { stage_at: new Date().toISOString(), stage_secs: m.paused_left, paused_left: null }); }
+              else if (action === 'extend') {
+                const add = params.p_secs == null ? 30 : Number(params.p_secs);
+                if (m.paused_left != null) m.paused_left = Math.min(1800, Math.max(0, m.paused_left + add));
+                else m.stage_secs = Math.min(1800, Math.max(0, gone + Math.max(0, m.stage_secs - gone) + add));
+              } else throw new Error('没有这个操作');
+            }
+            write('debatematches', matches);
+            return stateOf(matches.find(same));
+          }
           const members = read('debatemembers');
           const posts = read('debateposts');
           const likes = read('debatelikes');
@@ -1851,21 +1888,33 @@
           if (!me && localStorage.getItem(prefix + 'teacher')) {
             const at = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
             const hit = at && read('explainbank').find((e) => e.course === at.course && e.unit === at.chapter && e.key === params.p_key);
-            return hit ? { status: 'ok', body: hit.body } : { status: 'none' };
+            if (!hit) return { status: 'none' };
+            const { need: skipNeed, ...openBody } = hit.body || {};
+            return { status: 'ok', body: openBody };
           }
           if (!me) return { status: 'login' };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const sid = sidKey(me.sid);
-          const realm = read('realms').find((row) => row.course === room.course && Number(row.class_id) === (Number(room.class_id) || 0) && row.sid === sid);
-          if (!realm || Number(realm.realm) < 1) return { status: 'locked', realm: realm ? Number(realm.realm) : 0, need: 1 };
           const row = read('explainbank').find((e) => e.course === room.course && e.unit === room.chapter && e.key === params.p_key);
+          // 2026-11-20：解答标了 open 的（四步解析）不看境界；标了 need 的要这一组题全部递交才给
+          if (!(row && row.body && row.body.open)) {
+            const realm = read('realms').find((item) => item.course === room.course && Number(item.class_id) === (Number(room.class_id) || 0) && item.sid === sid);
+            if (!realm || Number(realm.realm) < 1) return { status: 'locked', realm: realm ? Number(realm.realm) : 0, need: 1 };
+          }
           if (!row) return { status: 'none' };
-          const [no, item = ''] = String(params.p_key).split(':');
           const mine = (doc) => String(doc.classroom) === String(params.p_classroom) && sidKey(doc.sid) === sid;
-          const done = read('homework').some((h) => mine(h) && Object.prototype.hasOwnProperty.call(h.payload || {}, params.p_key))
-            || (item && read('choices').some((c) => mine(c) && c.case === no && (c.item === item || (item === 'match' && /^match-/.test(c.item)))))
-            || (item && read('answers').some((a) => mine(a) && a.case === no && a.item === item));
-          return done ? { status: 'ok', body: row.body } : { status: 'todo' };
+          const submitted = (key, loose) => {
+            const [no, item = ''] = String(key).split(':');
+            return read('homework').some((h) => mine(h) && Object.prototype.hasOwnProperty.call(h.payload || {}, key))
+              || (item && read('choices').some((c) => mine(c) && c.case === no && (c.item === item || (loose && item === 'match' && /^match-/.test(c.item)))))
+              || (item && read('answers').some((a) => mine(a) && a.case === no && a.item === item));
+          };
+          if (Array.isArray(row.body.need)) {
+            if (!row.body.need.every((key) => submitted(key, false))) return { status: 'todo' };
+            const { need: skip, ...rest } = row.body;
+            return { status: 'ok', body: rest };
+          }
+          return submitted(params.p_key, true) ? { status: 'ok', body: row.body } : { status: 'todo' };
         }
         // 修炼场（规则同 cloudbase-pg.sql 的 ck_practice_home / items / answer / essay）
         if (/^ck_practice_(home|items|answer|essay)$/.test(name)) {
@@ -2249,7 +2298,9 @@
           write('bonus', bonus);
           return true;
         }
-        // 老师点赞采纳匿名建议（规则同 cloudbase-pg.sql 的 ck_adopt_feedback）：0／5／10／20，同一人同一课堂同一天被采纳的合成一行加分
+        // 老师点赞采纳匿名建议（规则同 cloudbase-pg.sql 的 ck_adopt_feedback / ck_adopt_recount）：0／5／10／20。
+        // 2026-11-20 起同一位同学 7 天内靠点赞最多得 20 修为：这里记下老师点的数（asked）和时间（liked_at），实际加多少（points）按时间顺序重算；
+        // 返回的 adopted 是老师点的数，不是实际加的数（不让老师从“没加满”看出几条建议出自同一个人）
         if (name === 'ck_adopt_feedback') {
           teacherOnly();
           const points = Number(params.p_points);
@@ -2260,16 +2311,43 @@
           const authors = read('fbauthors');
           const author = authors.find((row) => String(row.feedback_id) === String(params.p_id));
           if (!author) return { status: 'no_author', adopted: Number(doc.adopted) || 0 };
+          const now = new Date().toISOString();
           doc.adopted = points;
-          doc.adopted_at = points ? new Date().toISOString() : null;
+          doc.adopted_at = points ? now : null;
           write('feedback', rows);
-          author.points = points;
-          author.notified = Math.min(Number(author.notified) || 0, points);
+          const mine = (row) => row.course === author.course && String(row.class_id) === String(author.class_id) && row.sid === author.sid;
+          // 本规则之前点的赞（没有 liked_at）：照原样保留（capped＝false，不重算），但算进之后 7 天的合计
+          authors.filter((row) => mine(row) && (Number(row.points) || 0) > 0 && !row.liked_at).forEach((row) => {
+            const old = rows.find((item) => String(item.id) === String(row.feedback_id));
+            Object.assign(row, { asked: row.points, capped: false, liked_at: (old && old.adopted_at) || `${row.created_on}T00:00:00+08:00` });
+          });
+          if (points > 0) Object.assign(author, { asked: points, liked_at: now, capped: true });
+          else Object.assign(author, { asked: 0, liked_at: null, capped: true, points: 0, notified: 0 });
+          const at = (row) => Date.parse(row.liked_at);
+          const span = EGG.adoptDays * 86400000;
+          authors.filter((row) => mine(row) && row.capped !== false && (Number(row.asked) || 0) > 0 && row.liked_at)
+            .sort((x, y) => at(x) - at(y) || Number(x.feedback_id) - Number(y.feedback_id))
+            .forEach((row) => {
+              const used = authors.filter((other) => mine(other) && other !== row && (Number(other.points) || 0) > 0 && other.liked_at && at(other) > at(row) - span
+                && (at(other) < at(row) || (at(other) === at(row) && Number(other.feedback_id) < Number(row.feedback_id))))
+                .reduce((total, other) => total + Number(other.points), 0);
+              const give = Math.min(Number(row.asked), Math.max(0, EGG.adoptCap - used));
+              row.points = give;
+              row.notified = Math.min(Number(row.notified) || 0, give);
+            });
           write('fbauthors', authors);
-          const same = (row) => String(row.classroom) === String(author.classroom) && row.created_on === author.created_on && row.sid === author.sid;
-          const sum = authors.filter(same).reduce((total, row) => total + (Number(row.points) || 0), 0);
-          const list = read('bonus').filter((row) => !(row.kind === 'adopt' && String(row.classroom) === String(author.classroom) && row.day === author.created_on && row.sid === author.sid));
-          if (sum > 0) list.push({ id: `${Date.now()}-adopt`, course: author.course, classroom: author.classroom, day: author.created_on, kind: 'adopt', sid: author.sid, name: author.name, points: Math.min(sum, 100), created_at: new Date().toISOString() });
+          // 加分记录：这位同学同一课堂同一天（建议提交日）被采纳的几条合成一行
+          const groups = new Map();
+          authors.filter(mine).forEach((row) => {
+            const key = `${row.classroom}|${row.created_on}`;
+            const group = groups.get(key) || { classroom: row.classroom, day: row.created_on, sum: 0 };
+            group.sum += Number(row.points) || 0;
+            groups.set(key, group);
+          });
+          const list = read('bonus').filter((row) => !(row.kind === 'adopt' && row.sid === author.sid && groups.has(`${row.classroom}|${row.day}`)));
+          groups.forEach((group, key) => {
+            if (group.sum > 0) list.push({ id: `${Date.now()}-adopt-${key}`, course: author.course, classroom: group.classroom, day: group.day, kind: 'adopt', sid: author.sid, name: author.name, points: Math.min(group.sum, 100), created_at: now });
+          });
           write('bonus', list);
           return { status: 'ok', adopted: points };
         }
@@ -2796,7 +2874,15 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        ['辩论赛加了自由讨论和倒计时', '辩论赛现在是四步：① 选立场 · 论据卡 → ② 自由讨论 5 分钟（和同一立场的同学当面讨论，想好自己的观点和理由，这一步聊天室还不能发言）→ ③ 聊天室发言点赞 → ④ 辩后投票。每一步的倒计时也显示在你的页面上，时间到了这一步就不能再递交（聊天室不能再发言）；老师加时以后可以继续。', '2026-11-20'],
+        ['云间灵田：卡牌光效换了', '地品、天品卡牌的光效换了：光点从卡牌边框上随机冒出、向外飘散，书案上的展示牌也一样（不再是一圈圈向外扩散的框和放射的光线）。', '2026-11-20'],
+        ['电脑上也能全屏答题', (config.course === 'political-economy'
+          ? '在电脑上点题目右上角的“⤢”（或直接点题目卡片、递交旁边的“⤢ 全屏”），这一题会放大铺满窗口：照常选择、输入和递交，'
+          : '在电脑上点步骤卡右边的“⤢ 放大”、题目右上角的“⤢”或递交旁边的“⤢ 全屏”，这道题会放大铺满窗口：照常作答和递交，')
+          + '顶上有“上一题”“下一题”（键盘 ← → 也行），A−／A+ 调大小，点“退出放大”或按 Esc 回到页面。手机上答题仍用递交旁边的“⤢ 全屏”。', '2026-11-20'],
         ...(config.course === 'political-economy' ? [
+          ['概念串联改为拖动排序', '概念串联的排序题不用再点“上移”“下移”：按住每句话右边的“≡”上下拖动，就能调整先后顺序（电脑上按住整句也能拖）。每句话前面的序号跟着句子走、不会变，排好以后可以按序号把顺序读出来。', '2026-11-20'],
+          ['深度思考', '原来的“豁然开朗”改名“深度思考”，放在概念串联之后，学习路线页不再预告“本课悬念”。每个案例后半段的顺序改为：迁移任务 → 辩论赛 → 概念串联 → 深度思考 → 课后自修；有的案例在“深度思考”里另有几个假想问题，用弹幕说出你的判断。', '2026-11-20'],
           ['概念讲解', '「筑基」以上的同学，“先想一想”递交以后点题目下方的“展开解答与概念讲解”：除了参考答案，还能看到这个概念的讲解——要点与定义、教案板书、典型题解析和教材原文，和老师投屏讲的一样。', '2026-11-19'],
           ['算一算一步一步来', '“用一用”里的计算题，上方列出“一步一步来”的几个问题（比如“一天创造的新价值应该怎样计算？”），照着一步一步算；课上老师先问每一步，再一步一步展开解法。', '2026-11-19'],
           ['手机能输入负号了', '计算题的输入框换了键盘：以前苹果手机的数字键盘没有负号，填不了负数，现在弹出的键盘有“-”号。', '2026-11-19'],
@@ -2980,6 +3066,7 @@
     PK,
     TIMELINE,
     DEBATE,
+    DEBATE_STAGE,
     BIZ,
     DISCUSS,
     POLL,

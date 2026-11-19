@@ -58,11 +58,29 @@
     // 智慧课堂 2026-11-19 用户：“把这个特效也加入到卡牌显示中，就是卡牌周围带一圈闪光”——地品 SSR、天品 UR（已收录、不是小图）四周一圈光晕和闪烁的星芒
     // 卡面外包一层 dz-card-glint（卡面本身 overflow:hidden 装不下外圈光），光圈只围住卡面、不围下面“可用 ×1”；其余卡牌的结构不变
     const sparkles=(card,known,mini)=>!mini&&known&&(card.rarity==='SSR'||card.rarity==='UR');
-    // 2026-11-19 用户：“特效可以更明显一些，有向外扩散的粒子”——再加一圈向外扩散的光波和 18 颗沿四边向外飞散的粒子（位置、方向、节奏固定，重绘不跳）
-    const SPARKLE_MOTES=(()=>{const out=[];for(let i=0;i<18;i+=1){const t=(i+.5)/18,j=((i*7)%5-2)*.18;let x,y,nx,ny;
-      if(t<.25){x=t/.25*100;y=0;nx=j;ny=-1;}else if(t<.5){x=100;y=(t-.25)/.25*100;nx=1;ny=j;}else if(t<.75){x=100-(t-.5)/.25*100;y=100;nx=j;ny=1;}else{x=0;y=100-(t-.75)/.25*100;nx=-1;ny=j;}
-      out.push(`<b style="--x:${x.toFixed(1)}%;--y:${y.toFixed(1)}%;--dx:${nx.toFixed(2)};--dy:${ny.toFixed(2)};--d:${((i*.61)%2.8).toFixed(2)}s;--t:${(2.3+(i%4)*.35).toFixed(2)}s"></b>`);}return out.join('');})();
-    const sparkleRing=()=>'<span class="dz-card-sparkle" aria-hidden="true">'+'<i></i>'.repeat(10)+'<s class="dz-sparkle-wave"></s><s class="dz-sparkle-wave is-late"></s>'+SPARKLE_MOTES+'</span>';
+    // 2026-11-19 用户：“特效可以更明显一些，有向外扩散的粒子”；2026-11-20 用户：“道藏卡牌的特效，不是向外散发框框，而是沿边框随机向外散发的粒子……
+    // 要以边框为基准，随机向外散发光芒”——去掉两圈向外扩散的光波（“框框”）。粒子改成：在边框上随机一处生出（按周长均匀取点），
+    // 沿这一处的外法线、带一点随机偏角向外飘散并淡出；远近、大小、快慢各不相同，三颗里有一颗是顺着飞行方向的细光丝。
+    // 每颗飘完一轮（animationiteration）就换一个新的随机位置和方向（onSparkleLoop），所以整圈边框不停地、不规则地往外冒光；
+    // 起始时刻也随机（负的延迟），重画卡牌时不会齐刷刷从头开始。天品 UR 比地品 SSR 多。
+    const SPARKLE_COUNT={SSR:20,UR:28};
+    const sparkleRand=(a,b)=>a+Math.random()*(b-a);
+    function sparkleSpot(){   // 边框上随机一点（卡面宽高约 5:7）、这一处的外法线，再偏一个随机角度；返回样式里要用的自定义属性
+      const r=Math.random()*24;let x,y,nx,ny;
+      if(r<5){x=r/5*100;y=0;nx=0;ny=-1;}else if(r<12){x=100;y=(r-5)/7*100;nx=1;ny=0;}else if(r<17){x=100-(r-12)/5*100;y=100;nx=0;ny=1;}else{x=0;y=100-(r-17)/7*100;nx=-1;ny=0;}
+      const a=sparkleRand(-.7,.7),c=Math.cos(a),k=Math.sin(a),dx=nx*c-ny*k,dy=nx*k+ny*c;
+      return{'--x':x.toFixed(1)+'%','--y':y.toFixed(1)+'%','--dx':dx.toFixed(3),'--dy':dy.toFixed(3),'--rot':(Math.atan2(dy,dx)*180/Math.PI+90).toFixed(1)+'deg','--far':sparkleRand(.45,1).toFixed(2),'--s':sparkleRand(.55,1.25).toFixed(2)};
+    }
+    function sparkleMote(index){
+      const spot=sparkleSpot(),time=sparkleRand(1.5,3.1);
+      return `<b class="${index%3===1?'is-ray':''}" style="${Object.entries(spot).map(([key,value])=>key+':'+value).join(';')};--t:${time.toFixed(2)}s;--d:${(-Math.random()*time).toFixed(2)}s"></b>`;
+    }
+    const sparkleRing=rarityCode=>'<span class="dz-card-sparkle" aria-hidden="true">'+'<i></i>'.repeat(10)+Array.from({length:SPARKLE_COUNT[rarityCode]||14},(_,i)=>sparkleMote(i)).join('')+'</span>';
+    function onSparkleLoop(event){   // 一颗粒子飘完一轮（这时它是透明的）：换一处新的随机位置和方向
+      if(event.animationName!=='dz-sparkle-mote')return;
+      const mote=event.target,spot=sparkleSpot();
+      for(const key in spot)mote.style.setProperty(key,spot[key]);
+    }
     function cardFace(card,{mini=false,count=true,revealIndex=null,action='detail'}={}) {
       if(!card)return '';
       const shown=exhibit?.id===card.id&&showingExhibit(),grade=rarity(card.rarity),owned=shown?1:own(card.id),known=shown||owned>0||(current()?.discovered||[]).includes(card.id),chapter=courseOfCard(card)?.chapters?.find(ch=>ch.id===card.chapterId);
@@ -73,7 +91,7 @@
         ${glint?'<span class="dz-card-glint">':''}<span class="dz-card-inner"><span class="dz-card-corner dz-corner-one" aria-hidden="true"></span><span class="dz-card-corner dz-corner-two" aria-hidden="true"></span><span class="dz-card-top"><span>${chapter?.number===0?'导论':'卷'+E(chapter?.number??String(card.chapterId||'').replace('ch',''))}<small>${E(card.subtitle||'万象道藏')}</small></span>${gradeBadge(card.rarity)}</span>
         <span class="dz-card-picture" title="${E(global.spiritCardArtIdea?.(card)||card.art?.symbol||'道藏意象')}">${global.spiritCardArt?.(card)||glyph('book')}<i class="dz-card-seal">${SEALS[card.art?.motif]||'藏真'}</i></span>
         <span class="dz-card-title" data-fit-card-title><span class="dz-title-text">${E(card.title)}</span></span><span class="dz-card-definition">${E(compact(card.definition))}</span>
-        <span class="dz-card-foot"><span>${E(serial(card.id))}</span><b><i>${['✦','✦✦','✦✦✦','✦✦✦✦','✦✦✦✦✦'][Math.min(4,grade.rank||0)]}</i><span>典藏</span></b></span></span>${glint?sparkleRing()+'</span>':''}
+        <span class="dz-card-foot"><span>${E(serial(card.id))}</span><b><i>${['✦','✦✦','✦✦✦','✦✦✦✦','✦✦✦✦✦'][Math.min(4,grade.rank||0)]}</i><span>典藏</span></b></span></span>${glint?sparkleRing(card.rarity)+'</span>':''}
         ${shown?exhibitStamp():studyUI?.stamp(card.id)||''}${count?`<span class="dz-card-count ${owned?'':'is-missing'}">${fresh?'新得 · ':''}${owned?'可用 ×'+owned:known?'已录 · 暂无可用':'未藏 · 可研读'}</span>`:''}</button>`;
     }
     function stats() {
@@ -666,8 +684,8 @@
       if(!detailId)host.querySelector(packImmersive()?'.dz-cinema-close':'[data-cards-close]')?.focus({preventScroll:true});if(!preserveMarket)void load(tab==='market'?{cardId:marketCard||undefined,page:marketPage}:{});
     }
     function close({silent=false}={}) {if(!opened)return;exhibit=null;inspectReturn='';pickDisplay=false;pickPrompt=null;pickError='';studyUI?.clear();rememberScroll();opened=false;fullscreenDraw=false;packEntrance=null;cancelTitleFit();host.hidden=true;session++;finishReveal();clearDetailTurn();onPointerCancel();chartDispose?.();chartDispose=null;if(silent)return;if(typeof options.onClose==='function')options.onClose();else if(lastFocus?.isConnected!==false)lastFocus?.focus?.({preventScroll:true});}
-    function dispose(){if(destroyed)return;close({silent:true});destroyed=true;session++;cancelTitleFit();titleResizeObserver?.disconnect();global.removeEventListener?.('resize',scheduleTitleFit);clearAnimations();clearDetailTurn();host.removeEventListener('click',onClick);host.removeEventListener('input',onInput);host.removeEventListener('change',onInput);host.removeEventListener('keydown',onKey);host.removeEventListener('pointerdown',onPointerDown);host.removeEventListener('pointerup',onPointerUp);host.removeEventListener('pointermove',onPointerMove);host.removeEventListener('pointercancel',onPointerCancel);host.innerHTML='';}
-    host.classList.add('cards-host');host.hidden=true;host.addEventListener('click',onClick);host.addEventListener('input',onInput);host.addEventListener('change',onInput);host.addEventListener('keydown',onKey);host.addEventListener('pointerdown',onPointerDown);host.addEventListener('pointerup',onPointerUp);host.addEventListener('pointermove',onPointerMove);host.addEventListener('pointercancel',onPointerCancel);
+    function dispose(){if(destroyed)return;close({silent:true});destroyed=true;session++;cancelTitleFit();titleResizeObserver?.disconnect();global.removeEventListener?.('resize',scheduleTitleFit);clearAnimations();clearDetailTurn();host.removeEventListener('click',onClick);host.removeEventListener('input',onInput);host.removeEventListener('change',onInput);host.removeEventListener('keydown',onKey);host.removeEventListener('pointerdown',onPointerDown);host.removeEventListener('pointerup',onPointerUp);host.removeEventListener('pointermove',onPointerMove);host.removeEventListener('pointercancel',onPointerCancel);host.removeEventListener('animationiteration',onSparkleLoop);host.innerHTML='';}
+    host.classList.add('cards-host');host.hidden=true;host.addEventListener('click',onClick);host.addEventListener('input',onInput);host.addEventListener('change',onInput);host.addEventListener('keydown',onKey);host.addEventListener('pointerdown',onPointerDown);host.addEventListener('pointerup',onPointerUp);host.addEventListener('pointermove',onPointerMove);host.addEventListener('pointercancel',onPointerCancel);host.addEventListener('animationiteration',onSparkleLoop);
     const titleResizeObserver=typeof global.ResizeObserver==='function'?new global.ResizeObserver(scheduleTitleFit):null;
     titleResizeObserver?.observe(host);global.addEventListener?.('resize',scheduleTitleFit);document.fonts?.ready?.then(scheduleTitleFit);
     function inspectCard(id,{exhibit:info=null,returnTo=''}={}){

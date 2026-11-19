@@ -90,11 +90,38 @@
   .ins-table th, .ins-table td { padding: 4px 8px; border-bottom: 1px solid ${C.grid}; text-align: left; white-space: nowrap; }
   .ins-table .ins-scroll { max-height: 260px; overflow: auto; }
   .ins-empty { margin: 18px 0; color: ${C.muted}; font-size: 14px; text-align: center; }
-  /* 长序列分段看（2026-11-18）：图下一条滑块，两头 ‹ › 按钮，右边写这一段的起止 */
-  .ins-window-plot { touch-action: pan-y; }
-  .ins-window-plot.is-moved * { animation: none !important; }   /* 拖动时不重放出场动画，免得闪 */
-  .ins-window-bar { display: flex; align-items: center; gap: 8px; margin: 6px 2px 2px; }
-  .ins-window-bar input[type=range] { flex: 1 1 auto; min-width: 80px; margin: 0; accent-color: ${TONE.blue}; cursor: ew-resize; }
+  /* 长序列左右滑着看（2026-11-18；11-20 改成连续滑动）：整条序列画在可横向滚动的视口里，纵轴固定在左边；
+     图下一条像系统滚动条的滑块（两头 ‹ › 按钮），右边写眼前这一段的起止 */
+  .ins-window-view { position: relative; }
+  .ins-window-scroll { overflow-x: auto; overflow-y: hidden; scrollbar-width: none; overscroll-behavior-x: contain; -webkit-overflow-scrolling: touch;
+    cursor: grab; -webkit-user-select: none; user-select: none; outline: none; }
+  .ins-window-scroll::-webkit-scrollbar { display: none; }
+  .ins-window-scroll .ins-hit { cursor: grab; }
+  .ins-window-scroll.is-panning, .ins-window-scroll.is-panning * { cursor: grabbing !important; }
+  .ins-window-plot.is-moved * { animation: none !important; }   /* 重画时不重放出场动画，免得闪 */
+  /* 固定的纵轴：盖在视口左边，底色同卡片；右边 12px 渐隐（滑到最左时不渐隐，免得盖淡第一项） */
+  .ins-window-axis { position: absolute; left: 0; top: 0; bottom: 0; overflow: hidden; pointer-events: none;
+    background: linear-gradient(90deg, ${C.surface} calc(100% - 12px), ${C.surface}00); }
+  .ins-window-axis[hidden] { display: none; }
+  .ins-window-view.at-start .ins-window-axis { background: linear-gradient(90deg, ${C.surface} calc(100% - 12px), ${C.surface}00 calc(100% - 12px)); }
+  .ins-window-view::after { content: ""; position: absolute; right: 0; top: 0; bottom: 0; width: 18px; pointer-events: none;
+    background: linear-gradient(270deg, ${C.surface}, ${C.surface}00); transition: opacity .15s; }
+  .ins-window-view.at-end::after { opacity: 0; }
+  .ins-window.is-plain .ins-window-bar, .ins-window.is-plain .ins-window-view::after { display: none; }
+  .ins-window-bar { display: flex; align-items: center; gap: 8px; margin: 8px 2px 2px; }
+  .ins-window-bar input[type=range] { flex: 1 1 auto; min-width: 80px; height: 24px; margin: 0; padding: 0; border: 0; background: transparent; cursor: pointer;
+    -webkit-appearance: none; appearance: none; touch-action: none; }
+  .ins-window-bar input[type=range]:focus { outline: none; }
+  .ins-window-bar input[type=range]::-webkit-slider-runnable-track { height: 10px; border-radius: 5px; background: rgba(70,51,34,.1); }
+  .ins-window-bar input[type=range]::-moz-range-track { height: 10px; border-radius: 5px; background: rgba(70,51,34,.1); }
+  .ins-window-bar input[type=range]::-webkit-slider-thumb { -webkit-appearance: none; appearance: none; width: var(--ins-thumb, 64px); height: 10px; border: 0; border-radius: 5px;
+    background: rgba(70,51,34,.36); cursor: grab; transition: background .15s; }
+  .ins-window-bar input[type=range]::-moz-range-thumb { width: var(--ins-thumb, 64px); height: 10px; border: 0; border-radius: 5px; background: rgba(70,51,34,.36); cursor: grab; transition: background .15s; }
+  .ins-window-bar input[type=range]:hover::-webkit-slider-thumb, .ins-window-bar input[type=range]:active::-webkit-slider-thumb { background: ${TONE.blue}; }
+  .ins-window-bar input[type=range]:hover::-moz-range-thumb, .ins-window-bar input[type=range]:active::-moz-range-thumb { background: ${TONE.blue}; }
+  .ins-window-bar input[type=range]:active::-webkit-slider-thumb { cursor: grabbing; }
+  .ins-window-bar input[type=range]:focus-visible::-webkit-slider-thumb { background: ${TONE.blue}; box-shadow: 0 0 0 3px rgba(32,96,255,.25); }
+  .ins-window-bar input[type=range]:focus-visible::-moz-range-thumb { background: ${TONE.blue}; box-shadow: 0 0 0 3px rgba(32,96,255,.25); }
   .ins-window-step { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; padding: 0 0 2px; border: 1px solid rgba(70,51,34,.2); border-radius: 50%;
     background: #fff; color: ${C.ink}; font: 700 18px/1 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
   .ins-window-step:hover:not([disabled]) { border-color: ${TONE.blue}; color: ${TONE.blue}; }
@@ -180,7 +207,8 @@
     for (let v = 0; v <= top + step / 2; v += step) ticks.push(Math.round(v * 100) / 100);
     return ticks;
   }
-  const widthOf = (host) => Math.max(300, Math.floor(host.getBoundingClientRect().width || host.clientWidth || 600));
+  // host.insWidth：左右滑着看的长图（windowed）指定的宽度——放大看里卡片被 transform 放大，量出来的宽度不准
+  const widthOf = (host) => host.insWidth || Math.max(300, Math.floor(host.getBoundingClientRect().width || host.clientWidth || 600));
   // 2026-11-07 用户：“柱状图内容是否可以放左边一些，右侧不要超出卡片”：标签栏和数值位原来按字数估、按固定宽度留，长一点就超出卡片。
   // 现在一律先量实际宽度再排版：标签栏只留最长标签那么宽（内容靠左），条末端的数值有多宽留多宽
   const FONT = '-apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif';
@@ -381,12 +409,12 @@
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 18, b: 26 };
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
-    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '', 'data-plot-left': m.l }, host);
     const top = ticks[ticks.length - 1] || 1;
     const y = (v) => m.t + ph - (v / top) * ph;
     ticks.forEach((t) => {
       el('line', { x1: m.l, x2: W - m.r, y1: y(t), y2: y(t), stroke: t === 0 ? C.axis : C.grid, 'stroke-width': 1 }, svg);
-      text(svg, m.l - 6, y(t) + 4, fmt(t), { 'text-anchor': 'end' });
+      text(svg, m.l - 6, y(t) + 4, fmt(t), { 'text-anchor': 'end', 'data-axis': 'y' });
     });
     const band = pw / data.length;
     const bw = Math.max(2, Math.min(24, band * 0.62));
@@ -743,10 +771,10 @@
     const band = pw / rows.length;
     const X = (i) => m.l + band * i + band / 2;
     const Y = (v) => m.t + ph - (v / top) * ph;
-    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '', 'data-plot-left': m.l }, host);
     ticks.forEach((t) => {
       el('line', { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: t === 0 ? C.axis : C.grid, 'stroke-width': 1 }, svg);
-      text(svg, m.l - 6, Y(t) + 4, tickText(t), { 'text-anchor': 'end' });
+      text(svg, m.l - 6, Y(t) + 4, tickText(t), { 'text-anchor': 'end', 'data-axis': 'y' });
     });
     // 横轴：从最后一个往前等距标注；放不下的第二行截短
     const first = (d) => (Array.isArray(d.tick) ? d.tick[0] : d.tick != null ? d.tick : d.label);
@@ -938,8 +966,8 @@
     const cellW = Math.max(5, Math.min(72, (W - m.l + gap) / weeks - gap));
     const cell = Math.min(24, cellW);
     const H = m.t + 7 * (cell + gap) - gap + 2;
-    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
-    ['周一', '', '周三', '', '周五', '', '周日'].forEach((label, r) => { if (label) text(svg, 0, m.t + r * (cell + gap) + cell / 2 + 4, label); });
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '', 'data-plot-left': m.l - 2 }, host);
+    ['周一', '', '周三', '', '周五', '', '周日'].forEach((label, r) => { if (label) text(svg, 0, m.t + r * (cell + gap) + cell / 2 + 4, label, { 'data-axis': 'y' }); });
     const scale = opts.ramp || RAMPS.fresh;
     const colorOf = (v) => (v <= 0 ? C.zero : scale[Math.min(scale.length - 1, Math.floor((v / max) * (scale.length - 1) + 0.0001))]);
     let monthEnd = -99;
@@ -1027,11 +1055,11 @@
     const m = { l: Math.max(...ticks.map((t) => tickW(fmt(t)))) + 10, r: 4, t: 22, b: 26 };
     const pw = W - m.l - m.r;
     const ph = H - m.t - m.b;
-    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '' }, host);
+    const svg = el('svg', { class: 'ins-svg', viewBox: `0 0 ${W} ${H}`, role: 'img', 'aria-label': opts.aria || '', 'data-plot-left': m.l }, host);
     const Y = (v) => m.t + ph - (v / top) * ph;
     ticks.forEach((t) => {
       el('line', { x1: m.l, x2: W - m.r, y1: Y(t), y2: Y(t), stroke: t === 0 ? C.axis : C.grid, 'stroke-width': 1 }, svg);
-      text(svg, m.l - 6, Y(t) + 4, fmt(t), { 'text-anchor': 'end' });
+      text(svg, m.l - 6, Y(t) + 4, fmt(t), { 'text-anchor': 'end', 'data-axis': 'y' });
     });
     const band = pw / rows.length;
     const bw = Math.max(3, Math.min(26, band * 0.66));
@@ -1140,80 +1168,175 @@
     try { overlay.querySelector('.ins-zoom-x').focus({ preventScroll: true }); } catch (error) { /* 忽略 */ }
     return { overlay, stage, close };
   }
-  // 长序列（按天、按课）分段看（2026-11-18 用户：“每天有多少同学在学，增加一个左右滑动的滑轮，可以查看之前所有天数的情况，其它类似的图表也一样”）：
-  // 一次画 size 个，下面一条滑块（两头 ‹ › 按钮）左右拖看更早的；图上用触控板左右滑、手指左右划也能挪。draw(box, slice, cardEl) 画这一段，
-  // 纵轴请按全部数据定（传 yMax），拖动时刻度不跳。opts.state 记住拖到哪了：放大看时接着这一段，放大看里也能拖
+  // 长序列（按天、按课）左右滑着看（2026-11-18 用户：“每天有多少同学在学，增加一个左右滑动的滑轮，可以查看之前所有天数的情况，其它类似的图表也一样”）。
+  // 2026-11-20 用户：“学情分析里面图表左右滑动的滑轮，要像系统的那种线性的，丝滑一些，而不是有固定位置的。”——原来一次只画 size 个、
+  // 滑块一格一格换一段重画；现在把整条序列画成一张长图（眼前约 size 个），放在可以横向滚动的视口里，用浏览器自带的滚动：
+  //   · 触控板左右滑、手指左右划有惯性，位置连续，不吸附；鼠标按住图左右拖也能挪（拖动后松手不算点击）；
+  //   · 图下的滑块像系统滚动条：滑块长度＝眼前这一段占全长的比例，拖到哪图就跟到哪；两头 ‹ › 一次挪大半屏（平滑）；键盘 ← → 挪一项；
+  //   · 纵轴不跟着滚：画图函数给纵轴刻度做了记号（data-axis="y"）并写出绘图区左边界（data-plot-left），这里把刻度复制到盖在视口左边的一层上；
+  //   · 图例等不是图本身的东西挪到视口外面，不跟着滚；默认停在最新一段（最右）。
+  // draw(box, items, cardEl) 画整条序列，纵轴请按全部数据定（传 yMax）。opts.state.at 记住滑到哪了（0＝最早 … 1＝最新）：放大看时接着这一段，放大看里也能滑
   function windowed(host, cardEl, items, size, draw, opts = {}) {
     const n = items.length;
     const win = Math.max(1, Math.min(n, Math.round(size) || n));
     const state = opts.state || (opts.state = {});
     const paintIn = (box, slice) => {
       const was = replaying;
-      if (cardEl.closest && cardEl.closest('.ins-zoom-stage')) replaying = true;   // 放大看里拖动：不登记、不再加“放大”按钮
+      if (cardEl.closest && cardEl.closest('.ins-zoom-stage')) replaying = true;   // 放大看里重画：不登记、不再加“放大”按钮
       try { draw(box, slice, cardEl); } finally { replaying = was; }
     };
     if (n <= win) { const box = document.createElement('div'); host.appendChild(box); paintIn(box, items); return { redraw: () => { box.textContent = ''; paintIn(box, items); }, go() {} }; }
-    const wrap = document.createElement('div');
-    wrap.className = 'ins-window';
-    const plot = document.createElement('div');
-    plot.className = 'ins-window-plot';
-    const bar = document.createElement('div');
-    bar.className = 'ins-window-bar';
-    const maxStart = n - win;
-    let start = Number.isInteger(state.start) ? Math.max(0, Math.min(maxStart, state.start)) : maxStart;
+    const div = (name) => { const node = document.createElement('div'); node.className = name; return node; };
+    const wrap = div('ins-window');
+    const view = div('ins-window-view');
+    const scroller = div('ins-window-scroll');
+    const plot = div('ins-window-plot');
+    const axis = div('ins-window-axis');
+    axis.setAttribute('aria-hidden', 'true');
+    const bar = div('ins-window-bar');
     const back = document.createElement('button');
     back.type = 'button'; back.className = 'ins-window-step'; back.textContent = '‹'; back.setAttribute('aria-label', '往前，看更早的');
     const slider = document.createElement('input');
-    slider.type = 'range'; slider.min = '0'; slider.max = String(maxStart); slider.step = '1'; slider.value = String(start);
+    slider.type = 'range'; slider.min = '0'; slider.max = '1000'; slider.step = 'any'; slider.value = '1000';
     slider.setAttribute('aria-label', opts.aria || '左右拖动，看更早或更近的');
     const next = document.createElement('button');
     next.type = 'button'; next.className = 'ins-window-step'; next.textContent = '›'; next.setAttribute('aria-label', '往后，看更近的');
     const label = document.createElement('span');
     label.className = 'ins-window-label';
     label.setAttribute('aria-live', 'polite');
+    scroller.appendChild(plot);
+    view.append(scroller, axis);
     bar.append(back, slider, next, label);
-    wrap.append(plot, bar);
+    wrap.append(view, bar);
     host.appendChild(wrap);
     const name = (item) => (opts.labelOf ? opts.labelOf(item) : String(item.label || ''));
+    const calm = () => { try { return matchMedia('(prefers-reduced-motion: reduce)').matches; } catch (error) { return false; } };
+    const maxLeft = () => Math.max(0, scroller.scrollWidth - scroller.clientWidth);
+    let centers = null;   // 每一项在长图上的横向中心（按悬停块算），用来写“眼前是哪一段”
+    let plotLeft = 0;
+    let step = 40;        // 一项大约多宽：键盘 ← → 一次挪这么多
+    let paintedW = 0;
+    let painted = false;
+    let sliding = false;
+    const where = () => { const max = maxLeft(); return max > 0 ? Math.max(0, Math.min(1, scroller.scrollLeft / max)) : 1; };
+    const sync = () => {
+      const max = maxLeft();
+      const x = Math.max(0, Math.min(max, scroller.scrollLeft));
+      const at = max > 0 ? x / max : 1;
+      state.at = at;
+      if (!sliding && Math.abs(Number(slider.value) - at * 1000) > 0.01) slider.value = String(at * 1000);   // 正拖着滑块时不回写，免得和手上的位置打架
+      back.disabled = x <= 0.5;
+      next.disabled = x >= max - 0.5;
+      view.classList.toggle('at-start', x <= 0.5);
+      view.classList.toggle('at-end', x >= max - 0.5);
+      let a = 0; let b = n - 1;
+      if (centers) {
+        const lo = x + plotLeft; const hi = x + scroller.clientWidth;
+        a = centers.findIndex((c) => c >= lo);
+        if (a < 0) a = n - 1;
+        while (b > a && centers[b] > hi) b -= 1;
+      }
+      label.textContent = `${name(items[a])} — ${name(items[b])}${x >= max - 0.5 ? '（最近）' : ''} · 共 ${n} ${opts.unitName || '天'}`;
+      slider.setAttribute('aria-valuetext', label.textContent);
+    };
     const paint = () => {
+      // 重画时接着眼前的位置（直接量，不等滚动事件）；第一次画接着 opts.state 记的位置，没有就停在最新一段
+      const at = painted ? where() : typeof state.at === 'number' ? Math.max(0, Math.min(1, state.at)) : 1;
+      painted = true;
+      wrap.querySelectorAll(':scope > .ins-window-extra').forEach((node) => node.remove());
       plot.textContent = '';
-      const slice = items.slice(start, start + win);
-      paintIn(plot, slice);
-      label.textContent = `${name(slice[0])} — ${name(slice[slice.length - 1])}${start === maxStart ? '（最近）' : ''} · 共 ${n} ${opts.unitName || '天'}`;
-      back.disabled = start === 0;
-      next.disabled = start === maxStart;
+      axis.textContent = '';
+      const viewW = Math.max(240, Math.floor(view.clientWidth || widthOf(host)));
+      const full = Math.max(viewW, Math.round((viewW * n) / win));
+      paintedW = viewW;
+      plot.style.width = `${full}px`;
+      plot.insWidth = full;
+      paintIn(plot, items);
+      const svg = plot.querySelector(':scope > svg');
+      // 图例、说明等不是图本身的：挪到视口外面（图前面的放上面，图后面的放下面），不跟着滚
+      let after = false;
+      Array.from(plot.children).forEach((node) => {
+        if (node === svg) { after = true; return; }
+        node.classList.add('ins-window-extra');
+        if (after) bar.before(node); else view.before(node);
+      });
+      wrap.classList.toggle('is-plain', !svg);   // 没有数据（只有一句说明）时不要滑块
+      plotLeft = svg ? Number(svg.getAttribute('data-plot-left')) || 0 : 0;
+      const ticks = svg ? Array.from(svg.querySelectorAll(':scope > [data-axis="y"]')) : [];
+      axis.hidden = !(plotLeft > 0 && ticks.length);
+      if (!axis.hidden) {
+        const copy = el('svg', { class: 'ins-svg', viewBox: svg.getAttribute('viewBox') }, axis);
+        copy.style.width = `${full}px`;
+        ticks.forEach((node) => copy.appendChild(node.cloneNode(true)));
+        axis.style.width = `${Math.ceil(plotLeft) + 12}px`;
+      }
+      const hits = svg ? Array.from(svg.querySelectorAll('.ins-hit')) : [];
+      centers = hits.length === n ? hits.map((hit) => Number(hit.getAttribute('x')) + Number(hit.getAttribute('width')) / 2) : null;
+      step = Math.max(12, (full - plotLeft) / n);
+      slider.style.setProperty('--ins-thumb', `${Math.max(36, Math.round(((slider.clientWidth || 200) * viewW) / full))}px`);
+      scroller.scrollLeft = at * maxLeft();
+      sync();
+      // 放大看重画时，画好的节点随后会被挪一下位置（openZoom），挪动会把横向滚动位置清零：这一轮代码跑完再对一次
+      queueMicrotask(() => { if (wrap.isConnected && Math.abs(where() - at) > 0.002) { scroller.scrollLeft = at * maxLeft(); sync(); } });
     };
-    const go = (to) => {
-      const target = Math.max(0, Math.min(maxStart, Math.round(to)));
-      if (target === start) return;
-      start = target; state.start = start; slider.value = String(start);
-      plot.classList.add('is-moved');
-      paint();
-    };
-    slider.addEventListener('input', () => go(Number(slider.value)));
-    const page = Math.max(1, Math.floor(win / 2));
-    back.addEventListener('click', () => go(start - page));
-    next.addEventListener('click', () => go(start + page));
-    let acc = 0;
-    plot.addEventListener('wheel', (event) => {
-      if (Math.abs(event.deltaX) <= Math.abs(event.deltaY)) return;
+    const move = (dx, smooth) => { scroller.scrollBy({ left: dx, behavior: smooth && !calm() ? 'smooth' : 'auto' }); sync(); };
+    scroller.addEventListener('scroll', sync, { passive: true });   // 滚动事件本来就是每帧最多一次；不再套 requestAnimationFrame（页面在后台时它不跑，位置和文字会不同步）
+    slider.addEventListener('input', () => { scroller.scrollLeft = (Number(slider.value) / 1000) * maxLeft(); sync(); });
+    slider.addEventListener('pointerdown', () => { sliding = true; });
+    ['pointerup', 'pointercancel', 'change', 'blur'].forEach((type) => slider.addEventListener(type, () => { sliding = false; }));
+    slider.addEventListener('keydown', (event) => {
+      const far = Math.max(80, scroller.clientWidth * 0.6);
+      const dx = { ArrowLeft: -step, ArrowDown: -step, ArrowRight: step, ArrowUp: step, PageUp: -far, PageDown: far, Home: -1e7, End: 1e7 }[event.key];
+      if (dx == null) return;
       event.preventDefault();
-      acc += event.deltaX;
-      const per = Math.max(10, plot.clientWidth / win);
-      const step = Math.trunc(acc / per);
-      if (step) { acc -= step * per; go(start + step); }
-    }, { passive: false });
-    let touchX = null;
-    plot.addEventListener('touchstart', (event) => { touchX = event.touches[0].clientX; }, { passive: true });
-    plot.addEventListener('touchmove', (event) => {
-      if (touchX == null) return;
-      const per = Math.max(10, plot.clientWidth / win);
-      const step = Math.trunc((touchX - event.touches[0].clientX) / per);
-      if (step) { touchX -= step * per; go(start + step); }
-    }, { passive: true });
-    plot.addEventListener('touchend', () => { touchX = null; });
+      move(dx, false);
+    });
+    back.addEventListener('click', () => move(-Math.max(80, scroller.clientWidth * 0.6), true));
+    next.addEventListener('click', () => move(Math.max(80, scroller.clientWidth * 0.6), true));
+    // 鼠标按住图左右拖：超过 5px 才算拖（免得误伤悬停、点选）；放大看里卡片被放大了，位移按倍数折回去
+    let pan = null;
+    let panned = 0;
+    scroller.addEventListener('pointerdown', (event) => {
+      if (event.pointerType !== 'mouse' || event.button !== 0) return;
+      pan = { id: event.pointerId, x: event.clientX, left: scroller.scrollLeft, k: (scroller.getBoundingClientRect().width / (scroller.offsetWidth || 1)) || 1, on: false };
+    });
+    scroller.addEventListener('pointermove', (event) => {
+      if (!pan || event.pointerId !== pan.id) return;
+      const dx = (event.clientX - pan.x) / pan.k;
+      if (!pan.on) {
+        if (Math.abs(dx) < 5) return;
+        pan.on = true;
+        scroller.classList.add('is-panning');
+        try { scroller.setPointerCapture(event.pointerId); } catch (error) { /* 忽略 */ }
+        hideActive();
+      }
+      scroller.scrollLeft = pan.left - dx;
+      sync();
+    });
+    const drop = () => {
+      if (pan && pan.on) { panned = Date.now(); scroller.classList.remove('is-panning'); }
+      pan = null;
+    };
+    scroller.addEventListener('pointerup', drop);
+    scroller.addEventListener('pointercancel', drop);
+    scroller.addEventListener('click', (event) => { if (Date.now() - panned < 350) { event.preventDefault(); event.stopPropagation(); } }, true);
+    // 卡片变宽变窄（窗口大小、栏数变化）：按新宽度重画，位置按比例保留
+    if (window.ResizeObserver) {
+      const observer = new ResizeObserver(() => {
+        if (!wrap.isConnected) { observer.disconnect(); return; }
+        const w = Math.floor(view.clientWidth);
+        if (!w || Math.abs(w - paintedW) < 2) return;
+        plot.classList.add('is-moved');
+        paint();
+      });
+      observer.observe(view);
+    }
     paint();
-    return { redraw: paint, go };
+    return {
+      redraw: () => { plot.classList.add('is-moved'); paint(); },
+      // 滑到第 index 项附近（让它出现在眼前这一段的开头）
+      go: (index) => { const max = maxLeft(); if (!max) return; scroller.scrollTo({ left: Math.max(0, Math.min(max, (Math.max(0, Math.min(n - 1, index)) / Math.max(1, n - win)) * max)), behavior: calm() ? 'auto' : 'smooth' }); },
+    };
   }
 
   // 图表卡片：画图函数（columns、bars……）每画一次就登记在卡片上（画在哪个容器、哪几个节点、用什么数据）；

@@ -1309,10 +1309,12 @@
   .cards-host .dz-card-sparkle::before,.cards-host .dz-card-sparkle::after,.cards-host .dz-card-sparkle>i { animation:none!important; }
   .cards-host .dz-card-sparkle>i { opacity:.85;transform:scale(.75); }
 }
-/* 2026-11-19 用户：“特效可以更明显一些，有向外扩散的粒子”：金边加粗、光晕加亮、星芒放大；两圈交替向外扩散的光波；
-   沿四边向外飞散的粒子（卡册里每张 9 颗、放大赏鉴 18 颗且飞得更远）。减少动态效果时只留静止的金边和星芒 */
-.cards-host .dz-card-sparkle { --spread:34px;--mote:6px; }
-.cards-host .dz-inspect-front .dz-card-sparkle { --spread:96px;--mote:10px; }
+/* 2026-11-19 用户：“特效可以更明显一些，有向外扩散的粒子”：金边加粗、光晕加亮、星芒放大。
+   2026-11-20 用户：“不是向外散发框框，而是沿边框随机向外散发的粒子……要以边框为基准，随机向外散发光芒”：去掉两圈向外扩散的光波；
+   粒子在边框上随机一处生出，沿外法线（带随机偏角）向外飘散淡出，远近、大小、快慢各不相同（位置和方向由 cards-ui.js 随机给，每轮换一次）；
+   三颗里有一颗是顺着飞行方向的细光丝。卡册里每张只显示一半，放大赏鉴全部显示且飞得更远。减少动态效果时只留静止的金边和星芒 */
+.cards-host .dz-card-sparkle { --spread:44px;--mote:7px; }
+.cards-host .dz-inspect-front .dz-card-sparkle { --spread:112px;--mote:12px; }
 .cards-host .dz-card-sparkle::before { padding:3px;opacity:1; }
 .cards-host .dz-inspect-front .dz-card-sparkle::before { padding:5px; }
 .cards-host .dz-card-sparkle::after { box-shadow:0 0 18px 5px var(--sparkle-glow);box-shadow:0 0 18px 5px var(--sparkle-glow),0 0 40px 14px color-mix(in srgb,var(--sparkle-glow) 55%,transparent); }
@@ -1321,22 +1323,20 @@
 .cards-host .dz-card-sparkle>i:nth-child(2n) { width:12px;height:12px;margin:-6px 0 0 -6px; }
 .cards-host .dz-inspect-front .dz-card-sparkle>i { width:34px;height:34px;margin:-17px 0 0 -17px; }
 .cards-host .dz-inspect-front .dz-card-sparkle>i:nth-child(2n) { width:24px;height:24px;margin:-12px 0 0 -12px; }
-.cards-host .dz-sparkle-wave { position:absolute;inset:0;border-radius:inherit;border:2px solid var(--sparkle-a);text-decoration:none;opacity:0;
-  box-shadow:0 0 14px 3px var(--sparkle-glow),inset 0 0 12px 2px var(--sparkle-glow);animation:dz-sparkle-wave 3.2s cubic-bezier(.15,.55,.3,1) infinite; }
-.cards-host .dz-sparkle-wave.is-late { animation-delay:1.6s;border-color:var(--sparkle-b); }
-.cards-host .dz-inspect-front .dz-sparkle-wave { border-width:3px; }
-.cards-host .dz-card-sparkle>b { position:absolute;left:var(--x);top:var(--y);width:var(--mote);height:var(--mote);margin:calc(var(--mote) / -2) 0 0 calc(var(--mote) / -2);border-radius:50%;
+.cards-host .dz-card-sparkle>b { --w:calc(var(--mote) * var(--s,1));--h:var(--w);position:absolute;left:var(--x);top:var(--y);width:var(--w);height:var(--h);margin:calc(var(--h) / -2) 0 0 calc(var(--w) / -2);border-radius:50%;
   background:radial-gradient(circle,#fff 0 28%,var(--sparkle-a) 52%,transparent 72%);box-shadow:0 0 8px 2px var(--sparkle-glow);opacity:0;
-  animation:dz-sparkle-mote var(--t,2.6s) cubic-bezier(.2,.7,.35,1) var(--d,0s) infinite; }
+  animation:dz-sparkle-mote var(--t,2.4s) cubic-bezier(.16,.72,.3,1) var(--d,0s) infinite; }
 .cards-host .dz-card-sparkle>b:nth-of-type(3n+2) { background:radial-gradient(circle,#fff 0 28%,var(--sparkle-b) 52%,transparent 72%); }
 .cards-host .dz-card-sparkle>b:nth-of-type(3n) { background:radial-gradient(circle,#fff 0 28%,var(--sparkle-c) 52%,transparent 72%); }
+/* 细光丝：长轴顺着飞行方向（--rot），两头尖、中间亮 */
+.cards-host .dz-card-sparkle>b.is-ray { --w:calc(var(--mote) * .42);--h:calc(var(--mote) * 2.6 * var(--s,1));border-radius:50%;box-shadow:0 0 6px 1px var(--sparkle-glow);
+  background:linear-gradient(180deg,transparent,var(--sparkle-a) 30%,#fff 50%,var(--sparkle-a) 70%,transparent); }
 .cards-host .dz-card-grid .dz-card-sparkle>b:nth-of-type(2n) { display:none; }
-@keyframes dz-sparkle-wave { 0% { opacity:.95;transform:scale(1); } 70% { opacity:.25; } 100% { opacity:0;transform:scale(1.16); } }
 @keyframes dz-sparkle-mote {
-  0% { opacity:0;transform:translate(0,0) scale(.3); }
-  12% { opacity:1;transform:translate(calc(var(--dx) * var(--spread) * .1),calc(var(--dy) * var(--spread) * .1)) scale(1.15); }
-  100% { opacity:0;transform:translate(calc(var(--dx) * var(--spread)),calc(var(--dy) * var(--spread))) scale(.45); }
+  0% { opacity:0;transform:translate(0,0) rotate(var(--rot,0deg)) scale(.35); }
+  14% { opacity:1;transform:translate(calc(var(--dx) * var(--spread) * var(--far,1) * .16),calc(var(--dy) * var(--spread) * var(--far,1) * .16)) rotate(var(--rot,0deg)) scale(1.1); }
+  100% { opacity:0;transform:translate(calc(var(--dx) * var(--spread) * var(--far,1)),calc(var(--dy) * var(--spread) * var(--far,1))) rotate(var(--rot,0deg)) scale(.42); }
 }
 @media (prefers-reduced-motion:reduce) {
-  .cards-host .dz-sparkle-wave,.cards-host .dz-card-sparkle>b { display:none; }
+  .cards-host .dz-card-sparkle>b { display:none; }
 }

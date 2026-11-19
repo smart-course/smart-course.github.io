@@ -89,6 +89,7 @@
   .dbf-ctrl button { padding: 9px 16px; border: 1.5px solid rgba(70,51,34,.25); border-radius: 10px; background: #fff; color: #201c18; font-weight: 800; font-size: 15px; line-height: 1.2; cursor: pointer; }
   .dbf-ctrl button.is-main { border-color: #b8862b; background: linear-gradient(180deg, #f6dc98, #dcb253); color: #3b2a07; font-size: 16px; }
   .dbf-tip { color: #8a7f74; font-size: 13.5px; }
+  .dbf-sync { flex: 1 1 100%; color: #a4492d; font-size: 13.5px; font-weight: 800; } .dbf-sync[hidden] { display: none; }
   .dbr { margin-top: 12px; }
   .dbr-box { display: grid; gap: 8px; padding: 14px 18px; border-radius: 14px; border: 1.5px solid rgba(184,134,43,.45); background: linear-gradient(180deg, #fffaf0, #fbf1da); }
   .dbr-tag { justify-self: start; padding: 2px 10px; border-radius: 999px; background: #3b2a14; color: #f6dc98; font-size: 13px; font-weight: 800; letter-spacing: .1em; }
@@ -121,14 +122,20 @@
   };
   const rpcOne = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
 
-  // 辩论流程：三步都只在本机计时，最后一步停止辩后投票的递交、公布结果
+  // 辩论流程：前几步计时（同步到学生页），最后一步停止辩后投票的递交、公布结果
   const FLOW = [
-    { key: 'prep', label: '选立场 · 论据卡', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），再选 2 张论据卡，都点“递交”' },
+    { key: 'prep', label: '选立场 · 论据卡', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），再选 2 张论据卡，都点“递交”；学生页同步倒计时，时间到就不能再递交' },
+    // 2026-11-20 用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点。”
+    { key: 'talk', label: '自由讨论', secs: 300, hint: '同一立场的同学（或前后桌）当面讨论：我方最有力的理由是什么、对方会怎么反驳；每人想好要在聊天室里说的一句话。这一步聊天室还不能发言' },
     { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
     { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `票多的一方聊天室里的同学各加 ${DB.win} 修为，点赞前三各加 ${DB.likes} 修为` },
   ];
   const flowIndex = (key) => FLOW.findIndex((step) => step.key === key);
+  // 2026-11-20 每一步的计时同步到学生页（用户：“辩论赛中的倒计时，在学生端中也设置倒计时，倒计时结束的话无法递交。但是如果老师点了+30秒，就又可以递交。”）：
+  // 沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live，阶段名对照见 live-core.js 的 DEBATE_STAGE；学生页 live-student.js 的 setupDebateClock 读它
+  const STAGE = window.ClassLive.DEBATE_STAGE || { prep: 'pro_open', talk: 'con_open', chat: 'free', vote: 'vote', result: 'done' };
+  const KEY_OF = Object.fromEntries(Object.entries(STAGE).map(([key, stage]) => [stage, key]));
 
   boards.forEach((board) => {
     const no = board.dataset.case;
@@ -172,6 +179,50 @@
     const readLocal = () => { try { const v = room ? JSON.parse(localStorage.getItem(localKey()) || 'null') : null; return v && flowIndex(v.key) >= 0 ? v : null; } catch (error) { return null; } };
     const writeLocal = (value) => { try { if (value) localStorage.setItem(localKey(), JSON.stringify(value)); else localStorage.removeItem(localKey()); } catch (error) { /* 忽略 */ } };
     const localLeft = (state) => (state.paused ? state.left : Math.max(0, Math.round((state.ends - Date.now()) / 1000)));
+    // ---------- 计时同步到后台：学生页显示同一个倒计时，时间到这一步不能再递交，“+30 秒”后又可以 ----------
+    let syncNote = '';                    // 没同步成功时显示在流程图下面
+    let syncChain = Promise.resolve();    // 一条一条按顺序发，免得“切换”“加时”先后颠倒
+    let synced = false;                   // 打开页面后是否已经和后台对过一次
+    const control = (action, stage, secs) => rpcOne('ck_debate_control', { p_classroom: Number(room.id) || room.id, p_case: no, p_action: action, p_stage: stage || null, p_secs: secs == null ? null : secs });
+    function paintSync() { const el = flow.querySelector('[data-dbf-sync]'); if (el) { el.textContent = syncNote; el.hidden = !syncNote; } }
+    function adopt(state) {   // 以后台时钟为准校正本机的倒计时
+      const local = readLocal();
+      if (!local || local.key === 'result' || !state || state.status !== 'ok' || KEY_OF[state.stage] !== local.key) return;
+      const left = Math.max(0, Number(state.left) || 0);
+      writeLocal({ ...local, paused: Boolean(state.paused), left, ends: Date.now() + left * 1000, total: Math.max(local.total || 0, Number(state.secs) || 0) });
+    }
+    function sync(action, key, secs) {
+      if (!room) return syncChain;
+      syncChain = syncChain.then(async () => {
+        try {
+          let state;
+          if (action === 'stage') {
+            try { state = await control('stage', STAGE[key], secs); }
+            catch (first) { await control('lock'); state = await control('stage', STAGE[key], secs); }   // 这场辩论第一次计时：先建记录
+          } else state = await control(action, null, secs);
+          adopt(state);
+          syncNote = '';
+        } catch (error) {
+          console.warn('[辩论赛计时]', error);
+          syncNote = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((error && error.message) || error))
+            ? '后台还没有计时同步功能：学生页暂时不显示倒计时。' : `倒计时没有同步到学生页（${error.message || error}），本机计时照常。`;
+        }
+        paintSync();
+        paintFlow();
+      });
+      return syncChain;
+    }
+    async function reconcile() {   // 打开或刷新投屏页：本机已经在某一步，而后台没有记录或不是同一步时，补发一次
+      const local = readLocal();
+      if (!local) return;
+      try {
+        const state = await rpcOne('ck_debate_live', { p_classroom: Number(room.id) || room.id, p_case: no });
+        if (state.status === 'ok' && KEY_OF[state.stage] === local.key) { adopt(state); renderFlow(); return; }
+      } catch (error) { /* 后台没有这组函数时，下面的 sync 会给出提示 */ }
+      if (local.key === 'result') { sync('stage', 'result', 0); return; }
+      await sync('stage', local.key, localLeft(local));
+      if (local.paused) sync('pause');
+    }
     function nowKey() {
       if (stopped) return 'result';
       const state = readLocal();
@@ -250,8 +301,10 @@
         <ol class="dbf-nodes">${nodes}</ol>
         <div class="dbf-ctrl">${next ? `<button type="button" class="is-main" data-dbf-next>${key ? '下一步' : '开始'}：${esc(next.label)} ▶</button>` : ''}`
         + (clock ? `<button type="button" data-dbf-pause>${clock.paused ? '继续计时' : '暂停计时'}</button><button type="button" data-dbf-extend>+30 秒</button>` : '')
-        + '<span class="dbf-tip">也可以直接点流程图里的任一步，跳到那一步重新计时。</span></div>';
+        + '<span class="dbf-tip">也可以直接点流程图里的任一步，跳到那一步重新计时。学生页同步显示倒计时：时间到，这一步就不能再递交；点“+30 秒”可以继续递交。</span>'
+        + '<span class="dbf-sync" data-dbf-sync hidden></span></div>';
       paintFlow();
+      paintSync();
     }
     function paintFlow() {
       const el = flow.querySelector('[data-dbf-clock]');
@@ -279,12 +332,14 @@
       writeLocal({ key: step.key, ends: Date.now() + step.secs * 1000, paused: false, left: step.secs, total: step.secs });
       renderFlow();
       renderResult();
+      sync('stage', step.key, step.secs);
     }
     function pause() {
       const state = readLocal();
       if (!state || stopped) return;
       writeLocal(state.paused ? { ...state, paused: false, ends: Date.now() + state.left * 1000 } : { ...state, paused: true, left: localLeft(state) });
       renderFlow();
+      sync(state.paused ? 'resume' : 'pause');
     }
     function extend() {
       const state = readLocal();
@@ -293,6 +348,7 @@
       writeLocal(state.paused ? { ...state, left: state.left + 30, total: (state.total || step.secs) + 30 }
         : { ...state, ends: Math.max(state.ends, Date.now()) + 30000, total: (state.total || step.secs) + 30 });
       renderFlow();
+      sync('extend', null, 30);
     }
 
     // ---------- 辩后投票：停止递交，按票数判定胜负并加修为 ----------
@@ -323,6 +379,7 @@
         try { await setStop(true); } catch (error) { window.alert(`停止递交没有成功：${error.message || error}`); return; }
       }
       writeLocal({ key: 'result', ends: Date.now(), paused: false, left: 0, total: 0 });
+      sync('stage', 'result', 0);
       await decide();
     }
     function renderResult() {
@@ -394,7 +451,7 @@
         writeLocal({ key: 'result', ends: Date.now(), paused: false, left: 0, total: 0 });
         decide();
       } else {
-        if (changed && !now) { verdict = null; writeLocal({ key: 'vote', ends: Date.now() + FLOW[2].secs * 1000, paused: false, left: FLOW[2].secs, total: FLOW[2].secs }); }
+        if (changed && !now) { verdict = null; const voteStep = FLOW[flowIndex('vote')]; writeLocal({ key: 'vote', ends: Date.now() + voteStep.secs * 1000, paused: false, left: voteStep.secs, total: voteStep.secs }); }
         renderResult();
         renderFlow();
       }
@@ -414,6 +471,7 @@
           }
           // 刷新页面以后：已停止且今天已加过修为，还原结果
           if (stopped && !verdict && Array.isArray(data.awarded) && data.awarded.length) verdict = { restored: true, list: data.awarded };
+          if (!synced) { synced = true; reconcile(); }
         } else {
           data = null;
         }

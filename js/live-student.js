@@ -305,6 +305,16 @@
   .clp-ex-ans { margin: 0; }
   .clp-ex-ans b { display: inline-block; margin-right: 8px; padding: 0 8px; border-radius: 6px; background: #a4492d; color: #fff; font-size: 12.5px; }
   .clp-ex-note { margin: 0; color: #6d6259; }
+  /* 四步解析（2026-11-20，所有学生都能看）：每组快问快答下面一块；解答里四步各占一行，步骤名加粗 */
+  .clp-steps { margin-top: 14px; padding: 12px 14px; border: 1.5px dashed rgba(201,162,74,.75); border-radius: 12px; background: rgba(255,250,240,.7);
+    font: 15px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-steps-head { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; }
+  .clp-steps-hint { color: #6d6259; font-size: 14px; }
+  .clp-ex-theory { margin: 0 0 8px; padding: 6px 10px; border-radius: 8px; background: #f1ebdb; }
+  .clp-ex-theory b { margin-right: 8px; color: #23655f; }
+  .clp-ex-body ol.clp-ex-steps { margin: 6px 0 0; padding: 0; list-style: none; display: grid; gap: 8px; }
+  .clp-ex-steps li { margin: 0; padding: 8px 12px; border-radius: 9px; background: #fff; box-shadow: inset 3px 0 0 #c9a24a; }
+  .clp-ex-steps li b { display: block; color: #6b4200; }
   /* 政经“先想一想”解答里的概念讲解（筑基以上） */
   .clp-ex-learn { margin-top: 12px; padding: 12px 14px; border: 1px solid #b9cfc6; border-radius: 10px; background: #f1f7f4; }
   .clp-ex-learn-h { margin: 0 0 8px; color: #23655f; font-weight: 800; font-size: 15.5px; }
@@ -383,6 +393,18 @@
   .dbr-room.is-con .dbr-head { background: linear-gradient(180deg, #b55536, #a4492d); }
   .dbr-head > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; }
   .dbr-head b { font-size: 17px; letter-spacing: .06em; } .dbr-head span { font-size: 13px; opacity: .92; }
+  /* 辩论赛倒计时（2026-11-20）：卡片上的一条，和“递交”旁边的小计时 */
+  .dbt { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 12px; margin: 12px 0; padding: 10px 16px; border: 1.5px solid rgba(184,134,43,.5); border-radius: 12px; background: linear-gradient(180deg, #fffaf0, #fbf1da); color: #3b2a14; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .dbt[hidden] { display: none; }
+  .dbt-tag { flex: 0 0 auto; padding: 1px 10px; border-radius: 999px; background: #3b2a14; color: #f6dc98; font-size: 12.5px; font-weight: 800; letter-spacing: .08em; white-space: nowrap; }
+  .dbt-step { font-size: 16px; font-weight: 800; color: #201c18; }
+  .dbt-clock { margin-left: auto; color: #23655f; font-size: 26px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.1; white-space: nowrap; }
+  .dbt.is-low .dbt-clock, .dbt.is-up .dbt-clock { color: #a4492d; } .dbt.is-up .dbt-clock, .dbt.is-paused .dbt-clock { font-size: 20px; } .dbt.is-paused .dbt-clock { color: #8a5a1a; }
+  .dbt-hint { flex: 1 1 100%; color: #6d6259; font-size: 13px; }
+  .dbt.is-done { border-color: rgba(70,51,34,.2); background: #f6f1e7; }
+  .dbt-chip { flex: 0 0 auto; padding: 4px 11px; border: 1px solid rgba(184,134,43,.55); border-radius: 999px; background: #fbf1da; color: #3b2a14; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.3; white-space: nowrap; }
+  .dbt-chip[hidden] { display: none; } .dbt-chip.is-low { border-color: rgba(164,73,45,.55); color: #a4492d; }
+  .dbr-form.is-shut input { background: #f3eee4; color: #8a7f74; }
   .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 16px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; color: #6d6259; font-size: 13.5px; }
   .dbr-top[hidden] { display: none; }
   .dbr-top > b { color: #8a5a1a; letter-spacing: .04em; }
@@ -1140,7 +1162,8 @@
   }
   .clp-v2 .clp-tools button.clp-fs-entry { border-color: #b8801a; color: #5a3a00; background: linear-gradient(180deg, #fff3c4, #f2c64f); }
   /* 电脑上（鼠标、宽屏）不显示全屏答题的入口 */
-  @media (hover: hover) and (pointer: fine) and (min-width: 900px) { .clp-q-fs, .clp-fs-entry { display: none !important; } }
+  @media (hover: hover) and (pointer: fine) and (min-width: 900px) { html:not(.clp-stage-ok) .clp-q-fs, html:not(.clp-stage-ok) .clp-fs-entry { display: none !important; } }
+  /* 2026-11-20 电脑上也能全屏答题：页面自带“放大 → 全屏看题”（window.ClassStage，两门课的章节页脚本）时显示入口，点了走那一套 */
   /* ---- 全屏答题：只显示当前这道题 ---- */
   html.clp-fs { --fs-top: 52px; --fs-bottom: 74px; }
   html.clp-fs, html.clp-fs body { background: #f4efe6 !important; }
@@ -1259,6 +1282,7 @@
   }
   `;
   document.head.appendChild(fsStyle);
+  if (window.ClassStage) document.documentElement.classList.add('clp-stage-ok');
 
   // 弹幕小问题：政治经济学插在没有题目的页面（学习路线、线索页、概念小结）；习经章节页放在生成器留好的位置（data-dm-slot）。
   // 弹幕带“【问N】”标签，投屏讲解版据此汇总到对应问题下
@@ -1415,9 +1439,15 @@
     return `<div class="clp-ex-learn"><p class="clp-ex-learn-h">概念讲解 · ${esc(L.name || '')}</p><dl>${points}</dl>`
       + `${L.board ? `<p class="clp-ex-board"><b>${esc(L.board_label || '教案板书')}</b>${esc(L.board)}</p>` : ''}${example}${book}</div>`;
   };
-  const explainHtml = (body) => `${body.answer ? `<p class="clp-ex-ans"><b>参考答案</b>${esc(body.answer)}</p>` : ''}${(body.lines || []).length ? `<ul>${body.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>` : ''}${learnHtml(body.learn)}`;
+  // 四步解析（解答里带 open 的，2026-11-20）：先写“本章理论抓手”，四步各占一行、步骤名加粗
+  const stepsHtml = (lines) => `<ol class="clp-ex-steps">${lines.map((line) => { const cut = String(line).indexOf('：'); return cut > 0 && cut < 12
+    ? `<li><b>${esc(String(line).slice(0, cut))}</b>${esc(String(line).slice(cut + 1))}</li>` : `<li>${esc(line)}</li>`; }).join('')}</ol>`;
+  const explainHtml = (body) => `${body.theory ? `<p class="clp-ex-theory"><b>本章理论抓手</b>${esc(body.theory)}</p>` : ''}${body.answer ? `<p class="clp-ex-ans"><b>参考答案</b>${esc(body.answer)}</p>` : ''}`
+    + `${(body.lines || []).length ? (body.open ? stepsHtml(body.lines) : `<ul>${body.lines.map((line) => `<li>${esc(line)}</li>`).join('')}</ul>`) : ''}${learnHtml(body.learn)}`;
   const withLearn = (q) => worksheet && /\.discover$/.test(q.key);   // 政经“先想一想”：解答里有概念讲解
-  const explainLabel = (q) => (withLearn(q) ? '展开解答与概念讲解' : '展开解答');
+  // 习经核心研讨题（题号 NN:qN）的解答就是四步解析：2026-11-20 起对所有学生开放，不用到筑基（后台 ck_my_explain 认解答里的 open）
+  const openKey = (q) => !worksheet && /^\d{2}:q\d+$/.test(q.key);
+  const explainLabel = (q) => (withLearn(q) ? '展开解答与概念讲解' : openKey(q) ? '展开四步解析' : '展开解答');
   function paintExplain(q) {
     if (!canExplain || !q.bar || !q.bar.classList.contains('is-locked')) return;
     let box = q.bar.querySelector('.clp-ex');
@@ -1429,11 +1459,11 @@
       box.querySelector('.clp-ex-btn').addEventListener('click', () => toggleExplain(q, box));
     }
     const button = box.querySelector('.clp-ex-btn');
-    const open = gateLevel >= EXPLAIN_LEVEL;
+    const open = gateLevel >= EXPLAIN_LEVEL || openKey(q);
     if (button.dataset.busy) return;
     button.disabled = !open;
     button.classList.toggle('is-locked', !open);
-    button.textContent = open ? (box.querySelector('.clp-ex-body').hidden ? explainLabel(q) : '收起解答')
+    button.textContent = open ? (box.querySelector('.clp-ex-body').hidden ? explainLabel(q) : openKey(q) ? '收起四步解析' : '收起解答')
       : withLearn(q) ? '🔒 解答与概念讲解：达到「筑基」境界解锁' : '🔒 解答：达到「筑基」境界解锁';
   }
   async function toggleExplain(q, box) {
@@ -1462,7 +1492,7 @@
     }
     body.innerHTML = q.explained;
     body.hidden = false;
-    button.textContent = '收起解答';
+    button.textContent = openKey(q) ? '收起四步解析' : '收起解答';
   }
   function applyRealmGates(level) {
     gateLevel = level;
@@ -1484,6 +1514,53 @@
   applyRealmGates(gateLevel);
   if (worksheet && joined && !OFFLINE && !AUDIT) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）；旁听不计
   if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
+  if (!worksheet && canExplain && backend) setupSteps();
+
+  // ---------- 四步解析（2026-11-20 用户：“有学生反映学生端只有答案和很少的解析，没有分析过程……把四步法解析开放给所有学生吧”） ----------
+  // 课堂完整版每组快问快答（Q1、Q2、Q3）下面有“展开四步解析”，学生页原来没有。现在每组下面加一块：这一组的快答题全部递交以后，
+  // 所有学生（不看境界）都能展开——本章理论抓手＋① 亮明观点 ② 教材依据 ③ 案例事实 ④ 回到题目说明。内容不在页面里，点开时向后台要（ck_my_explain，题号 NN:steps-qN）
+  function setupSteps() {
+    $$('.quiz-group[id]').forEach((group) => {
+      const m = /^case-(\d{2})-q(\d{2})$/.exec(group.id);
+      if (!m || group.querySelector('.clp-steps')) return;
+      const number = Number(m[2]);
+      const key = `${m[1]}:steps-q${number}`;
+      const box = document.createElement('div');
+      box.className = 'clp-ex clp-steps';
+      box.setAttribute('data-ix', '');
+      box.innerHTML = `<div class="clp-steps-head"><button type="button" class="clp-ex-btn">展开四步解析</button>`
+        + `<span class="clp-steps-hint">这一组题都递交以后可以看：把 Q${number} 的道理按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。</span></div><div class="clp-ex-body" hidden></div>`;
+      group.appendChild(box);
+      const button = box.querySelector('.clp-ex-btn');
+      const body = box.querySelector('.clp-ex-body');
+      let cached = '';
+      button.addEventListener('click', async () => {
+        if (!body.hidden) { body.hidden = true; button.textContent = '展开四步解析'; return; }
+        if (!cached) {
+          button.disabled = true;
+          button.textContent = '正在读取……';
+          let note = '';
+          try {
+            const value = await backend.rpc('ck_my_explain', { p_classroom: Number(identity.classroom) || identity.classroom, p_key: key });
+            const res = (Array.isArray(value) ? value[0] : value) || {};
+            if (res.status === 'ok') cached = explainHtml({ ...(res.body || {}), open: true });
+            else note = res.status === 'todo' ? '这一组还有题没有递交：全部递交以后再来看四步解析。'
+              : res.status === 'none' ? '这一组的四步解析还没有同步到后台：请老师打开一次教师工作台。'
+              : res.status === 'locked' ? '四步解析还没有对所有同学开放（老师后台尚未更新）。'
+              : res.status === 'login' ? EXPLAIN_TEXT.login : '暂时读不到四步解析。';
+          } catch (problem) {
+            note = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))
+              ? '题目解答还没有开通（老师后台尚未更新）。' : '读取失败：请检查网络后再试。';
+          }
+          button.disabled = false;
+          if (!cached) { body.innerHTML = `<p class="clp-ex-note">${esc(note)}</p>`; body.hidden = false; button.textContent = '再试一次'; return; }
+        }
+        body.innerHTML = cached;
+        body.hidden = false;
+        button.textContent = '收起四步解析';
+      });
+    });
+  }
 
   // ---------- 回温（2026-11-18 用户：“在‘出门测’后面再设置一个‘回温’板块，可以让学生复习课堂、修炼场和云间灵田中做错的题目。”） ----------
   // 位置：习经放在本页最后一个出门测的后面；政经（2026-11-18 用户：“政经的回温放到‘本堂作业递交情况’后面，回温的题目不计入递交情况中”）放在整个“课后自修”之后——
@@ -1911,6 +1988,7 @@
   const stoppedQ = (q) => Boolean(Live.isStopped) && Live.isStopped(stops, q.key);
   // 暂时收起递交的题（2026-10-29 为 3v3 辩论台进行中的“辩后投票”而设；2026-11-05 取消 3v3 后暂无调用），与老师“停止递交”共用下面的显示
   const heldQuestions = new Map();
+  const debateShut = new Map();   // 辩论赛倒计时（setupDebateClock）：案例号 → 聊天室现在不能发言的原因
   function holdQuestion(key, text) {
     if ((heldQuestions.get(key) || '') === (text || '')) return;
     if (text) heldQuestions.set(key, text); else heldQuestions.delete(key);
@@ -2216,6 +2294,11 @@
     .sort((x, y) => (x.bar.compareDocumentPosition(y.bar) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
   function openFullscreen(q) {
     if (!questions.length) return;
+    // 电脑、大屏（宽窗口）：用页面自带的“放大 → 全屏看题”（顶栏换题、自动选放大倍数），不进手机的横屏模式
+    if (!FS.on && window.ClassStage && window.ClassStage.wide()) {
+      const first = q || fsOrder().find((item) => !locked[item.key] && !item.stopped) || fsOrder()[0];
+      if (first && window.ClassStage.open(first.bar)) return;
+    }
     if (!FS.on) FS.list = fsOrder();
     const start = q ? FS.list.indexOf(q) : FS.list.findIndex((item) => !locked[item.key] && !item.stopped);
     const ui = fsBuildUi();
@@ -2868,6 +2951,7 @@
     setupFeedback(true);
     setupExamExport();
     setupDebateRooms(true);
+    setupDebateClock();
     setupBizGames(true);
     setupDiscuss(true);
   }
@@ -2991,6 +3075,7 @@
           box.querySelector('form').addEventListener('submit', async (event) => {
             event.preventDefault();
             const input = box.querySelector('.dbr-form input');
+            if (debateShut.has(no)) { say(debateShut.get(no), 'error'); return; }   // 倒计时结束：这一步不能再发言（setupDebateClock）
             const text = input.value.trim();
             if (text.length < 2) { say('写两个字以上再发送。', 'error'); return; }
             const button = box.querySelector('.dbr-form button');
@@ -3056,6 +3141,130 @@
       refresh();
       // 递交辩前票后自动进聊天室
       document.addEventListener('classlive:submitted', () => { if (mode === 'pick' || mode === '') { mode = ''; refresh(); } });
+    });
+  }
+
+  // 辩论赛倒计时（2026-11-20，用户：“辩论赛中的倒计时，在学生端中也设置倒计时，倒计时结束的话无法递交。但是如果老师点了+30秒，就又可以递交。”）：
+  // 老师在投屏页“辩论流程”图里推进每一步时，这一步和它的计时写进后台（沿用 3v3 辩论台留下的 ck_debate_control，阶段名对照见 Live.DEBATE_STAGE，不用新的 SQL）；
+  // 这里每隔几秒读 ck_debate_live（剩余秒数按后台时钟算，各人手机的钟快慢不影响），在辩论赛卡片上和这一步的“递交”旁边显示同一个倒计时。
+  // 规则：老师没有用流程图（后台没有这场辩论的记录）时不限制；当前这一步时间到（没有暂停），或者老师已经进入后面的步骤，这一步就不能再递交——
+  //   选立场 · 论据卡 → 辩前票、论据卡；聊天室 → 发言（点赞不限）；辩后投票 → 辩后票。老师点“+30 秒”、继续计时或跳回这一步，又可以递交。
+  //   请假补做不限制；后台连续几次连不上时也不拦递交。
+  function setupDebateClock() {
+    const cards = $$('[data-debate]').map((section) => ({ section, room: section.querySelector('[data-debate-room]') })).filter((x) => x.room);
+    if (!cards.length || OFFLINE || MAKEUP || !joined) return;
+    const DB = Live.DEBATE || { poll: 4000 };
+    const KEY_OF = Object.fromEntries(Object.entries(Live.DEBATE_STAGE || { prep: 'pro_open', talk: 'con_open', chat: 'free', vote: 'vote', result: 'done' }).map(([key, stage]) => [stage, key]));
+    // 2026-11-20 加“自由讨论”一步（聊天室发言之前当面讨论 5 分钟，这一步没有要递交的题；聊天室到“聊天室发言点赞”一步才开放）
+    const STEPS = ['prep', 'talk', 'chat', 'vote', 'result'];
+    const CHAT = STEPS.indexOf('chat');
+    const END = STEPS.indexOf('result');
+    const LABEL = { prep: '① 选立场 · 论据卡', talk: '② 自由讨论', chat: '③ 聊天室发言点赞', vote: '④ 辩后投票', result: '辩论结束' };
+    const HINT = {
+      prep: ['倒计时结束后，辩前票和论据卡不能再递交', '时间到：辩前票、论据卡不能再递交；老师加时后可以继续'],
+      talk: ['和同一立场的同学（或前后桌）讨论：我方最有力的理由是什么，对方会怎么反驳；想好要在聊天室里说的一句话', '讨论时间到，等老师进入下一步：聊天室发言'],
+      chat: ['倒计时结束后，聊天室不能再发言', '时间到：聊天室不能再发言；老师加时后可以继续'],
+      vote: ['倒计时结束后，辩后票不能再递交', '时间到：辩后票不能再递交；老师加时后可以继续'],
+    };
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const clock = (s) => `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`;
+    cards.forEach(({ section, room }) => {
+      const no = room.dataset.case;
+      const bar = document.createElement('div');
+      bar.className = 'dbt';
+      bar.hidden = true;
+      bar.setAttribute('data-ix', '');
+      bar.setAttribute('role', 'status');
+      bar.innerHTML = '<span class="dbt-tag">辩论进行中</span><b class="dbt-step" data-dbt-step></b><span class="dbt-clock" data-dbt-clock></span><small class="dbt-hint" data-dbt-hint></small>';
+      const rules = section.querySelector('.cl-debate-rules, .debate-rules');
+      if (rules) rules.insertAdjacentElement('afterend', bar); else section.insertAdjacentElement('afterbegin', bar);
+      shield(bar);
+      const KEYS = [[debateKey(no, 'pre'), debateKey(no, 'cards')], [], [], [debateKey(no, 'post')]];   // 各步要递交的题（自由讨论、聊天室两步没有）
+      let live = null;      // { step, left, paused, ends（本机 performance 时钟上的结束时刻）}
+      let failures = 0;
+      let lastPoll = 0;
+      const leftNow = () => (!live ? 0 : live.paused ? live.left : Math.max(0, Math.ceil((live.ends - performance.now()) / 1000)));
+      const chipOf = (key) => {
+        const q = questions.find((item) => item.key === key);
+        if (!q || !q.bar) return null;
+        let chip = q.bar.querySelector('.dbt-chip');
+        if (!chip) {
+          chip = document.createElement('span');
+          chip.className = 'dbt-chip';
+          chip.hidden = true;
+          q.button.insertAdjacentElement('afterend', chip);
+        }
+        return locked[key] ? (chip.hidden = true, null) : chip;
+      };
+      function paint() {
+        const at = live ? STEPS.indexOf(live.step) : -1;
+        const left = leftNow();
+        const up = at >= 0 && at < END && !live.paused && left <= 0;
+        const shut = (i) => at >= 0 && (at > i || (at === i && up));
+        const why = (i) => (at > i ? (at >= END ? '辩论已结束，不能再递交' : '辩论已进入后面的步骤，这一步不能再递交；还没递交的同学可以请老师回到这一步') : '倒计时已结束，不能再递交；老师加时后可以继续递交');
+        KEYS.forEach((keys, i) => keys.forEach((key) => {
+          holdQuestion(key, shut(i) ? why(i) : '');
+          const chip = chipOf(key);
+          if (!chip) return;
+          const show = at === i && !up;
+          chip.hidden = !show;
+          if (show) { chip.textContent = live.paused ? `暂停 ${clock(left)}` : `剩 ${clock(left)}`; chip.classList.toggle('is-low', !live.paused && left <= 10); }
+        }));
+        // 聊天室：流程开始以后，到“聊天室发言点赞”一步才开放（前面两步先选立场、当面讨论）；这一步时间到或进入后面的步骤就关上
+        const chatWhy = at >= 0 && at < CHAT ? '聊天室下一步开放：先选好立场，和同学讨论，想好自己要说的话。'
+          : shut(CHAT) ? (at > CHAT ? '聊天室发言已经结束（辩论进入后面的步骤）。' : '发言时间已结束；老师加时后可以继续发言。') : '';
+        if (chatWhy) debateShut.set(no, chatWhy); else debateShut.delete(no);
+        const form = room.querySelector('.dbr-form');
+        if (form && (form.dataset.shut || '') !== chatWhy) {
+          const input = form.querySelector('input');
+          const button = form.querySelector('button');
+          if (!input.dataset.ph) input.dataset.ph = input.placeholder;
+          form.dataset.shut = chatWhy;
+          form.classList.toggle('is-shut', Boolean(chatWhy));
+          input.disabled = Boolean(chatWhy);
+          button.disabled = Boolean(chatWhy);
+          input.placeholder = chatWhy || input.dataset.ph;
+        }
+        bar.hidden = at < 0;
+        if (at < 0) return;
+        bar.querySelector('[data-dbt-step]').textContent = LABEL[live.step];
+        bar.querySelector('[data-dbt-clock]').textContent = at >= END ? '' : live.paused ? `${clock(left)} 暂停` : left > 0 ? clock(left) : '时间到';
+        bar.querySelector('[data-dbt-hint]').textContent = at >= END ? '老师已结束辩论，结果看大屏。' : HINT[live.step][up ? 1 : 0];
+        bar.classList.toggle('is-low', at < END && !live.paused && left > 0 && left <= 10);
+        bar.classList.toggle('is-up', up);
+        bar.classList.toggle('is-paused', at < END && Boolean(live.paused));
+        bar.classList.toggle('is-done', at >= END);
+      }
+      async function poll() {
+        lastPoll = Date.now();
+        try {
+          const value = await backend.rpc('ck_debate_live', { p_classroom: roomId, p_case: no });
+          const state = (Array.isArray(value) ? value[0] : value) || {};
+          failures = 0;
+          const step = state.status === 'ok' ? KEY_OF[state.stage] : '';
+          if (!step) live = null;
+          else {
+            const left = Math.max(0, Number(state.left) || 0);
+            live = { step, left, paused: Boolean(state.paused), ends: performance.now() + left * 1000 };
+          }
+        } catch (problem) {
+          failures += 1;
+          if (failures === 1) console.warn('[辩论赛倒计时]', problem);
+          if (failures >= 3) live = null;   // 连不上后台：不拦递交
+        }
+        paint();
+      }
+      const near = () => { const r = section.getBoundingClientRect(); return r.bottom > -600 && r.top < window.innerHeight + 600 && !section.closest('[hidden]'); };
+      poll();
+      setInterval(paint, 500);
+      setInterval(() => {
+        if (document.hidden) return;
+        const running = live && live.step !== 'result';
+        if (Date.now() - lastPoll < (running ? DB.poll || 4000 : 8000) - 100) return;   // 辩论在进行时每 4 秒对一次表，其余 8 秒
+        if (!running && !near()) return;                                               // 卡片不在眼前、辩论也没开始：不查
+        poll();
+      }, 1000);
+      document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
     });
   }
 
@@ -4912,7 +5121,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261118-huiwen-pe' : '20261118-huiwen-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261120-think-pe' : '20261120-debate-clock-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
