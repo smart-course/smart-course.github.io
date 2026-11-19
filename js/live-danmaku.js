@@ -280,8 +280,12 @@
   @keyframes dm-lord-star { 0%, 100% { opacity: .15; transform: scale(.45) rotate(0deg); } 50% { opacity: 1; transform: scale(1.2) rotate(90deg); } }
   @keyframes dm-lord-halo { 0%, 100% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 8px var(--dm-sg), 0 4px 12px rgba(35, 101, 95, .16); }
     50% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 20px var(--dm-sg), 0 0 30px rgba(224, 169, 46, .45), 0 4px 12px rgba(35, 101, 95, .16); } }
-  .dm-item.has-sect::before { content: ''; position: absolute; inset: -5px; border: 2.5px solid var(--dm-sc); border-radius: 27px; pointer-events: none;
-    box-shadow: 0 0 10px var(--dm-sg), inset 0 0 6px var(--dm-sg); }
+  /* 2026-11-19 加粗加亮：边框 4px 亮色、外晕更大；前面加宗门徽章（见 DM_SECT_TONES） */
+  .dm-item.has-sect::before { content: ''; position: absolute; inset: -6px; border: 4px solid var(--dm-sc); border-radius: 28px; pointer-events: none;
+    box-shadow: 0 0 18px var(--dm-sg), 0 0 6px var(--dm-sc), inset 0 0 10px var(--dm-sg); }
+  .dm-sect-mark { display: inline-flex; align-items: center; justify-content: center; width: 1.32em; height: 1.32em; margin: 0 .38em 0 -.3em; border-radius: 50%;
+    background: var(--dm-sc); color: #fff; font-size: .7em; font-style: normal; font-weight: 900; line-height: 1; vertical-align: .14em;
+    text-shadow: 0 1px 2px rgba(0, 0, 0, .55); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 10px var(--dm-sg); }
   .dm-item.is-lord::before { inset: -7px; padding: 3.5px; border: 0; border-radius: 29px; box-shadow: none;
     background: conic-gradient(from var(--dm-spin), var(--dm-sc), #ffd36b, #fff8e0, #ff8fc4, var(--dm-sg), #8fe9ff, #b98cff, #ffd36b, var(--dm-sc));
     -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
@@ -294,7 +298,9 @@
     text-shadow: 0 0 6px #ffd36b, 0 0 12px var(--dm-sg); animation: dm-lord-star 1.4s ease-in-out infinite; }
   .dm-lord-star.is-a { top: -.78em; right: 1.1em; }
   .dm-lord-star.is-b { bottom: -.76em; left: 1.4em; animation-delay: .7s; }
-  .dm-bubble.has-sect { border: 2px solid var(--dm-sc); box-shadow: 0 0 0 3px var(--dm-sa), 0 4px 12px rgba(35, 101, 95, .16); }
+  .dm-bubble.has-sect { border: 3px solid var(--dm-sd); box-shadow: 0 0 0 3px var(--dm-sa), 0 4px 12px rgba(35, 101, 95, .16); }
+  .dm-bubble.has-sect:not(.is-pro):not(.is-con) { --dm-bg: var(--dm-st); background: var(--dm-st); }   /* 辩论正反方的底色保留 */
+  .dm-bubble .dm-sect-mark { margin: 0 .35em 0 0; font-size: .8em; background: var(--dm-sd); box-shadow: none; text-shadow: none; }
   .dm-bubble.is-pro { --dm-bg: #eef6f4; }
   .dm-bubble.is-con { --dm-bg: #fbefea; }
   .dm-bubble.is-lord { border-width: 2.5px; border-color: transparent; animation: dm-spin 1.8s linear infinite, dm-lord-halo 1.6s ease-in-out infinite;
@@ -460,6 +466,19 @@
   const SECTS = new Map(SECT_LIST.map((sect) => [sect.key, sect]));
   const timeOf = (value) => Date.parse(String(value || '').replace(' ', 'T').replace(/(\.\d{3})\d+/, '$1')) || 0;
   const hexA = (hex, alpha) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; return `rgba(${(n >> 16) & 255}, ${(n >> 8) & 255}, ${n & 255}, ${alpha})`; };
+  // 弹幕上的宗门色（2026-11-19 用户：“各个宗门的弹幕框的颜色效果不够明显，比如星澜宫用蓝色，玄月宗用紫色，枫霞谷用橙黄色，灵犀山用绿色。
+  // 未加入宗门的还是灰色”）：投屏是暗底，边框、外晕和宗门徽章用亮色 color／glow；弹幕墙是白底，边框用深一档的 deep、底色是 color 调淡的 tint。
+  // 只用在弹幕上，选宗门、宗门榜等处的宗门色不变；没入宗门的（含散修）照旧灰底、不加框
+  const DM_SECT_TONES = {
+    xinglan: { color: '#3d8bff', glow: '#a9cdff', deep: '#1f63d6' },   // 星澜宫：蓝
+    xuanyue: { color: '#b06bff', glow: '#ddc2ff', deep: '#7a35d6' },   // 玄月宗：紫
+    fengxia: { color: '#ffaa1c', glow: '#ffdc8f', deep: '#c47400' },   // 枫霞谷：橙黄
+    lingxi: { color: '#2ecc71', glow: '#a6f0c4', deep: '#178a4a' },    // 灵犀山：绿
+  };
+  const toneOf = (sect) => DM_SECT_TONES[sect.key] || { color: sect.color, glow: sect.glow, deep: sect.color };
+  // 白底上调淡的不透明颜色（宗主弹幕框的流光边框在底色下面，底色不能透明）
+  const tintOf = (hex, p) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; const mix = (c) => Math.round(255 + (c - 255) * p);
+    return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`; };
   let sectMap = new Map(), lordSet = new Set(), sectSig = '', activeClasses = null, activeAt = 0;
   async function loadSects() {
     if (!room || !SECTS.size) return;
@@ -496,12 +515,21 @@
     const info = sectFor(doc);
     el.classList.toggle('has-sect', Boolean(info));
     el.classList.toggle('is-lord', Boolean(info && info.lord));
-    el.querySelectorAll(':scope > .dm-lord-star').forEach((star) => star.remove());
+    el.querySelectorAll(':scope > .dm-lord-star, :scope > .dm-sect-mark').forEach((node) => node.remove());
     if (!info) return;
     if (info.lord) ['is-a', 'is-b'].forEach((spot) => { const star = document.createElement('i'); star.className = `dm-lord-star ${spot}`; star.textContent = '✦'; star.setAttribute('aria-hidden', 'true'); el.append(star); });
-    el.style.setProperty('--dm-sc', info.sect.color);
-    el.style.setProperty('--dm-sg', hexA(info.sect.glow, 0.85));
-    el.style.setProperty('--dm-sa', hexA(info.sect.color, 0.2));
+    const tone = toneOf(info.sect);
+    el.style.setProperty('--dm-sc', tone.color);
+    el.style.setProperty('--dm-sg', hexA(tone.glow, 0.9));
+    el.style.setProperty('--dm-sa', hexA(tone.color, 0.3));
+    el.style.setProperty('--dm-sd', tone.deep);
+    el.style.setProperty('--dm-st', tintOf(tone.color, 0.13));
+    // 宗门徽章（枫、月、犀、星）：颜色之外再用字认宗门（色弱的同学、黑白打印也分得清）
+    const mark = document.createElement('i');
+    mark.className = 'dm-sect-mark';
+    mark.textContent = info.sect.mark || String(info.sect.name || '').slice(0, 1);
+    mark.title = info.sect.name || '';
+    el.prepend(mark);
   };
   // 境界每 20 秒读一次；课上老师结算后，有人境界提升就在页面最上方正中恭喜（见 congratulate）
   let realmClass = null;   // 上一次读到的境界属于哪个班（换了班级不算提升）
@@ -597,7 +625,7 @@
     <p>只在这台电脑的投屏上播放：不写入弹幕记录、不计修为，学生看不到。</p>
     <div class="dm-demo-row" data-demo-realms><b>境界</b>${REALMS.map((realm) => `<button type="button" class="dm-title is-r${realm.level}" data-demo-level="${realm.level}">${esc(realm.name)}</button>`).join('')}</div>
     <div class="dm-demo-row dm-demo-colors" data-demo-colors><b>字色</b></div>
-    <div class="dm-demo-row dm-demo-sects" data-demo-sects><b>宗门</b><button type="button" class="dm-demo-btn" data-demo-sect="">不入宗门</button>${SECT_LIST.map((sect) => `<button type="button" class="dm-demo-btn" data-demo-sect="${esc(sect.key)}" style="--dm-sc:${esc(sect.color)}">${esc(sect.name)}</button>`).join('')}
+    <div class="dm-demo-row dm-demo-sects" data-demo-sects><b>宗门</b><button type="button" class="dm-demo-btn" data-demo-sect="">不入宗门</button>${SECT_LIST.map((sect) => `<button type="button" class="dm-demo-btn" data-demo-sect="${esc(sect.key)}" style="--dm-sc:${esc(toneOf(sect).color)}">${esc(sect.name)}</button>`).join('')}
       <label class="dm-demo-check"><input type="checkbox" data-demo-lord>宗主（炫彩）</label></div>
     <div class="dm-demo-row"><b>内容</b><span class="dm-demo-field" data-demo-field><input type="text" maxlength="40" value="发展为了人民，发展依靠人民" data-demo-text aria-label="试用弹幕内容"></span></div>
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
