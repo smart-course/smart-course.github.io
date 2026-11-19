@@ -1310,8 +1310,9 @@
       const card = document.createElement('section');
       card.className = 'clp-fb';
       card.innerHTML = Live.feedbackBox.html(FB, false);
-      // 政治经济学：放在“资料与延伸阅读”里、“继续阅读下一案例”之前；习经：放在章节页“资料与延伸阅读”这一节的末尾
-      const pager = worksheet ? page.querySelector('.case-sequence') : null;
+      // 政治经济学：放在“资料与延伸阅读”里、页面最后的“回到案例起点 ↑”之前（2026-11-19 起网站版不再有“上一案例／下一案例”）；
+      // 习经：放在章节页“资料与延伸阅读”这一节的末尾
+      const pager = worksheet ? page.querySelector('.case-sequence') || page.querySelector('.closing') : null;
       if (pager) pager.insertAdjacentElement('beforebegin', card);
       else (page.querySelector('.section-inner') || page.querySelector('.inner') || page).appendChild(card);
       fbCards.push({ card, caseNo });

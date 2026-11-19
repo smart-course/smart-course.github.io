@@ -292,7 +292,7 @@
   // 匿名建议箱（2026-11-05 用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）：投屏页在学生页同样的位置放同样的建议箱
   //   （卡片、文字、样式都与学生页共用 ClassLive.feedbackBox；笑脸、输入框、“匿名提交”都不能用），最下面一行显示这堂课（今天）收到几条；
   //   建议内容不上投屏，只在老师的工作台里看。习经：章节页“资料与延伸阅读”末尾（原来的提示卡 data-fb-projector 换成建议箱）；
-  //   政经：案例页“资料与延伸阅读”里“继续阅读下一案例”之前
+  //   政经：案例页“资料与延伸阅读”里、页面最后的“回到案例起点 ↑”之前（2026-11-19 起网站版不再有“上一案例／下一案例”）
   const fbCard = (() => {
     const box = window.ClassLive.feedbackBox;
     if (!box) return null;
@@ -308,7 +308,7 @@
     card.className = 'clp-fb';
     card.innerHTML = box.html(FB, true);
     card.querySelector('form').addEventListener('submit', (event) => event.preventDefault());
-    const pager = worksheet && page ? page.querySelector('.case-sequence') : null;
+    const pager = worksheet && page ? page.querySelector('.case-sequence') || page.querySelector('.closing') : null;
     if (old) old.replaceWith(card);
     else if (pager) pager.insertAdjacentElement('beforebegin', card);
     else (page.querySelector('.section-inner') || page.querySelector('.inner') || page).appendChild(card);
