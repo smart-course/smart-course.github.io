@@ -574,6 +574,20 @@
       // finished. Otherwise scroll anchoring can take the visitor back to cards.
       if(typeof global.requestAnimationFrame==='function')sectRevealFrame=global.requestAnimationFrame(reveal);else reveal();
     }
+    // 留在“宗门事务”里游览（见 browse-sect）：面板翻到所选宗门的“山中画卷／同门共建”一节，焦点放在这一节的标题上
+    function revealSectInfoView() {
+      if(sectRevealFrame)global.cancelAnimationFrame?.(sectRevealFrame);
+      const reveal=()=>{
+        sectRevealFrame=0;if(!isVisible()||tab!=='sect'||!sectInfoOpen)return;
+        const box=sectContent(),view=root()?.querySelector('.game-sect-info .journey-sect-view');
+        if(box&&view){
+          const top=view.getBoundingClientRect().top-box.getBoundingClientRect().top+box.scrollTop-12;
+          box.scrollTop=Math.max(0,top);sectInfoScroll=box.scrollTop;
+        }
+        document.getElementById('journey-sect-view-title')?.focus({preventScroll:true});
+      };
+      if(typeof global.requestAnimationFrame==='function')sectRevealFrame=global.requestAnimationFrame(reveal);else reveal();
+    }
     function syncSectScene(data) {
       if (!isVisible() || tab !== 'sect') { disposeSectScene(); return; }
       const mount = root()?.querySelector('[data-sect-scene-mount]');
@@ -804,10 +818,13 @@
       if (action === 'sect-page') return refreshSect(Number(id));
       if (action === 'browse-sect') {
         if (!sectCatalog(engine.sect || sectFallback).some(school => school.id === id)) return;
+        // 2026-11-19 用户：“在这里面点击游览宗门的时候，还是在这个对话框中，而不是退出”——在“宗门事务”里点“游览宗门”“查看本宗”，
+        // 面板不收起：换成这个宗门，翻到面板里这个宗门的“山中画卷／同门共建”；山景上方的宗门快捷按钮照旧收起面板、看山景
+        const stay = sectInfoOpen && Boolean(target.closest('.game-sect-info'));
         if (id !== selectedSectId) { sectInfoScroll = 0; if (sectContent()) sectContent().scrollTop = 0; }
-        selectedSectId = id; sectSelectionManual = true; sectInfoOpen = false; sectViewFocus='overview'; confirmation = null; feedback = null; update(true);
+        selectedSectId = id; sectSelectionManual = true; if (!stay) sectInfoOpen = false; sectViewFocus='overview'; confirmation = null; feedback = null; update(true);
         if(engine.online)refreshSect();
-        revealSectScene();
+        if (stay) revealSectInfoView(); else revealSectScene();
         return;
       }
       if(action==='sect-focus'){
