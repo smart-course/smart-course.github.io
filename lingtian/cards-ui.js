@@ -58,7 +58,11 @@
     // 智慧课堂 2026-11-19 用户：“把这个特效也加入到卡牌显示中，就是卡牌周围带一圈闪光”——地品 SSR、天品 UR（已收录、不是小图）四周一圈光晕和闪烁的星芒
     // 卡面外包一层 dz-card-glint（卡面本身 overflow:hidden 装不下外圈光），光圈只围住卡面、不围下面“可用 ×1”；其余卡牌的结构不变
     const sparkles=(card,known,mini)=>!mini&&known&&(card.rarity==='SSR'||card.rarity==='UR');
-    const sparkleRing=()=>'<span class="dz-card-sparkle" aria-hidden="true">'+'<i></i>'.repeat(10)+'</span>';
+    // 2026-11-19 用户：“特效可以更明显一些，有向外扩散的粒子”——再加一圈向外扩散的光波和 18 颗沿四边向外飞散的粒子（位置、方向、节奏固定，重绘不跳）
+    const SPARKLE_MOTES=(()=>{const out=[];for(let i=0;i<18;i+=1){const t=(i+.5)/18,j=((i*7)%5-2)*.18;let x,y,nx,ny;
+      if(t<.25){x=t/.25*100;y=0;nx=j;ny=-1;}else if(t<.5){x=100;y=(t-.25)/.25*100;nx=1;ny=j;}else if(t<.75){x=100-(t-.5)/.25*100;y=100;nx=j;ny=1;}else{x=0;y=100-(t-.75)/.25*100;nx=-1;ny=j;}
+      out.push(`<b style="--x:${x.toFixed(1)}%;--y:${y.toFixed(1)}%;--dx:${nx.toFixed(2)};--dy:${ny.toFixed(2)};--d:${((i*.61)%2.8).toFixed(2)}s;--t:${(2.3+(i%4)*.35).toFixed(2)}s"></b>`);}return out.join('');})();
+    const sparkleRing=()=>'<span class="dz-card-sparkle" aria-hidden="true">'+'<i></i>'.repeat(10)+'<s class="dz-sparkle-wave"></s><s class="dz-sparkle-wave is-late"></s>'+SPARKLE_MOTES+'</span>';
     function cardFace(card,{mini=false,count=true,revealIndex=null,action='detail'}={}) {
       if(!card)return '';
       const shown=exhibit?.id===card.id&&showingExhibit(),grade=rarity(card.rarity),owned=shown?1:own(card.id),known=shown||owned>0||(current()?.discovered||[]).includes(card.id),chapter=courseOfCard(card)?.chapters?.find(ch=>ch.id===card.chapterId);
