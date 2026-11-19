@@ -118,7 +118,7 @@
     function showcase(){
       const s=state(),display=list(s.displayCards),wishes=list(s.wishes),selected=s.rewards?.selectedId;
       const rewards=list(s.rewards?.items).filter(reward=>list(s.rewards?.unlockedIds).includes(reward.id)).map(reward=>({reward}));
-      return '<section class="sy-showcase"><div class="sy-section-heading"><span class="sy-eyebrow">我的珍藏 · 自有一方天地</span><h3>把心爱的卡，摆在眼前</h3><p>在任意卡背选择“记为心愿”或“放入陈列架”，各可选择三张。参悟记录始终属于自己。</p></div><div class="sy-display-shelf">'+[0,1,2].map(i=>display[i]?'<article class="sy-display-card"><button data-study-action="read" '+attr('card-id',display[i])+' aria-label="研读'+E(title(display[i]))+'"><div>'+cardImage(display[i])+'</div><h4>'+E(title(display[i]))+'</h4>'+stageMarkup(display[i])+'</button>'+button('display','收起',attr('card-id',display[i]),'quiet')+'</article>':'<div class="sy-display-empty">'+icon('book')+'<p>留给下一张心爱之藏</p>'+button('browse','去卡册挑选','','quiet')+'</div>').join('')+'</div><div class="sy-section-heading is-small"><h4>心愿笺 <small>'+wishes.length+' / 3</small></h4><p>记下想珍藏的概念，随时可以研读。</p></div><div class="sy-mini-grid">'+(wishes.length?wishes.map(id=>mini(id,{meta:owns(id)?'已遇见这张卡':'尚未收藏 · 可直接研读',tail:button('wish','移出心愿',attr('card-id',id),'quiet')})).join(''):'<div class="sy-empty-inline">心愿笺还是空的。翻到喜欢的卡背，轻点星形标记。</div>')+'</div><div class="sy-section-heading is-small"><h4>庭院纪念</h4><p>完成专题研习后，可选择一件纪念布置在灵田的读书角。</p></div><div class="sy-reward-list">'+(rewards.length?rewards.map(t=>'<article>'+icon('leaf')+'<div><h5>'+E(t.reward.name)+'</h5><p>'+E(t.reward.description)+'</p></div>'+button('reward',selected===t.reward.id?'已布置':'布置',attr('reward-id',t.reward.id),'primary',blocked()||selected===t.reward.id)+'</article>').join(''):'<div class="sy-empty-inline">从一个专题开始，把理解积累成自己的纪念。</div>')+'</div>'+(selected?button('reward','收起庭院纪念',attr('reward-id',''),'quiet',blocked()):'')+'</section>';
+      return '<section class="sy-showcase"><div class="sy-section-heading"><span class="sy-eyebrow">我的珍藏 · 自有一方天地</span><h3>把心爱的卡，摆在眼前</h3><p>在任意卡背选择“记为心愿”或“放入陈列架”，各可选择三张。参悟记录始终属于自己。</p></div><div class="sy-display-shelf">'+[0,1,2].map(i=>display[i]?'<article class="sy-display-card"><button data-study-action="read" '+attr('card-id',display[i])+' aria-label="研读'+E(title(display[i]))+'"><div>'+cardImage(display[i])+'</div><h4>'+E(title(display[i]))+'</h4>'+stageMarkup(display[i])+'</button>'+button('display','收起',attr('card-id',display[i]),'quiet')+'</article>':'<div class="sy-display-empty">'+icon('book')+'<p>留给下一张心爱之藏</p>'+button('pick-display','去卡册挑选','','quiet')+'</div>').join('')+'</div><div class="sy-section-heading is-small"><h4>心愿笺 <small>'+wishes.length+' / 3</small></h4><p>记下想珍藏的概念，随时可以研读。</p></div><div class="sy-mini-grid">'+(wishes.length?wishes.map(id=>mini(id,{meta:owns(id)?'已遇见这张卡':'尚未收藏 · 可直接研读',tail:button('wish','移出心愿',attr('card-id',id),'quiet')})).join(''):'<div class="sy-empty-inline">心愿笺还是空的。翻到喜欢的卡背，轻点星形标记。</div>')+'</div><div class="sy-section-heading is-small"><h4>庭院纪念</h4><p>完成专题研习后，可选择一件纪念布置在灵田的读书角。</p></div><div class="sy-reward-list">'+(rewards.length?rewards.map(t=>'<article>'+icon('leaf')+'<div><h5>'+E(t.reward.name)+'</h5><p>'+E(t.reward.description)+'</p></div>'+button('reward',selected===t.reward.id?'已布置':'布置',attr('reward-id',t.reward.id),'primary',blocked()||selected===t.reward.id)+'</article>').join(''):'<div class="sy-empty-inline">从一个专题开始，把理解积累成自己的纪念。</div>')+'</div>'+(selected?button('reward','收起庭院纪念',attr('reward-id',''),'quiet',blocked()):'')+'</section>';
     }
     function sectSection(){
       const t=state()?.sect||{};
@@ -221,6 +221,16 @@
       if(token!==epoch||course()?.id!==courseId)return null;
       working=false;if(r?.ok===false)error=r.message||'这次研习尚未完成。';if(r?.pending)error='结果尚待确认，请同步后继续。';change();return r;
     }
+    // 挑选模式（见 cards-ui.js 的 pickDisplay）：这张卡在不在陈列架上、陈列架满了没有、收藏了没有；放进陈列架（只加不收，最多三张）
+    function displayStatus(id){const ids=list(state()?.displayCards);return {displayed:ids.includes(id),full:ids.length>=3,owned:owns(id)};}
+    async function addDisplay(id){
+      const ids=list(state()?.displayCards);
+      if(ids.includes(id))return {ok:true,already:true};
+      if(ids.length>=3)return {ok:false,message:'陈列架已经摆满三张，先收起一张再换入。'};
+      const r=await perform(()=>engine.setStudyDisplay(ids.concat(id)));
+      if(r?.ok){notice='陈列架已更新，回灵田即可看见。';change();}
+      return r||{ok:false,message:error||'暂时没能放进陈列架，请稍后再试。'};
+    }
     async function load(){
       resetForCourse();try{await engine.loadStudy?.();}catch(e){error=e?.message||'暂时无法读取参悟记录。';}change();
     }
@@ -255,6 +265,8 @@
       if(action==='panel'){panel=target.dataset.panel;notice='';error='';change();if(panel==='classroom'&&state()?.teacher?.available&&!engine.studyClassroom)void readTeacher();return true;}
       if(action==='show-topics'){panel='topics';change();return true;}
       if(action==='browse'){options.onBrowse?.();return true;}
+      // 2026-11-19 用户：“点击‘去卡册挑选’后，点击相应的卡牌，直接弹出是否放入陈列架的选项，而不是进入查看卡牌”
+      if(action==='pick-display'){(options.onPickDisplay||options.onBrowse)?.();return true;}
       if(action==='return-garden'){options.onClose?.();return true;}
       if(action==='reload'){await load();return true;}
       if(action==='sync'){await engine.refresh?.();await load();return true;}
@@ -298,7 +310,7 @@
       if(event.key==='Tab'){const elements=[...options.host.querySelectorAll('[data-study-overlay] button:not(:disabled),[data-study-overlay] [tabindex="0"]')].filter(n=>n.getClientRects().length);if(elements.length){const first=elements[0],last=elements[elements.length-1];if(event.shiftKey&&(document.activeElement===first||!elements.includes(document.activeElement))){event.preventDefault();last.focus();}else if(!event.shiftKey&&(document.activeElement===last||!elements.includes(document.activeElement))){event.preventDefault();first.focus();}}return true;}
       return false;
     }
-    return {screen,entry,readingLead,related,stamp,signature,overlay,updateOverlay,handleClick,handleInput,handleKey,recordRead,load,isActive:()=>!!challenge,hasTeacherAccess:()=>!!teacherAccess()?.available,closeSession,clear:()=>{epoch++;challenge=null;feedback=null;choice=null;working=false;error='';overlayNode=null;overlayMarkup='';overlayChallenge=null;},stageMarkup};
+    return {screen,entry,readingLead,related,stamp,signature,overlay,updateOverlay,handleClick,handleInput,handleKey,recordRead,load,displayStatus,addDisplay,isActive:()=>!!challenge,hasTeacherAccess:()=>!!teacherAccess()?.available,closeSession,clear:()=>{epoch++;challenge=null;feedback=null;choice=null;working=false;error='';overlayNode=null;overlayMarkup='';overlayChallenge=null;},stageMarkup};
   }
   global.createSpiritStudyUI=create;
 })(typeof window==='undefined'?globalThis:window);

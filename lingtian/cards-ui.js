@@ -16,6 +16,9 @@
     let filter={search:'',chapter:'all',rarity:'all',owned:'all',page:0},scrollPositions={},detailReturn=null;
     let detailSide='front',detailTurning=false,detailTimer=null,detailPhase='ready',detailPhaseTimer=null,detailOrigin=null,detailPointer=null,detailSuppressClick=false,detailReadScroll=0,detailSourcesOpen=false;
     let busyAction='',packResult=null,revealed=0,revealing=false,packPhase='idle',packIndex=0,packSummary=false,pageTurning=false,pageDirection=1,animateIndex=-1,animationEpoch=0,animationTimers=[],pendingNotice='',localError='',localLoading=false,swipeStart=null,suppressCardClick=false;
+    // 挑一张放进陈列架（2026-11-19 用户：“点击‘去卡册挑选’后，点击相应的卡牌，直接弹出是否放入陈列架的选项，而不是进入查看卡牌”）：
+    // pickDisplay＝从参悟页陈列架空位进来的挑选模式；pickPrompt＝点了哪张卡、正在问要不要放入
+    let pickDisplay=false,pickPrompt=null,pickBusy=false,pickError='';
     let listingDraft={cardId:'',price:'',quantity:'1'},confirmation=null,marketCard='',marketPage=0,marketInterval='1h',marketSelectedTime=null,chartDispose=null;
     let titleFitFrame=0,packEntrance=null,pageTurnPhase='idle',inspectionOnly=false,initialMarketCard=options.initialCardId||'',renderedDetailKey='',fullscreenDraw=false;
     let cardSnapshot,cardSnapshotMarket,cardSnapshotKey='',cardSnapshotVersion=0,detailMarkup='';
@@ -44,6 +47,7 @@
     const gradeBadge=id=>{const grade=rarity(id);return `<span class="dz-grade-badge" data-rarity="${E(id)}" aria-label="${E(grade.name)} ${E(id)}"><b class="dz-grade-code">${E(id)}</b><em>${E(grade.name)}</em></span>`;};
     const studyUI=!embeddedMarket&&global.createSpiritStudyUI?global.createSpiritStudyUI({engine,host,
       onChange:()=>render(),onOpen:()=>moveTab('study'),onBrowse:()=>{if(!drawEnabled())filter={search:'',chapter:'all',rarity:'all',owned:'all',page:0};moveTab('collection');},onClose:()=>close(),
+      onPickDisplay:()=>{filter={search:'',chapter:'all',rarity:'all',owned:'owned',page:0};pickDisplay=true;pickPrompt=null;pickError='';moveTab('collection');},
       onRead:id=>{openDetail(id);if(detailId===id){detailSide='back';render(true);}}
     }):null;
     function cardFace(card,{mini=false,count=true,revealIndex=null,action='detail'}={}) {
@@ -139,7 +143,22 @@
       const emptyMessage=pausedScope?'老师启用章节后，这里会显示本期卡牌。现在仍可翻阅全卷，旧藏和学习记录都已保留。':filter.owned==='owned'?'先启封今日道藏，或切换“全卷”自由研读。':'试试更短的关键词，或调整章节和品阶。';
       const emptyAction=pausedScope?'reset-filter':filter.owned==='owned'?'draw-home':'reset-filter';
       const emptyLabel=pausedScope?'翻阅全卷':filter.owned==='owned'?'前往启封':'清空筛选';
-      return `<section class="dz-collection"><div class="dz-section-title"><div><span class="dz-eyebrow">一册尽览 · 方寸藏真</span><h3>我的万象长卷</h3></div><div class="dz-segments" role="group" aria-label="卡册范围">${(curriculum()?.source==='configured'?[['teaching','本期'],['all','全卷'],['owned','已藏']]:[['all','全卷'],['owned','已藏']]).map(([id,title])=>`<button type="button" data-cards-action="owned-filter" data-value="${id}" aria-pressed="${filter.owned===id}">${title}</button>`).join('')}</div></div><div class="dz-filters"><label class="dz-search">${glyph('search')}<input type="search" data-cards-filter="search" value="${E(filter.search)}" placeholder="搜索概念或定义" aria-label="搜索卡牌概念或定义" maxlength="60"></label><label><span class="dz-sr-only">按章节筛选</span><select data-cards-filter="chapter" aria-label="按章节筛选"><option value="all">全部章节</option>${course().chapters.filter(ch=>filter.owned!=='teaching'||curriculum()?.enabledChapterIds?.includes(ch.id)).map(ch=>`<option value="${E(ch.id)}"${filter.chapter===ch.id?' selected':''}>${E(chapterLabel(ch))}</option>`).join('')}</select></label><label><span class="dz-sr-only">按品阶筛选</span><select data-cards-filter="rarity" aria-label="按品阶筛选"><option value="all">全部品阶</option>${catalogue().rarities.map(g=>`<option value="${E(g.id)}"${filter.rarity===g.id?' selected':''}>${E(g.name)} · ${E(g.id)}</option>`).join('')}</select></label></div><div class="dz-list-caption"><span>${matches.length} 张理论卡 · 品阶从高到低</span><small>灰白为未藏 · 均可翻面研读</small></div>${cards.length?`<div class="dz-card-grid">${cards.map(card=>cardFace(card)).join('')}</div>`:`<div class="dz-empty dz-empty-small"><div class="dz-seal-orbit">${glyph('book')}</div><h3>${emptyTitle}</h3><p>${emptyMessage}</p>${button(emptyAction,emptyLabel)}</div>`}${pages>1?`<nav class="dz-pagination" aria-label="卡册分页">${button('collection-prev','上一页','',filter.page===0)}<span>${filter.page+1} / ${pages}</span>${button('collection-next','下一页','',filter.page>=pages-1)}</nav>`:''}</section>`;
+      return `<section class="dz-collection">${pickBanner()}<div class="dz-section-title"><div><span class="dz-eyebrow">一册尽览 · 方寸藏真</span><h3>我的万象长卷</h3></div><div class="dz-segments" role="group" aria-label="卡册范围">${(curriculum()?.source==='configured'?[['teaching','本期'],['all','全卷'],['owned','已藏']]:[['all','全卷'],['owned','已藏']]).map(([id,title])=>`<button type="button" data-cards-action="owned-filter" data-value="${id}" aria-pressed="${filter.owned===id}">${title}</button>`).join('')}</div></div><div class="dz-filters"><label class="dz-search">${glyph('search')}<input type="search" data-cards-filter="search" value="${E(filter.search)}" placeholder="搜索概念或定义" aria-label="搜索卡牌概念或定义" maxlength="60"></label><label><span class="dz-sr-only">按章节筛选</span><select data-cards-filter="chapter" aria-label="按章节筛选"><option value="all">全部章节</option>${course().chapters.filter(ch=>filter.owned!=='teaching'||curriculum()?.enabledChapterIds?.includes(ch.id)).map(ch=>`<option value="${E(ch.id)}"${filter.chapter===ch.id?' selected':''}>${E(chapterLabel(ch))}</option>`).join('')}</select></label><label><span class="dz-sr-only">按品阶筛选</span><select data-cards-filter="rarity" aria-label="按品阶筛选"><option value="all">全部品阶</option>${catalogue().rarities.map(g=>`<option value="${E(g.id)}"${filter.rarity===g.id?' selected':''}>${E(g.name)} · ${E(g.id)}</option>`).join('')}</select></label></div><div class="dz-list-caption"><span>${matches.length} 张理论卡 · 品阶从高到低</span><small>灰白为未藏 · 均可翻面研读</small></div>${cards.length?`<div class="dz-card-grid">${cards.map(card=>cardFace(card)).join('')}</div>`:`<div class="dz-empty dz-empty-small"><div class="dz-seal-orbit">${glyph('book')}</div><h3>${emptyTitle}</h3><p>${emptyMessage}</p>${button(emptyAction,emptyLabel)}</div>`}${pages>1?`<nav class="dz-pagination" aria-label="卡册分页">${button('collection-prev','上一页','',filter.page===0)}<span>${filter.page+1} / ${pages}</span>${button('collection-next','下一页','',filter.page>=pages-1)}</nav>`:''}${pickPromptMarkup()}</section>`;
+    }
+    function pickBanner(){
+      if(!pickDisplay)return '';
+      return `<div class="dz-pick-banner" role="status"><span>${glyph('book')}挑一张放进陈列架：点卡牌就会问你要不要放入。</span>${button('pick-cancel','不挑了','',false,'quiet')}</div>`;
+    }
+    function pickPromptMarkup(){
+      if(!pickPrompt)return '';
+      const card=getCard(pickPrompt.id);if(!card)return '';
+      const st=studyUI?.displayStatus?.(card.id)||{owned:true},name=E(card.title);
+      let text,actions;
+      if(st.displayed){text=`《${name}》已经在陈列架上了。`;actions=button('pick-no','好','',false,'primary');}
+      else if(!st.owned){text=`还没有收藏《${name}》，收藏以后才能放进陈列架。`;actions=button('pick-view','先看看这张卡')+button('pick-no','取消','',false,'quiet');}
+      else if(st.full){text='陈列架已经摆满三张，先回参悟页收起一张再换入。';actions=button('pick-no','好','',false,'primary');}
+      else{text=`把《${name}》放入陈列架？`;actions=button('pick-yes',pickBusy?'正在放入…':'放入陈列架','',pickBusy,'primary')+button('pick-view','先看看这张卡','',pickBusy)+button('pick-no','取消','',pickBusy,'quiet');}
+      return `<div class="dz-pick-layer" data-cards-action="pick-no" aria-hidden="true"></div><section class="dz-pick-dialog" role="dialog" aria-modal="true" aria-labelledby="dz-pick-title"><span class="dz-eyebrow">放入陈列架</span><h4 id="dz-pick-title">${name}</h4><p>${text}</p>${pickError?`<p class="dz-pick-error" role="alert">${E(pickError)}</p>`:''}<div class="dz-pick-actions">${actions}</div></section>`;
     }
     function listingName(listing) {return getCard(listing.cardId)?.title||'未知道藏';}
     function timeLabel(value) {try{return new Intl.DateTimeFormat('zh-CN',{timeZone:'Asia/Shanghai',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date(value));}catch{return '—';}}
@@ -335,7 +354,7 @@
       if(focusAttribute){const input=host.querySelector(`[${focusAttribute}="${focusKey}"]`);input?.focus({preventScroll:true});if(selection&&typeof input?.setSelectionRange==='function')try{input.setSelectionRange(...selection);}catch{}}
     }
     function restoreScroll(value=0){const body=host.querySelector('.dz-body');if(body)body.scrollTop=value;}
-    function moveTab(value,{owned}={}) {if(value==='market'&&!embeddedMarket&&typeof options.onOpenMarket==='function'){options.onOpenMarket();return;}if(!TABS.some(x=>x[0]===value))return;rememberScroll();if(value!=='draw'&&(revealing||pageTurning))finishReveal();clearDetailTurn();detailId=null;confirmation=null;fullscreenDraw=false;tab=value;if(owned)filter.owned=owned;render(true);restoreScroll(scrollPositions[tab]||0);if(tab==='market')void load({cardId:marketCard||undefined,page:marketPage});if(tab==='study')void studyUI?.load();}
+    function moveTab(value,{owned}={}) {if(value!=='collection'){pickDisplay=false;pickPrompt=null;pickError='';}if(value==='market'&&!embeddedMarket&&typeof options.onOpenMarket==='function'){options.onOpenMarket();return;}if(!TABS.some(x=>x[0]===value))return;rememberScroll();if(value!=='draw'&&(revealing||pageTurning))finishReveal();clearDetailTurn();detailId=null;confirmation=null;fullscreenDraw=false;tab=value;if(owned)filter.owned=owned;render(true);restoreScroll(scrollPositions[tab]||0);if(tab==='market')void load({cardId:marketCard||undefined,page:marketPage});if(tab==='study')void studyUI?.load();}
     async function load(parameters={}) {
       if(destroyed)return;
       localError='';localLoading=true;const request=++session;render();
@@ -510,6 +529,18 @@
       if(action==='reload'){await load();return;}
       if(action==='sync'){await run('sync',()=>engine.refresh?.(),{allowPending:true});await load({cardId:marketCard||undefined,page:marketPage});return;}
       if(!available())return;
+      if(action==='detail'&&pickDisplay&&tab==='collection'&&!detailId&&!embeddedMarket){pickPrompt={id:target.dataset.cardId};pickError='';render(true);host.querySelector('.dz-pick-dialog .dz-button-primary, .dz-pick-dialog button')?.focus({preventScroll:true});return;}
+      if(action==='pick-no'){if(pickBusy)return;const id=pickPrompt?.id;pickPrompt=null;pickError='';render(true);if(id)host.querySelector(`[data-cards-action="detail"][data-card-id="${id}"]`)?.focus({preventScroll:true});return;}
+      if(action==='pick-cancel'){pickDisplay=false;pickPrompt=null;pickError='';render(true);return;}
+      if(action==='pick-view'){const id=pickPrompt?.id;pickPrompt=null;pickError='';if(id)openDetail(id,target);return;}
+      if(action==='pick-yes'){
+        const id=pickPrompt?.id;if(!id||pickBusy)return;
+        pickBusy=true;pickError='';render(true);
+        let r=null;try{r=await studyUI?.addDisplay?.(id);}catch(e){r={ok:false,message:e?.message};}
+        pickBusy=false;
+        if(r?.ok){pickDisplay=false;pickPrompt=null;moveTab('study');return;}
+        pickError=r?.message||'没能放进陈列架，请稍后再试。';render(true);return;
+      }
       if(action==='detail'){if(embeddedMarket&&typeof options.onInspectCard==='function')options.onInspectCard(target.dataset.cardId);else openDetail(target.dataset.cardId,target);return;}
       if(action==='detail-flip'){if(!detailSuppressClick)flipDetail();detailSuppressClick=false;return;}
       if(action==='detail-front'){flipDetail('front');return;}
@@ -582,7 +613,7 @@
       if(draft){if(draft==='buyQuantity'&&confirmation?.type==='buy'){confirmation.quantity=target.value;const l=current()?.market?.listings?.find(l=>l.id===confirmation.id),node=host.querySelector('[data-cards-buy-total]');if(node)node.textContent=money((l?.price||0)*Number(target.value));}else if(Object.hasOwn(listingDraft,draft)){const reviewed=confirmation?.type==='list';if(draft==='cardId'&&target.value!==listingDraft.cardId)listingDraft={cardId:target.value,price:'',quantity:'1'};else listingDraft[draft]=target.value;if(reviewed)confirmation=null;if(draft==='cardId'||reviewed)render(true);}signature='';return;}
       if(target.hasAttribute?.('data-cards-market-filter')){marketCard=target.value;marketPage=0;marketSelectedTime=null;void load({cardId:marketCard||undefined,page:0});}
     }
-    function onKey(event) {if(studyUI?.handleKey(event))return;if(!opened||event.defaultPrevented||document.querySelector?.('#fullscreen-orientation[open],#game-dialog[open]'))return;if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(detailId)backDetail();else if(confirmation){confirmation=null;render(true);}else close();return;}if((!detailId||isPackDetail())&&tab==='draw'&&packResult&&!packSummary&&!/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName||'')&&!event.target?.closest?.('.dz-back-scroll')&&['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();event.stopPropagation();turnPack(event.key==='ArrowRight'?1:-1);}}
+    function onKey(event) {if(studyUI?.handleKey(event))return;if(!opened||event.defaultPrevented||document.querySelector?.('#fullscreen-orientation[open],#game-dialog[open]'))return;if(pickPrompt&&event.key==='Escape'){event.preventDefault();event.stopPropagation();if(!pickBusy){pickPrompt=null;pickError='';render(true);}return;}if(event.key==='Escape'){event.preventDefault();event.stopPropagation();if(detailId)backDetail();else if(confirmation){confirmation=null;render(true);}else close();return;}if((!detailId||isPackDetail())&&tab==='draw'&&packResult&&!packSummary&&!/^(INPUT|SELECT|TEXTAREA)$/.test(event.target?.tagName||'')&&!event.target?.closest?.('.dz-back-scroll')&&['ArrowLeft','ArrowRight'].includes(event.key)){event.preventDefault();event.stopPropagation();turnPack(event.key==='ArrowRight'?1:-1);}}
     function onPointerDown(event){
       if(detailId){
         if(event.button>0)return;
@@ -615,7 +646,7 @@
       if(!embeddedMarket)void studyUI?.load();
       if(!detailId)host.querySelector(packImmersive()?'.dz-cinema-close':'[data-cards-close]')?.focus({preventScroll:true});if(!preserveMarket)void load(tab==='market'?{cardId:marketCard||undefined,page:marketPage}:{});
     }
-    function close({silent=false}={}) {if(!opened)return;studyUI?.clear();rememberScroll();opened=false;fullscreenDraw=false;packEntrance=null;cancelTitleFit();host.hidden=true;session++;finishReveal();clearDetailTurn();onPointerCancel();chartDispose?.();chartDispose=null;if(silent)return;if(typeof options.onClose==='function')options.onClose();else if(lastFocus?.isConnected!==false)lastFocus?.focus?.({preventScroll:true});}
+    function close({silent=false}={}) {if(!opened)return;pickDisplay=false;pickPrompt=null;pickError='';studyUI?.clear();rememberScroll();opened=false;fullscreenDraw=false;packEntrance=null;cancelTitleFit();host.hidden=true;session++;finishReveal();clearDetailTurn();onPointerCancel();chartDispose?.();chartDispose=null;if(silent)return;if(typeof options.onClose==='function')options.onClose();else if(lastFocus?.isConnected!==false)lastFocus?.focus?.({preventScroll:true});}
     function dispose(){if(destroyed)return;close({silent:true});destroyed=true;session++;cancelTitleFit();titleResizeObserver?.disconnect();global.removeEventListener?.('resize',scheduleTitleFit);clearAnimations();clearDetailTurn();host.removeEventListener('click',onClick);host.removeEventListener('input',onInput);host.removeEventListener('change',onInput);host.removeEventListener('keydown',onKey);host.removeEventListener('pointerdown',onPointerDown);host.removeEventListener('pointerup',onPointerUp);host.removeEventListener('pointermove',onPointerMove);host.removeEventListener('pointercancel',onPointerCancel);host.innerHTML='';}
     host.classList.add('cards-host');host.hidden=true;host.addEventListener('click',onClick);host.addEventListener('input',onInput);host.addEventListener('change',onInput);host.addEventListener('keydown',onKey);host.addEventListener('pointerdown',onPointerDown);host.addEventListener('pointerup',onPointerUp);host.addEventListener('pointermove',onPointerMove);host.addEventListener('pointercancel',onPointerCancel);
     const titleResizeObserver=typeof global.ResizeObserver==='function'?new global.ResizeObserver(scheduleTitleFit):null;

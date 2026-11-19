@@ -1260,3 +1260,15 @@
  .cards-host .dz-result-grid .dz-card-foot>b>i { display:inline; }
  .cards-host .dz-result-grid .dz-card-count { font-size:10px; }
 }
+
+/* 挑一张放进陈列架（2026-11-19）：参悟页陈列架空位“去卡册挑选”进来时，卡册上方的提示条；点卡牌弹出的询问框 */
+.cards-host .dz-pick-banner { display:flex;flex-wrap:wrap;align-items:center;justify-content:space-between;gap:8px 14px;margin:0 0 14px;padding:10px 14px;border:1px solid #d6c286;border-radius:12px;background:#fbf3d9;color:#6d5a2b;font-size:14px;line-height:1.6; }
+.cards-host .dz-pick-banner > span { display:inline-flex;align-items:center;gap:8px; }
+.cards-host .dz-pick-banner svg { width:18px;height:18px;flex:0 0 auto; }
+.cards-host .dz-pick-layer { position:fixed;inset:0;z-index:60;background:rgba(30,42,34,.42);backdrop-filter:blur(2px); }
+.cards-host .dz-pick-dialog { position:fixed;z-index:61;left:50%;top:50%;transform:translate(-50%,-50%);width:min(420px,calc(100vw - 32px));padding:22px 22px 18px;border:1px solid #d6c79c;border-radius:16px;background:#fffcf2;box-shadow:0 24px 60px rgba(30,40,25,.28);text-align:center; }
+.cards-host .dz-pick-dialog h4 { margin:6px 0 8px;color:#3f5a45;font-size:20px;font-weight:700;line-height:1.5; }
+.cards-host .dz-pick-dialog p { margin:0 0 14px;color:#5d6656;font-size:14px;line-height:1.75; }
+.cards-host .dz-pick-dialog .dz-pick-error { color:#a4492d; }
+.cards-host .dz-pick-actions { display:flex;flex-wrap:wrap;justify-content:center;gap:8px; }
+.cards-host .dz-pick-actions .dz-button { min-height:42px; }
