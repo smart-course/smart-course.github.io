@@ -55,16 +55,21 @@
       onPickDisplay:()=>{filter={search:'',chapter:'all',rarity:'all',owned:'owned',page:0};pickDisplay=true;pickPrompt=null;pickError='';moveTab('collection');},
       onRead:id=>{openDetail(id);if(detailId===id){detailSide='back';render(true);}}
     }):null;
+    // 智慧课堂 2026-11-19 用户：“把这个特效也加入到卡牌显示中，就是卡牌周围带一圈闪光”——地品 SSR、天品 UR（已收录、不是小图）四周一圈光晕和闪烁的星芒
+    // 卡面外包一层 dz-card-glint（卡面本身 overflow:hidden 装不下外圈光），光圈只围住卡面、不围下面“可用 ×1”；其余卡牌的结构不变
+    const sparkles=(card,known,mini)=>!mini&&known&&(card.rarity==='SSR'||card.rarity==='UR');
+    const sparkleRing=()=>'<span class="dz-card-sparkle" aria-hidden="true">'+'<i></i>'.repeat(10)+'</span>';
     function cardFace(card,{mini=false,count=true,revealIndex=null,action='detail'}={}) {
       if(!card)return '';
       const shown=exhibit?.id===card.id&&showingExhibit(),grade=rarity(card.rarity),owned=shown?1:own(card.id),known=shown||owned>0||(current()?.discovered||[]).includes(card.id),chapter=courseOfCard(card)?.chapters?.find(ch=>ch.id===card.chapterId);
       const unseen=revealIndex!==null&&revealIndex>=revealed, fresh=packResult?.cards?.[revealIndex]?.isNew;
       if(unseen)return `<div class="dz-reveal-slot is-sealed" aria-label="尚待揭晓的卡牌"><span>${global.spiritCardBackArt?.()||''}</span><small>道藏凝形</small></div>`;
+      const glint=sparkles(card,known,mini);
       return `<button type="button" class="dz-card ${mini?'is-mini ':''}${revealIndex!==null&&revealIndex===animateIndex?'is-revealed ':''}${owned?'is-owned':'is-unowned'} ${known?'is-discovered':'is-undiscovered'}" ${attr('cards-action',action)} ${attr('card-id',card.id)} ${attr('rarity',card.rarity)} aria-label="${E(card.title)}，${E(grade.name)} ${E(card.rarity)}，${shown?'道友陈列':owned?'可用'+owned+'张':known?'已收录，暂无可用卡牌':'尚未收藏'}，${action==='detail-flip'?'翻到背面研读理论':'查看理论知识点'}">
-        <span class="dz-card-inner"><span class="dz-card-corner dz-corner-one" aria-hidden="true"></span><span class="dz-card-corner dz-corner-two" aria-hidden="true"></span><span class="dz-card-top"><span>${chapter?.number===0?'导论':'卷'+E(chapter?.number??String(card.chapterId||'').replace('ch',''))}<small>${E(card.subtitle||'万象道藏')}</small></span>${gradeBadge(card.rarity)}</span>
+        ${glint?'<span class="dz-card-glint">':''}<span class="dz-card-inner"><span class="dz-card-corner dz-corner-one" aria-hidden="true"></span><span class="dz-card-corner dz-corner-two" aria-hidden="true"></span><span class="dz-card-top"><span>${chapter?.number===0?'导论':'卷'+E(chapter?.number??String(card.chapterId||'').replace('ch',''))}<small>${E(card.subtitle||'万象道藏')}</small></span>${gradeBadge(card.rarity)}</span>
         <span class="dz-card-picture" title="${E(global.spiritCardArtIdea?.(card)||card.art?.symbol||'道藏意象')}">${global.spiritCardArt?.(card)||glyph('book')}<i class="dz-card-seal">${SEALS[card.art?.motif]||'藏真'}</i></span>
         <span class="dz-card-title" data-fit-card-title><span class="dz-title-text">${E(card.title)}</span></span><span class="dz-card-definition">${E(compact(card.definition))}</span>
-        <span class="dz-card-foot"><span>${E(serial(card.id))}</span><b><i>${['✦','✦✦','✦✦✦','✦✦✦✦','✦✦✦✦✦'][Math.min(4,grade.rank||0)]}</i><span>典藏</span></b></span></span>
+        <span class="dz-card-foot"><span>${E(serial(card.id))}</span><b><i>${['✦','✦✦','✦✦✦','✦✦✦✦','✦✦✦✦✦'][Math.min(4,grade.rank||0)]}</i><span>典藏</span></b></span></span>${glint?sparkleRing()+'</span>':''}
         ${shown?exhibitStamp():studyUI?.stamp(card.id)||''}${count?`<span class="dz-card-count ${owned?'':'is-missing'}">${fresh?'新得 · ':''}${owned?'可用 ×'+owned:known?'已录 · 暂无可用':'未藏 · 可研读'}</span>`:''}</button>`;
     }
     function stats() {

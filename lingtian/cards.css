@@ -1272,3 +1272,40 @@
 .cards-host .dz-pick-dialog .dz-pick-error { color:#a4492d; }
 .cards-host .dz-pick-actions { display:flex;flex-wrap:wrap;justify-content:center;gap:8px; }
 .cards-host .dz-pick-actions .dz-button { min-height:42px; }
+/* 智慧课堂 2026-11-19 用户：“把这个特效也加入到卡牌显示中，就是卡牌周围带一圈闪光”：地品 SSR、天品 UR（已收录的）卡牌四周一圈金边光晕和闪烁的星芒，
+   和灵田“藏真书案”卡框的特效一致（SSR 金色；UR 金、青、紫三色流转）。卡册、放大赏鉴、启封揭晓都有；没收录的灰卡、小图不加 */
+@property --dz-sparkle-turn { syntax:'<angle>'; inherits:false; initial-value:0deg; }
+.cards-host .dz-card-glint { display:block;position:relative;width:100%; }
+.cards-host .dz-inspect-front .dz-card-glint { height:100%; }
+.cards-host .dz-card-sparkle { --sparkle-glow:#ffcf6e8c;--sparkle-a:#ffe7a3;--sparkle-b:#ffd06a;--sparkle-c:#fff4c9;position:absolute;z-index:3;inset:-4px;border-radius:17px;pointer-events:none; }
+.cards-host .dz-card[data-rarity="UR"] .dz-card-sparkle { --sparkle-glow:#cfa6ff85;--sparkle-a:#ffeaa8;--sparkle-b:#a8f0e2;--sparkle-c:#e6bdff; }
+.cards-host .dz-card-sparkle::before { content:"";position:absolute;inset:0;border-radius:inherit;padding:2px;background:linear-gradient(135deg,#c99a3e,#f3d27e 25%,#fff6d2 45%,#c99a3e 70%,#f0cd78);
+  -webkit-mask:linear-gradient(#000 0 0) content-box,linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude,linear-gradient(#000 0 0);opacity:.9; }
+.cards-host .dz-card[data-rarity="UR"] .dz-card-sparkle::before { background:conic-gradient(from var(--dz-sparkle-turn,0deg),#f5d48a,#9fe3d6,#d8a6f4,#fff3c6,#f5d48a);animation:dz-sparkle-turn 6s linear infinite; }
+.cards-host .dz-card-sparkle::after { content:"";position:absolute;inset:2px;border-radius:15px;box-shadow:0 0 12px 3px var(--sparkle-glow);box-shadow:0 0 12px 3px var(--sparkle-glow),0 0 26px 6px color-mix(in srgb,var(--sparkle-glow) 45%,transparent);animation:dz-sparkle-glow 2.6s ease-in-out infinite; }
+.cards-host .dz-card-sparkle>i { position:absolute;width:12px;height:12px;margin:-6px 0 0 -6px;background:radial-gradient(circle,#fff 0 18%,var(--sparkle-a) 40%,transparent 70%);
+  clip-path:polygon(50% 0,60% 40%,100% 50%,60% 60%,50% 100%,40% 60%,0 50%,40% 40%);opacity:0;transform:scale(.2);animation:dz-sparkle-twinkle 2.4s ease-in-out infinite; }
+.cards-host .dz-card-sparkle>i:nth-child(3n+2) { background:radial-gradient(circle,#fff 0 18%,var(--sparkle-b) 40%,transparent 70%); }
+.cards-host .dz-card-sparkle>i:nth-child(3n) { background:radial-gradient(circle,#fff 0 18%,var(--sparkle-c) 40%,transparent 70%); }
+.cards-host .dz-card-sparkle>i:nth-child(1) { top:0;left:20%;animation-delay:0s; }
+.cards-host .dz-card-sparkle>i:nth-child(2) { top:0;left:66%;animation-delay:1.1s;width:9px;height:9px;margin:-4.5px 0 0 -4.5px; }
+.cards-host .dz-card-sparkle>i:nth-child(3) { top:9%;left:100%;animation-delay:.5s; }
+.cards-host .dz-card-sparkle>i:nth-child(4) { top:44%;left:100%;animation-delay:1.7s;width:9px;height:9px;margin:-4.5px 0 0 -4.5px; }
+.cards-host .dz-card-sparkle>i:nth-child(5) { top:80%;left:100%;animation-delay:.9s; }
+.cards-host .dz-card-sparkle>i:nth-child(6) { top:100%;left:78%;animation-delay:2s;width:9px;height:9px;margin:-4.5px 0 0 -4.5px; }
+.cards-host .dz-card-sparkle>i:nth-child(7) { top:100%;left:32%;animation-delay:.3s; }
+.cards-host .dz-card-sparkle>i:nth-child(8) { top:88%;left:0;animation-delay:1.4s;width:9px;height:9px;margin:-4.5px 0 0 -4.5px; }
+.cards-host .dz-card-sparkle>i:nth-child(9) { top:52%;left:0;animation-delay:.7s; }
+.cards-host .dz-card-sparkle>i:nth-child(10) { top:16%;left:0;animation-delay:1.9s;width:9px;height:9px;margin:-4.5px 0 0 -4.5px; }
+.cards-host .dz-inspect-front .dz-card-sparkle { inset:-7px;border-radius:27px; }
+.cards-host .dz-inspect-front .dz-card-sparkle::before { padding:3px; }
+.cards-host .dz-inspect-front .dz-card-sparkle::after { border-radius:25px;box-shadow:0 0 20px 5px var(--sparkle-glow);box-shadow:0 0 20px 5px var(--sparkle-glow),0 0 46px 12px color-mix(in srgb,var(--sparkle-glow) 45%,transparent); }
+.cards-host .dz-inspect-front .dz-card-sparkle>i { width:22px;height:22px;margin:-11px 0 0 -11px; }
+.cards-host .dz-inspect-front .dz-card-sparkle>i:nth-child(2n) { width:15px;height:15px;margin:-7.5px 0 0 -7.5px; }
+@keyframes dz-sparkle-twinkle { 0%,100% { opacity:0;transform:scale(.2) rotate(0deg); } 45% { opacity:1;transform:scale(1) rotate(45deg); } 70% { opacity:.55;transform:scale(.6) rotate(70deg); } }
+@keyframes dz-sparkle-glow { 0%,100% { opacity:.55; } 50% { opacity:1; } }
+@keyframes dz-sparkle-turn { to { --dz-sparkle-turn:360deg; } }
+@media (prefers-reduced-motion:reduce) {
+  .cards-host .dz-card-sparkle::before,.cards-host .dz-card-sparkle::after,.cards-host .dz-card-sparkle>i { animation:none!important; }
+  .cards-host .dz-card-sparkle>i { opacity:.85;transform:scale(.75); }
+}

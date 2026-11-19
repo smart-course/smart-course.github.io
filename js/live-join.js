@@ -347,7 +347,8 @@
       success(room, request, view) {
         clearTimeout(slowTimer);
         box.querySelector('.jl-card').classList.add('is-ok');
-        box.querySelector('[data-jl-title]').textContent = view ? '核对通过：历史课堂（只能查看）' : '登录成功';
+        const makeup = !view && Boolean(room.makeup);   // 请假补做（2026-11-19）
+        box.querySelector('[data-jl-title]').textContent = view ? '核对通过：历史课堂（只能查看）' : makeup ? '登录成功：请假补做' : '登录成功';
         const who = box.querySelector('[data-jl-who]');
         const esc = (v) => String(v == null ? '' : v).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
         who.innerHTML = `<b>${esc(room.name || request.name)}</b>（${esc(room.sid || request.sid)}）${room.audit ? '<span class="is-audit">旁听</span>' : ''}
@@ -356,7 +357,9 @@
         who.hidden = false;
         const tip = box.querySelector('[data-jl-tip]');
         tip.className = 'jl-tip';
-        tip.textContent = view ? '这一课不是本周课堂：可以查看、写备注，不能递交，也不计修为。正在打开……' : '正在打开本周课堂，打开后就可以作答、发弹幕了。';
+        tip.textContent = view ? '这一课不是本周课堂：可以查看、写备注，不能递交，也不计修为。正在打开……'
+          : makeup ? '这次课你请过假：可以补交这次课的题目，照常计修为（弹幕、投票、小游戏等课堂活动不能补）。正在打开……'
+          : '正在打开本周课堂，打开后就可以作答、发弹幕了。';
       },
       close() { clearTimeout(slowTimer); box.hidden = true; },
     };
@@ -399,8 +402,8 @@
       switch (status) {
         case 'ok':
           leaving = true;
-          loader.done('check', result.audit ? '你在本课堂是旁听' : '');
-          loader.done('record', '');
+          loader.done('check', result.audit ? '你在本课堂是旁听' : result.makeup ? '这次课你请过假' : '');
+          loader.done('record', result.makeup ? '请假补做：记下登录，可以补交这次课的题目' : '');
           loader.now('open');
           loader.success(result, request, false);
           setTimeout(() => enter(request, result), 900);   // 停一下，让学生看清登录结果
@@ -495,11 +498,15 @@
       code: request.code, name: room.name || request.name, sid: room.sid || request.sid, class_name: request.className, group_name: request.groupName,
       agreed: true, course: room.course, chapter: room.chapter, case_no: room.case_no || null, classroom: room.classroom, classroom_name: room.room_name, joined_at: Date.now(),
       audit: Boolean(room.audit),   // 旁听（2026-11-05）：点名册外、老师允许旁听的同学
+      makeup: Boolean(room.makeup),   // 请假补做（2026-11-19）：请假那次课的课堂已停止，凭请假补交这次课的题目
     };
-    save(identity);
+    // 请假补做只记在这一章，不顶替本机“最近一次登录”的本周课堂（本周课堂照常递交、请假也照常按本周课堂认人）
+    if (!identity.makeup) save(identity);
     // 每个章节（案例）也各记一份：一个班同时开放几个课堂时，章节页用自己的那份（见 live-student.js）
     try { localStorage.setItem(`${STORE}:${room.course}:${room.chapter}`, JSON.stringify(identity)); } catch (error) { /* 忽略 */ }
-    rememberId(identity);
+    if (identity.makeup) {
+      try { localStorage.removeItem(`classlive-view:${room.course}:${room.chapter}`); } catch (error) { /* 忽略 */ }
+    } else rememberId(identity);
     clearPins();
     button.disabled = true;
     button.textContent = '正在进入课堂……';

@@ -72,6 +72,10 @@
   // 不计入统计和修为；不能发弹幕、提匿名建议、投票、参加聊天室和课堂小游戏（抢答、经营沙盘等），没有修为境界和修为榜。后台也不收旁听同学的任何写入
   const AUDIT = !OFFLINE && !PREVIEW && joined && Boolean(identity.audit);
   const LOCAL_ONLY = PREVIEW || AUDIT;   // 递交只在本机锁定（测试页、旁听）
+  // 请假补做（2026-11-19 用户：“学生请假后，后续登陆课堂答题，还是可以获得相应的积分。”）：请假那次课的课堂停止以后，凭请假用它的课堂码登录，
+  // 后台照常收这个课堂的题目、计修为（老师停止递交的题也能补）；弹幕、投票、小游戏等课堂活动不补
+  const MAKEUP = !OFFLINE && !PREVIEW && joined && !AUDIT && Boolean(identity.makeup);
+  const MAKEUP_NOTE = '请假补做：这次课你请过假，可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补。';
   const AUDIT_NOTE = '你是旁听：可以看内容、做题，“递交”只在这台设备上锁定答案，不交给老师，不计入统计和修为；不能发弹幕、提匿名建议，课堂小游戏也不会抽到。';
   // 一章两个案例分开上（2026-10-23，习经）：本周课堂只上其中一个时，页面只显示这个案例、只收这个案例的题
   // （案例号来自登录时后台返回的课堂；只查看时取查看的课堂；学生版测试页取地址里的 case 参数）
@@ -820,6 +824,7 @@
   .clp-gate-font { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin: 8px 0 2px; color: #6d6259; font-size: 13px; font-weight: 700; }
   /* 修为榜：面板头部的金色按钮＋星空弹窗（前三名领奖台、第四名起逐行飞入、本人高亮） */
   .clp-v2 .clp-sub { display: flex; align-items: center; gap: 8px; }
+  .clp-v2 .clp-makeup { flex: 0 0 auto; padding: 1px 8px; border-radius: 999px; color: #8a5a14; background: #fbecc8; border: 1px solid #e7c787; font-size: 11.5px; font-weight: 600; white-space: nowrap; }
   .clp-v2 .clp-sub > span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .clp-audit-tag { margin-left: 6px; padding: 0 7px; border: 1px solid #8a7f74; border-radius: 999px; color: #5b5047; background: #f1ece4; font-size: 12px; font-weight: 800; line-height: 1.6; }
   .clp-audit p { margin: 0; padding: 8px 10px; border-radius: 10px; background: #f3efe8; color: #4a4038; font-size: 13px; line-height: 1.6; }
@@ -1928,7 +1933,7 @@
     });
   }
   async function loadStops() {
-    if (OFFLINE || !joined || !Live.stopList) return;
+    if (OFFLINE || !joined || !Live.stopList || MAKEUP) return;   // 请假补做：老师停止递交的题也能补交
     try {
       stops = Live.stopList(await backend.rpc('ck_stopped_items', { p_classroom: Number(identity.classroom) || identity.classroom }));
       applyStops();
@@ -2562,7 +2567,7 @@
     <div class="clp-head">${STAR}${STAR}${STAR}
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：本宗元婴以上、修为第一" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
-      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span></div>
+      <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span>${MAKEUP ? '<b class="clp-makeup" title="这次课你请过假：可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补">请假补做</b>' : ''}</div>
       ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
@@ -2570,6 +2575,7 @@
       ${AUDIT ? `<section class="clp-sec clp-audit"><p>${esc(AUDIT_NOTE)}</p></section>` : ''}
       <section class="clp-sec"${AUDIT ? ' hidden' : ''}>
         <div class="clp-relogin" data-cl-relogin hidden><b>请回首页重新登录</b>：本课堂要核对身份（课堂码＋点名册＋个人口令），核对通过后才能递交作答、发弹幕。<a href="${joinUrl()}" data-cl-relogin-link>去首页登录 →</a></div>
+        ${MAKEUP ? `<p class="clp-hint clp-makeup-note">${esc(MAKEUP_NOTE)}</p>` : ''}<div class="clp-dm-wrap"${MAKEUP ? ' hidden' : ''}>
         <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span></div>
         <form class="clp-danmaku" data-cl-danmaku>
           <span class="clp-dm-field"><input type="text" maxlength="40" placeholder="说点什么，发到投屏上…" aria-label="弹幕内容" autocomplete="off"></span>
@@ -2577,7 +2583,7 @@
         </form>
         <div class="clp-dm-meta"><p class="clp-hint" data-cl-dm-state>${DM_HINT}</p><span data-cl-dm-len>0/40</span></div>
         <div class="clp-colors" data-cl-colors hidden><span class="clp-label">字色</span><em data-cl-colors-note></em></div>
-        <div class="clp-gifts" data-cl-gifts hidden></div>
+        <div class="clp-gifts" data-cl-gifts hidden></div></div>
       </section>
       <section class="clp-sec clp-progress"${questions.length ? '' : ' hidden'}>
         <div class="clp-sec-head"><span class="clp-count" data-cl-count></span><span class="clp-sec-note" data-cl-count-note>每题点下方“递交”，递交后不能修改</span></div>
@@ -3538,7 +3544,8 @@
         try {
           if (!sessionStorage.getItem(welcomeKey)) {
             sessionStorage.setItem(welcomeKey, '1');
-            toast(`已进入课堂：${identity.name}（${identity.sid}）${identity.classroom_name ? ` · ${identity.classroom_name}` : ''}${AUDIT ? ' · 旁听' : ''}。登录已记录，可以开始作答了。`);
+            toast(MAKEUP ? `已进入课堂：${identity.name}（${identity.sid}）${identity.classroom_name ? ` · ${identity.classroom_name}` : ''} · 请假补做。可以补交这次课的题目，照常计修为。`
+              : `已进入课堂：${identity.name}（${identity.sid}）${identity.classroom_name ? ` · ${identity.classroom_name}` : ''}${AUDIT ? ' · 旁听' : ''}。登录已记录，可以开始作答了。`);
           }
         } catch (error) { /* 忽略 */ }
       }

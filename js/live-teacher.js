@@ -1962,6 +1962,7 @@
     state.docs.checkins.filter((doc) => !day || dayOf(doc) === day).sort((a, b) => (a.ts || 0) - (b.ts || 0)).forEach((doc) => {
       const row = map.get(doc.sid) || { sid: doc.sid, names: new Set(), first: doc.ts, days: new Map() };
       row.names.add(doc.name);
+      if (doc.makeup) (row.makeup || (row.makeup = new Set())).add(dayOf(doc));   // 请假补做的登录（2026-11-19）
       if (!row.days.has(dayOf(doc))) row.days.set(dayOf(doc), doc.ts);
       row.class_name = doc.class_name || row.class_name || '';
       row.group_name = doc.group_name || row.group_name || '';
@@ -2211,7 +2212,8 @@
       const names = row ? Array.from(row.names) : [];
       const leave = leaveOf.get(sidKey(person.sid));
       const leaveText = leave.length ? `请假（${leave.map((item) => `${leaveRange(item)}：${item.reason}`).join('；')}） ` : '';
-      const remark = leaveText + (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
+      const makeupText = row && row.makeup ? `请假补做（${Array.from(row.makeup).sort().map(shortDay).join('、')} 登录补交） ` : '';
+      const remark = leaveText + makeupText + (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
       return `<tr class="${row ? '' : leave.length ? 'tw-leave' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td class="tw-nowrap">${onlineDot(person.sid)}${esc(person.name)}</td>
         <td class="${row ? 'ok' : leave.length ? 'leave' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : leave.length ? '请假' : '未登录'}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
@@ -2468,7 +2470,10 @@
     try {
       const rooms = state.rooms.slice().sort((a, b) => Number(a.id) - Number(b.id));
       const ids = new Set(rooms.map((room) => String(room.id)));
-      const checkins = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计
+      const all = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计
+      // 请假补做的登录（2026-11-19）不单占一列、不算出勤：请假那一格写“假·补”
+      const checkins = all.filter((doc) => !doc.makeup);
+      const madeUp = new Set(all.filter((doc) => doc.makeup).map((doc) => `${sidKey(doc.sid)}|${doc.classroom}`));
       // 一列＝一个课堂的一个上课日期（同一课堂分几次课上就有几列）；没有任何登录的课堂按发布日期占一列
       const seen = new Map();   // 学号 → 出现过的“课堂|日期”
       const columns = [];
@@ -2480,8 +2485,9 @@
       const header = ['学号', '姓名', ...columns.map((column) => column.title), '出勤次数', '请假次数'];
       const line = (sid, name) => {
         const set = seen.get(sidKey(sid)) || new Set();
-        const marks = columns.map((column) => (set.has(column.key) ? '✓' : leavesOf(sid, [column.key.split('|')[1]]).length ? '假' : ''));
-        return [sid, name, ...marks, marks.filter((mark) => mark === '✓').length, marks.filter((mark) => mark === '假').length];
+        const marks = columns.map((column) => (set.has(column.key) ? '✓' : leavesOf(sid, [column.key.split('|')[1]]).length
+          ? (madeUp.has(`${sidKey(sid)}|${column.key.split('|')[0]}`) ? '假·补' : '假') : ''));
+        return [sid, name, ...marks, marks.filter((mark) => mark === '✓').length, marks.filter((mark) => mark.startsWith('假')).length];
       };
       const rows = rosterOf().map((p) => line(p.sid, p.name));
       const inRoster = new Set(rosterOf().map((p) => sidKey(p.sid)));
@@ -3300,8 +3306,8 @@
         status.textContent = `已导出${label}弹幕记录：${danmaku.length} 条（含发送人姓名、学号、班级、小组）。`;
         return;
       }
-      download(`${prefix}_加入名单.csv`, csv([['课堂', '课堂码', '日期', '时间', '学号', '姓名', '班级', '小组'],
-        ...checkins.map((d) => [...roomCols(d), ...when(d), d.sid, d.name, d.class_name, d.group_name])]));
+      download(`${prefix}_加入名单.csv`, csv([['课堂', '课堂码', '日期', '时间', '学号', '姓名', '班级', '小组', '请假补做'],
+        ...checkins.map((d) => [...roomCols(d), ...when(d), d.sid, d.name, d.class_name, d.group_name, d.makeup ? '是' : ''])]));
       if (CONCEPT) {
         // 每个课堂每个学号取最新一份作业
         const homework = window.ClassLive.latest(docs.homework, (d) => `${d.classroom}|${d.sid}`)
@@ -3616,7 +3622,8 @@
     const perUnit = units.map((u) => {
       const inUnit = (doc) => roomUnit.get(String(doc.classroom)) === u.id;
       const days = new Map();
-      docs.checkins.filter(inUnit).forEach((doc) => {
+      // 请假补做的登录（2026-11-19）不算上课日：补做的那天只有一两个人登录，不能把它当成一次课，也不算出勤（请假那次课照常计请假）
+      docs.checkins.filter((doc) => inUnit(doc) && !doc.makeup).forEach((doc) => {
         const day = doc.session || isoDay(doc.ts);
         if (!days.has(day)) days.set(day, new Set());
         days.get(day).add(sidKey(doc.sid));
@@ -3814,7 +3821,7 @@
     const lastText = last ? `上次结算 <b>${esc(`${isoDay(last).slice(5)} ${clock(last).slice(0, 5)}`)}</b>` : '还没有在这台电脑上结算过';
     $('[data-realm-summary]').innerHTML = `本班上课范围：<b>${esc(scopeText(state.klass))}</b>（在“导出与清理 → 班级”里设置） · 共 <b>${meetings}</b> 次课 · 满分 <b>${max}</b> 修为`
       + `${realmResult ? ` · 已上过 <b>${realmResult.units}/${realmResult.total}</b> 个${UNIT}` : ''} · ${lastText}。`
-      + `<br>每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；请假的课计 ${POINTS.leave}，没登录也没请假的课不得修为；老师点赞、猜词、猜谜、PK、辩论、经营沙盘、匿名建议、修炼场是额外奖励（见下方规则）。${esc(realmSaved)}`;
+      + `<br>每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；请假的课计 ${POINTS.leave}（请假的同学之后用那次课的课堂码登录可以补交题目，作答照常计修为），没登录也没请假的课不得修为；老师点赞、猜词、猜谜、PK、辩论、经营沙盘、匿名建议、修炼场是额外奖励（见下方规则）。${esc(realmSaved)}`;
     const countBox = $('[data-realm-count]');
     if (!realmResult) {
       if (countBox) countBox.textContent = '点“重新计算”查看本班修为。';
@@ -4498,7 +4505,7 @@
     const isExamRoom = (r) => /^exam/.test(String(r.chapter || ''));
     // 每个课堂的上课日：本班同学签到最多的那一天（没有签到就用发布日期）
     const checkByRoom = new Map();
-    L.checkins.filter((c) => inRoster(c.sid)).forEach((c) => {
+    L.checkins.filter((c) => inRoster(c.sid) && !c.makeup).forEach((c) => {   // 请假补做的登录不算到课（2026-11-19）
       const key = String(c.classroom);
       if (!checkByRoom.has(key)) checkByRoom.set(key, { sids: new Set(), days: new Map() });
       const box = checkByRoom.get(key);

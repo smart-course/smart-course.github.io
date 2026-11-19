@@ -534,6 +534,16 @@
       const me = myCheckin(uid, classroom);
       return Boolean(me) && sidKey(me.sid) === sidKey(sid) && plain(me.name) === plain(name);
     };
+    // 请假补做（规则同 cloudbase-pg.sql 的 ck_leave_makeup / ck_makeup_open，2026-11-19）：这个学号在本班有请假，请假的日子里这个课堂上过课（别的同学正式登录过）；
+    // 课堂停止或结束提交以后，本设备正式登录过这个课堂的请假同学可以补交
+    const leaveMakeup = (room, sid) => Boolean(room) && read('leaves').some((l) => String(l.class_id) === String(room.class_id) && sidKey(l.sid) === sidKey(sid)
+      && read('checkins').some((c) => String(c.classroom) === String(room.id) && c.verified && !c.auditor && !c.makeup && sidKey(c.sid) !== sidKey(sid)
+        && String(c.session) >= String(l.start_day) && String(c.session) <= String(l.end_day)));
+    const makeupOpen = (uid, classroom) => {
+      const room = read('classrooms').find((row) => String(row.id) === String(classroom));
+      const me = myCheckin(uid, classroom);
+      return Boolean(room && me && !(room.is_current && room.submissions_open) && leaveMakeup(room, me.sid));
+    };
     // 10 分钟内这台设备登录失败、申请过多（规则同 cloudbase-pg.sql 的 ck_join）
     const tooMany = (uid) => read('seclog').filter((row) => row.owner === uid && Date.now() - Date.parse(row.at) < 600000
       && ['bad_code', 'bad_sid', 'bad_name', 'bad_pin', 'request', 'pin_forgot'].includes(row.kind)).length >= 20;
@@ -547,8 +557,9 @@
       const state = classroomState(doc.classroom);
       // 加入记录只能经 ck_join 写入；选择、作答、弹幕须与本人这次登录的加入记录一致
       if (kind === 'checkins' || !memberOk(uid, doc.classroom, doc.sid, doc.name)) throw new Error('new row violates row-level security policy (mock)');
-      if (!state || state !== 'open') throw new Error('new row violates row-level security policy (mock)');
-      if ((kind === 'choices' || kind === 'answers') && isStopped(stopsOf(doc.classroom), `${doc.case}:${doc.item}`)) {
+      const makeup = (kind === 'choices' || kind === 'answers') && makeupOpen(uid, doc.classroom);   // 请假补做：课堂停止后也收选择、作答，停止递交的题也收
+      if (!makeup && (!state || state !== 'open')) throw new Error('new row violates row-level security policy (mock)');
+      if (!makeup && (kind === 'choices' || kind === 'answers') && isStopped(stopsOf(doc.classroom), `${doc.case}:${doc.item}`)) {
         throw new Error('new row violates row-level security policy (mock)');
       }
       if (kind === 'danmaku') {
@@ -705,18 +716,20 @@
             fresh.push({ class_id: room.class_id, sid, owner: uid, first_at: at, last_at: at });
             write('devices', fresh);
           }
-          visitTouch(room.id, sid, person.name, uid, room.is_current ? 'login' : 'view', audit);
-          if (!room.is_current) {   // 历史课堂：只查看，不记登录
+          const makeup = !room.is_current && !audit && leaveMakeup(room, person.sid);   // 请假补做（2026-11-19）
+          visitTouch(room.id, sid, person.name, uid, room.is_current || makeup ? 'login' : 'view', audit);
+          if (!room.is_current && !makeup) {   // 历史课堂：只查看，不记登录
             secLog('view_past', ctx);
             return { status: 'view', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name, pwd_hash: '', name: person.name, sid: person.sid, audit };
           }
           const rows = read('checkins');
           rows.push({ id: nextId(rows), owner: uid, course: room.course, session: today(), name: person.name, sid: person.sid, page: room.chapter, path: '/',
             ts: now, classroom: room.id, class_name: String(params.p_class || '').trim().slice(0, 40) || null,
-            group_name: String(params.p_group || '').trim().slice(0, 20) || null, verified: true, auditor: audit });
+            group_name: String(params.p_group || '').trim().slice(0, 20) || null, verified: true, auditor: audit, makeup });
           write('checkins', rows);
+          if (makeup) secLog('makeup', ctx);
           return { status: 'ok', classroom: room.id, course: room.course, chapter: room.chapter, case_no: room.case_no || null, room_name: room.name,
-            submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid, audit };
+            submissions_open: room.submissions_open, danmaku: room.danmaku, pwd_hash: '', name: person.name, sid: person.sid, audit, makeup };
         }
         // 申请加入、忘记口令（规则同 cloudbase-pg.sql 的 ck_join_apply / ck_pin_forgot / ck_decide_pin_request）
         if (name === 'ck_join_apply' || name === 'ck_pin_forgot') {
@@ -1486,11 +1499,12 @@
         }
         if (name === 'ck_submit_answer') {
           const uid = await this.ensureAnonymous();
-          const room = read('classrooms').find((row) => row.id === params.p_classroom && row.is_current && row.submissions_open);
+          const makeup = makeupOpen(uid, params.p_classroom);   // 请假补做（2026-11-19）
+          const room = read('classrooms').find((row) => row.id === params.p_classroom && ((row.is_current && row.submissions_open) || makeup));
           if (!room || room.chapter !== params.p_unit) throw new Error('new row violates row-level security policy (mock)');
           if (room.deadline && Date.now() > Date.parse(room.deadline)) throw Object.assign(new Error('已过递交截止时间'), { code: '42501' });
           if (!memberOk(uid, params.p_classroom, params.p_sid, params.p_name)) throw Object.assign(new Error('请回首页重新登录（本课堂需核对身份）'), { code: '42501' });
-          if (isStopped(stopsOf(params.p_classroom), params.p_key)) throw Object.assign(new Error('老师已停止递交这道题'), { code: '42501' });
+          if (isStopped(stopsOf(params.p_classroom), params.p_key) && !makeup) throw Object.assign(new Error('老师已停止递交这道题'), { code: '42501' });
           const rows = read('homework');
           const now = new Date().toISOString();
           let row = rows.filter((item) => item.classroom === params.p_classroom && item.sid === params.p_sid).sort((a, b) => a.id - b.id)[0];
@@ -2787,6 +2801,7 @@
           ['算一算一步一步来', '“用一用”里的计算题，上方列出“一步一步来”的几个问题（比如“一天创造的新价值应该怎样计算？”），照着一步一步算；课上老师先问每一步，再一步一步展开解法。', '2026-11-19'],
           ['手机能输入负号了', '计算题的输入框换了键盘：以前苹果手机的数字键盘没有负号，填不了负数，现在弹出的键盘有“-”号。', '2026-11-19'],
         ] : []),
+        ['请假以后可以补做', '请假那次课的题目，课后用那次课的课堂码登录就能补交，照常计修为；课堂停止以后也能补（老师撤销请假、换了课堂码就不能再补）。弹幕、投票、小游戏等课堂活动不补。', '2026-11-19'],
         ['匿名建议可以收到回复', '老师回复了你的匿名建议以后，你下次打开课程页面会弹出对话框：能看到老师的回复，也可以在对话框里继续回复老师。这段往来只有你能看到，老师仍然不知道建议是谁写的；看完点“关闭”，不关的话下次打开还会弹出。', '2026-11-19'],
         ...(config.course === 'political-economy' ? [['本节课重点', '每个案例最后的“概念小结”页最前面新增“本节课重点”：一段话串起这节课，列出重点和难点，再给三道重点问答——先用自己的话答一答，答不上来就点“回看”复习对应的概念。', '2026-11-19']] : []),
         ...(config.course === 'xjp-economy' ? [['本节课重点', '每章最后的“本章知识点小结”最前面新增“本节课重点”（页面导航“重点与小结”）：一段话串起这节课，列出重点和难点，再给三道重点问答——先用自己的话答一答，答不上来就点“回看”复习对应的研讨题。', '2026-11-19']] : []),
