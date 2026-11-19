@@ -907,7 +907,7 @@
     const stairLanding=roundedSlab(1.12,1.08,.12,0xdedcc1,residenceBridge,1.78,residenceSite.y-.12,-12.8,.09);stairLanding.name='residence-stair-landing';
     mergeEnvironmentDetails(residenceBridge);
     const residenceDecor=window.createSpiritResidenceScene?.({THREE:T,parent:main,material,mergeDetails:mergeEnvironmentDetails,site:residenceSite});
-    const studyDecor=window.createSpiritStudyScene?.({THREE:T,parent:main,onChange(){renderer.invalidate?.();scheduleFrame();}});
+    const studyDecor=window.createSpiritStudyScene?.({THREE:T,parent:main,reducedMotion:!!reduced,software:!!renderer.isSoftware,onChange(){renderer.invalidate?.();scheduleFrame();}});
     const homesteadLanterns=[];
     function refreshHomesteadLamps(){
       // Weather holds this array by reference. Removing a house or pavilion
@@ -1770,7 +1770,19 @@
     let resizeObserver;
     if(window.ResizeObserver){resizeObserver=new ResizeObserver(resize);resizeObserver.observe(container);}else window.addEventListener('resize',resize);
     const raycaster=new T.Raycaster(),pointer=new T.Vector2();
-    function pick(event){const r=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-((event.clientY-r.top)/r.height)*2+1);raycaster.setFromCamera(pointer,camera);const hits=raycaster.intersectObjects(plotMeshes,false);return hits.length?hits[0].object.userData.plotIndex:null;}
+    // 智慧课堂 2026-11-19：藏真书案的卡框也能点（返回 {studyCard:id}），田块仍返回编号；谁离镜头近算谁
+    function pick(event){const r=renderer.domElement.getBoundingClientRect();pointer.set((event.clientX-r.left)/r.width*2-1,-((event.clientY-r.top)/r.height)*2+1);raycaster.setFromCamera(pointer,camera);const study=decorationEdit?[]:studyDecor?.getPickTargets?.()||[];const hits=raycaster.intersectObjects(study.length?plotMeshes.concat(study):plotMeshes,false);if(!hits.length)return null;const data=hits[0].object.userData;return data.studyCardId?{studyCard:data.studyCardId}:data.plotIndex;}
+    let studyHover=null;
+    function hoverTarget(value){
+      const study=value&&typeof value==='object'&&!decorationEdit?value.studyCard||null:null;
+      setHover(study?null:value);
+      if(study!==studyHover){studyHover=study;if(studyDecor?.setHover?.(study)){renderer.invalidate?.();scheduleFrame();}}
+      renderer.domElement.style.cursor=decorationEdit?'crosshair':study||hover!==null?'pointer':'grab';
+    }
+    function pickClick(value,info){
+      if(value&&typeof value==='object'){if(value.studyCard&&!decorationEdit)options.onStudyCardClick?.(value.studyCard,info);return;}
+      options.onPlotClick?.(value,info);
+    }
     function decorationRay(event){
       if(!event||!Number.isFinite(event.clientX)||!Number.isFinite(event.clientY))return false;
       const r=renderer.domElement.getBoundingClientRect();if(!r.width||!r.height)return false;
@@ -1931,7 +1943,7 @@
     }
     const canvas=renderer.domElement;
     pointerControls=createScenePointerControls({
-      container,canvas,pick,onPlotClick:options.onPlotClick,onHover:setHover,isMobile:()=>mobileRendering,
+      container,canvas,pick,onPlotClick:pickClick,onHover:hoverTarget,isMobile:()=>mobileRendering,
       pickDecoration,onDecorationSelect:chooseDecoration,onDecorationDrag:dragDecoration,onDecorationPlace:placeDecoration,
       getCamera:()=>({angle,elevation,zoom}),
       applyCamera(pose){angle=pose.angle;elevation=Math.min(1.15,Math.max(.55,pose.elevation));zoom=Math.max(.7,Math.min(inspectedPlot!==null?6:2.5,pose.zoom));updateCamera();}
@@ -2000,6 +2012,7 @@
         satellites.forEach(({g,y,phase})=>{g.position.y=y+Math.sin(t*.3+phase)*.1;});
         spiritStones.forEach(({crystal,seal,y},i)=>{const rise=Math.sin(t*.65+i*1.4)*.08;crystal.position.y=y+rise;seal.position.y=y+.03+rise;});
         for(const g of plantGroups)for(const o of g.children)if(o.userData.sparkle){o.rotation.y=t*.8;o.scale.setScalar(.7+Math.sin(t*2+o.userData.phase)*.3);}
+        studyDecor?.update?.(t);
       }
       if(time-lastPlantTime>900){lastPlantTime=time;for(let i=0;i<PLOT_COUNT;i++)buildPlant(i,currentPlots[i]||{unlocked:false});refreshLabels();refreshHighlight();}
       renderer.render(scene,camera);

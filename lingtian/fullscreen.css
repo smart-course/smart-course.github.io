@@ -1078,3 +1078,6 @@ body.game-app.game-booting .garden-topline { display: none; }
 @media (max-width: 370px) and (orientation: portrait) {
   .game-app .field-quickbar .seed-card h3 { font-size: 10px; }
 }
+/* 智慧课堂 2026-11-19：拜访道友时道友名单这一横条的空白处不挡画面——田主的“藏真书案”正好在这一带，卡框要点得到；名单按钮照常可点 */
+.game-app .garden-card .neighbor-strip { pointer-events: none; }
+.game-app .garden-card .neighbor-strip > * { pointer-events: auto; }

@@ -20,12 +20,17 @@
     // pickDisplay＝从参悟页陈列架空位进来的挑选模式；pickPrompt＝点了哪张卡、正在问要不要放入
     let pickDisplay=false,pickPrompt=null,pickBusy=false,pickError='';
     let listingDraft={cardId:'',price:'',quantity:'1'},confirmation=null,marketCard='',marketPage=0,marketInterval='1h',marketSelectedTime=null,chartDispose=null;
-    let titleFitFrame=0,packEntrance=null,pageTurnPhase='idle',inspectionOnly=false,initialMarketCard=options.initialCardId||'',renderedDetailKey='',fullscreenDraw=false;
+    let titleFitFrame=0,packEntrance=null,pageTurnPhase='idle',inspectionOnly=false,exhibit=null,inspectReturn='',initialMarketCard=options.initialCardId||'',renderedDetailKey='',fullscreenDraw=false;
     let cardSnapshot,cardSnapshotMarket,cardSnapshotKey='',cardSnapshotVersion=0,detailMarkup='';
     let scopeSnapshot,scopeIds=null,collectionScopeInitialized=false;
     const catalogue=()=>global.SpiritCards;
     const current=()=>engine.cards;
     const course=()=>catalogue()?.getCourse?.(current()?.courseId);
+    // 智慧课堂 2026-11-19：拜访道友时点藏真书案上的卡框——“道友陈列”只读赏鉴（可以是另一门课的卡，不看自己有没有）
+    const showingExhibit=()=>!!exhibit&&detailId===exhibit.id;
+    const courseOfCard=card=>catalogue()?.getCourse?.(card?.courseId)||course();
+    const STUDY_STAGES=['未读','初识','明辨','会用','巩固'];
+    function exhibitStamp(){const value=exhibit?.stage||0;return value?'<span class="sy-card-stamp sy-stamp-'+value+'" aria-label="道友参悟 '+STUDY_STAGES[value]+'">'+STUDY_STAGES[value]+'</span>':'';}
     const getCard=id=>catalogue()?.getCard?.(id);
     const rarity=id=>catalogue()?.getRarity?.(id)||{id,name:id,color:'#b69a61',rank:0};
     const own=id=>asCount(current()?.inventory?.[id]);
@@ -52,15 +57,15 @@
     }):null;
     function cardFace(card,{mini=false,count=true,revealIndex=null,action='detail'}={}) {
       if(!card)return '';
-      const grade=rarity(card.rarity),owned=own(card.id),known=owned>0||(current()?.discovered||[]).includes(card.id),chapter=course()?.chapters?.find(ch=>ch.id===card.chapterId);
+      const shown=exhibit?.id===card.id&&showingExhibit(),grade=rarity(card.rarity),owned=shown?1:own(card.id),known=shown||owned>0||(current()?.discovered||[]).includes(card.id),chapter=courseOfCard(card)?.chapters?.find(ch=>ch.id===card.chapterId);
       const unseen=revealIndex!==null&&revealIndex>=revealed, fresh=packResult?.cards?.[revealIndex]?.isNew;
       if(unseen)return `<div class="dz-reveal-slot is-sealed" aria-label="尚待揭晓的卡牌"><span>${global.spiritCardBackArt?.()||''}</span><small>道藏凝形</small></div>`;
-      return `<button type="button" class="dz-card ${mini?'is-mini ':''}${revealIndex!==null&&revealIndex===animateIndex?'is-revealed ':''}${owned?'is-owned':'is-unowned'} ${known?'is-discovered':'is-undiscovered'}" ${attr('cards-action',action)} ${attr('card-id',card.id)} ${attr('rarity',card.rarity)} aria-label="${E(card.title)}，${E(grade.name)} ${E(card.rarity)}，${owned?'可用'+owned+'张':known?'已收录，暂无可用卡牌':'尚未收藏'}，${action==='detail-flip'?'翻到背面研读理论':'查看理论知识点'}">
+      return `<button type="button" class="dz-card ${mini?'is-mini ':''}${revealIndex!==null&&revealIndex===animateIndex?'is-revealed ':''}${owned?'is-owned':'is-unowned'} ${known?'is-discovered':'is-undiscovered'}" ${attr('cards-action',action)} ${attr('card-id',card.id)} ${attr('rarity',card.rarity)} aria-label="${E(card.title)}，${E(grade.name)} ${E(card.rarity)}，${shown?'道友陈列':owned?'可用'+owned+'张':known?'已收录，暂无可用卡牌':'尚未收藏'}，${action==='detail-flip'?'翻到背面研读理论':'查看理论知识点'}">
         <span class="dz-card-inner"><span class="dz-card-corner dz-corner-one" aria-hidden="true"></span><span class="dz-card-corner dz-corner-two" aria-hidden="true"></span><span class="dz-card-top"><span>${chapter?.number===0?'导论':'卷'+E(chapter?.number??String(card.chapterId||'').replace('ch',''))}<small>${E(card.subtitle||'万象道藏')}</small></span>${gradeBadge(card.rarity)}</span>
         <span class="dz-card-picture" title="${E(global.spiritCardArtIdea?.(card)||card.art?.symbol||'道藏意象')}">${global.spiritCardArt?.(card)||glyph('book')}<i class="dz-card-seal">${SEALS[card.art?.motif]||'藏真'}</i></span>
         <span class="dz-card-title" data-fit-card-title><span class="dz-title-text">${E(card.title)}</span></span><span class="dz-card-definition">${E(compact(card.definition))}</span>
         <span class="dz-card-foot"><span>${E(serial(card.id))}</span><b><i>${['✦','✦✦','✦✦✦','✦✦✦✦','✦✦✦✦✦'][Math.min(4,grade.rank||0)]}</i><span>典藏</span></b></span></span>
-        ${studyUI?.stamp(card.id)||''}${count?`<span class="dz-card-count ${owned?'':'is-missing'}">${fresh?'新得 · ':''}${owned?'可用 ×'+owned:known?'已录 · 暂无可用':'未藏 · 可研读'}</span>`:''}</button>`;
+        ${shown?exhibitStamp():studyUI?.stamp(card.id)||''}${count?`<span class="dz-card-count ${owned?'':'is-missing'}">${fresh?'新得 · ':''}${owned?'可用 ×'+owned:known?'已录 · 暂无可用':'未藏 · 可研读'}</span>`:''}</button>`;
     }
     function stats() {
       const cards=all(),collected=cards.filter(card=>known(card.id)).length;
@@ -195,9 +200,9 @@
       return `<section class="dz-guide"><div class="dz-section-title"><div><span class="dz-eyebrow">开卷有益 · 收藏有序</span><h3>道藏修习手册</h3></div></div><div class="dz-guide-grid"><article><b>一</b><h4>每日启封</h4><p>每天可免费启封 ${asCount(r.dailyPacks)} 卷，每卷 ${asCount(r.cardsPerPack)} 张卡。额度在北京时间 00:00 恢复，不消耗灵石。</p></article><article><b>二</b><h4>翻牌研读</h4><p>点按卡牌可读定义、要点、例子与教材出处。卡册中的所有理论均开放阅读，尚未收藏也可学习。</p></article><article><b>三</b><h4>珍藏流转</h4><p>卡牌可在同一课程的坊市挂牌，以灵石向道友购入。未成交卡牌可撤回，卡牌交易不增加游戏修为。</p></article></div><section class="dz-odds"><h4>五阶道藏 · 公开概率</h4><div>${grades.map(g=>`<article data-rarity="${E(g.id)}"><i>✦</i><strong>${E(g.name)}</strong><span>${E(g.id)}</span><b>${Number.isFinite(odds[g.id])?odds[g.id]+'%':'—'}</b></article>`).join('')}</div><p>${drawEnabled()?`${r.selectionAdjusted?'本期只按已启用品阶重新计算概率；':'普通卡位按以上概率抽取；'}每第 ${asCount(r.guaranteeEvery)} 卷至少一张${E(rarity(r.guaranteeMinimumRarity||'SR').name)}以上卡牌。保底卡位在符合品阶的本期卡池中抽取。${r.selectionAdjusted?'若本期未选玄品及以上卡牌，保底为当前已启用的最高品阶。':''}`:'当前卡池为空，拆封暂停且不消耗次数；启用卡牌后将按本期品阶公布概率和保底。'}</p></section><section class="dz-guide-principle"><h4>品阶如何设定？</h4><p>依据教材中的理论地位、章节贯通程度与复习重点，为卡牌设置收藏品阶。这是游戏的教学编辑评级，不代表考试分值，也不表示基础概念不重要。</p><p>卡牌正文以本课程教材与“理论知识点总结”为依据。修仙名称与插图用于收藏展示，不替代原有概念。</p></section>${studyUI?'<section class="dz-guide-principle"><h4>参悟如何成长？</h4><p>在“参悟”中每天最多完成三张藏真小问，本期卡池不足三张时按实际数量安排；也可以从本期卡背自由练习。读过是初识；独立作答形成明辨；在不同日期理解并应用后进入会用；经过至少七天的再次独立温习，才会留下巩固记录。</p><p>每张卡每天至多记一次独立进步。看过提示或依据后的重试用于练习，不直接提升独立掌握。收藏品级、交易库存与个人参悟分别记录。</p><h4>长卷与庭院纪念</h4><p>一个专题全部达到会用，会点亮对应纪念；一周任选三天完成当日参悟，可获得温习明灯。到“我的珍藏”选择纪念或三张陈列卡，回到灵田即可看见。错过一天不会清空已有记录。</p><h4>与课堂相连</h4><p>课堂回响集中展示本周核心卡与个人复习册。在线宗门每人每周贡献一盏灯；授权教师可设置任课班级的核心卡并查看汇总。</p></section>':''}</section>`;
     }
     function detailScreen() {
-      const card=getCard(detailId);if(!card||card.courseId!==current()?.courseId){detailId=null;return collectionScreen();}
-      const chapter=course().chapters.find(ch=>ch.id===card.chapterId),back=detailSide==='back',packReading=isPackDetail(),locked=detailTurning||detailPhase!=='ready'||pageTurning;
-      return `<article class="dz-detail dz-inspection" data-pack-reader="${packReading}" data-pack-index="${packIndex}" data-pack-count="${packResult?.cards.length||0}" data-page-turning="${pageTurning}" data-page-turn-phase="${pageTurnPhase}" data-page-direction="${pageDirection}" data-detail-side="${detailSide}" data-detail-phase="${detailPhase}" data-detail-turning="${detailTurning}" aria-label="${E(card.title)} · 放大赏鉴"><div class="dz-detail-top"><div class="dz-inspect-heading"><span class="dz-eyebrow">万象道藏 · ${back?'藏真一面':'万象一面'}</span><span>${E(chapter?.title||'')}</span></div><button type="button" class="dz-inspect-close" data-cards-action="detail-back" aria-label="收起卡牌，返回${inspectionOnly||detailReturn?.tab==='market'?'坊市':detailReturn?.tab==='draw'?'启封':'卡册'}">${glyph('close')}</button></div><div class="dz-inspect-stage"${packReading?' data-cards-swipe aria-label="左右滑动逐张翻阅本卷道藏"':''}><div class="dz-inspect-halo" aria-hidden="true"><i></i><i></i><span>✦</span></div><div class="dz-inspect-zoom"><div class="dz-inspect-float"><div class="dz-inspect-rotor ${detailTurning?'is-turning':''}" data-detail-side="${detailSide}"><div class="dz-inspect-face dz-inspect-front" aria-hidden="${back}"${back?' inert':''}>${cardFace(card,{count:false,action:'detail-flip'})}</div><div class="dz-inspect-face dz-inspect-back" aria-hidden="${!back}"${!back?' inert':''}><div class="dz-theory-back" data-cards-action="detail-exit" data-rarity="${E(card.rarity)}"><header class="dz-back-heading"><div><span class="dz-eyebrow">藏真玉简 · ${E(card.subtitle||'万象道藏')}</span><h3 data-fit-card-title><span class="dz-title-text">${E(card.title)}</span></h3></div>${gradeBadge(card.rarity)}</header><div class="dz-back-scroll dz-theory" tabindex="0" role="region" aria-label="${E(card.title)}的理论知识点">${studyUI?.readingLead(card.id)||''}<section class="dz-definition"><h4>概念定义</h4><p>${E(card.definition)}</p></section><section><h4>掌握要点</h4><ol>${(card.keyPoints||[]).map(point=>`<li>${E(point)}</li>`).join('')}</ol></section>${card.example?`<section class="dz-theory-example"><h4>这样理解</h4><p>${E(card.example)}</p></section>`:''}${card.misconception?`<section class="dz-theory-contrast"><h4>辨析提醒</h4><p>${E(card.misconception)}</p></section>`:''}${studyUI?.related(card.id)||''}<details class="dz-sources"><summary>教材出处与定位 ${glyph('chevron')}</summary>${(card.sources||[]).map(source=>`<div><strong>${E(source.document)}</strong><p>${E(source.chapter)}${source.section?' · '+E(source.section):''}</p>${source.paragraphs?.length?`<small>原文段落 ${source.paragraphs.map(p=>E(p)).join('、')}（提取定位，非页码）</small>`:''}${source.lines?.length?`<small>教材文本第 ${source.lines.map(line=>E(line)).join('—')} 行（原始阅读版定位，非页码）</small>`:''}${source.excerpt?`<blockquote>${E(source.excerpt)}</blockquote>`:''}</div>`).join('')}</details></div><footer class="dz-back-footer"><span>${E(serial(card.id))}</span><span>一面万象 · 一面藏真</span></footer></div></div></div></div></div></div>${detailControls(card,back,locked,packReading)}</article>`;
+      const card=getCard(detailId),shown=showingExhibit();if(!card||card.courseId!==current()?.courseId&&!shown){detailId=null;return collectionScreen();}
+      const chapter=courseOfCard(card)?.chapters?.find(ch=>ch.id===card.chapterId),back=detailSide==='back',packReading=isPackDetail(),locked=detailTurning||detailPhase!=='ready'||pageTurning;
+      return `<article class="dz-detail dz-inspection" data-pack-reader="${packReading}" data-pack-index="${packIndex}" data-pack-count="${packResult?.cards.length||0}" data-page-turning="${pageTurning}" data-page-turn-phase="${pageTurnPhase}" data-page-direction="${pageDirection}" data-detail-side="${detailSide}" data-detail-phase="${detailPhase}" data-detail-turning="${detailTurning}" aria-label="${E(card.title)} · 放大赏鉴"><div class="dz-detail-top"><div class="dz-inspect-heading"><span class="dz-eyebrow">${shown?'道友陈列':'万象道藏'} · ${back?'藏真一面':'万象一面'}</span><span>${E(shown?exhibit.owner+' 的藏真书案':chapter?.title||'')}</span></div><button type="button" class="dz-inspect-close" data-cards-action="detail-back" aria-label="收起卡牌，返回${inspectionOnly&&inspectReturn?inspectReturn:inspectionOnly||detailReturn?.tab==='market'?'坊市':detailReturn?.tab==='draw'?'启封':'卡册'}">${glyph('close')}</button></div><div class="dz-inspect-stage"${packReading?' data-cards-swipe aria-label="左右滑动逐张翻阅本卷道藏"':''}><div class="dz-inspect-halo" aria-hidden="true"><i></i><i></i><span>✦</span></div><div class="dz-inspect-zoom"><div class="dz-inspect-float"><div class="dz-inspect-rotor ${detailTurning?'is-turning':''}" data-detail-side="${detailSide}"><div class="dz-inspect-face dz-inspect-front" aria-hidden="${back}"${back?' inert':''}>${cardFace(card,{count:false,action:'detail-flip'})}</div><div class="dz-inspect-face dz-inspect-back" aria-hidden="${!back}"${!back?' inert':''}><div class="dz-theory-back" data-cards-action="detail-exit" data-rarity="${E(card.rarity)}"><header class="dz-back-heading"><div><span class="dz-eyebrow">藏真玉简 · ${E(card.subtitle||'万象道藏')}</span><h3 data-fit-card-title><span class="dz-title-text">${E(card.title)}</span></h3></div>${gradeBadge(card.rarity)}</header><div class="dz-back-scroll dz-theory" tabindex="0" role="region" aria-label="${E(card.title)}的理论知识点">${shown?'':studyUI?.readingLead(card.id)||''}<section class="dz-definition"><h4>概念定义</h4><p>${E(card.definition)}</p></section><section><h4>掌握要点</h4><ol>${(card.keyPoints||[]).map(point=>`<li>${E(point)}</li>`).join('')}</ol></section>${card.example?`<section class="dz-theory-example"><h4>这样理解</h4><p>${E(card.example)}</p></section>`:''}${card.misconception?`<section class="dz-theory-contrast"><h4>辨析提醒</h4><p>${E(card.misconception)}</p></section>`:''}${shown?'':studyUI?.related(card.id)||''}<details class="dz-sources"><summary>教材出处与定位 ${glyph('chevron')}</summary>${(card.sources||[]).map(source=>`<div><strong>${E(source.document)}</strong><p>${E(source.chapter)}${source.section?' · '+E(source.section):''}</p>${source.paragraphs?.length?`<small>原文段落 ${source.paragraphs.map(p=>E(p)).join('、')}（提取定位，非页码）</small>`:''}${source.lines?.length?`<small>教材文本第 ${source.lines.map(line=>E(line)).join('—')} 行（原始阅读版定位，非页码）</small>`:''}${source.excerpt?`<blockquote>${E(source.excerpt)}</blockquote>`:''}</div>`).join('')}</details></div><footer class="dz-back-footer"><span>${E(serial(card.id))}</span><span>一面万象 · 一面藏真</span></footer></div></div></div></div></div></div>${detailControls(card,back,locked,packReading)}</article>`;
     }
     function detailNotice(){
       if(engine.accountChanged)return '登录身份已变化，请收起卡牌重新连接。';
@@ -211,6 +216,11 @@
       if(packReading){
         const total=packResult.cards.length,last=packIndex===total-1;
         return `<div class="dz-inspect-controls"><div class="dz-pack-detail-progress" aria-live="polite"><span class="dz-eyebrow">第 ${money(packResult.packNumber||current().totalOpened)} 卷</span><div class="dz-pack-page-count"><strong>${String(packIndex+1).padStart(2,'0')}</strong><span> / ${String(total).padStart(2,'0')} 张</span></div><div class="dz-pack-dots" aria-label="已揭晓 ${revealed} 张，共 ${total} 张">${packResult.cards.map((_entry,i)=>`<i class="${i===packIndex?'is-current':i<revealed?'is-read':''}" aria-hidden="true"></i>`).join('')}</div></div>${flip}<nav class="dz-pack-detail-navigation" aria-label="本卷卡牌翻页">${button('pack-prev',glyph('back')+' 上一张','',packIndex===0||locked)}${last?button('pack-summary','本卷汇总','',locked,'primary'):button('pack-next','下一张 '+glyph('chevron'),'',locked,'primary')}</nav><p class="dz-inspect-caption"${message?' role="status"':''}>${E(message||(back?'上下滑动阅读 · 翻完可继续下一张':'点按卡面翻读 · 左右滑动切换卡牌'))}</p></div>`;
+      }
+      if(showingExhibit()){
+        const stageName=STUDY_STAGES[exhibit.stage]||STUDY_STAGES[0],sameCourse=card.courseId===current()?.courseId,mine=sameCourse?own(card.id):0;
+        const note=!sameCourse?'《'+(courseOfCard(card)?.name||'另一门课程')+'》的卡牌':mine?'你的卡册里也有 '+mine+' 张':'卡册里的理论都开放研读';
+        return `<div class="dz-inspect-controls"><span class="dz-inspect-ownership">${E(exhibit.owner)} 陈列 · 参悟${E(stageName)}</span>${flip}<span class="dz-inspect-counter">${back?'02 / 02':'01 / 02'}</span><small class="dz-inspect-market-note">${E(note)}</small><p class="dz-inspect-caption">${back?'上下滑动可阅读全文':'轻触翻面 · 研读藏真'}</p></div>`;
       }
       const canSell=engine.online&&enabled(card.id)&&own(card.id)>0&&!busy(),note=message||(!engine.online?'离线练习不支持交易':!enabled(card.id)?'本期未启用 · 可继续阅读旧藏':!own(card.id)?'持有可用卡牌后可上架':'');
       return `<div class="dz-inspect-controls"><span class="dz-inspect-ownership">${own(card.id)?'珍藏 · 可用 '+own(card.id)+' 张':known(card.id)?'已收录 · 当前暂无可用':'尚未收藏 · 知识已开放'}</span>${flip}${inspectionOnly?'<span class="dz-inspect-counter">'+(back?'02 / 02':'01 / 02')+'</span>':button('sell-card','上架坊市',attr('card-id',card.id),locked||!canSell,'secondary','dz-inspect-sell')}${(!inspectionOnly||message)&&note?`<small class="dz-inspect-market-note"${message?' role="status"':''}>${E(note)}</small>`:''}<p class="dz-inspect-caption">${back?'上下滑动可阅读全文':'轻触翻面 · 研读藏真'}</p></div>`;
@@ -273,14 +283,14 @@
       const d=current();
       if(d?.courseId!==lastCourseId){
         const initialDaily=lastCourseId===undefined&&fullscreenDraw;
-        lastCourseId=d?.courseId;clearAnimations();clearDetailTurn();detailId=null;packResult=null;packIndex=0;packSummary=false;revealed=0;packPhase='idle';confirmation=null;fullscreenDraw=initialDaily;packEntrance=initialDaily?{rect:null,started:Date.now()}:null;
+        lastCourseId=d?.courseId;clearAnimations();clearDetailTurn();if(!showingExhibit())detailId=null;packResult=null;packIndex=0;packSummary=false;revealed=0;packPhase='idle';confirmation=null;fullscreenDraw=initialDaily;packEntrance=initialDaily?{rect:null,started:Date.now()}:null;
         filter={search:'',chapter:'all',rarity:'all',owned:'all',page:0};scrollPositions={};listingDraft={cardId:'',price:'',quantity:'1'};marketCard='';marketPage=0;marketSelectedTime=null;
         collectionScopeInitialized=false;
       }
       if(!collectionScopeInitialized&&d){if(curriculum()?.source==='configured')filter.owned='teaching';collectionScopeInitialized=true;}
       if(filter.owned==='teaching'&&filter.chapter!=='all'&&!curriculum()?.enabledChapterIds?.includes(filter.chapter))filter.chapter='all';
       if(initialMarketCard&&available()){const card=getCard(initialMarketCard);if(card?.courseId===d.courseId){marketCard=card.id;listingDraft.cardId=card.id;marketPage=0;}initialMarketCard='';}
-      if(detailId&&getCard(detailId)?.courseId!==d?.courseId)detailId=null;
+      if(detailId&&getCard(detailId)?.courseId!==d?.courseId&&!showingExhibit())detailId=null;
       if(packResult&&packResult.courseId!==d?.courseId){packResult=null;clearAnimations();packPhase='idle';}
       if(tab==='market'&&available())reconcileListingDraft();
       const key=JSON.stringify([tab,detailId,detailSide,detailTurning,detailPhase,filter,cardsSignature(d,force),(tab==='market'||!d)&&!!engine.cardsLoading,!d&&localLoading,engine.cardsError,engine.pending,engine.busy,engine.authRequired,engine.accountChanged,engine.state?.stones,busyAction,packResult,revealed,revealing,packPhase,packIndex,packSummary,pageTurning,pageTurnPhase,pageDirection,animateIndex,confirmation,listingDraft,marketCard,marketPage,marketInterval,localError,pendingNotice,fullscreenDraw,studyUI?.signature(force)]);
@@ -304,8 +314,8 @@
       renderedDetailKey=detailKey;
       const body=host.querySelector('.dz-body'),scroll=body?.scrollTop||0;
       const immersive=packImmersive();
-      let content=available()?detailId?detailScreen():tab==='draw'?(immersive?packCinemaScreen():drawScreen()):tab==='collection'?collectionScreen():tab==='market'?marketScreen():tab==='study'?(studyUI?.screen()||guideScreen()):guideScreen():unavailable();
-      if(existingDetail&&available()&&detailId&&typeof existingDetail.cloneNode==='function'&&!activeStudyOverlay&&!studyUI?.isActive()){
+      let content=showingExhibit()?detailScreen():available()?detailId?detailScreen():tab==='draw'?(immersive?packCinemaScreen():drawScreen()):tab==='collection'?collectionScreen():tab==='market'?marketScreen():tab==='study'?(studyUI?.screen()||guideScreen()):guideScreen():unavailable();
+      if(existingDetail&&(available()||showingExhibit())&&detailId&&typeof existingDetail.cloneNode==='function'&&!activeStudyOverlay&&!studyUI?.isActive()){
         // Keep the live reader, artwork, text selection and scroll container
         // connected while recording a read or refreshing ownership/permissions.
         const hadDetailFocus=existingDetail.contains(active);
@@ -321,12 +331,12 @@
       }
       detailMarkup=detailId?content:'';
       if(!detailId&&!immersive&&available()&&tab!=='study'&&tab!=='market'&&tab!=='guide')content+=studyUI?.entry()||'';
-      if(!available()&&studyUI?.hasTeacherAccess())content=studyUI.screen();
+      if(!available()&&!showingExhibit()&&studyUI?.hasTeacherAccess())content=studyUI.screen();
       chartDispose?.();chartDispose=null;
       if(embeddedMarket){host.removeAttribute('aria-labelledby');host.setAttribute('aria-label','云间坊市 · 道藏');}
       else if(detailId){host.removeAttribute('aria-labelledby');host.setAttribute('aria-label',getCard(detailId)?.title+' · 道藏赏鉴');}
       else {host.removeAttribute('aria-label');host.setAttribute('aria-labelledby',immersive?'daozang-cinema-title':'daozang-title');}
-      host.innerHTML=embeddedMarket?`<div class="dz-body" tabindex="-1">${statusNotices()}${content}</div>`:`<div class="dz-backdrop" data-cards-action="close"></div><div class="daozang-window" data-cards-view="${available()?(detailId?'detail':tab):'closed'}" data-pack-immersive="${immersive}" data-pack-reading="${isPackDetail()}">${banner()}${available()?tabs():''}${immersive?packCinemaHeader():''}<div class="dz-body" tabindex="-1">${detailId||immersive?'':statusNotices()}${content}</div><div class="dz-live dz-sr-only" role="status" aria-live="polite">${busyAction==='open'?'正在启封，等待确认':revealing?'封印缓缓解开，首张即将揭晓':''}</div></div>`;
+      host.innerHTML=embeddedMarket?`<div class="dz-body" tabindex="-1">${statusNotices()}${content}</div>`:`<div class="dz-backdrop" data-cards-action="close"></div><div class="daozang-window" data-cards-view="${showingExhibit()?'detail':available()?(detailId?'detail':tab):'closed'}" data-pack-immersive="${immersive}" data-pack-reading="${isPackDetail()}">${banner()}${available()?tabs():''}${immersive?packCinemaHeader():''}<div class="dz-body" tabindex="-1">${detailId||immersive?'':statusNotices()}${content}</div><div class="dz-live dz-sr-only" role="status" aria-live="polite">${busyAction==='open'?'正在启封，等待确认':revealing?'封印缓缓解开，首张即将揭晓':''}</div></div>`;
       if(studyUI?.isActive()){
         host.querySelector('.daozang-window')?.setAttribute('inert','');
         host.querySelector('.daozang-window')?.setAttribute('aria-hidden','true');
@@ -446,7 +456,7 @@
     function focusDetail(){host.querySelector(detailSide==='back'?'.dz-back-scroll':'.dz-inspect-front .dz-card')?.focus({preventScroll:true});}
     function flipDetail(to='back'){
       if(!detailId||detailTurning||pageTurning||detailPhase!=='ready'||detailSide===to||to==='front'&&!isPackDetail())return;
-      if(to==='back')void studyUI?.recordRead(detailId,'card');
+      if(to==='back'&&(!showingExhibit()||getCard(detailId)?.courseId===current()?.courseId))void studyUI?.recordRead(detailId,'card');
       detailSide=to;detailTurning=!reduced();detailPointer=null;detailSuppressClick=false;render(true);
       if(detailTurning){const id=detailId;detailTimer=global.setTimeout(()=>{detailTimer=null;if(destroyed||!opened||detailId!==id)return;detailTurning=false;render();focusDetail();},800);}else focusDetail();
     }
@@ -491,7 +501,7 @@
     }
     function openDetail(id,source) {
       if(pageTurning)return;
-      const card=getCard(id);if(!card||card.courseId!==current()?.courseId)return;
+      const card=getCard(id);if(!card||card.courseId!==current()?.courseId&&exhibit?.id!==id)return;
       if(revealing||pageTurning)finishReveal();rememberScroll();
       if(!detailId)detailReturn={tab,scroll:host.querySelector('.dz-body')?.scrollTop||0,cardId:id};
       resetDetailCard(id,source);showDetailEntrance();
@@ -528,7 +538,7 @@
       if(action==='tab'){moveTab(target.dataset.tab);return;}
       if(action==='reload'){await load();return;}
       if(action==='sync'){await run('sync',()=>engine.refresh?.(),{allowPending:true});await load({cardId:marketCard||undefined,page:marketPage});return;}
-      if(!available())return;
+      if(!available()&&!showingExhibit())return;
       if(action==='detail'&&pickDisplay&&tab==='collection'&&!detailId&&!embeddedMarket){pickPrompt={id:target.dataset.cardId};pickError='';render(true);host.querySelector('.dz-pick-dialog .dz-button-primary, .dz-pick-dialog button')?.focus({preventScroll:true});return;}
       if(action==='pick-no'){if(pickBusy)return;const id=pickPrompt?.id;pickPrompt=null;pickError='';render(true);if(id)host.querySelector(`[data-cards-action="detail"][data-card-id="${id}"]`)?.focus({preventScroll:true});return;}
       if(action==='pick-cancel'){pickDisplay=false;pickPrompt=null;pickError='';render(true);return;}
@@ -636,7 +646,7 @@
     function open(nextTab='draw',{preserveMarket=false,fullscreenDraw:dailyFullscreen=false}={}) {
       if(destroyed)return;
       if(!opened)lastFocus=document.activeElement;
-      inspectionOnly=false;opened=true;host.hidden=false;host.classList.add('cards-host');
+      inspectionOnly=false;exhibit=null;inspectReturn='';opened=true;host.hidden=false;host.classList.add('cards-host');
       if(embeddedMarket){tab='market';host.classList.add('is-market-embedded');host.setAttribute('role','region');host.removeAttribute('aria-modal');host.setAttribute('aria-label','云间坊市 · 道藏');}
       else {host.setAttribute('role','dialog');host.setAttribute('aria-modal','true');host.setAttribute('aria-labelledby','daozang-title');}
       if(!embeddedMarket&&TABS.some(t=>t[0]===nextTab))tab=nextTab;clearDetailTurn();detailId=null;confirmation=null;signature='';
@@ -646,12 +656,20 @@
       if(!embeddedMarket)void studyUI?.load();
       if(!detailId)host.querySelector(packImmersive()?'.dz-cinema-close':'[data-cards-close]')?.focus({preventScroll:true});if(!preserveMarket)void load(tab==='market'?{cardId:marketCard||undefined,page:marketPage}:{});
     }
-    function close({silent=false}={}) {if(!opened)return;pickDisplay=false;pickPrompt=null;pickError='';studyUI?.clear();rememberScroll();opened=false;fullscreenDraw=false;packEntrance=null;cancelTitleFit();host.hidden=true;session++;finishReveal();clearDetailTurn();onPointerCancel();chartDispose?.();chartDispose=null;if(silent)return;if(typeof options.onClose==='function')options.onClose();else if(lastFocus?.isConnected!==false)lastFocus?.focus?.({preventScroll:true});}
+    function close({silent=false}={}) {if(!opened)return;exhibit=null;inspectReturn='';pickDisplay=false;pickPrompt=null;pickError='';studyUI?.clear();rememberScroll();opened=false;fullscreenDraw=false;packEntrance=null;cancelTitleFit();host.hidden=true;session++;finishReveal();clearDetailTurn();onPointerCancel();chartDispose?.();chartDispose=null;if(silent)return;if(typeof options.onClose==='function')options.onClose();else if(lastFocus?.isConnected!==false)lastFocus?.focus?.({preventScroll:true});}
     function dispose(){if(destroyed)return;close({silent:true});destroyed=true;session++;cancelTitleFit();titleResizeObserver?.disconnect();global.removeEventListener?.('resize',scheduleTitleFit);clearAnimations();clearDetailTurn();host.removeEventListener('click',onClick);host.removeEventListener('input',onInput);host.removeEventListener('change',onInput);host.removeEventListener('keydown',onKey);host.removeEventListener('pointerdown',onPointerDown);host.removeEventListener('pointerup',onPointerUp);host.removeEventListener('pointermove',onPointerMove);host.removeEventListener('pointercancel',onPointerCancel);host.innerHTML='';}
     host.classList.add('cards-host');host.hidden=true;host.addEventListener('click',onClick);host.addEventListener('input',onInput);host.addEventListener('change',onInput);host.addEventListener('keydown',onKey);host.addEventListener('pointerdown',onPointerDown);host.addEventListener('pointerup',onPointerUp);host.addEventListener('pointermove',onPointerMove);host.addEventListener('pointercancel',onPointerCancel);
     const titleResizeObserver=typeof global.ResizeObserver==='function'?new global.ResizeObserver(scheduleTitleFit):null;
     titleResizeObserver?.observe(host);global.addEventListener?.('resize',scheduleTitleFit);document.fonts?.ready?.then(scheduleTitleFit);
-    function inspectCard(id){if(!opened)open('collection',{preserveMarket:true});inspectionOnly=true;openDetail(id);}
+    function inspectCard(id,{exhibit:info=null,returnTo=''}={}){
+      if(!opened)open('collection',{preserveMarket:true});
+      const card=getCard(id);
+      exhibit=info&&card?{id,owner:String(info.owner||'道友').slice(0,40),stage:Math.max(0,Math.min(4,Math.floor(Number(info.stage))||0))}:null;
+      inspectReturn=String(returnTo||'').slice(0,8);inspectionOnly=true;
+      if(exhibit&&detailId!==id)detailId=null;
+      openDetail(id);
+      if(detailId!==id&&exhibit){exhibit=null;inspectReturn='';inspectionOnly=false;close();}
+    }
     function selectMarketCard(id){if(busy())return false;const card=getCard(id);if(!card||card.courseId!==current()?.courseId)return false;marketCard=id;marketPage=0;marketSelectedTime=null;listingDraft.cardId=id;listingDraft.quantity='1';confirmation=null;render(true);if(opened)void load({cardId:id,page:0});return true;}
     return {open,close,isOpen:()=>opened,isBusy:busy,render,dispose,inspectCard,selectMarketCard};
   }

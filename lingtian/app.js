@@ -579,7 +579,7 @@
       $('scene-note-text').textContent = engine.online ? '每田共享 1 株可采额度 · 主人至少保留 75% · 答错须赔付' : `离线练习 · 被发现最多赔 ${n.penalty} 灵石 · ${timeLeft(n.nextRefresh - engine.now())}后重种`;
       $('harvest-all').disabled = engine.online ? !!engine.busy || (!pendingAnswer && (batchLocked || !n.plots.some(p=>canSteal(p) && engine.state.stones>=stealPenalty(p)) || !engine.getAlchemyInfo().stealAttemptsLeft)) : batchLocked || !count || !engine.getAlchemyInfo().stealAttemptsLeft;
     }
-    $('scene-bottom-hint').innerHTML = mobileLayout() ? (fullscreenUI?.isActive() ? '单指环看 · 双指缩放 · 轻点照料' : '上下滑动浏览 · 双指缩放 · 轻点田块') : atHome ? '锄草 · 播种 · 分段浇水<span>·</span>滚轮缩放' : '点击成熟灵草偷采<span>·</span>每田每轮一次';
+    $('scene-bottom-hint').innerHTML = mobileLayout() ? (fullscreenUI?.isActive() ? '单指环看 · 双指缩放 · 轻点照料' : '上下滑动浏览 · 双指缩放 · 轻点田块') : atHome ? '锄草 · 播种 · 分段浇水<span>·</span>滚轮缩放' : visitStudyDecor()?.displayCards.length ? '点击成熟灵草偷采<span>·</span>点书案卡框可赏鉴' : '点击成熟灵草偷采<span>·</span>每田每轮一次';
     if (scene?.supported) scene.update(engine.state, {kind:atHome ? 'home' : 'neighbor', plots:currentPlots(), neighborId:atHome ? undefined : neighborId, selectedPlot, farmBusy:atHome && farmActionsBlocked(), farmActivity:atHome && farmOperation ? {...farmActionState(farmOperation.indices[0]),indices:farmOperation.indices} : null, decorations:atHome ? engine.getDecorInfo?.().equipped || [] : n?.decorations || [], decorationLayout:atHome ? engine.getDecorInfo?.().layout || [] : n?.decorationLayout || [], decorationThemes:atHome ? engine.getDecorInfo?.().themes || {} : n?.decorationThemes || {}, residenceId:atHome ? engine.getResidenceInfo?.().equipped || null : n?.residenceId || null});
     else renderFallback();
     renderPlotDetail();
@@ -712,8 +712,50 @@
   function isGardenCovered() {
     return document.body.classList.contains('game-booting') || !!cardsUI?.isOpen();
   }
+  let exhibitHintShown = false;
   function renderStudyDecor() {
-    if (!isGardenCovered()) scene?.setStudyDecor?.(mode==='home'?engine.study:null);
+    if (isGardenCovered()) return;
+    const visit = mode === 'home' ? null : visitStudyDecor();
+    scene?.setStudyDecor?.(mode==='home'?engine.study:visit);
+    // 第一次看到道友的藏真书案时提示一次：卡框可以点开赏鉴
+    if (visit?.displayCards.length && !exhibitHintShown && activePage === 'garden' && scene?.supported) {
+      exhibitHintShown = true;
+      const top = visit.displayCards.map(id => window.SpiritCards?.getCard(id)).filter(card => card && ['UR','SSR'].includes(card.rarity)).sort((a,b) => (b.rarity === 'UR') - (a.rarity === 'UR'))[0];
+      toast(`${getNeighbor()?.name || '道友'}的藏真书案上陈列着${top ? (top.rarity === 'UR' ? '天品' : '地品') + '卡' : ' ' + visit.displayCards.length + ' 张卡'}，点书案上的卡框可以赏鉴。`,'info');
+    }
+  }
+  // 智慧课堂 2026-11-19：拜访道友时也摆出田主的藏真书案（陈列的卡牌、参悟阶段和纪念物，来自云端 farm.study）
+  function studyRewardItem(courseId, id) {
+    const core = window.SpiritStudyCore;
+    if (!core || typeof id !== 'string') return null;
+    const items = [core.WEEKLY_REWARD, ...((core.bank?.(courseId)?.topics) || []).map(topic => topic?.reward)];
+    return items.find(item => item && item.id === id) || null;
+  }
+  function visitStudyDisplay() {
+    if (mode !== 'neighbors' || !engine.online) return null;
+    const study = getNeighbor()?.study;
+    if (!study || typeof study !== 'object' || typeof study.courseId !== 'string') return null;
+    const cards = (Array.isArray(study.cards) ? study.cards : []).filter(card => typeof card?.id === 'string' && window.SpiritCards?.getCard(card.id)?.courseId === study.courseId).slice(0, 3);
+    return {courseId:study.courseId, cards, reward:studyRewardItem(study.courseId, study.rewardId)};
+  }
+  function visitStudyDecor() {
+    const display = visitStudyDisplay();
+    if (!display || (!display.cards.length && !display.reward)) return null;
+    const stages = Object.fromEntries(display.cards.map(card => [card.id, {stage:Math.max(0, Math.min(4, Math.floor(Number(card.stage)) || 0))}]));
+    return {available:true, visitor:true, courseId:display.courseId, displayCards:display.cards.map(card => card.id), cards:stages,
+      rewards:display.reward ? {selectedId:display.reward.id, unlockedIds:[display.reward.id], items:[display.reward]} : {}, sect:{available:false}};
+  }
+  // 点藏真书案上的卡框：在自己灵田里打开自己的这张卡；拜访道友时以“道友陈列”只读方式赏鉴
+  function handleStudyCard(id) {
+    if (activePage !== 'garden' || decorEditor?.isOpen() || cardsUI?.isOpen() || typeof id !== 'string') return;
+    if (mode === 'home') {
+      if (!(engine.study?.displayCards || []).includes(id)) return;
+      openCards('collection', id, {returnTo:'灵田'});
+      return;
+    }
+    const display = visitStudyDisplay(), entry = display?.cards.find(card => card.id === id);
+    if (!entry) return;
+    openCards('collection', id, {exhibit:{owner:getNeighbor()?.name || '道友', stage:entry.stage, courseId:display.courseId}, returnTo:'灵田'});
   }
   function syncGardenRendering() {
     scene?.setModalPaused?.(isGardenCovered() || activePage !== 'garden' || $('game-dialog').open || $('fullscreen-orientation').open);
@@ -746,11 +788,11 @@
     return {kind:dialogKind,title:$('dialog-title').textContent,overline:$('dialog-overline').textContent,emblem:$('dialog-emblem').innerHTML,
       nodes:[...content.childNodes],scrollTop:content.scrollTop,scrollLeft:content.scrollLeft,focus:captureFocus()};
   }
-  function openCards(tab = 'draw', cardId = null, {fullscreenDraw = false} = {}) {
+  function openCards(tab = 'draw', cardId = null, {fullscreenDraw = false, exhibit = null, returnTo = ''} = {}) {
     if(tab==='market'){openCardsMarket(cardId);return;}
     if (decorEditor?.isOpen()) return;
     if (!cardsUI) return toast('道藏正在准备，请稍后重试。','info');
-    if (cardsUI.isOpen()) { if(cardId)cardsUI.inspectCard(cardId);else cardsUI.open(tab,{fullscreenDraw}); return; }
+    if (cardsUI.isOpen()) { if(cardId)cardsUI.inspectCard(cardId,{exhibit,returnTo});else cardsUI.open(tab,{fullscreenDraw}); return; }
     cardsReturnTrigger = captureFocus();
     cardsReturnWindow = $('game-dialog').open ? {entry:captureDialog(),history:[...dialogHistory],origin:dialogOrigin,trigger:lastDialogTrigger} : null;
     noteNavigation();
@@ -758,7 +800,7 @@
     setFullscreenPanel('');
     engine.setCardsActive?.(true);
     cardsUI.open(tab,{preserveMarket:!!cardId,fullscreenDraw});
-    if(cardId)cardsUI.inspectCard(cardId);
+    if(cardId)cardsUI.inspectCard(cardId,{exhibit,returnTo});
     syncCardOrientationPrompt();
     syncGameWindow('cards');
     scene?.setModalPaused?.(true);
@@ -1405,7 +1447,7 @@
   document.addEventListener('pointerdown',event => {
     if (fullscreenPanel && event.target.closest('.scene-container')) setFullscreenPanel('');
   });
-  try { scene = window.createSpiritScene?.({container:$('scene'),initiallyPaused:isGardenCovered(),onPlotClick:handlePlot,getUnlockInfo:getPlotUnlockInfo,onPlotUnlock:handleUnlockPlot,onPlotAction:performFarmActionFromLabel,getToolTargets:toolTargets,isRaining}); }
+  try { scene = window.createSpiritScene?.({container:$('scene'),initiallyPaused:isGardenCovered(),onPlotClick:handlePlot,onStudyCardClick:handleStudyCard,getUnlockInfo:getPlotUnlockInfo,onPlotUnlock:handleUnlockPlot,onPlotAction:performFarmActionFromLabel,getToolTargets:toolTargets,isRaining}); }
   catch (_) { sceneError = true; scene = {supported:false}; }
   if (scene?.supported) $('scene').querySelector('.scene-loading')?.remove();
   environmentUI = window.createSpiritEnvironmentUI?.({scene,now:()=>engine.now(),online:engine.online,
