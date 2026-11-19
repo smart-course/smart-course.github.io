@@ -1259,12 +1259,34 @@
       ],
     },
   };
+  // 国家法定节假日安排（2026-11-19 用户：“2027年的放假安排你能放进去吗？”）：照录国务院办公厅每年公布的通知，和校历合用——
+  // 校历没写到的日子按这里放假、调休上班；校历写了的以校历为准（学校的调休上班优先；学校放寒暑假、放假的日子不按国家安排上班）。
+  // 调休上班补哪天的课：按调休对应关系，补同一次放假里被调走的那一天（与华政 2026 年国庆“9/20 补周二、10/10 补周三”同一做法），学校另有通知时在“修改校历”里加一天调休上班即可覆盖。
+  // 2027 年：《国务院办公厅关于2027年部分节假日安排的通知》（国办发明电〔2026〕10号，2026 年 11 月 5 日发布）
+  const STATUTORY_SOURCE = '国务院办公厅关于2027年部分节假日安排的通知（国办发明电〔2026〕10号）';
+  const STATUTORY = {
+    holidays: [
+      { name: '元旦', from: '2027-01-01', to: '2027-01-03' },
+      { name: '春节', from: '2027-02-05', to: '2027-02-13' },
+      { name: '清明节', from: '2027-04-03', to: '2027-04-05' },
+      { name: '劳动节', from: '2027-05-01', to: '2027-05-05' },
+      { name: '端午节', from: '2027-06-09', to: '2027-06-09' },
+      { name: '中秋节', from: '2027-09-15', to: '2027-09-15' },
+      { name: '国庆节', from: '2027-10-01', to: '2027-10-07' },
+    ].map((h) => ({ ...h, type: 'off', statutory: STATUTORY_SOURCE })),
+    workdays: [
+      { date: '2027-01-31', as: 4 }, { date: '2027-02-14', as: 5 },   // 春节：补 2/11（周四）、2/12（周五）
+      { date: '2027-05-08', as: 3 },                                   // 劳动节：补 5/5（周三）
+      { date: '2027-09-26', as: 3 }, { date: '2027-10-09', as: 4 },   // 国庆节：补 10/6（周三）、10/7（周四）
+    ].map((w) => ({ ...w, statutory: STATUTORY_SOURCE })),
+  };
   const HOLIDAY_TYPES = { off: '放假（停课）', break: '寒暑假', event: '活动（不停课）' };
   const CN_NUM = '零一二三四五六七八九十';
   const cnNum = (n) => (n <= 10 ? CN_NUM[n] : n < 20 ? `十${n % 10 ? CN_NUM[n % 10] : ''}` : `${CN_NUM[Math.floor(n / 10)]}十${n % 10 ? CN_NUM[n % 10] : ''}`);
   const calYears = () => Object.values(state.calendar.years || {});
   const rankType = { off: 3, break: 2, event: 1 };
   // 某一天在校历上是什么日子：节假日（同一天有几项时取停课的那项）、调休上班（这天上“周几”的课）
+  // 再补上国家法定节假日（STATUTORY）：校历这天是调休上班就不按国家放假；国家的调休上班只在校历这天没有放假、寒暑假、调休时才算
   function schoolDay(key) {
     let holiday = null;
     let work = null;
@@ -1272,6 +1294,10 @@
       (y.holidays || []).forEach((h) => { if (key >= h.from && key <= h.to && (!holiday || rankType[h.type] > rankType[holiday.type])) holiday = h; });
       (y.workdays || []).forEach((w) => { if (w.date === key) work = w; });
     });
+    const law = STATUTORY.holidays.find((h) => key >= h.from && key <= h.to);
+    if (law && !work && (!holiday || rankType[law.type] > rankType[holiday.type])) holiday = law;
+    const lawWork = STATUTORY.workdays.find((w) => w.date === key);
+    if (lawWork && !work && !holiday) work = lawWork;
     return { holiday, work };
   }
   const schoolOff = (key) => { const h = schoolDay(key).holiday; return h && h.type !== 'event' ? h : null; };
@@ -1279,7 +1305,7 @@
   function makeupSource(work) {
     const at = parseDay(work.date);
     let best = null;
-    calYears().forEach((y) => (y.holidays || []).filter((h) => h.type === 'off').forEach((h) => {
+    calYears().map((y) => y.holidays || []).concat([STATUTORY.holidays]).forEach((list) => list.filter((h) => h.type === 'off').forEach((h) => {
       for (let d = parseDay(h.from); d && d <= parseDay(h.to); d = addDays(d, 1)) {
         const gap = Math.abs(dayDiff(d, at));
         if (weekday(d) === Number(work.as) && gap <= 31 && (!best || gap < best.gap)) best = { date: d, gap, holiday: h };
@@ -1287,12 +1313,15 @@
     }));
     return best;
   }
-  // 放假那天的课调到了哪一天（没有调就是停课）
+  // 放假那天的课调到了哪一天（没有调就是停课）；国家的调休上班只算真正生效的（schoolDay 那天取到的就是它）
   function movedTo(key) {
     let hit = null;
     calYears().forEach((y) => (y.workdays || []).forEach((w) => { const src = makeupSource(w); if (src && ymd(src.date) === key) hit = w; }));
+    STATUTORY.workdays.forEach((w) => { if (!hit && schoolDay(w.date).work === w) { const src = makeupSource(w); if (src && ymd(src.date) === key) hit = w; } });
     return hit;
   }
+  // 法定节假日的说明文字（鼠标停留时显示）
+  const lawNote = (item) => (item && item.statutory ? `（国家法定节假日安排：${item.statutory}）` : '');
   function normalizeCalendar(value) {
     const v = value && typeof value === 'object' ? value : {};
     const years = {};
@@ -1370,8 +1399,8 @@
           const showName = holiday && (holiday.type !== 'break' || key === holiday.from || d === 0);
           row += `<div class="sc-day${d >= 5 ? ' is-weekend' : ''}${off ? (holiday.type === 'break' ? ' is-break' : ' is-off') : ''}${holiday && holiday.type === 'event' ? ' is-event' : ''}${work ? ' is-work' : ''}${key === todayKey ? ' is-today' : ''}${key < todayKey ? ' is-past' : ''}" title="${esc(cnDate(date))}">
             <span class="sc-date">${dateText}</span>
-            ${showName ? `<em class="sc-tag is-${holiday.type}">${esc(holiday.name)}</em>` : ''}
-            ${work ? `<em class="sc-tag is-work">上班 · 补周${WEEKDAYS[Number(work.as) - 1]}</em>` : ''}
+            ${showName ? `<em class="sc-tag is-${holiday.type}"${holiday.statutory ? ` title="${esc(`${holiday.name}${lawNote(holiday)}`)}"` : ''}>${esc(holiday.name)}</em>` : ''}
+            ${work ? `<em class="sc-tag is-work"${work.statutory ? ` title="${esc(`调休上班${lawNote(work)}`)}"` : ''}>上班 · 补周${WEEKDAYS[Number(work.as) - 1]}</em>` : ''}
             ${chips ? `<span class="sc-chips">${chips}</span>` : ''}
           </div>`;
         }
@@ -1430,6 +1459,17 @@
             <p class="sc-key"><i class="is-on"></i>上课 <i class="is-off"></i>停课 <i class="is-makeup"></i>调休补课 <i class="is-exam"></i>期中考试 <i class="is-final"></i>期末考试</p></section>` : ''}
           <section class="sc-card"><h3>本学期的节假日</h3>${termHolidays.length ? `<ul class="sc-hols">${termHolidays.map((h) => `<li class="is-${h.type}"><b>${esc(h.name)}</b><span>${md(parseDay(h.from))}${h.to !== h.from ? `—${md(parseDay(h.to))}` : ''} · ${HOLIDAY_TYPES[h.type] || ''}</span></li>`).join('')}</ul>` : '<p class="pl-quiet">没有。</p>'}
             ${(y.workdays || []).filter((w) => t && parseDay(w.date) >= termRange(t)[0] && parseDay(w.date) <= termRange(t)[1]).map((w) => `<p class="sc-workline">${md(parseDay(w.date))}（周${WEEKDAYS[weekday(parseDay(w.date)) - 1]}）上班，补周${WEEKDAYS[Number(w.as) - 1]}课程</p>`).join('')}</section>
+          ${(() => {
+            // 本学期里的国家法定节假日（校历合用，见 STATUTORY）
+            if (!t) return '';
+            const [a, b] = termRange(t);
+            const hols = STATUTORY.holidays.filter((h) => parseDay(h.to) >= a && parseDay(h.from) <= b);
+            const works = STATUTORY.workdays.filter((w) => { const d = parseDay(w.date); return d >= a && d <= b && schoolDay(w.date).work === w; });
+            if (!hols.length && !works.length) return '';
+            return `<section class="sc-card"><h3>国家法定节假日</h3><p class="pl-quiet">据${esc(STATUTORY_SOURCE)}。校历上没写到的日子按国家安排放假、调休上班，校历写了的以校历为准。</p>`
+              + `<ul class="sc-hols">${hols.map((h) => `<li class="is-off"><b>${esc(h.name)}</b><span>${md(parseDay(h.from))}${h.to !== h.from ? `—${md(parseDay(h.to))}` : ''} · 放假</span></li>`).join('')}</ul>`
+              + works.map((w) => `<p class="sc-workline">${md(parseDay(w.date))}（周${WEEKDAYS[weekday(parseDay(w.date)) - 1]}）上班，补周${WEEKDAYS[Number(w.as) - 1]}课程</p>`).join('') + '</section>';
+          })()}
           ${(y.notes || []).length ? `<section class="sc-card"><h3>校历说明</h3><ul class="sc-notes">${y.notes.map((n) => `<li>${esc(n)}</li>`).join('')}</ul></section>` : ''}
         </aside>
       </div>`;
@@ -1666,11 +1706,11 @@
     const title = [l ? `农历${l.yearName}年（${l.zodiac}年）${l.monthName}${l.dayName}` : '', ...list, term].filter(Boolean).join(' · ');
     return `<span class="pl-cal-lunar${kind}" title="${esc(title)}">${esc(label)}</span>`;
   }
-  // 休／班：校历上的放假（不含寒暑假）和调休上班
+  // 休／班：校历上的放假（不含寒暑假）和调休上班，校历没写到的按国家法定节假日安排
   function restBadge(key) {
     const { holiday, work } = schoolDay(key);
-    if (work) return '<i class="pl-cal-badge is-work" title="调休上班">班</i>';
-    if (holiday && holiday.type === 'off') return `<i class="pl-cal-badge is-rest" title="${esc(`放假：${holiday.name}`)}">休</i>`;
+    if (work) return `<i class="pl-cal-badge is-work" title="${esc(`调休上班${lawNote(work)}`)}">班</i>`;
+    if (holiday && holiday.type === 'off') return `<i class="pl-cal-badge is-rest" title="${esc(`放假：${holiday.name}${lawNote(holiday)}`)}">休</i>`;
     return '';
   }
   function renderCalendar(body) {
@@ -1680,7 +1720,7 @@
     const month = state.month;
     const start = addDays(month, 1 - weekday(month));
     const todayKey = ymd(now);
-    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始；课表里单独设置的不上课、期中考试、调课和期末考试也会显示）、农历、节日（校历上的放假标“休”、调休上班标“班”）和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
+    $('[data-pl-sub]', view).textContent = `月历上自动显示课表里的课（${state.settings.term}，第 1 周从 ${state.settings.start} 开始；课表里单独设置的不上课、期中考试、调课和期末考试也会显示）、农历、节日（校历上的放假标“休”、调休上班标“班”；校历没写到的按国家法定节假日安排）和你记下的安排。点日期查看当天、新建安排；类别选“放假停课”的安排会把当天的课划掉。`;
     const cells = Array.from({ length: 42 }, (_, i) => {
       const date = addDays(start, i);
       const key = ymd(date);
@@ -1689,8 +1729,8 @@
       const off = holidayOn(key);
       const week = weekOf(date);
       const { holiday: sh, work: sw } = schoolDay(key);
-      const school = [sh && (sh.type !== 'break' || key === sh.from || weekday(date) === 1) ? `<li class="pl-cal-ev is-school is-${sh.type}" title="${esc(`校历：${sh.name}`)}">${esc(sh.name)}</li>` : '',
-        sw ? `<li class="pl-cal-ev is-school is-work" title="校历：调休上班">上班·补周${WEEKDAYS[Number(sw.as) - 1]}</li>` : ''].filter(Boolean);
+      const school = [sh && (sh.type !== 'break' || key === sh.from || weekday(date) === 1) ? `<li class="pl-cal-ev is-school is-${sh.type}" title="${esc(sh.statutory ? `法定节假日：${sh.name}${lawNote(sh)}` : `校历：${sh.name}`)}">${esc(sh.name)}</li>` : '',
+        sw ? `<li class="pl-cal-ev is-school is-work" title="${esc(sw.statutory ? `调休上班${lawNote(sw)}` : '校历：调休上班')}">上班·补周${WEEKDAYS[Number(sw.as) - 1]}</li>` : ''].filter(Boolean);
       const items = school.concat(events.map((item) => { const kind = kindOf(item.color); return `<li class="pl-cal-ev${item.done ? ' is-done' : ''}" style="--c:${kind.c};--s:${kind.s}" title="${esc([item.start_time, item.title].filter(Boolean).join(' '))}">${item.start_time ? `<time>${esc(item.start_time)}</time>` : ''}${esc(item.title)}</li>`; })
         .concat(classes.map((item) => (item.final
           ? `<li class="pl-cal-class is-final" style="--c:${item.c};--s:${item.s}" title="${esc(`期末考试 · ${titleOf(item.klass)} ${item.klass.name}\n${finalTime(item.final)}${item.room ? ` · ${item.room}` : ''}`)}"><i>期末</i>${esc(item.klass.name)}</li>`
