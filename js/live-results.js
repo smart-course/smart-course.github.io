@@ -90,6 +90,21 @@
   `;
   document.head.appendChild(style);
 
+  // 线上不再手工计票（2026-11-20 用户：“线上版本不需要通过加减号显示投票数量了（离线版本保持不变），因为可以实时显示学生的投票数。”）：
+  // 习经课堂版“举手投票 · 前测／后测”的加减号、手工票数条、归零按钮和“尚未计票”提示在网站上收起，只留选项和下面的“学生实时结果”；
+  // 标题改成“课堂投票”。离线版不加载本脚本，照旧可以手工计票。政经讲解版本来就没有手工计票
+  const tallyStyle = document.createElement('style');
+  tallyStyle.textContent = `
+  [data-classroom-poll] [data-poll-reset], [data-classroom-poll] .poll-count-controls, [data-classroom-poll] .poll-meter, [data-classroom-poll] [data-poll-summary],
+  .ix-prepost [data-post-reset], .ix-prepost .prepost-bars, .ix-prepost .prepost-controls, .ix-prepost .prepost-delta, .ix-prepost [data-prepost-summary] { display: none !important; }
+  .ix-prepost .prepost-row { display: block !important; }
+  [data-classroom-poll] .poll-option { min-height: 0 !important; grid-template-rows: auto !important; }
+  `;
+  document.head.appendChild(tallyStyle);
+  document.querySelectorAll('[data-classroom-poll] .interaction-heading span, .ix-prepost .interaction-heading span').forEach((el) => {
+    if (el.children.length === 0 && el.textContent.includes('举手投票')) el.textContent = el.textContent.replace('举手投票', '课堂投票');
+  });
+
   // ---------- 在页面上找出各互动区块 ----------
   const blocks = [];
   const addBlock = (anchor, spec, where = 'afterend') => {

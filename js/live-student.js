@@ -1516,6 +1516,375 @@
   if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
   if (!worksheet && canExplain && backend) setupSteps();
 
+  // ---------- 限时抢答与闯关（2026-11-20，习经） ----------
+  // 用户：“所有章节的‘材料归纳 · 多选’设置为随机抢答模式（学生端暂时先隐藏该题目）……老师按了以后，随机触发抢答模式……学生端会弹出一个倒计时（5秒），
+  //   然后是类似于情景猜谜的页面……看哪些同学先回答正确，前10位同学获得5修为值。”
+  //   “‘迁移任务 · 小资料分析’改成闯关游戏，学生端先隐藏题目……老师按了以后，学生端进入类似于情景揭秘的页面，每个小资料设置两道题目，第一题为现在的选择题，
+  //   第二题为理论匹配……两个都正确才算成功。都答完递交后学生端显示题目和解答。……要有倒计时。都回答正确的+5修为值。”
+  // 页面上带 data-act（rush 抢答 / quest 闯关）的题目先收起，放一张“等老师开启”的卡片；每隔几秒问后台（ck_act_live）本课堂有没有开局：
+  //   · 开了局：弹出对话框，按后台时钟倒计时，时间到出题；每人只能交一次（ck_act_answer），后台判对错、排名次、加修为，并把作答补记成普通递交；
+  //   · 交卷、超时或老师结束以后，页面上的题目照常显示：交过的显示为已递交；没交的可以照常递交（不参加抢答、闯关）；
+  //   · 老师选了“不抢答”（mode plain）：题目直接照常显示。
+  // 请假补做、历史课堂查看、旁听、离线版不收起题目，照普通题目作答。
+  function setupActs() {
+    const roomId = Number(identity.classroom) || identity.classroom;
+    const LETTER = (i) => String.fromCharCode(65 + i);
+    const acts = $$('[data-act]').filter((el) => !el.closest('[hidden]')).map((el) => {
+      const kind = el.dataset.act === 'quest' ? 'quest' : 'rush';
+      const no = el.dataset.actCase;
+      const boxes = kind === 'rush' ? $$('[data-live-quiz][data-live-item="digest"]', el) : $$('.tk-item [data-live-quiz]', el);
+      const items = boxes.map((box) => {
+        const key = `${box.dataset.liveCase}:${box.dataset.liveItem}`;
+        const scene = box.closest('.tk-item') ? box.closest('.tk-item').querySelector('.tk-scene') : null;
+        return {
+          box, item: box.dataset.liveItem, key, q: questions.find((x) => x.key === key), type: box.dataset.quizType,
+          prompt: textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断)/, ''),
+          options: $$('[data-quiz-option]', box).map((b, i) => ({ value: b.dataset.quizOption, letter: LETTER(i), text: textOf(b.querySelector('span')) })),
+          sceneTitle: scene ? textOf(scene.querySelector('b')) : '', sceneText: scene ? textOf(scene.querySelector('p')) : '',
+        };
+      }).filter((it) => it.q);
+      const legend = $$('.tk-legend li', el).map((li) => ({ k: textOf(li.querySelector('b')).replace(/\D/g, ''), text: textOf(li.querySelector('span')) }));
+      return { el, kind, no, items, legend, game: null, card: null, dismissed: 0 };
+    }).filter((act) => act.items.length && (act.kind === 'rush' || act.legend.length));
+    if (!acts.length) return;
+
+    const css = document.createElement('style');
+    css.dataset.readable = 'panel';
+    css.textContent = `
+  .clp-act-wait > .quiz-item, .clp-act-wait > .quiz-list, .clp-act-wait .tk-items, .clp-act-wait .tk-legend { display: none !important; }
+  .clp-act-card { margin: 14px 0 4px; padding: 16px 18px; border: 2px dashed #c9a24a; border-radius: 14px; background: linear-gradient(135deg, #fffaf0, #fdf1d8); color: #4a3510;
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-act-card b { display: block; font-size: 1.12em; color: #7a4a00; }
+  .clp-act-card p { margin: 4px 0 0; }
+  .clp-act-card[hidden] { display: none; }
+  .clp-act-done { margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; background: #eef6f0; border: 1px solid #bcd9c9; color: #23513a; font: 15.5px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .clp-act-done.is-miss { background: #fbf0e9; border-color: #e6c3b3; color: #7a3a22; }
+  .clp-act { position: fixed; inset: 0; z-index: 2147482950; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(28, 22, 16, .62);
+    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; color: #201c18; }
+  .clp-act[hidden] { display: none; }
+  .clp-act-box { display: flex; flex-direction: column; width: min(760px, 100%); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 18px; overflow: hidden;
+    background: #fffdf8; box-shadow: 0 24px 80px rgba(0, 0, 0, .45); }
+  .clp-act-head { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: #fff; background: linear-gradient(180deg, #b5701e, #94550f); }
+  .clp-act-head b { flex: 1 1 auto; min-width: 0; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clp-act-clock { flex: 0 0 auto; padding: 2px 12px; border-radius: 999px; background: rgba(255, 255, 255, .2); font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
+  .clp-act-clock.is-low { background: #fff; color: #a4492d; animation: clp-act-beat .8s ease-in-out infinite; }
+  .clp-act-clock:empty { display: none; }
+  @keyframes clp-act-beat { 50% { transform: scale(1.08); } }
+  .clp-act-x { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%; background: transparent; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
+  .clp-act-bar { flex: 0 0 auto; height: 5px; background: #f1e2c6; }
+  .clp-act-bar i { display: block; height: 100%; width: 100%; background: #c4862c; transform-origin: 0 50%; }
+  .clp-act-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 18px 6px; }
+  .clp-act-foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 18px 14px; border-top: 1px solid #efe4d0; background: #fffaf0; }
+  .clp-act-foot span { flex: 1 1 200px; color: #6b5a40; font-size: 14.5px; }
+  .clp-act-send { flex: 0 0 auto; min-height: 46px; padding: 8px 28px; border: 0; border-radius: 12px; background: #23655f; color: #fff; font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; }
+  .clp-act-send:disabled { opacity: .45; cursor: default; }
+  .clp-act-big { margin: 18px 0 6px; text-align: center; font: 800 96px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #b5701e; font-variant-numeric: tabular-nums; }
+  .clp-act-lead { margin: 0 0 14px; text-align: center; color: #5a4a30; }
+  .clp-act-q { margin: 0 0 10px; font-size: 18px; font-weight: 700; line-height: 1.6; }
+  .clp-act-q small { display: inline-block; margin-right: 8px; padding: 0 9px; border-radius: 6px; background: #f3dfbd; color: #8a5414; font-size: 13px; font-weight: 800; vertical-align: 2px; }
+  .clp-act-opts { display: grid; gap: 8px; margin: 0 0 14px; }
+  .clp-act-opt { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 10px 12px; border: 1.5px solid #e2d6c2; border-radius: 10px; background: #fff; color: inherit; font: inherit; line-height: 1.55; text-align: left; cursor: pointer; }
+  .clp-act-opt b { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: #efe6d6; color: #6b5a40; font-size: 13.5px; line-height: 26px; text-align: center; }
+  .clp-act-opt[aria-pressed="true"] { border-color: #23655f; background: #e7f1ee; }
+  .clp-act-opt[aria-pressed="true"] b { background: #23655f; color: #fff; }
+  .clp-act-opt.is-right { border-color: #3f8a5e; background: #eef6f0; }
+  .clp-act-opt.is-wrong { border-color: #a4492d; background: #fbeee8; }
+  .clp-act-opt:disabled { cursor: default; }
+  .clp-act-stage { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #ead9bb; border-radius: 14px; background: #fffaf0; }
+  .clp-act-stage h4 { margin: 0 0 6px; font-size: 16.5px; color: #7a4a00; }
+  .clp-act-stage .clp-act-scene { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: #f6efe1; line-height: 1.7; }
+  .clp-act-stage.is-pass { border-color: #9cc7ae; background: #f2f8f4; }
+  .clp-act-stage.is-fail { border-color: #e2b8a6; background: #fdf4ef; }
+  .clp-act-verdict { margin: 0 0 6px; font-weight: 800; }
+  .clp-act-verdict.is-ok { color: #2f7a52; } .clp-act-verdict.is-no { color: #a4492d; }
+  .clp-act-explain { margin: 6px 0 0; padding: 8px 12px; border-left: 3px solid #c9a24a; background: #fff; border-radius: 0 8px 8px 0; font-size: 15px; }
+  .clp-act-explain p { margin: 2px 0; }
+  .clp-act-result { margin: 8px 0 14px; padding: 14px 16px; border-radius: 14px; background: #eef6f0; color: #23513a; font-size: 18px; font-weight: 800; text-align: center; }
+  .clp-act-result.is-miss { background: #fbf0e9; color: #7a3a22; }
+  .clp-act-result small { display: block; margin-top: 4px; font-size: 14.5px; font-weight: 500; }
+  @media (max-width: 560px) { .clp-act { padding: 6px; } .clp-act-big { font-size: 72px; } .clp-act-body { padding: 12px 12px 4px; } .clp-act-foot { padding: 8px 12px 10px; } }
+  @media (prefers-reduced-motion: reduce) { .clp-act-clock.is-low { animation: none; } }
+  @media print { .clp-act, .clp-act-card { display: none !important; } }`;
+    document.head.appendChild(css);
+
+    // 页面上的“等老师开启”卡片和交卷后的结果条
+    acts.forEach((act) => {
+      const card = document.createElement('div');
+      card.className = 'clp-act-card';
+      card.hidden = true;
+      card.setAttribute('data-ix', '');
+      card.innerHTML = act.kind === 'rush'
+        ? '<b>🎲 这道题由老师开启，可能是抢答</b><p>老师按下按钮后，题目会弹出来：先倒计时，再限时作答，每人只能交一次；前 10 位答对的同学各加 5 修为。先把上面的案例材料读熟。</p>'
+        : '<b>🚩 闯关入口由老师开放</b><p>老师开放后，三则小资料会弹出来，一则一关：每关两问——先选出讲对了的分析，再判断它对应哪个理论要点，两问都对才算过关。有倒计时，只能交一次；三关全过加 5 修为。交卷后这里会显示题目和解答。</p>';
+      const first = act.kind === 'rush' ? act.items[0].box : act.el.querySelector('.tk-legend') || act.el.querySelector('.tk-items');
+      first.insertAdjacentElement('beforebegin', card);
+      act.card = card;
+      const done = document.createElement('div');
+      done.className = 'clp-act-done';
+      done.hidden = true;
+      done.setAttribute('data-ix', '');
+      (act.kind === 'rush' ? act.items[0].box : act.el.querySelector('.tk-items')).insertAdjacentElement('afterend', done);
+      act.done = done;
+    });
+
+    // 对话框
+    const overlay = document.createElement('div');
+    overlay.className = 'clp-act';
+    overlay.hidden = true;
+    overlay.setAttribute('data-ix', '');
+    overlay.setAttribute('role', 'dialog');
+    overlay.setAttribute('aria-modal', 'true');
+    overlay.innerHTML = '<div class="clp-act-box"><header class="clp-act-head"><b data-act-title></b><span class="clp-act-clock" data-act-clock></span><button type="button" class="clp-act-x" data-act-close aria-label="关闭" hidden>×</button></header>'
+      + '<div class="clp-act-bar" data-act-bar hidden><i></i></div><div class="clp-act-body" data-act-body></div>'
+      + '<footer class="clp-act-foot" data-act-foot hidden><span data-act-note></span><button type="button" class="clp-act-send" data-act-send>交卷</button></footer></div>';
+    shield(overlay);
+    document.body.appendChild(overlay);
+    const ui = { title: overlay.querySelector('[data-act-title]'), clock: overlay.querySelector('[data-act-clock]'), close: overlay.querySelector('[data-act-close]'),
+      bar: overlay.querySelector('[data-act-bar]'), body: overlay.querySelector('[data-act-body]'), foot: overlay.querySelector('[data-act-foot]'),
+      note: overlay.querySelector('[data-act-note]'), send: overlay.querySelector('[data-act-send]') };
+    let shownAct = null;      // 对话框现在显示的是哪一局
+    let view = '';            // 对话框现在画的是哪一幕：count / open / result
+    let picks = {};           // 本机还没交的作答：题号 → 值
+    let offset = 0;           // 后台时钟 − 本机时钟
+    let lastResult = null;    // 交卷后后台返回的结果
+    let busy = false;
+    const serverNow = () => Date.now() + offset;
+    const clockText = (secs) => `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+    const phaseOf = (g, now) => (!g ? 'none' : g.mode === 'plain' ? 'plain' : g.mine || (lastResult && lastResult.game === g.id) ? 'done'
+      : g.closed ? 'over' : now < g.go_at ? 'count' : now <= g.go_at + g.secs * 1000 ? 'open' : 'over');
+    const labelOf = (it, value) => String(value || '').split(',').filter(Boolean).map((v) => { const o = it.options.find((x) => x.value === v); return o ? `${o.letter}. ${o.text}` : v; }).join('；');
+
+    // 把后台已经收下的作答记成“已递交”（页面上那道题锁定、显示所选）
+    function lockItems(act, values) {
+      let changed = false;
+      act.items.forEach((it) => {
+        const value = values && values[it.item];
+        if (!value || locked[it.key]) return;
+        const entry = { at: time(), iso: new Date().toISOString(), v: String(value) };
+        remember(it.key, entry);
+        markLocked(it.q, entry);
+        changed = true;
+      });
+      if (changed) { refreshCount(); document.dispatchEvent(new Event('classlive:submitted')); }
+    }
+    function paintPage(act, phase) {
+      const answered = act.items.every((it) => locked[it.key]);
+      const hide = !answered && (phase === 'none' || phase === 'count' || phase === 'open');
+      act.el.classList.toggle('clp-act-wait', hide);
+      act.card.hidden = !hide;
+      act.items.forEach((it) => holdQuestion(it.key, hide ? (act.kind === 'rush' ? '这道题由老师开启（可能是抢答）' : '闯关入口由老师开放') : ''));
+      const mine = act.game && act.game.mine;
+      const res = lastResult && act.game && lastResult.game === act.game.id ? lastResult : mine;
+      if (res && (phase === 'done')) {
+        act.done.hidden = false;
+        act.done.classList.toggle('is-miss', !res.ok);
+        act.done.textContent = act.kind === 'rush'
+          ? (res.ok ? (res.place == null ? '抢答：答对了（测试页不计名次和修为）。' : res.bonus > 0 ? `抢答：答对了，第 ${res.place} 名，+${res.bonus} 修为。` : `抢答：答对了，第 ${res.place} 名（前 10 名加修为）。`) : '抢答：这次没有答对，听老师讲评。')
+          : (res.ok ? (res.bonus > 0 ? `闯关：三关全过，+${res.bonus} 修为。` : '闯关：三关全过（测试页不计修为）。') : `闯关：${res.total || 6} 问答对 ${res.right} 问，没有全过。`);
+      } else act.done.hidden = true;
+    }
+
+    // ----- 对话框里的三幕 -----
+    function renderCount(act) {
+      view = 'count';
+      ui.title.textContent = act.kind === 'rush' ? '抢答 · 材料归纳' : '闯关 · 小资料分析';
+      ui.bar.hidden = true; ui.foot.hidden = true; ui.close.hidden = true;
+      ui.body.innerHTML = `<p class="clp-act-big" data-act-big></p><p class="clp-act-lead">${act.kind === 'rush'
+        ? '抢答马上开始：前 10 位答对的同学各加 5 修为。只能交一次，看清楚再交！'
+        : '闯关马上开始：三关、每关两问，两问都对才算过关；三关全过加 5 修为。只能交一次。'}</p>`;
+    }
+    function optionButtons(it, name) {
+      return `<div class="clp-act-opts" data-act-group="${esc(name)}" data-act-multi="${it.type === 'multi' ? '1' : ''}">${it.options.map((o) =>
+        `<button type="button" class="clp-act-opt" data-act-value="${esc(o.value)}" aria-pressed="false"><b>${esc(o.letter)}</b><span>${esc(o.text)}</span></button>`).join('')}</div>`;
+    }
+    function renderOpen(act) {
+      view = 'open';
+      picks = {};
+      ui.bar.hidden = false; ui.foot.hidden = false; ui.close.hidden = true;
+      ui.send.disabled = true;
+      ui.send.textContent = '交卷';
+      if (act.kind === 'rush') {
+        const it = act.items[0];
+        ui.title.textContent = '抢答 · 材料归纳';
+        ui.note.textContent = '多选题：选全、不多选才算对。只能交一次。';
+        ui.body.innerHTML = `<p class="clp-act-q"><small>多选</small>${esc(it.prompt)}</p>${optionButtons(it, it.item)}`;
+      } else {
+        ui.title.textContent = '闯关 · 小资料分析';
+        ui.note.textContent = `共 ${act.items.length} 关，每关两问；${act.items.length * 2} 问都选好才能交卷，只能交一次。`;
+        ui.body.innerHTML = act.items.map((it, i) => `<section class="clp-act-stage"><h4>第 ${i + 1} 关　${esc(it.sceneTitle)}</h4><p class="clp-act-scene">${esc(it.sceneText)}</p>
+          <p class="clp-act-q"><small>第一问</small>${esc(it.prompt)}</p>${optionButtons(it, it.item)}
+          <p class="clp-act-q"><small>第二问</small>你在第一问选的那个分析，对应下面哪个理论要点？</p>
+          <div class="clp-act-opts" data-act-group="${esc(it.item)}k" data-act-multi="">${act.legend.map((k) =>
+            `<button type="button" class="clp-act-opt" data-act-value="${esc(k.k)}" aria-pressed="false"><b>K${esc(k.k)}</b><span>${esc(k.text)}</span></button>`).join('')}</div></section>`).join('');
+      }
+      ui.body.scrollTop = 0;
+    }
+    const neededKeys = (act) => (act.kind === 'rush' ? [act.items[0].item] : act.items.flatMap((it) => [it.item, `${it.item}k`]));
+    function renderResult(act, res, why) {
+      view = 'result';
+      ui.bar.hidden = true; ui.foot.hidden = true; ui.close.hidden = false;
+      ui.clock.textContent = '';
+      ui.clock.classList.remove('is-low');
+      let html = '';
+      if (why) html = `<div class="clp-act-result is-miss">${esc(why)}<small>这道题现在可以在页面上照常作答、递交（不参加${act.kind === 'rush' ? '抢答' : '闯关'}）。</small></div>`;
+      else if (act.kind === 'rush') {
+        html = !res.ok ? '<div class="clp-act-result is-miss">这次没有答对<small>多选题要选全、不多选才算对。听老师讲评。</small></div>'
+          : res.preview || res.place == null ? '<div class="clp-act-result">🎉 答对了！<small>测试页：只判对错，不计名次和修为。</small></div>'
+            : `<div class="clp-act-result">🎉 答对了！第 ${esc(res.place)} 名${res.bonus > 0 ? `，+${esc(res.bonus)} 修为` : ''}<small>${res.bonus > 0 ? '修为在老师结算后计入。' : '前 10 名加修为，这次没赶上，下次再快一点。'}</small></div>`;
+      } else {
+        const key = res.key || {};
+        const mine = res.value || picks;
+        const passed = act.items.filter((it) => String(mine[it.item] || '') === String(key[it.item]) && String(mine[`${it.item}k`] || '') === String(key[`${it.item}k`])).length;
+        html = res.ok
+          ? `<div class="clp-act-result">🎉 三关全过！${res.bonus > 0 ? `+${esc(res.bonus)} 修为` : ''}<small>${res.preview ? '测试页：只判对错，不计修为。' : '修为在老师结算后计入。'}</small></div>`
+          : `<div class="clp-act-result is-miss">过了 ${passed} / ${act.items.length} 关<small>每关两问都对才算过关。下面是每一关的答案和解答。</small></div>`;
+        html += act.items.map((it, i) => {
+          const ok1 = String(mine[it.item] || '') === String(key[it.item]);
+          const ok2 = String(mine[`${it.item}k`] || '') === String(key[`${it.item}k`]);
+          const right = it.options.find((o) => o.value === String(key[it.item]));
+          const kRight = act.legend.find((k) => k.k === String(key[`${it.item}k`]));
+          const body = (res.explain || {})[it.key] || {};
+          return `<section class="clp-act-stage ${ok1 && ok2 ? 'is-pass' : 'is-fail'}"><h4>第 ${i + 1} 关　${esc(it.sceneTitle)}　${ok1 && ok2 ? '✓ 过关' : '✗ 没过'}</h4>
+            <p class="clp-act-scene">${esc(it.sceneText)}</p>
+            <p class="clp-act-q"><small>第一问</small>${esc(it.prompt)}</p>
+            <p class="clp-act-verdict ${ok1 ? 'is-ok' : 'is-no'}">${ok1 ? '✓ 选对了' : '✗ 你选的是 ' + esc(labelOf(it, mine[it.item]) || '（没选）')}</p>
+            <p>正确的分析：${right ? esc(`${right.letter}. ${right.text}`) : ''}</p>
+            <p class="clp-act-q"><small>第二问</small>它对应哪个理论要点？</p>
+            <p class="clp-act-verdict ${ok2 ? 'is-ok' : 'is-no'}">${ok2 ? '✓ 选对了' : '✗ 你选的是 ' + esc(mine[`${it.item}k`] ? 'K' + mine[`${it.item}k`] : '（没选）')}</p>
+            <p>对应的理论要点：${kRight ? esc(`K${kRight.k} ${kRight.text}`) : ''}</p>
+            ${(body.lines || []).length ? `<div class="clp-act-explain">${body.lines.map((line) => `<p>${esc(line)}</p>`).join('')}</div>` : ''}</section>`;
+        }).join('');
+      }
+      ui.body.innerHTML = html + '<p class="clp-act-lead"><button type="button" class="clp-act-send" data-act-close>回到页面</button></p>';
+      ui.body.scrollTop = 0;
+    }
+    overlay.addEventListener('click', (event) => {
+      if (event.target.closest('[data-act-close]')) {
+        if (shownAct) shownAct.dismissed = shownAct.game ? shownAct.game.id : -1;
+        overlay.hidden = true; shownAct = null; view = '';
+        return;
+      }
+      const opt = event.target.closest('.clp-act-opt');
+      if (opt && view === 'open' && !opt.disabled) {
+        const group = opt.closest('[data-act-group]');
+        const name = group.dataset.actGroup;
+        if (group.dataset.actMulti) {
+          opt.setAttribute('aria-pressed', String(opt.getAttribute('aria-pressed') !== 'true'));
+          picks[name] = $$('.clp-act-opt[aria-pressed="true"]', group).map((b) => b.dataset.actValue).join(',');
+        } else {
+          $$('.clp-act-opt', group).forEach((b) => b.setAttribute('aria-pressed', String(b === opt)));
+          picks[name] = opt.dataset.actValue;
+        }
+        if (shownAct) ui.send.disabled = !neededKeys(shownAct).every((k) => picks[k]);
+        return;
+      }
+      if (event.target.closest('[data-act-send]') && view === 'open' && shownAct) send(shownAct, false);
+    });
+    async function send(act, auto) {
+      if (busy || !act.game) return;
+      const need = neededKeys(act);
+      if (!auto && !need.every((k) => picks[k])) return;
+      if (auto && !need.some((k) => picks[k])) { renderResult(act, null, '时间到了，没有交上'); paintPage(act, 'over'); return; }
+      busy = true;
+      ui.send.disabled = true;
+      ui.send.textContent = '正在交卷……';
+      const labels = {};
+      act.items.forEach((it) => { if (picks[it.item]) labels[it.item] = labelOf(it, picks[it.item]); });
+      try {
+        const value = await backend.rpc('ck_act_answer', { p_classroom: roomId, p_game: act.game.id, p_value: { a: picks, l: labels } });
+        const res = (Array.isArray(value) ? value[0] : value) || {};
+        if (res.status === 'ok' || res.status === 'done') {
+          const mineValues = res.value || picks;
+          lastResult = { ...res, game: act.game.id, value: mineValues };
+          if (!res.preview) lockItems(act, mineValues);
+          else if (LOCAL_ONLY) lockItems(act, mineValues);   // 测试页：只在本机锁定
+          renderResult(act, lastResult, '');
+          paintPage(act, 'done');
+        } else if (res.status === 'wait') { offset += 300; ui.send.textContent = '交卷'; ui.send.disabled = false; }
+        else {
+          renderResult(act, null, res.status === 'late' ? '时间到了，没有交上' : res.status === 'closed' ? '老师已经结束了这一局' : res.status === 'login' ? '请回首页用课堂码重新登录' : '这一局已经结束');
+          paintPage(act, 'over');
+        }
+      } catch (problem) {
+        console.error(problem);
+        ui.send.textContent = '交卷';
+        ui.send.disabled = false;
+        ui.note.textContent = '没有交上：请检查网络，再点一次“交卷”。';
+      }
+      busy = false;
+    }
+
+    // ----- 每 200 毫秒刷新对话框上的倒计时；到点自动换幕、自动交卷 -----
+    function tick() {
+      const now = serverNow();
+      acts.forEach((act) => {
+        const g = act.game;
+        const phase = phaseOf(g, now);
+        if (!shownAct && g && g.mode === 'game' && (phase === 'count' || phase === 'open') && act.dismissed !== g.id) { shownAct = act; overlay.hidden = false; view = ''; }
+      });
+      const act = shownAct;
+      if (!act) return;
+      const g = act.game;
+      const phase = phaseOf(g, now);
+      if (phase === 'count') {
+        if (view !== 'count') renderCount(act);
+        const left = Math.max(1, Math.ceil((g.go_at - now) / 1000));
+        const big = ui.body.querySelector('[data-act-big]');
+        if (big) big.textContent = String(left);
+        ui.clock.textContent = '准备';
+      } else if (phase === 'open') {
+        if (view !== 'open') { renderOpen(act); paintPage(act, 'open'); }
+        const left = Math.max(0, Math.ceil((g.go_at + g.secs * 1000 - now) / 1000));
+        ui.clock.textContent = clockText(left);
+        ui.clock.classList.toggle('is-low', left <= 10);
+        const bar = ui.bar.firstElementChild;
+        if (bar) bar.style.transform = `scaleX(${Math.max(0, Math.min(1, (g.go_at + g.secs * 1000 - now) / (g.secs * 1000 || 1)))})`;
+      } else if (phase === 'over' && view === 'open') {
+        send(act, true);   // 时间到：已经选了的自动交卷（后台留了几秒宽限）
+        if (!busy && view === 'open') { renderResult(act, null, g.closed ? '老师已经结束了这一局' : '时间到了，没有交上'); paintPage(act, 'over'); }
+      } else if ((phase === 'over' || phase === 'plain' || phase === 'none') && view === 'count') {
+        overlay.hidden = true; shownAct = null; view = '';
+      }
+    }
+    setInterval(tick, 200);
+
+    // ----- 每隔几秒问后台 -----
+    let failures = 0;
+    async function poll() {
+      const t0 = Date.now();
+      try {
+        const value = await backend.rpc('ck_act_live', { p_classroom: roomId });
+        const res = (Array.isArray(value) ? value[0] : value) || {};
+        if (res.status !== 'ok') return;
+        const t1 = Date.now();
+        const fresh = Number(res.now) - (t0 + t1) / 2;
+        if (Math.abs(fresh - offset) > 250) offset = fresh;
+        failures = 0;
+        acts.forEach((act) => {
+          act.game = (res.games || []).find((g) => g.case === act.no && g.kind === act.kind) || null;
+          const g = act.game;
+          if (g && g.mine && g.mine.value) lockItems(act, g.mine.value);
+          paintPage(act, phaseOf(g, serverNow()));
+        });
+      } catch (problem) {
+        failures += 1;
+        // 后台还没有这个功能（老师还没执行 SQL）或连续连不上：不收起题目，照普通题目作答
+        if (failures >= 3 || /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) {
+          acts.forEach((act) => { act.game = { mode: 'plain' }; paintPage(act, 'plain'); });
+        }
+      }
+    }
+    acts.forEach((act) => paintPage(act, 'none'));
+    poll();
+    setInterval(() => {
+      if (document.hidden) return;
+      const active = acts.some((act) => ['count', 'open'].includes(phaseOf(act.game, serverNow())));
+      const waiting = acts.some((act) => !act.items.every((it) => locked[it.key]));
+      if (active || waiting) poll();
+    }, 3000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) poll(); });
+  }
+
   // ---------- 四步解析（2026-11-20 用户：“有学生反映学生端只有答案和很少的解析，没有分析过程……把四步法解析开放给所有学生吧”） ----------
   // 课堂完整版每组快问快答（Q1、Q2、Q3）下面有“展开四步解析”，学生页原来没有。现在每组下面加一块：这一组的快答题全部递交以后，
   // 所有学生（不看境界）都能展开——本章理论抓手＋① 亮明观点 ② 教材依据 ③ 案例事实 ④ 回到题目说明。内容不在页面里，点开时向后台要（ck_my_explain，题号 NN:steps-qN）
@@ -1574,7 +1943,7 @@
     const ORDER = ['class', 'self', 'practice', 'lingtian'];
     const STEP = 10;
     const exits = worksheet ? [document.querySelector('.clp-subm') || document.querySelector('#practice [data-xl]') || document.querySelector('[data-xl-block="exit"]')]
-      : $$('section.quiz-set.is-exit');
+      : $$('section.quiz-set.is-exit').filter((el) => !el.closest('[hidden]'));   // 一章两个案例、课堂只上其中一个时，另一个案例的各节是隐藏的：回温放在看得见的最后一个出门测后面（2026-11-20 检查发现原来会放进隐藏的那一节）
     const anchor = exits.filter(Boolean).pop();
     if (!anchor || document.querySelector('[data-review]')) return;
     const css = document.createElement('style');
@@ -2022,6 +2391,25 @@
     setInterval(() => { if (!document.hidden && questions.some((q) => !locked[q.key])) loadStops(); }, 30000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden) loadStops(); });
   }
+  // 限时抢答与闯关（setupActs 要用上面的 holdQuestion，所以放在这里调用）
+  if (!worksheet && joined && !OFFLINE && !AUDIT && !MAKEUP && !viewing && backend && document.querySelector('[data-act]')) setupActs();
+  // 机制图闯关（2026-11-20，习经）：闯关在页面自己的脚本里进行，每过一关发一个 xjp:mechquest 事件。
+  // 进了本周课堂的同学把进度报给后台（ck_mech_report），供投屏页的看板用；不计修为。
+  // 测试页、旁听、补做、历史课堂只查看的都不报；后台还没有这个功能时不再重试
+  if (!worksheet && joined && !OFFLINE && !PREVIEW && !AUDIT && !MAKEUP && !viewing && backend && document.querySelector('[data-mech-quest]')) {
+    let mechOff = false;
+    let mechLast = '';
+    document.addEventListener('xjp:mechquest', (event) => {
+      const d = event.detail || {};
+      if (mechOff || !/^\d{2}$/.test(d.case || '')) return;
+      const state = { step: d.step, total: d.total, chain: Boolean(d.chain), clear: Boolean(d.clear), ms: d.ms, miss: d.miss || {}, tries: d.tries };
+      const sig = JSON.stringify([d.case, state.step, state.chain, state.clear, state.tries, state.miss]);
+      if (sig === mechLast) return;
+      mechLast = sig;
+      Promise.resolve().then(() => backend.rpc('ck_mech_report', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: d.case, p_state: state }))
+        .catch((error) => { if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((error && error.message) || error))) mechOff = true; });
+    });
+  }
 
   // 递交：第一次点出现“确认递交？”，3 秒内再点一次才发送
   async function submit(q) {
@@ -2139,7 +2527,7 @@
   //   入口：每道题递交按钮旁的“⤢ 全屏”（从这一题开始）、面板里的“全屏答题”（从第一道未递交的题开始）。返回键、Esc、左上角“退出”都能退出，退出后停在刚才那道题。
   const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1 };
   const FS_STOP = 'main, body, .section-inner, .inner, section.page, .page-section, .cl-unit, [data-nav]';
-  const FS_POPUP = '.cl-ascend-layer, .clp-poll, .clp-pzd, .clp-tl, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
+  const FS_POPUP = '.cl-ascend-layer, .clp-act, .clp-poll, .clp-pzd, .clp-tl, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
   const fsRoot = () => document.querySelector('main') || document.body;
   // 这道题在页面上占哪一块：往上找“只含这一道题”的最大容器（不越过整页、整节的容器）；找不到就取递交条前面紧挨着的几个元素
   function fsZone(q) {
@@ -2290,7 +2678,7 @@
     return wait(full).catch(() => null).then(() => wait(lock())).then(() => true, () => false);
   }
   // 按页面上的先后排（questions 是按题型分组登记的），“下一题”顺着页面往下走
-  const fsOrder = () => questions.filter((item) => item.bar && item.bar.isConnected)
+  const fsOrder = () => questions.filter((item) => item.bar && item.bar.isConnected && (FS.on || item.bar.getClientRects().length > 0))   // 收起的题（等老师开启的抢答、闯关，隐藏的另一个案例）不算
     .sort((x, y) => (x.bar.compareDocumentPosition(y.bar) & Node.DOCUMENT_POSITION_FOLLOWING ? -1 : 1));
   function openFullscreen(q) {
     if (!questions.length) return;

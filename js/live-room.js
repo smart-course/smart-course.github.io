@@ -293,6 +293,40 @@
   //   （卡片、文字、样式都与学生页共用 ClassLive.feedbackBox；笑脸、输入框、“匿名提交”都不能用），最下面一行显示这堂课（今天）收到几条；
   //   建议内容不上投屏，只在老师的工作台里看。习经：章节页“资料与延伸阅读”末尾（原来的提示卡 data-fb-projector 换成建议箱）；
   //   政经：案例页“资料与延伸阅读”里、页面最后的“回到案例起点 ↑”之前（2026-11-19 起网站版不再有“上一案例／下一案例”）
+  // 回温（2026-11-20 用户：“然后教师端也要显示‘回温’板块”）：学生页出门测（政经是课后自修）后面有“回温”——每位同学重做自己做错的题。
+  // 投屏页在同一个位置放一张同样的卡片，只作展示（清单因人而异，老师的页面没有自己的错题）；一章两个案例、课堂只上一个时放在看得见的那个案例后面
+  (() => {
+    const worksheet = config.kind === 'concept-html';
+    const anchor = worksheet ? document.querySelector('#practice [data-xl]')
+      : Array.from(document.querySelectorAll('section.quiz-set.is-exit')).filter((el) => !el.closest('[hidden]')).pop();
+    if (!anchor || document.querySelector('[data-review-projector]')) return;
+    const css = document.createElement('style');
+    css.textContent = `
+  .rm-hw { margin: 22px 0 10px; padding: 1.1em 1.1em 1em; border: 1px solid #e5d3b3; border-left: 5px solid #c4862c; border-radius: 14px;
+    background: linear-gradient(135deg, #fffaf0, #fdf3e2); color: #3b3020; font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; line-height: 1.7; text-align: left; }
+  .rm-hw-head { display: flex; gap: 12px; align-items: flex-start; }
+  .rm-hw-mark { flex: 0 0 auto; display: grid; place-items: center; width: 2.5em; height: 2.5em; border-radius: 12px; background: linear-gradient(160deg, #e8a948, #b5701e);
+    color: #fffaf0; font: 800 1.2em/1 "Kaiti SC", STKaiti, KaiTi, serif; box-shadow: 0 4px 12px rgba(181,112,30,.3); }
+  .rm-hw-kicker { display: inline-block; padding: 0 .6em; border-radius: 999px; background: #f3dfbd; color: #8a5414; font-size: .8em; font-weight: 700; letter-spacing: .12em; }
+  .rm-hw-head h3 { margin: .2em 0 .25em; font-size: 1.2em; line-height: 1.4; color: #5a3a10; }
+  .rm-hw-head p { margin: 0; font-size: .9em; color: #6b5a40; }
+  .rm-hw-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: .9em 0 0; padding: 0; list-style: none; }
+  .rm-hw-tags li { padding: .1em .8em; border-radius: 999px; color: #fff; font-size: .82em; font-weight: 700; }
+  .rm-hw-note { margin: .8em 0 0; padding: .55em .8em; border-radius: 10px; background: rgba(255,255,255,.75); border: 1px dashed #e0c79d; font-size: .9em; color: #6b5a40; }
+  @media print { .rm-hw { display: none !important; } }`;
+    document.head.appendChild(css);
+    const card = document.createElement('section');
+    card.className = 'rm-hw';
+    card.setAttribute('data-ix', '');
+    card.setAttribute('data-review-projector', '');
+    card.innerHTML = `<header class="rm-hw-head"><span class="rm-hw-mark" aria-hidden="true">温</span><div><span class="rm-hw-kicker">回温</span>
+      <h3>把做错的题再做一遍</h3>
+      <p>学生页的这个位置是“回温”：汇集每位同学自己在课堂、修炼场和云间灵田里做错的题${worksheet ? '（课后自修的出门测、温故，等下一次课讲评以后才进来）' : ''}。重做答对了，就从清单里移走；答错了，看看答案和讲解，过一会儿再来做。回温的题不算本堂作业，不计入递交情况，也不加修为，是帮同学把易错点补牢。</p></div></header>
+      <ul class="rm-hw-tags" aria-label="错题来源"><li style="background:#2f6f73">课堂</li>${worksheet ? '<li style="background:#7a5ab5">课后自修</li>' : ''}<li style="background:#3a8a6b">修炼场</li><li style="background:#5b8f3a">云间灵田</li></ul>
+      <p class="rm-hw-note">老师的页面只作展示：每位同学看到的是自己的错题清单，内容各不相同。想看学生端的样子，可以从工作台打开“学生测试版”。</p>`;
+    anchor.insertAdjacentElement('afterend', card);
+  })();
+
   const fbCard = (() => {
     const box = window.ClassLive.feedbackBox;
     if (!box) return null;
