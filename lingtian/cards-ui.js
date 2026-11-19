@@ -81,10 +81,10 @@
       if(!engine.online&&available()){
         const choices=current()?.practiceCourses||[],edition=document.querySelector?.('meta[name="game-offline-edition"]')?.content||'离线练习';
         s+=`<div class="dz-practice-bar"><div><strong>${E(edition)}</strong><small>${current()?.memoryOnly?'当前浏览器未保存，关闭后可能丢失 · 请导出存档':'各课程卡册与每日次数独立保存 · 不连接在线课堂'}</small></div>${choices.length>1&&typeof engine.selectCardCourse==='function'?`<label><span>预览课程</span><select data-cards-practice-course aria-label="离线预览课程"${busy()||revealing||pageTurning?' disabled':''}>${choices.map(item=>`<option value="${E(item.id)}"${item.id===current()?.courseId?' selected':''}>${E(item.name)} · ${item.cardCount}张</option>`).join('')}</select></label>`:''}</div>`;
-      } else if(engine.online&&current()?.learningContext?.classId){
-        s+=`<div class="dz-classroom-note">当前教学班 · ${E(current().learningContext.classId)}<span>课程由课堂名单关联</span></div>`;
       }
-      if(curriculum()?.source==='configured')s+=`<div class="dz-notice dz-curriculum-note"><strong>${E(curriculum().academicYear)} 学年</strong><span>本期启用 ${asCount(curriculum().selectedCardCount)} / ${asCount(curriculum().totalCardCount)} 张 · ${asCount(curriculum().enabledChapterIds?.length)} 个章节</span><small>${drawEnabled()?'拆封与参悟按本期范围安排；全卷和旧藏仍可阅读。':'本期暂未启用卡牌，拆封与每日参悟已暂停；已有收藏和记录保留。'}</small></div>`;
+      // 2026-11-19 用户：“这些内容在学生端不显示，教师控制端知道就行”——不再显示“当前教学班 · class-N · 课程由课堂名单关联”
+      // 和“某学年 · 本期启用 N / M 张 · K 个章节”（老师在工作台“云间灵田 → 学年卡池”里看）；本期没有启用卡牌时，仍告诉学生拆封与参悟为什么暂停
+      if(curriculum()?.source==='configured'&&!drawEnabled())s+=`<div class="dz-notice dz-curriculum-note"><small>本期暂未启用卡牌，拆封与每日参悟已暂停；已有收藏和记录保留。</small></div>`;
       return s;
     }
     function sealedPackage() {
