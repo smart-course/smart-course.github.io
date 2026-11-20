@@ -1411,6 +1411,8 @@
     if (note.value) $('details', bar).open = true;
     note.addEventListener('input', () => { try { localStorage.setItem(noteKey(q.key), note.value); } catch (error) { /* 忽略 */ } });
     q.button.addEventListener('click', () => submit(q));
+    // 等确认时去勾自检、改作答：不让等确认悄悄过期（见 submit 上面的说明）
+    (q.live || []).filter(Boolean).forEach((el) => ['input', 'change'].forEach((type) => el.addEventListener(type, () => keepConfirm(q))));
     $('.clp-q-fs', bar).addEventListener('click', () => openFullscreen(q));
   });
 
@@ -2476,7 +2478,40 @@
     });
   }
 
-  // 递交：第一次点出现“确认递交？”，3 秒内再点一次才发送
+  // 递交：第一次点出现“确认递交？”，再点一次才发送。
+  // 2026-11-21（用户：“有同学反映写完自检的那个部分很难提交，点了很多次没有反应。”）：原来第一次点了以后 3 秒内不再点，按钮就悄悄变回“递交”；
+  //   而写完自检没勾全时提示正好让同学“可以先补上”——去勾几项回来早就过了 3 秒，再点又是“第一次”，怎么点都像没反应。
+  //   现在：等确认的时间放长到 CONFIRM_MS；等确认时勾自检、改作答（q.live 里的元素有变动）会按新的情况更新提示、重新计时；
+  //   过了时间没确认要写明“还没有递交”，不再悄悄恢复原样
+  const CONFIRM_MS = 15000;
+  const confirmHint = (q) => {
+    const hint = q.remind ? q.remind() : '';
+    return hint ? `${hint}；递交后不能修改，确认请再点一次` : '递交后不能修改，确认请再点一次';
+  };
+  function armConfirm(q) {
+    q.button.classList.add('is-confirm');
+    q.button.textContent = '确认递交？';
+    setQ(q, confirmHint(q), 'error');
+    clearTimeout(q.timer);
+    q.timer = setTimeout(() => {
+      q.button.classList.remove('is-confirm');
+      q.button.textContent = '递交';
+      if (!locked[q.key]) setQ(q, '刚才没有再点一次确认，这道题还没有递交；要递交请再点“递交”', 'error');
+    }, CONFIRM_MS);
+  }
+  // 等确认的时候学生去勾自检、改作答：提示跟着变，等确认的时间从头算（没在等确认时什么也不做）
+  function keepConfirm(q) {
+    if (locked[q.key] || q.stopped || !q.button.classList.contains('is-confirm')) return;
+    const problem = q.check(q.read());
+    if (problem) {   // 作答被清空了：退出等确认
+      clearTimeout(q.timer);
+      q.button.classList.remove('is-confirm');
+      q.button.textContent = '递交';
+      setQ(q, problem, 'error');
+      return;
+    }
+    armConfirm(q);
+  }
   async function submit(q) {
     if (locked[q.key]) return;
     if (!joined) {   // 没进入本周课堂（含用历史课堂码只查看的）：点“递交”时说明原因，不再没反应
@@ -2488,16 +2523,7 @@
     const problem = q.check(value);
     if (problem) { setQ(q, problem, 'error'); return; }
     if (!q.button.classList.contains('is-confirm')) {
-      q.button.classList.add('is-confirm');
-      q.button.textContent = '确认递交？';
-      const hint = q.remind ? q.remind() : '';
-      setQ(q, hint ? `${hint}；递交后不能修改，确认请再点一次` : '递交后不能修改，确认请再点一次', 'error');
-      clearTimeout(q.timer);
-      q.timer = setTimeout(() => {
-        q.button.classList.remove('is-confirm');
-        q.button.textContent = '递交';
-        if (!locked[q.key]) setQ(q, IDLE, '');
-      }, 3000);
+      armConfirm(q);
       return;
     }
     clearTimeout(q.timer);
@@ -3017,6 +3043,23 @@
     });
   }
 
+  // ---------- 在线报到（公用）----------
+  // 页面在前台时每 30 秒向后台报一次在线（ck_ping），切走或关掉页面时再报一次把零头记上；返回“现在报一次”的函数。
+  // room：记在哪个课堂上；blocked()：返回 true 时先不报（后台说这台设备要重新登录）。后台没有 ck_ping 时安静停止
+  function presenceLoop(room, blocked) {
+    let off = false;
+    const ping = (force) => {
+      if (off || !room || !backend || (document.hidden && force !== true) || (blocked && blocked())) return;
+      Promise.resolve().then(() => backend.rpc('ck_ping', { p_classroom: room })).catch((problem) => {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) off = true;
+      });
+    };
+    setInterval(() => ping(), 30000);
+    document.addEventListener('visibilitychange', () => ping(document.hidden));
+    window.addEventListener('pagehide', () => ping(true));
+    return ping;
+  }
+
   // ---------- 面板 ----------
   const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-fs class="clp-fs-entry"${joined ? '' : ' hidden'} title="一题一屏，可以横屏；从第一道未递交的题开始">⤢ 全屏答题</button>${OFFLINE ? '<button type="button" data-cl-export="html">导出 HTML</button>' : ''}<button type="button" data-cl-export="pdf">导出 PDF</button></div>
     <p class="clp-hint" data-cl-export-state>导出内容：题目、我的作答、递交状态${questions.some((q) => q.extra) ? '、自检' : ''}和备注，方便课后复习。</p>`;
@@ -3054,6 +3097,11 @@
     setupDebateRooms(false, viewed ? `${pastNote}聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，聊天室不能进入。' : '进入本周课堂后，递交辩前票就能进入本方聊天室。');
     setupBizGames(false, viewed ? `${pastNote}经营会不能参加。` : elsewhere ? '本周课堂不在这一页，经营会不能参加。' : '进入本周课堂后，递交角色就能进入本组聊天室。');
     setupDiscuss(false, viewed ? `${pastNote}讨论聊天室不能进入。` : elsewhere ? '本周课堂不在这一页，讨论聊天室不能进入。' : '进入本周课堂后，递交角色就能进入本组聊天室。');
+    // 在线时长（2026-11-21 用户：在线时长里“用历史课堂码查看”仍不计时，要不要补——“补”）：这几种页面原来到这里就结束了，从不报在线。
+    //   只查看历史课堂：按查看的那个课堂报（课堂编号由登录页记在查看标记里；后台 ck_ping 接着那一段“查看历史课堂”往下记）；
+    //   本周课堂不在这一页（这一章没在这台设备上登录过）：记在本机登录的那个课堂上，这位同学的在线合计不少算。旁听、没登录过的不报
+    const gateRoom = viewed ? Number(viewed.classroom) || 0 : elsewhere && !identity.audit ? Number(identity.classroom) || 0 : 0;
+    if (gateRoom && !OFFLINE && !PREVIEW) setTimeout(presenceLoop(gateRoom), 3000);
     return;
   }
 
@@ -3509,7 +3557,7 @@
       }
       // 聊天室（2026-10-29 用户：“要能显示聊天室里面人的名字，你可以参照网上的一些聊天室来设计一下”）：仿群聊——左边成员名单（昵称、在线、点赞），
       // 右边消息气泡（头像取名字第一个字，自己的靠右）。2026-11-18 起辩论赛实名：新进入的同学显示真实姓名，以前用昵称进入的照旧显示昵称。
-      // 2026-11-05 取消 3v3：顶部一行显示全场（两方合起来）点赞前三的昵称，他们各加修为；辩后投票票多一方聊天室里的同学也加修为
+      // 2026-11-05 取消 3v3：顶部一行显示全场（两方合起来）点赞前三的昵称，他们各加修为；辩后投票票多一方获胜（2026-11-21 起获胜方不再加修为）
       function showRoom() {
         if (mode !== 'room') {
           mode = 'room';
@@ -4310,18 +4358,10 @@
   // 2026-11-20（用户：“统计学生的在线时长好像不是很准，有的同学总是显示‘-’”）：原来每 45 秒报一次、切走时不报，
   // 打开页面不到 45 秒就离开（比如马上去了云间灵田）的同学，这一段在线就是 0。改为每 30 秒报一次，切走或关掉页面时再报一次把零头记上；
   // 云间灵田页面自己也报（lingtian-bridge.js）。后台两次之间最多算 90 秒，离开 3 分钟以上另起一段，规则不变
+  // 2026-11-21 报到做成公用函数 presenceLoop（见上面“面板”一节前）：只查看历史课堂、本周课堂不在这一页的页面也用它
   if (!LOCAL_ONLY) {
-    let pingOff = false;
-    const ping = (force) => {
-      if (pingOff || (document.hidden && force !== true) || loginNeeded) return;
-      Promise.resolve().then(() => backend.rpc('ck_ping', { p_classroom: Number(identity.classroom) || identity.classroom })).catch((problem) => {
-        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) pingOff = true;
-      });
-    };
+    const ping = presenceLoop(Number(identity.classroom) || identity.classroom, () => loginNeeded);
     checkedIn.then(() => ping());
-    setInterval(() => ping(), 30000);
-    document.addEventListener('visibilitychange', () => ping(document.hidden));
-    window.addEventListener('pagehide', () => ping(true));
   }
 
   // ---------- 时间轴排排站·全班分队（2026-11-11 用户：“PK 对决 · 时间轴排排站，改一下玩法，将已加入班级的同学随机平均分成两组，而不是抽两名同学上台。
@@ -5088,7 +5128,7 @@
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为；时间轴排排站是全班随机分成红、蓝两队，每人在自己页面弹出的对话框里选位置，每题答对人数多的一队得 1 分，最后得分高的一队每人加 ${(Live.TIMELINE || {}).points || 1} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>经营沙盘（案例 06、08、09、19）：各项指标都守住红线（经营合格）时，四位代表各加 ${(Live.BIZ || {}).rep || 10} 修为，本方指标最高的角色组里在聊天室发过言的同学各加 ${(Live.BIZ || {}).top || 5} 修为。</li>` : ''}
         ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
-        <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。</li>
+        <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方获胜，获胜方不加修为（按自己的判断投，不用看哪一方人多）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
         <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
@@ -5589,7 +5629,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261121-peak-pe' : '20261121-peak-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261121b-debate-pe' : '20261121b-debate-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6151,12 +6191,13 @@
           const steps = boxes.map((input) => `${input.checked ? '☑' : '☐'} ${textOf(input.closest('label').querySelector('b')).replace(/^[①②③④]\s*/, '')}`);
           return { label: `写完自检（${done}/${boxes.length}）`, lines: [steps.join('　')] };
         } : null,
-        // 自检没勾全时，在“确认递交？”这一步提醒一句（不阻止递交）
+        // 自检没勾全时，在“确认递交？”这一步提醒一句（不阻止递交：不勾也能交；去勾的话提示会跟着变，不用重新点“递交”）
         remind: selfcheck ? () => {
           const missing = $$('input[data-selfcheck-item]', selfcheck).filter((input) => !input.checked)
             .map((input) => textOf(input.closest('label').querySelector('b')).replace(/^[①②③④]\s*/, ''));
-          return missing.length ? `自检还没勾：${missing.join('、')}，可以先补上` : '';
+          return missing.length ? `自检还没勾：${missing.join('、')}（不勾也可以递交；现在去勾，这里会跟着更新）` : '自检四步都勾了';
         } : null,
+        live: [area, selfcheck],
         // Q1—Q4：递交放在“写完自检”下面——先写、再自检、最后递交
         anchor: (bar) => (selfcheck ? selfcheck.insertAdjacentElement('afterend', bar) : box.appendChild(bar)),
         read: () => (area.value.trim() ? area.value.trim() : null),

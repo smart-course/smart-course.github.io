@@ -516,7 +516,8 @@
   // 历史课堂（停止的、提前发布还没开课的，2026-10-23）：后台核对过点名册和口令，只给查看本章的钥匙，不记登录。
   // 不改本机保存的课堂身份（本周课堂照常递交），记下“用历史课堂码进来的”，章节页面板据此说明只能查看
   function enterView(room) {
-    try { localStorage.setItem(`classlive-view:${room.course}:${room.chapter}`, JSON.stringify({ room: room.room_name || '', case_no: room.case_no || null, at: Date.now() })); } catch (error) { /* 忽略 */ }
+    try { localStorage.setItem(`classlive-view:${room.course}:${room.chapter}`, JSON.stringify({ room: room.room_name || '', case_no: room.case_no || null, at: Date.now(),
+      classroom: Number(room.classroom) || null })); } catch (error) { /* 忽略 */ }   // classroom（2026-11-21）：只查看时章节页、复习资料页按这个课堂报在线
     clearPins();
     button.disabled = true;
     button.textContent = '正在打开（只能查看）……';

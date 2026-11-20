@@ -148,8 +148,10 @@
   const TIMELINE = { points: 1, seconds: 10 };
   // 辩论赛（2026-10-28 起聊天室；2026-11-05 两门课简化、取消 3v3）：① 选立场、论据卡 → ② 进本方聊天室发言、点赞（2026-11-18 起实名，不再取昵称）→ ③ 辩后投票。
   // 昵称 2—nickMax 字，每条发言 2—textMax 字、每人 gap 毫秒一条、最多 perPerson 条；学生页每 poll 毫秒刷新。
-  // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes，辩后投票票多一方聊天室里的同学各加 win（同一人相加）
-  const DEBATE = { likes: 5, win: 5, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
+  // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes。
+  // 2026-11-21 用户：“辩论赛，只有全场点赞最多的三位同学加分，胜利方不加分。这样可以避免有的同学看哪方人数最多而选择那一方，从而获胜。”
+  //   辩后投票票多的一方只公布为获胜方，不再加修为（win 由 5 改为 0）；以前课上已经加的留在 ck_bonus 里，结算照常算，不追改
+  const DEBATE = { likes: 5, win: 0, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
   // 2026-11-20 辩论赛每一步的计时同步到学生页：沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live（表 ck_debate_matches，线上一直在，不用再执行 SQL），
   // 阶段名只能用旧的那几个，这里对照：选立场 · 论据卡＝pro_open，聊天室＝free，辩后投票＝vote，公布结果＝done
   // 2026-11-20 加“自由讨论”一步（用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点”），借用阶段名 con_open
@@ -1148,7 +1150,7 @@
             const no = String(params.p_case);
             const day = today();
             if (name === 'ck_set_debate_winners') {
-              // 2026-11-05：点赞前三各加 p_points，票多一方聊天室里的同学（点名册内）各加 p_points，'none'＝平票只给前三；同一人相加（不超过 20）
+              // 2026-11-05：点赞前三各加 p_points；2026-11-21 起获胜方不再加修为（p_side 只说明结果，pro / con / none 都只给点赞前三），空＝撤销
               const bonus = read('bonus').filter((b) => !(String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate'));
               const top = params.p_side ? leaders(room.id, no) : [];
               const side = params.p_side;
@@ -1156,17 +1158,14 @@
                 if (!['pro', 'con', 'none'].includes(side)) throw new Error('请选择获胜方');
                 const points = Number(params.p_points);
                 if (!(points >= 1 && points <= 10)) throw new Error('每项加分应为 1—10');
-                const roster = rosterOf(room.id);
                 const sum = new Map();
                 const add = (sid, name) => { const was = sum.get(sid); sum.set(sid, { name, points: Math.min(20, (was ? was.points : 0) + points) }); };
                 top.forEach((m) => add(m.sid, m.name));
-                members.filter((m) => String(m.classroom) === String(room.id) && m.case_no === no && m.side === side && roster.has(m.sid)).forEach((m) => add(m.sid, m.name));
                 sum.forEach((v, sid) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'debate', sid, name: v.name, points: v.points, created_at: new Date().toISOString() }));
               }
               write('bonus', bonus);
               return bonus.filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate')
-                .map((b) => ({ sid: b.sid, name: b.name, points: b.points, top: top.some((m) => m.sid === b.sid),
-                  win: members.some((m) => String(m.classroom) === String(room.id) && m.case_no === no && m.side === side && m.sid === b.sid) }))
+                .map((b) => ({ sid: b.sid, name: b.name, points: b.points, top: top.some((m) => m.sid === b.sid), win: false }))
                 .sort((x, y) => y.points - x.points || String(x.name).localeCompare(String(y.name), 'zh'));
             }
             const votes = (side) => {
@@ -1674,7 +1673,13 @@
         if (name === 'ck_ping') {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
-          if (!me) return false;
+          if (!me) {
+            // 2026-11-21 只查看历史课堂的也累计在线时长：这台设备在这个课堂有过“查看”的记录，就接着往下记（不点小绿灯）
+            const seen = read('visits').filter((v) => String(v.classroom) === String(params.p_classroom) && v.owner === uid && v.kind === 'view')
+              .sort((a, b) => Date.parse(b.last_at) - Date.parse(a.last_at))[0];
+            if (seen) visitTouch(params.p_classroom, seen.sid, seen.name, uid, 'view', seen.auditor);
+            return false;
+          }
           const rows = read('presence');
           const sid = sidKey(me.sid);
           const row = rows.find((item) => String(item.classroom) === String(params.p_classroom) && item.sid === sid);
@@ -3065,6 +3070,8 @@
           ['小资料分析改为限时闯关', '第二课时的“迁移任务 · 小资料分析”先收起：老师开放入口后，三则小资料一关一关作答，每关两问——先选出唯一讲对了的分析，再判断它对应哪个理论要点，两问都对才算过关；限时内只能交一次，到时间自动交卷，三关全过加 5 修为。交卷后可以看到题目、答案和讲解。', '2026-11-20'],
           ['四步解析对所有同学开放', 'Q1—Q4 每一组快答题都递交以后，题目下方可以点“展开四步解析”，看这道研讨题按“亮明观点—教材依据—案例事实—回到题目说明”写出来的完整分析（不看境界，所有同学都能看）。', '2026-11-20'],
         ] : []),
+        ['辩论赛：只有点赞前三加修为', '辩后投票票数多的一方仍然公布为获胜方，但不再给获胜方加修为（以前课上已经加的不变）；只有两方聊天室合起来、发言被点赞最多的三位同学各加 5 修为。辩后票按自己的判断投，不用看哪一方人多。', '2026-11-21'],
+        ['“确认递交？”可以慢慢来', '点“递交”后出现“确认递交？”，原来 3 秒内不再点就自动取消，现在可以等 15 秒；这期间去勾“写完自检”、修改作答，提示会跟着更新，回来再点一次就递交。过了时间没有确认，会写明“这道题还没有递交”。', '2026-11-21'],
         ['元婴多了一档「元后巅峰」', '修为到全学期满分的 100% 以后、突破「化神」以前，称号是「元后巅峰」。初期、中期、后期的分界没有变，大家现在的境界不受影响。点面板上的境界可以看到进度条上标出的四个档位。', '2026-11-21'],
         ['退出放大时可以选回到哪里', '在“放大”里换过题以后，点“退出放大”或按 Esc 会先问一句：回到进来时的那一题，还是留在现在这一题（也可以点“继续看题”不退出）。没换过题直接退出。', '2026-11-20'],
         ['云间灵田：卖灵草可以选数量', '乾坤袋里每种灵草多了一个数量框：点“−”“＋”或“一半”，也可以直接输入数字，再点“售给药铺 N 份”；不用一份一份点，也不用一次全卖。', '2026-11-20'],
@@ -3102,7 +3109,7 @@
         ['突破元婴', '突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面和祝福语（每台设备各放一次；已经突破的同学，下次打开页面时补放一次）。到「元婴」以后，修为榜上照常显示姓名，不能再隐匿。', '2026-11-11'],
         ['无效弹幕', '老师删除无效弹幕（比如只发“1”“111”）时，这条弹幕已经得到的修为会撤回，你的页面上会弹窗提醒。发有内容的弹幕才有修为，同一句只算一次。', '2026-11-06'],
         ['全屏答题（手机）', '用手机做题时，点题目下方“递交”旁边的“⤢ 全屏”，或面板里的“全屏答题”：一题一屏、字更大，左下角、右下角是“上一题”“下一题”，顺着做下去；右上角 A−、A+ 调字号。安卓手机会自动转成横屏；iPhone 可以把手机横过来（先在控制中心关掉“竖排方向锁定”），或点上方的“横屏”把画面转过来，写字时会自动转回竖屏。点左上角“退出”（或返回键）回到原来的页面，停在刚才那道题。', '2026-11-06'],
-        ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方，聊天室里的同学各加 ${(Live.DEBATE || {}).win || 5} 修为（两项可以都得）。`, '2026-11-06'],
+        ['辩论赛简化', `辩论赛取消 3v3 辩论台，只有三步：① 选立场（辩前投票）、选 2 张论据卡，分别递交；② 取一个昵称进入本方聊天室发言，给本方的好发言点赞——两方合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；③ 辩后投票：听了两方的观点，现在支持哪一方。老师停止递交后，票数多的一方获胜（当时获胜方聊天室里的同学各加 5 修为；2026-11-21 起获胜方不再加修为）。`, '2026-11-06'],
         ['宗门', `达到「筑基」境界后，可以点面板学号一行右边的“宗门”拜入四大宗门之一：${(Live.SECTS || []).map((sect) => sect.name).join('、')}，也可以暂做散修（散修以后仍可拜入宗门）。拜入以后有一次改投他宗的机会，只有一次，也不能退为散修。宗门分是本课程历届弟子的修为之和，宗门榜按宗门分排名；弟子结课以后修为仍留在宗门里，一届一届传承下去。拜入后修为榜上你的名字旁会显示宗门标记。`, '2026-11-05'],
         ['情境猜谜抢答', `老师点“看玩法”或出题后，页面上方会弹出“情境猜谜抢答”对话框，大屏关掉前一直都在；每次出题（包括“下一题”）全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，大家的倒计时按老师的时钟同步，倒计时结束才能输入谜底抢答，网速慢的同学也来得及。`, '2026-11-05'],
         ['法宝', '祭出法宝时，除了投屏，你自己的页面上也会出现法宝的画面。', '2026-11-05'],

@@ -5,8 +5,10 @@
  *   辩论流程图（放在卡片正文“辩论流程”的位置，投屏页上原来的静态流程隐藏）：① 选立场 · 论据卡（1 分钟）→ ② 聊天室发言点赞（3 分钟）→ ③ 辩后投票（1 分钟）
  *     → 停止递交 · 公布结果。当前一步高亮、倒计时（只在本机计时，存在本机，刷新不丢；可暂停、加 30 秒），点“下一步”或点流程图里的任一步推进。
  *   聊天室看板：全场点赞前三（“揭晓姓名”后显示姓名）、两方人数和发言数、两方全部发言（按发布时间固定排列，旧的在上、新的接在下面，在列表里上下滑动；可隐藏不合适的发言）、辩后票数。
- *   辩后投票停止递交（流程图最后一步、辩后投票里的按钮，或投屏统计里的“停止递交”）后按票数判定胜负并加修为（ck_set_debate_winners）：
- *     全场点赞前三各加 5，票多一方聊天室里的同学各加 5（同一人相加）；平票由老师裁定（也可以判平局，只给点赞前三）；可改判、撤销。
+ *   辩后投票停止递交（流程图最后一步、辩后投票里的按钮，或投屏统计里的“停止递交”）后按票数公布哪一方获胜（平票就是平票），
+ *     给全场点赞前三各加 5 修为（ck_set_debate_winners）；可撤销、按票数重新公布。
+ *     2026-11-21 用户：“辩论赛，只有全场点赞最多的三位同学加分，胜利方不加分。这样可以避免有的同学看哪方人数最多而选择那一方，从而获胜。”
+ *     ——获胜方不再加修为，也就不用老师裁定平票、改判。
  *     结果显示在“辩后投票”那一块的最后。
  * 需要在本机登录教师工作台（ck_debate_board、ck_set_debate_winners 只给教师）；看板每 4 秒刷新一次（页面在前台、在屏幕上时）。
  */
@@ -17,7 +19,7 @@
   if (!boards.length || !window.ClassLive || config.provider === 'off') return;
   let backend = null;
   try { backend = window.ClassLive.create(config); } catch (error) { console.warn('[辩论赛]', error.message); return; }
-  const DB = window.ClassLive.DEBATE || { likes: 5, win: 5, top: 3 };
+  const DB = window.ClassLive.DEBATE || { likes: 5, win: 0, top: 3 };
   const unit = config.unit || window.ClassLive.unitOf();
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const SIDE = { pro: '正方', con: '反方' };
@@ -129,7 +131,7 @@
     { key: 'talk', label: '自由讨论', secs: 300, hint: '同一立场的同学（或前后桌）当面讨论：我方最有力的理由是什么、对方会怎么反驳；每人想好要在聊天室里说的一句话。这一步聊天室还不能发言' },
     { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
-    { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `票多的一方聊天室里的同学各加 ${DB.win} 修为，点赞前三各加 ${DB.likes} 修为` },
+    { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `按票数公布哪一方获胜；全场点赞前三各加 ${DB.likes} 修为，获胜方不加修为` },
   ];
   const flowIndex = (key) => FLOW.findIndex((step) => step.key === key);
   // 2026-11-20 每一步的计时同步到学生页（用户：“辩论赛中的倒计时，在学生端中也设置倒计时，倒计时结束的话无法递交。但是如果老师点了+30秒，就又可以递交。”）：
@@ -149,7 +151,7 @@
     let reveal = false;    // 看板和结果共用“揭晓姓名”
     let stopped = false;   // 辩后投票已停止递交
     let stopsAt = 0;
-    let verdict = null;    // 判定结果 { side（pro / con / none）, pro, con, list, manual } / { tie } / { cleared } / { restored, list }
+    let verdict = null;    // 公布的结果 { side（pro / con / tie）, pro, con, list } / { cleared } / { restored, list }
 
     // ---------- 流程图：插在正文“辩论流程”的位置 ----------
     const flow = document.createElement('div');
@@ -351,20 +353,18 @@
       sync('extend', null, 30);
     }
 
-    // ---------- 辩后投票：停止递交，按票数判定胜负并加修为 ----------
+    // ---------- 辩后投票：停止递交，按票数公布胜负，给全场点赞前三加修为 ----------
+    // 2026-11-21 起获胜方不加修为：胜负只按票数公布（平票就是平票，不用裁定、改判）；后台一律按 'none' 调用（只给点赞前三），
+    // 这样后台还没更新时也是只给前三。manual === null＝撤销今天加的辩论赛修为
     async function decide(manual) {
       if (!room) return;
       try {
         await load(true);
         const { pro, con } = tally();
-        const side = manual !== undefined ? manual : pro > con ? 'pro' : con > pro ? 'con' : null;
-        if (manual === undefined && !side) {
-          verdict = { tie: true, pro, con };
-        } else {
-          let list = await backend.rpc('ck_set_debate_winners', { p_classroom: Number(room.id) || room.id, p_case: no, p_side: side, p_points: DB.likes });
-          list = Array.isArray(list) ? list : [];
-          verdict = side ? { side, pro, con, list, manual: manual !== undefined } : { cleared: true, pro, con };
-        }
+        const side = pro > con ? 'pro' : con > pro ? 'con' : 'tie';
+        let list = await backend.rpc('ck_set_debate_winners', { p_classroom: Number(room.id) || room.id, p_case: no, p_side: manual === null ? null : 'none', p_points: DB.likes });
+        list = Array.isArray(list) ? list : [];
+        verdict = manual === null ? { cleared: true, pro, con } : { side, pro, con, list };
         await load(true);
       } catch (error) {
         window.alert(`公布结果没有成功：${error.message || error}`);
@@ -375,7 +375,7 @@
     async function finish() {
       if (!room) return;
       if (!stopped) {
-        if (!window.confirm(`停止递交辩后票，按票数公布结果？\n· 全场点赞前三各加 ${DB.likes} 修为；\n· 票多的一方聊天室里的同学各加 ${DB.win} 修为（平票由你裁定）。`)) return;
+        if (!window.confirm(`停止递交辩后票，按票数公布结果？\n· 票多的一方获胜（获胜方不加修为）；\n· 全场点赞前三各加 ${DB.likes} 修为。`)) return;
         try { await setStop(true); } catch (error) { window.alert(`停止递交没有成功：${error.message || error}`); return; }
       }
       writeLocal({ key: 'result', ends: Date.now(), paused: false, left: 0, total: 0 });
@@ -395,36 +395,30 @@
         const top = list.filter((a) => a.top);
         const leaders = ((data && data.leaders) || []).filter((m) => top.some((a) => a.sid === m.sid));
         const topText = leaders.length ? leaders.map(leaderName).join('、') : top.map((a) => esc(a.name)).join('、');
-        const win = list.filter((a) => a.win).length;
         const lines = [
           top.length ? `点赞前三：${topText} 各加 ${DB.likes} 修为` : '没有人被点赞（或点赞最多的不在点名册上），点赞前三没有加修为',
-          v.side === 'none' ? '平局：两方都不加获胜修为' : win ? `${SIDE[v.side]}聊天室里的 ${win} 位同学各加 ${DB.win} 修为` : `${SIDE[v.side]}聊天室里没有点名册内的同学，获胜方没有加修为`,
+          '获胜方不加修为：辩后投票只看大家现在支持哪一方',
         ];
         return `<ul class="dbr-awards">${lines.map((x) => `<li>${x}</li>`).join('')}</ul>${roll(list)}`;
       };
-      const other = (side) => (side === 'pro' ? 'con' : 'pro');
+      // 胜负只看票数：公布以后刷新页面（restored）也照票数写出哪一方获胜
+      const wonHtml = (side) => (side === 'tie' ? '<p class="dbr-win">平票</p>' : `<p class="dbr-win is-${side}">${SIDE[side]}胜</p>`);
       let body;
       if (verdict && verdict.side) {
-        const won = verdict.side === 'none' ? '<p class="dbr-win">平局</p>' : `<p class="dbr-win is-${verdict.side}">${SIDE[verdict.side]}胜${verdict.manual ? '<small style="font-size:15px;letter-spacing:0;font-weight:400">（老师裁定）</small>' : ''}</p>`;
-        body = won + awards(verdict) + '<div class="dbr-acts"><button type="button" data-dbr-undo>撤销加修为</button>'
-          + (verdict.side === 'none' ? '<button type="button" class="is-pro" data-dbr-side="pro">改判正方胜</button><button type="button" class="is-con" data-dbr-side="con">改判反方胜</button>'
-            : `<button type="button" data-dbr-side="${other(verdict.side)}">改判${SIDE[other(verdict.side)]}胜</button><button type="button" data-dbr-side="none">改判平局</button>`) + '</div>';
+        body = wonHtml(verdict.side) + awards(verdict) + '<div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button><button type="button" data-dbr-undo>撤销加修为</button></div>';
       } else if (verdict && verdict.restored) {
-        body = `<p class="dbr-note">今天已给 ${verdict.list.length} 位同学加辩论赛修为。</p>${roll(verdict.list)}`
+        body = wonHtml(t.pro > t.con ? 'pro' : t.con > t.pro ? 'con' : 'tie')
+          + `<p class="dbr-note">今天已给 ${verdict.list.length} 位同学加辩论赛修为（全场点赞前三；获胜方不加修为）。</p>${roll(verdict.list)}`
           + '<div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button><button type="button" data-dbr-undo>撤销加修为</button></div>';
-      } else if (verdict && verdict.tie) {
-        body = '<p class="dbr-win">平票</p><p class="dbr-note">票数相同，请裁定：</p>'
-          + '<div class="dbr-acts"><button type="button" class="is-pro" data-dbr-side="pro">判正方胜</button><button type="button" class="is-con" data-dbr-side="con">判反方胜</button>'
-          + `<button type="button" data-dbr-side="none">平局（只给点赞前三加修为）</button></div>`;
       } else if (verdict && verdict.cleared) {
         body = '<p class="dbr-note">已撤销今天的辩论赛修为。</p><div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button></div>';
       } else if (stopped) {
         body = '<p class="dbr-note">辩后投票已停止递交。</p><div class="dbr-acts"><button type="button" class="is-main" data-dbr-decide>按票数公布结果</button></div>';
       } else if (voting) {
-        body = `<p class="dbr-note">学生正在投辩后票（票数每 4 秒更新）。点下面的按钮（或上面统计里的“停止递交”）停止递交后公布结果：票多的一方聊天室里的同学各加 ${DB.win} 修为，全场点赞前三各加 ${DB.likes} 修为。</p>`
+        body = `<p class="dbr-note">学生正在投辩后票（票数每 4 秒更新）。点下面的按钮（或上面统计里的“停止递交”）停止递交后公布结果：票多的一方获胜（不加修为），全场点赞前三各加 ${DB.likes} 修为。</p>`
           + '<div class="dbr-acts"><button type="button" class="is-main" data-dbr-finish>停止递交，公布结果</button></div>';
       } else {
-        body = `<p class="dbr-note">流程走到“辩后投票”时这里显示票数；停止递交后公布结果：票多的一方聊天室里的同学各加 ${DB.win} 修为，全场点赞前三各加 ${DB.likes} 修为。</p>`;
+        body = `<p class="dbr-note">流程走到“辩后投票”时这里显示票数；停止递交后公布结果：票多的一方获胜（不加修为），全场点赞前三各加 ${DB.likes} 修为。</p>`;
       }
       result.innerHTML = `<div class="dbr-box"><span class="dbr-tag">辩论结果</span>${voting || stopped || verdict ? score : ''}${body}</div>`;
     }
@@ -432,12 +426,8 @@
       const t = event.target;
       if (t.closest('[data-dbr-finish]')) finish();
       else if (t.closest('[data-dbr-decide]')) decide();
-      else if (t.closest('[data-dbr-side]')) {
-        const side = t.closest('[data-dbr-side]').dataset.dbrSide;
-        const text = side === 'none' ? `判平局：只给全场点赞前三各加 ${DB.likes} 修为？` : `判${SIDE[side]}获胜：${SIDE[side]}聊天室里的同学（点名册内）各加 ${DB.win} 修为，点赞前三各加 ${DB.likes} 修为？`;
-        if (window.confirm(`${text}\n今天原来加的辩论赛修为会整份替换。`)) decide(side);
-      } else if (t.closest('[data-dbr-undo]')) {
-        if (window.confirm('撤销今天加的辩论赛修为（点赞前三和获胜方）？')) decide(null);
+      else if (t.closest('[data-dbr-undo]')) {
+        if (window.confirm('撤销今天加的辩论赛修为（全场点赞前三）？')) decide(null);
       }
     });
     // 投屏统计里点了辩后投票的“停止递交”：同样按票数公布结果；重新开放递交时回到“辩后投票”

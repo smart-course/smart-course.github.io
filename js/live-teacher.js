@@ -4162,7 +4162,9 @@
   const minutesOf = (seconds) => Math.round((Number(seconds) || 0) / 6) / 10;   // 保留一位小数
   // 0 秒不再显示“—”（2026-11-20 用户：“有的同学总是显示‘-’”）：这一段还没来得及报到就离开了，写“不到 1 分钟”；
   // 用历史课堂码查看的（view）后台不累计时长，写“不计时”
-  const durText = (seconds, kind) => { const s = Number(seconds) || 0; return s < 60 ? (s ? `${s} 秒` : (kind === 'view' ? '不计时' : '不到 1 分钟')) : `${Math.round(s / 60)} 分钟`; };
+  // 2026-11-21 起“查看历史课堂”也计时：这以前的查看记录没有时长，写“未计时”
+  const VIEW_TIMED = Date.parse('2026-11-21T00:00:00+08:00');
+  const durText = (seconds, kind, started) => { const s = Number(seconds) || 0; return s < 60 ? (s ? `${s} 秒` : (kind === 'view' && millis(started) < VIEW_TIMED ? '未计时' : '不到 1 分钟')) : `${Math.round(s / 60)} 分钟`; };
   function renderVisits() {
     const box = $('[data-visit-rows]');
     if (!box) return;
@@ -4174,7 +4176,7 @@
     const recent = sec.visits.filter((row) => millis(row.last_at) > day && !row.auditor);
     $('[data-visit-count]').textContent = sec.visitProblem ? '' : `（最近 24 小时 ${new Set(recent.map((row) => sidKey(row.sid))).size} 人、${recent.length} 段，在线合计约 ${Math.round(recent.reduce((t, row) => t + (Number(row.seconds) || 0), 0) / 60)} 分钟）`;
     box.innerHTML = sec.visitProblem ? `<tr><td colspan="7" class="empty">${esc(sec.visitProblem)}</td></tr>`
-      : rows.slice(0, 80).map((row) => `<tr><td>${esc(stamp(row.started_at))}</td><td>${esc(clock(millis(row.last_at)))}</td><td>${esc(durText(row.seconds, row.kind))}</td>
+      : rows.slice(0, 80).map((row) => `<tr><td>${esc(stamp(row.started_at))}</td><td>${esc(clock(millis(row.last_at)))}</td><td>${esc(durText(row.seconds, row.kind, row.started_at))}</td>
         <td>${esc(row.sid)}</td><td>${esc(row.name || '')}${row.auditor ? ' <small>旁听</small>' : ''}</td><td>${esc(roomName.get(String(row.classroom)) || row.unit || '')}</td><td>${esc(VISIT_KIND[row.kind] || row.kind)}</td></tr>`).join('')
         || `<tr><td colspan="7" class="empty">${query ? '没有符合条件的记录。' : '还没有记录：学生下次登录或打开章节页时开始记录。'}</td></tr>`;
   }
