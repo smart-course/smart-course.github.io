@@ -310,8 +310,7 @@
   .rm-hw-kicker { display: inline-block; padding: 0 .6em; border-radius: 999px; background: #f3dfbd; color: #8a5414; font-size: .8em; font-weight: 700; letter-spacing: .12em; }
   .rm-hw-head h3 { margin: .2em 0 .25em; font-size: 1.2em; line-height: 1.4; color: #5a3a10; }
   .rm-hw-head p { margin: 0; font-size: .9em; color: #6b5a40; }
-  .rm-hw-tags { display: flex; flex-wrap: wrap; gap: 6px; margin: .9em 0 0; padding: 0; list-style: none; }
-  .rm-hw-tags li { padding: .1em .8em; border-radius: 999px; color: #fff; font-size: .82em; font-weight: 700; }
+  .rm-hw-src { margin: .7em 0 0; font-size: .92em; color: #5a4a30; }
   .rm-hw-note { margin: .8em 0 0; padding: .55em .8em; border-radius: 10px; background: rgba(255,255,255,.75); border: 1px dashed #e0c79d; font-size: .9em; color: #6b5a40; }
   @media print { .rm-hw { display: none !important; } }`;
     document.head.appendChild(css);
@@ -319,10 +318,13 @@
     card.className = 'rm-hw';
     card.setAttribute('data-ix', '');
     card.setAttribute('data-review-projector', '');
+    // 这张卡片是脚本后加的，页面自己的“增强组件里点击不翻页”没有管到它：点卡片不要触发“点左右两侧翻节”
+    // （2026-11-20 用户：“我点回温的‘课堂’等按钮直接给我链接到最顶端了”——原来这里有几枚像按钮的来源标签，已改成一句话）
+    ['click', 'keydown', 'keyup'].forEach((type) => card.addEventListener(type, (event) => event.stopPropagation()));
     card.innerHTML = `<header class="rm-hw-head"><span class="rm-hw-mark" aria-hidden="true">温</span><div><span class="rm-hw-kicker">回温</span>
       <h3>把做错的题再做一遍</h3>
       <p>学生页的这个位置是“回温”：汇集每位同学自己在课堂、修炼场和云间灵田里做错的题${worksheet ? '（课后自修的出门测、温故，等下一次课讲评以后才进来）' : ''}。重做答对了，就从清单里移走；答错了，看看答案和讲解，过一会儿再来做。回温的题不算本堂作业，不计入递交情况，也不加修为，是帮同学把易错点补牢。</p></div></header>
-      <ul class="rm-hw-tags" aria-label="错题来源"><li style="background:#2f6f73">课堂</li>${worksheet ? '<li style="background:#7a5ab5">课后自修</li>' : ''}<li style="background:#3a8a6b">修炼场</li><li style="background:#5b8f3a">云间灵田</li></ul>
+      <p class="rm-hw-src">错题来自：课堂${worksheet ? '、课后自修' : ''}、修炼场、云间灵田。</p>
       <p class="rm-hw-note">老师的页面只作展示：每位同学看到的是自己的错题清单，内容各不相同。想看学生端的样子，可以从工作台打开“学生测试版”。</p>`;
     anchor.insertAdjacentElement('afterend', card);
   })();

@@ -87,7 +87,73 @@
   .mqb-bars b { font-variant-numeric: tabular-nums; text-align: right; }
   /* 开局以前大屏上也先不显示题目（学生页是收起的，大屏提前露出来就不公平了）；老师可以点“先看一眼题目” */
   .act-veil > .quiz-item, .act-veil .tk-items, .act-veil .tk-legend { display: none !important; }
-  @media print { .act-ctl, .mq-board { display: none !important; } .act-veil > .quiz-item, .act-veil .tk-items, .act-veil .tk-legend { display: revert !important; } }
+  /* 抢答、闯关的大屏：配色、字号同 PK 对决的大屏 */
+  .act-stage { position: fixed; z-index: 2147482000; inset: 0; display: flex; flex-direction: column; padding: 22px 34px 24px; box-sizing: border-box; color: #fff;
+    background: radial-gradient(ellipse at 50% 0%, #2a2238 0%, #17131d 60%, #0e0c12 100%); font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .act-stage[hidden] { display: none; }
+  body.act-stage-open { overflow: hidden; }
+  .act-stage-x { position: absolute; top: 18px; right: 22px; display: grid; place-items: center; width: 50px; height: 50px; padding: 0; border: 1px solid rgba(255, 255, 255, .45); border-radius: 8px;
+    color: #fff; background: transparent; font-size: 30px; line-height: 1; cursor: pointer; }
+  .act-stage-top { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 8px 24px; padding-right: 70px; font-weight: 800; font-size: 22px; line-height: 1.4; }
+  .act-stage-kicker { color: #e7c98c; }
+  .act-stage-info { color: rgba(255, 255, 255, .75); font-size: 18px; }
+  .act-stage-center { position: relative; flex: 1; min-height: 0; display: flex; flex-direction: column; overflow: auto; padding: 10px 0; }
+  .act-stage-center > * { margin: auto; }
+  .act-stage-note { min-height: 28px; margin: 6px 0; text-align: center; color: #ffe8a8; font-weight: 700; font-size: clamp(17px, 1.6vw, 22px); line-height: 1.4; }
+  .act-stage-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
+  .act-stage-actions button, .act-stage-actions select { min-width: 130px; min-height: 58px; padding: 8px 20px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 8px; color: #fff;
+    background: rgba(255, 255, 255, .12); font: inherit; font-weight: 800; font-size: 22px; line-height: 1.2; cursor: pointer; }
+  .act-stage-actions button.is-go { border-color: #ffd98a; color: #2b2118; background: #ffd98a; }
+  .act-stage-actions button.is-red { border-color: #f0a08c; background: #c8452d; }
+  .act-stage-actions button:disabled { opacity: .45; cursor: default; }
+  .act-stage-actions select option { color: #2b2118; }
+  .act-stage-rules { width: min(1100px, 94vw); }
+  .act-stage-rules h3 { margin: 0 0 14px; text-align: center; font-weight: 800; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.3; }
+  .act-stage-rules ol { display: grid; gap: 12px; margin: 0; padding-left: 1.4em; font-weight: 700; font-size: clamp(20px, 2vw, 30px); line-height: 1.55; }
+  .act-stage-count { font: 900 clamp(160px, 22vw, 320px)/1 Georgia, "Times New Roman", serif; color: #ffd98a; text-shadow: 0 0 40px rgba(255, 217, 138, .7); animation: act-stage-pop .9s ease; }
+  @keyframes act-stage-pop { 0% { opacity: 0; transform: scale(.6); } 30% { opacity: 1; transform: scale(1.1); } 100% { opacity: 1; transform: scale(1); } }
+  .act-stage-run { width: min(1200px, 95vw); display: grid; gap: 16px; justify-items: center; }
+  .act-stage-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 40px; }
+  .act-stage-clock { font: 900 clamp(64px, 9vw, 130px)/1 Georgia, "Times New Roman", serif; color: #ffd98a; text-shadow: 0 0 28px rgba(255, 217, 138, .5); font-variant-numeric: tabular-nums; }
+  .act-stage-clock.is-low { color: #ff9c85; text-shadow: 0 0 28px rgba(255, 120, 90, .6); }
+  .act-stage-clock.is-done { font-size: clamp(34px, 4vw, 56px); color: #e7c98c; text-shadow: none; }
+  .act-stage-stats { display: flex; flex-wrap: wrap; justify-content: center; gap: 14px; }
+  .act-stage-stats div { min-width: 150px; padding: 10px 18px; border-radius: 14px; text-align: center; background: linear-gradient(90deg, rgba(47, 111, 179, .8), rgba(47, 111, 179, .32)); }
+  .act-stage-stats div.is-good { background: linear-gradient(90deg, rgba(35, 101, 95, .92), rgba(35, 101, 95, .42)); }
+  .act-stage-stats b { display: block; font: 900 clamp(40px, 4.6vw, 64px)/1 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; }
+  .act-stage-stats span { font-weight: 700; font-size: 18px; line-height: 1.4; opacity: .9; }
+  .act-stage-tabs { display: flex; flex-wrap: wrap; justify-content: center; gap: 10px; }
+  .act-stage-tabs button { padding: 8px 18px; border: 2px solid rgba(255, 255, 255, .3); border-radius: 999px; background: rgba(255, 255, 255, .08); color: #fff; font: inherit; font-weight: 800;
+    font-size: clamp(16px, 1.5vw, 21px); line-height: 1.3; cursor: pointer; }
+  .act-stage-tabs button[aria-pressed="true"] { border-color: #ffd98a; background: #ffd98a; color: #2b2118; }
+  .act-stage-q { width: 100%; }
+  .act-stage-scene { margin: 0 0 14px; padding: 10px 16px; border-left: 5px solid #e7c98c; background: rgba(255, 255, 255, .05); font-weight: 600; font-size: clamp(17px, 1.6vw, 24px); line-height: 1.65; }
+  .act-stage-scene b { display: block; margin-bottom: 4px; color: #ffd98a; font-weight: 800; }
+  .act-stage-qtext { margin: 0 0 12px; font-weight: 700; font-size: clamp(21px, 2.2vw, 34px); line-height: 1.5; }
+  .act-stage-qtext small { display: inline-block; margin-right: 10px; padding: 0 10px; border-radius: 6px; color: #2b2118; background: #e7c98c; font-size: .62em; font-weight: 800; vertical-align: .18em; }
+  .act-stage-opts { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; margin: 0 0 14px; }
+  .act-stage-opts.is-one { grid-template-columns: 1fr; }
+  .act-stage-opts > div { display: flex; align-items: flex-start; gap: 12px; padding: 10px 16px; border: 2px solid rgba(255, 255, 255, .3); border-radius: 12px; background: rgba(255, 255, 255, .08);
+    font-weight: 700; font-size: clamp(17px, 1.7vw, 25px); line-height: 1.45; }
+  .act-stage-opts > div > b { flex: 0 0 auto; display: grid; place-items: center; width: 1.6em; height: 1.6em; border-radius: 50%; color: #2b2118; background: #e7c98c; font-size: .85em; }
+  .act-stage-opts > div > span { flex: 1 1 auto; min-width: 0; }
+  .act-stage-opts > div.is-right { border-color: #9be0c9; background: rgba(35, 101, 95, .75); }
+  .act-stage-opts > div > em { flex: 0 0 auto; font-style: normal; color: #9be0c9; white-space: nowrap; }
+  .act-stage-answer { width: 100%; margin: 0 0 10px; padding: 10px 16px; border-radius: 12px; border: 2px solid #9be0c9; background: rgba(35, 101, 95, .55); font-weight: 700; font-size: clamp(17px, 1.7vw, 25px); line-height: 1.5; }
+  .act-stage-answer em { margin-left: 12px; font-style: normal; color: #9be0c9; white-space: nowrap; }
+  .act-stage-explain { width: 100%; box-sizing: border-box; padding: 10px 16px; border-left: 5px solid #e7c98c; background: rgba(255, 255, 255, .05); font-weight: 600; font-size: clamp(16px, 1.5vw, 22px); line-height: 1.6; }
+  .act-stage-explain, .act-stage-explain * { color: rgba(255, 255, 255, .92) !important; background: transparent !important; }
+  .act-stage-explain p { margin: 0 0 6px; } .act-stage-explain ul { margin: 0; padding-left: 1.2em; } .act-stage-explain b { margin-right: 8px; color: #ffd98a !important; }
+  .act-stage-rank { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 8px 12px; width: 100%; margin: 0; padding: 0; list-style: none; }
+  .act-stage-rank li { display: flex; align-items: center; gap: 10px; padding: 8px 14px; border: 1px solid rgba(155, 224, 201, .6); border-radius: 12px; background: rgba(35, 101, 95, .6);
+    font-weight: 700; font-size: clamp(17px, 1.6vw, 23px); line-height: 1.3; }
+  .act-stage-rank li i { flex: 0 0 auto; display: grid; place-items: center; width: 1.7em; height: 1.7em; border-radius: 50%; background: #e7c98c; color: #2b2118; font-style: normal; font-size: .85em; }
+  .act-stage-rank li span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .act-stage-rank li em { flex: 0 0 auto; font-style: normal; font-size: .8em; opacity: .85; }
+  .act-stage-rank li.is-out { border-color: rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); font-weight: 500; }
+  .act-stage-empty { font-weight: 700; font-size: clamp(20px, 2vw, 30px); color: rgba(255, 255, 255, .8); text-align: center; }
+  @media (prefers-reduced-motion: reduce) { .act-stage-count { animation: none; } }
+  @media print { .act-ctl, .mq-board, .act-stage { display: none !important; } .act-veil > .quiz-item, .act-veil .tk-items, .act-veil .tk-legend { display: revert !important; } }
   `;
   document.head.appendChild(style);
 
@@ -165,7 +231,7 @@
     ctl.className = 'act-ctl';
     ctl.setAttribute('data-ix', '');
     ctl.innerHTML = `<div class="act-ctl-row">
-        <button type="button" class="is-main" data-act-go>${kind === 'rush' ? '🎲 随机抢答' : '🚩 开放闯关入口'}</button>
+        <button type="button" class="is-main" data-act-go>${kind === 'rush' ? '🖥 打开抢答大屏' : '🖥 打开闯关大屏'}</button>
         ${kind === 'quest' ? `<select data-act-mins aria-label="闯关时长">${QUEST.minutes.map((m) => `<option value="${m}"${m === QUEST.pick ? ' selected' : ''}>${m} 分钟</option>`).join('')}</select>` : ''}
         <button type="button" data-act-plain>${kind === 'rush' ? '不抢答，直接开放这道题' : '不闯关，直接开放题目'}</button>
         <button type="button" data-act-peek aria-pressed="false">先看一眼题目</button>
@@ -175,8 +241,8 @@
         <button type="button" class="is-warn" data-act-stop hidden>${kind === 'rush' ? '结束抢答' : '结束闯关'}</button>
       </div>
       <p class="act-note">${kind === 'rush'
-        ? `学生页先不显示这道题。点“随机抢答”：${Math.round(RUSH.chance * 100)}% 的概率触发抢答——学生页弹出 ${RUSH.delay} 秒倒计时，随后限时 ${RUSH.secs} 秒作答，每人只能交一次，前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为；没有触发时题目照常开放。抢答结束后再点下面的“核对”讲评。`
-        : `学生页先不显示这三道题。点“开放闯关入口”：学生页弹出 ${QUEST.delay} 秒倒计时，随后三则小资料一关一关作答——每关两问（先选讲对了的分析，再判断它对应哪个理论要点），两问都对才算过关；限时内只能交一次，三关全过加 ${QUEST.points} 修为。交卷后学生页显示题目和解答。`}</p>
+        ? `学生页先不显示这道题。点“打开抢答大屏”，在大屏上点“随机抢答”：${Math.round(RUSH.chance * 100)}% 的概率触发抢答——学生页弹出 ${RUSH.delay} 秒倒计时，随后限时 ${RUSH.secs} 秒作答，每人只能交一次，前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为；没有触发时题目照常开放。抢答结束后再点下面的“核对”讲评。`
+        : `学生页先不显示这三道题。点“打开闯关大屏”，在大屏上选时长、点“开始闯关”：学生页弹出 ${QUEST.delay} 秒倒计时，随后三则小资料一关一关作答（做完一关再出下一关）——每关两问（先选讲对了的分析，再判断它对应哪个理论要点），两问都对才算过关；限时内只能交一次，三关全过加 ${QUEST.points} 修为。交卷后学生页显示题目和解答。`}</p>
       <div class="act-board" data-act-board hidden></div>`;
     const head = box.querySelector('.interaction-heading') || box.querySelector('.tk-intro') || box.firstElementChild;
     head.insertAdjacentElement('afterend', ctl);
@@ -190,6 +256,7 @@
     let note = '';         // 没有触发抢答等一次性的说明
     let busy = false;
     let peek = false;      // 老师点了“先看一眼题目”
+    let lastPhase = '';
     const now = () => Date.now() + offset;
     const phase = () => (!game ? 'none' : game.mode === 'plain' ? 'plain' : game.closed ? 'over' : now() < game.go_at ? 'count' : now() <= game.go_at + game.secs * 1000 ? 'open' : 'over');
     const control = (action, extra = {}) => rpcOne('ck_act_control', { p_classroom: Number(room.id) || room.id, p_case: no, p_kind: kind, p_action: action,
@@ -201,13 +268,13 @@
     function paint() {
       const p = phase();
       const running = p === 'count' || p === 'open';
-      ui.go.disabled = busy || !room || running;
+      ui.go.disabled = !room;
       ui.plain.disabled = busy || !room || running;
       ui.plain.hidden = p === 'plain';
       if (ui.mins) ui.mins.disabled = busy || running;
       ui.extend.hidden = !(p === 'open' || p === 'over');
       ui.stop.hidden = !running;
-      ui.go.textContent = p === 'none' || p === 'plain' ? (kind === 'rush' ? '🎲 随机抢答' : '🚩 开放闯关入口') : (kind === 'rush' ? '🎲 再来一次（没交的同学）' : '🚩 重新开放（没交的同学）');
+      ui.go.textContent = kind === 'rush' ? '🖥 打开抢答大屏' : '🖥 打开闯关大屏';
       ui.clock.hidden = !running;
       const veil = (p === 'none' || p === 'count') && !peek;
       box.classList.toggle('act-veil', veil);
@@ -226,6 +293,9 @@
         : p === 'open' ? `作答中 · 已交 ${total} 人 · ${kind === 'rush' ? '答对' : '三关全过'} ${right} 人`
         : `已结束 · 共交 ${total} 人 · ${kind === 'rush' ? '答对' : '三关全过'} ${right} 人${kind === 'rush' ? '。请点下面的“核对”讲评。' : '。交了卷的同学已经在自己页面上看到题目和解答。'}`;
       paintBoard(p);
+      if (p === 'over' && kind === 'quest' && lastPhase !== 'over') tab = 0;   // 闯关刚结束：大屏从第一关开始揭晓
+      lastPhase = p;
+      paintStage(p);
     }
     function paintBoard(p) {
       if (!board || p === 'none' || p === 'plain') { ui.board.hidden = true; return; }
@@ -266,7 +336,8 @@
       busy = false;
       await refresh();
     }
-    ui.go.addEventListener('click', () => {
+    // 开局：抢答 99% 触发、1% 不触发（题目照常开放）；闯关按所选时长
+    const start = () => {
       note = '';
       if (kind === 'rush') {
         if (Math.random() < RUSH.chance) act(() => control('start', { mode: 'game', answer, secs: RUSH.secs, delay: RUSH.delay }));
@@ -274,7 +345,152 @@
       } else {
         act(() => control('start', { mode: 'game', answer, secs: Number(ui.mins.value) * 60, delay: QUEST.delay }));
       }
+    };
+
+    // ---------- 大屏（2026-11-20 用户：“要设置成大屏播放的那种风格，跟PK对决类似”）----------
+    // 铺满屏幕的深色舞台：玩法 → 开始（大字倒计时）→ 计时、已交和答对人数（抢答同时显示题目；闯关可以点某一关，把这一关的小资料和题目投到大屏）
+    // → 结束后揭晓（抢答：答案和名次；闯关：一关一关看答案、每一问答对的人数和讲评，最后是过关名单）。Esc 关闭，← → 换关
+    const text = (el) => (el ? el.textContent.replace(/\s+/g, ' ').trim() : '');
+    const LET = (i) => String.fromCharCode(65 + i);
+    const itemOf = (el) => ({
+      id: el.dataset.quizKey.split(':')[1], prompt: text(el.querySelector('.quiz-q')).replace(/^(单选|多选|判断)\s*/, ''),
+      options: Array.from(el.querySelectorAll('[data-quiz-option]')).map((b, i) => ({ value: b.dataset.quizOption, letter: LET(i), text: text(b.querySelector('span')) })),
+      answer: String(el.dataset.quizAnswer || '').split(',').filter(Boolean), explain: (el.querySelector('[data-quiz-explain]') || {}).innerHTML || '',
     });
+    const levels = kind === 'rush' ? [itemOf(box.querySelector('[data-quiz-key$=":digest"]'))]
+      : Array.from(box.querySelectorAll('.tk-item')).filter((li) => li.querySelector('[data-quiz-key]')).map((li) => ({
+        ...itemOf(li.querySelector('[data-quiz-key]')), title: text(li.querySelector('.tk-scene b')), scene: text(li.querySelector('.tk-scene p')), k: String(li.dataset.tkK || '') }));
+    const legend = Array.from(box.querySelectorAll('.tk-legend li')).map((li) => ({ k: text(li.querySelector('b')).replace(/\D/g, ''), text: text(li.querySelector('span')) }));
+    const caseTitle = `案例 ${no}　${text(document.querySelector(`#case-${no}-story h2`))}`.trim();
+    const stage = document.createElement('div');
+    stage.className = 'act-stage';
+    stage.hidden = true;
+    stage.setAttribute('role', 'dialog');
+    stage.setAttribute('aria-modal', 'true');
+    stage.setAttribute('aria-label', kind === 'rush' ? '抢答大屏' : '闯关大屏');
+    stage.innerHTML = `<button type="button" class="act-stage-x" data-as-close aria-label="关闭大屏">×</button>
+      <div class="act-stage-top"><span class="act-stage-kicker">${kind === 'rush' ? '随机抢答 · 材料归纳' : '限时闯关 · 小资料分析'}</span><span class="act-stage-info">${esc(caseTitle)}</span></div>
+      <div class="act-stage-center" data-as-center></div>
+      <p class="act-stage-note" data-as-note></p>
+      <div class="act-stage-actions" data-as-actions></div>`;
+    ['click', 'keyup'].forEach((type) => stage.addEventListener(type, (event) => event.stopPropagation()));
+    document.body.appendChild(stage);
+    const sv = { center: stage.querySelector('[data-as-center]'), note: stage.querySelector('[data-as-note]'), actions: stage.querySelector('[data-as-actions]') };
+    let tab = -1;        // 闯关：大屏上现在看第几关（-1＝总览；结束后 levels.length＝过关名单）
+    let stageSig = '';
+    const openStage = () => { stage.hidden = false; document.body.classList.add('act-stage-open'); stageSig = ''; tab = phase() === 'over' && kind === 'quest' ? 0 : -1; paint(); refresh(); };
+    const closeStage = () => { stage.hidden = true; if (!document.querySelector('.act-stage:not([hidden])')) document.body.classList.remove('act-stage-open'); };
+    const optList = (item, reveal) => `<div class="act-stage-opts${item.options.some((o) => o.text.length > 26) ? ' is-one' : ''}">${item.options.map((o) =>
+      `<div class="${reveal && item.answer.includes(o.value) ? 'is-right' : ''}"><b>${esc(o.letter)}</b><span>${esc(o.text)}</span>${reveal && item.answer.includes(o.value) ? '<em>✓ 正确</em>' : ''}</div>`).join('')}</div>`;
+    const seconds = (ms) => `${(Math.max(0, Number(ms) || 0) / 1000).toFixed(1)} 秒`;
+    const rules = () => (kind === 'rush' ? [
+      '学生页上这道多选题先收着，大屏上也先不显示。',
+      `点“随机抢答”：${Math.round(RUSH.chance * 100)}% 触发——${RUSH.delay} 秒倒计时后，题目同时出现在大屏和学生页，限时 ${RUSH.secs} 秒。`,
+      `每人只能交一次；前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。`,
+      '没有触发时，题目照常开放，学生像平常一样作答。',
+    ] : [
+      '三则小资料，一则一关：学生在自己的页面上闯关，做完一关再出下一关。',
+      '每关两问：先选出讲对了的分析，再判断它对应哪个理论要点；两问都对才算过关。',
+      `限时作答，只能交一次，到时间自动交卷；三关全过加 ${QUEST.points} 修为。`,
+      '时间到以后，在大屏上一关一关揭晓答案。',
+    ]);
+    const levelView = (i, reveal) => {
+      const L = levels[i];
+      const n = board ? board.total : 0;
+      const got = (id) => (board && board.items ? Number(board.items[id]) || 0 : 0);
+      const kRight = legend.find((x) => x.k === L.k);
+      return `<div class="act-stage-q"><p class="act-stage-scene"><b>${esc(L.title)}</b>${esc(L.scene)}</p>
+        <p class="act-stage-qtext"><small>第一问</small>${esc(L.prompt)}${reveal ? `<small style="margin-left:12px;background:#9be0c9">答对 ${got(L.id)} / ${n} 人</small>` : ''}</p>${optList(L, reveal)}
+        <p class="act-stage-qtext"><small>第二问</small>讲对了的那个分析，对应哪个理论要点？${reveal ? `<small style="margin-left:12px;background:#9be0c9">答对 ${got(`${L.id}k`)} / ${n} 人</small>` : ''}</p>
+        ${reveal ? `<p class="act-stage-answer">${kRight ? esc(`K${kRight.k} ${kRight.text}`) : `K${esc(L.k)}`}<em>✓ 正确</em></p>${L.explain ? `<div class="act-stage-explain">${L.explain}</div>` : ''}`
+          : `<div class="act-stage-opts is-one">${legend.map((x) => `<div><b>K${esc(x.k)}</b><span>${esc(x.text)}</span></div>`).join('')}</div>`}</div>`;
+    };
+    const rankList = (rows, top) => (rows.length ? `<ol class="act-stage-rank">${rows.map((row, i) =>
+      `<li class="${top && !(row.bonus > 0) ? 'is-out' : ''}"><i>${top ? row.place : i + 1}</i><span>${esc(row.name)}</span><em>${seconds(row.ms)}${row.bonus > 0 ? ` · +${row.bonus}` : ''}</em></li>`).join('')}</ol>` : '');
+    function paintStage(p) {
+      if (stage.hidden) return;
+      const total = board ? board.total : 0;
+      const right = board ? board.right : 0;
+      const left = p === 'open' ? Math.max(0, Math.ceil((game.go_at + game.secs * 1000 - now()) / 1000)) : 0;
+      // 倒计时每次都刷，其余内容变了才重画（免得按钮、动画被打断）
+      const sig = JSON.stringify([p, busy, tab, total, right, board && board.items, note, Boolean(room), p === 'count' ? Math.max(1, Math.ceil((game.go_at - now()) / 1000)) : 0,
+        board && p === 'over' ? board.list.length : 0, ui.mins ? ui.mins.value : '']);
+      if (sig !== stageSig) {
+        stageSig = sig;
+        const stats = `<div class="act-stage-stats"><div><b>${total}</b><span>${kind === 'rush' ? '已交' : '已交卷'}</span></div><div class="is-good"><b>${right}</b><span>${kind === 'rush' ? '答对' : '三关全过'}</span></div></div>`;
+        let center = '';
+        let actions = '';
+        let hint = '';
+        if (!room) {
+          center = '<p class="act-stage-empty">当前课堂不是本章（或没有登录教师工作台）。<br>先在工作台发布本章课堂，再刷新本页。</p>';
+        } else if (p === 'none' || p === 'plain') {
+          center = `<div class="act-stage-rules"><h3>${kind === 'rush' ? '随机抢答 · 玩法' : '限时闯关 · 玩法'}</h3><ol>${rules().map((line) => `<li>${esc(line)}</li>`).join('')}</ol></div>`;
+          hint = note || (p === 'plain' ? '题目已经照常开放给学生作答（这一次不抢答、不闯关）。' : '同学们准备好了，就开始。');
+          actions = kind === 'rush'
+            ? `<button type="button" class="is-go" data-as-start${busy ? ' disabled' : ''}>🎲 随机抢答</button><button type="button" data-as-plain${busy || p === 'plain' ? ' disabled' : ''}>不抢答，直接开放这道题</button>`
+            : `<select data-as-mins aria-label="闯关时长">${QUEST.minutes.map((m) => `<option value="${m}"${String(m) === String(ui.mins.value) ? ' selected' : ''}>${m} 分钟</option>`).join('')}</select>`
+              + `<button type="button" class="is-go" data-as-start${busy ? ' disabled' : ''}>🚩 开始闯关</button><button type="button" data-as-plain${busy || p === 'plain' ? ' disabled' : ''}>不闯关，直接开放题目</button>`;
+        } else if (p === 'count') {
+          center = `<div class="act-stage-count">${Math.max(1, Math.ceil((game.go_at - now()) / 1000))}</div>`;
+          hint = kind === 'rush' ? '抢答触发！看清题目再交，只能交一次。' : '闯关马上开始：三关、每关两问，只能交一次。';
+          actions = `<button type="button" class="is-red" data-as-stop${busy ? ' disabled' : ''}>${kind === 'rush' ? '取消抢答' : '取消闯关'}</button>`;
+        } else if (p === 'open') {
+          const tabs = kind === 'quest' ? `<div class="act-stage-tabs"><button type="button" data-as-tab="-1" aria-pressed="${tab < 0}">总览</button>${levels.map((L, i) =>
+            `<button type="button" data-as-tab="${i}" aria-pressed="${tab === i}">第 ${i + 1} 关 ${esc(L.title.replace(/^小资料\s*\d+\s*/, ''))}</button>`).join('')}</div>` : '';
+          center = `<div class="act-stage-run"><div class="act-stage-head"><div class="act-stage-clock" data-as-clock></div>${stats}</div>${tabs}`
+            + (kind === 'rush' ? `<div class="act-stage-q"><p class="act-stage-qtext"><small>多选</small>${esc(levels[0].prompt)}</p>${optList(levels[0], false)}</div>` : tab >= 0 && levels[tab] ? levelView(tab, false) : '') + '</div>';
+          hint = kind === 'rush' ? `前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。` : '学生在自己的页面上一关一关作答；点上面的某一关，可以把这一关的小资料和题目投到大屏上（不显示答案）。';
+          actions = `<button type="button" data-as-extend${busy ? ' disabled' : ''}>${kind === 'rush' ? '+10 秒' : '+1 分钟'}</button><button type="button" class="is-red" data-as-stop${busy ? ' disabled' : ''}>${kind === 'rush' ? '结束抢答' : '结束闯关'}</button>`;
+        } else {
+          const done = `<div class="act-stage-head"><div class="act-stage-clock is-done">${kind === 'rush' ? '抢答结束' : '闯关结束'}</div>${stats}</div>`;
+          if (kind === 'rush') {
+            const winners = (board ? board.list : []).filter((row) => row.ok).sort((x, y) => x.place - y.place).slice(0, 20);
+            center = `<div class="act-stage-run">${done}<div class="act-stage-q"><p class="act-stage-qtext"><small>多选</small>${esc(levels[0].prompt)}</p>${optList(levels[0], true)}</div>`
+              + (winners.length ? rankList(winners, true) : '<p class="act-stage-empty">这一次没有同学答对。</p>') + '</div>';
+            hint = `前 ${RUSH.top} 名各加 ${RUSH.points} 修为。关闭大屏后，点题目下面的“核对”逐项讲评。`;
+            actions = `<button type="button" data-as-start${busy ? ' disabled' : ''}>🎲 再来一次（没交的同学）</button><button type="button" class="is-go" data-as-close>关闭大屏，去讲评</button>`;
+          } else {
+            const passed = (board ? board.list : []).filter((row) => row.ok);
+            const at = Math.min(Math.max(tab, 0), levels.length);
+            const tabs = `<div class="act-stage-tabs">${levels.map((L, i) => `<button type="button" data-as-tab="${i}" aria-pressed="${at === i}">第 ${i + 1} 关</button>`).join('')}`
+              + `<button type="button" data-as-tab="${levels.length}" aria-pressed="${at === levels.length}">过关名单</button></div>`;
+            center = `<div class="act-stage-run">${done}${tabs}${at < levels.length ? levelView(at, true)
+              : (passed.length ? rankList(passed.slice(0, 40), false) : '<p class="act-stage-empty">这一次没有同学三关全过。</p>')}</div>`;
+            hint = at < levels.length ? `第 ${at + 1} 关揭晓：看答案和每一问答对的人数；讲完点“下一关”。交了卷的同学已经在自己页面上看到题目和解答。` : `三关全过的同学各加 ${QUEST.points} 修为。`;
+            actions = `<button type="button" data-as-prev${at <= 0 ? ' disabled' : ''}>‹ 上一关</button><button type="button" class="is-go" data-as-next${at >= levels.length ? ' disabled' : ''}>${at >= levels.length - 1 ? '过关名单 ›' : '下一关 ›'}</button>`
+              + `<button type="button" data-as-start${busy ? ' disabled' : ''}>🚩 重新开放（没交的同学）</button><button type="button" data-as-close>关闭大屏</button>`;
+          }
+        }
+        sv.center.innerHTML = center;
+        sv.note.textContent = hint;
+        sv.actions.innerHTML = actions;
+        sv.center.scrollTop = 0;
+      }
+      const clockEl = sv.center.querySelector('[data-as-clock]');
+      if (clockEl) { clockEl.textContent = clock(left); clockEl.classList.toggle('is-low', left <= 10); }
+    }
+    stage.addEventListener('click', (event) => {
+      const on = (name) => event.target.closest(`[data-as-${name}]`);
+      if (on('close')) { closeStage(); return; }
+      if (on('tab')) { tab = Number(on('tab').dataset.asTab); paint(); return; }
+      if (on('prev')) { tab = Math.max(0, Math.min(tab, levels.length) - 1); paint(); return; }
+      if (on('next')) { tab = Math.min(levels.length, Math.max(tab, 0) + 1); paint(); return; }
+      if (on('start')) { tab = -1; start(); return; }
+      if (on('plain')) { note = ''; act(() => control('start', { mode: 'plain', secs: 0, delay: 0 })); return; }
+      if (on('extend')) { act(() => control('extend', { secs: kind === 'rush' ? 10 : 60 })); return; }
+      if (on('stop')) { act(() => control('stop')); }
+    });
+    stage.addEventListener('change', (event) => { const sel = event.target.closest('[data-as-mins]'); if (sel && ui.mins) { ui.mins.value = sel.value; paint(); } });
+    document.addEventListener('keydown', (event) => {
+      if (stage.hidden) return;
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeStage(); return; }
+      if (phase() === 'over' && kind === 'quest' && (event.key === 'ArrowRight' || event.key === 'ArrowLeft')) {
+        event.preventDefault(); event.stopPropagation();
+        tab = event.key === 'ArrowRight' ? Math.min(levels.length, Math.max(tab, 0) + 1) : Math.max(0, Math.min(tab, levels.length) - 1);
+        paint();
+      } else if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'PageUp', 'PageDown', ' '].includes(event.key) && !event.target.closest('select, input, textarea')) event.stopPropagation();   // 大屏开着时方向键不翻页面
+    }, true);
+    ui.go.addEventListener('click', openStage);
     ui.plain.addEventListener('click', () => { note = ''; act(() => control('start', { mode: 'plain', secs: 0, delay: 0 })); });
     ui.peek.addEventListener('click', () => { peek = !peek; paint(); });
     ui.extend.addEventListener('click', () => act(() => control('extend', { secs: kind === 'rush' ? 10 : 60 })));

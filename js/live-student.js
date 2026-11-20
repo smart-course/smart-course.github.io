@@ -1561,51 +1561,69 @@
   .clp-act-card[hidden] { display: none; }
   .clp-act-done { margin: 12px 0 0; padding: 10px 14px; border-radius: 12px; background: #eef6f0; border: 1px solid #bcd9c9; color: #23513a; font: 15.5px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-act-done.is-miss { background: #fbf0e9; border-color: #e6c3b3; color: #7a3a22; }
-  .clp-act { position: fixed; inset: 0; z-index: 2147482950; display: grid; place-items: center; padding: 12px; box-sizing: border-box; background: rgba(28, 22, 16, .62);
-    font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; color: #201c18; }
+  /* 抢答、闯关的对话框：大屏风格（2026-11-20 用户：“要设置成大屏播放的那种风格，跟PK对决类似”）——铺满屏幕的深色舞台、金色大字倒计时，配色同 PK 对决 */
+  .clp-act { position: fixed; inset: 0; z-index: 2147482950; display: flex; justify-content: center; padding: 0; box-sizing: border-box; color: #fff;
+    background: radial-gradient(ellipse at 50% 0%, #2a2238 0%, #17131d 60%, #0e0c12 100%);
+    font: 17px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .clp-act[hidden] { display: none; }
-  .clp-act-box { display: flex; flex-direction: column; width: min(760px, 100%); max-height: calc(100vh - 24px); max-height: calc(100dvh - 24px); border-radius: 18px; overflow: hidden;
-    background: #fffdf8; box-shadow: 0 24px 80px rgba(0, 0, 0, .45); }
-  .clp-act-head { flex: 0 0 auto; display: flex; align-items: center; gap: 10px; padding: 10px 16px; color: #fff; background: linear-gradient(180deg, #b5701e, #94550f); }
-  .clp-act-head b { flex: 1 1 auto; min-width: 0; font-size: 17px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .clp-act-clock { flex: 0 0 auto; padding: 2px 12px; border-radius: 999px; background: rgba(255, 255, 255, .2); font-weight: 800; font-size: 17px; font-variant-numeric: tabular-nums; }
-  .clp-act-clock.is-low { background: #fff; color: #a4492d; animation: clp-act-beat .8s ease-in-out infinite; }
+  .clp-act-box { display: flex; flex-direction: column; width: min(1000px, 100%); height: 100%; max-height: 100vh; max-height: 100dvh; }
+  .clp-act-head { flex: 0 0 auto; display: flex; align-items: center; gap: 12px; padding: 14px 18px 8px; }
+  .clp-act-head b { flex: 1 1 auto; min-width: 0; color: #e7c98c; font-size: 22px; font-weight: 800; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .clp-act-clock { flex: 0 0 auto; padding: 2px 16px; border: 1px solid rgba(255, 217, 138, .5); border-radius: 12px; background: rgba(255, 217, 138, .12); color: #ffd98a;
+    font: 900 28px/1.3 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; }
+  .clp-act-clock.is-low { border-color: #f0a08c; background: #c8452d; color: #fff; animation: clp-act-beat .8s ease-in-out infinite; }
   .clp-act-clock:empty { display: none; }
   @keyframes clp-act-beat { 50% { transform: scale(1.08); } }
-  .clp-act-x { flex: 0 0 auto; width: 34px; height: 34px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 50%; background: transparent; color: #fff; font-size: 18px; line-height: 1; cursor: pointer; }
-  .clp-act-bar { flex: 0 0 auto; height: 5px; background: #f1e2c6; }
-  .clp-act-bar i { display: block; height: 100%; width: 100%; background: #c4862c; transform-origin: 0 50%; }
-  .clp-act-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 16px 18px 6px; }
-  .clp-act-foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 18px 14px; border-top: 1px solid #efe4d0; background: #fffaf0; }
-  .clp-act-foot span { flex: 1 1 200px; color: #6b5a40; font-size: 14.5px; }
-  .clp-act-send { flex: 0 0 auto; min-height: 46px; padding: 8px 28px; border: 0; border-radius: 12px; background: #23655f; color: #fff; font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; }
-  .clp-act-send:disabled { opacity: .45; cursor: default; }
-  .clp-act-big { margin: 18px 0 6px; text-align: center; font: 800 96px/1 -apple-system, BlinkMacSystemFont, "PingFang SC", sans-serif; color: #b5701e; font-variant-numeric: tabular-nums; }
-  .clp-act-lead { margin: 0 0 14px; text-align: center; color: #5a4a30; }
-  .clp-act-q { margin: 0 0 10px; font-size: 18px; font-weight: 700; line-height: 1.6; }
-  .clp-act-q small { display: inline-block; margin-right: 8px; padding: 0 9px; border-radius: 6px; background: #f3dfbd; color: #8a5414; font-size: 13px; font-weight: 800; vertical-align: 2px; }
-  .clp-act-opts { display: grid; gap: 8px; margin: 0 0 14px; }
-  .clp-act-opt { display: flex; gap: 10px; align-items: flex-start; width: 100%; padding: 10px 12px; border: 1.5px solid #e2d6c2; border-radius: 10px; background: #fff; color: inherit; font: inherit; line-height: 1.55; text-align: left; cursor: pointer; }
-  .clp-act-opt b { flex: 0 0 auto; width: 26px; height: 26px; border-radius: 50%; background: #efe6d6; color: #6b5a40; font-size: 13.5px; line-height: 26px; text-align: center; }
-  .clp-act-opt[aria-pressed="true"] { border-color: #23655f; background: #e7f1ee; }
-  .clp-act-opt[aria-pressed="true"] b { background: #23655f; color: #fff; }
-  .clp-act-opt.is-right { border-color: #3f8a5e; background: #eef6f0; }
-  .clp-act-opt.is-wrong { border-color: #a4492d; background: #fbeee8; }
+  @keyframes clp-act-pop { 0% { opacity: 0; transform: scale(.6); } 40% { opacity: 1; transform: scale(1.12); } 100% { opacity: 1; transform: scale(1); } }
+  @keyframes clp-act-in { from { opacity: 0; transform: translateY(14px); } to { opacity: 1; transform: none; } }
+  .clp-act-x { flex: 0 0 auto; display: grid; place-items: center; width: 42px; height: 42px; padding: 0; border: 1px solid rgba(255, 255, 255, .45); border-radius: 8px; background: transparent; color: #fff; font-size: 24px; line-height: 1; cursor: pointer; }
+  .clp-act-bar { flex: 0 0 auto; height: 6px; margin: 0 18px; border-radius: 3px; background: rgba(255, 255, 255, .14); overflow: hidden; }
+  .clp-act-bar i { display: block; height: 100%; width: 100%; background: linear-gradient(90deg, #c8452d, #ffd98a); transform-origin: 0 50%; }
+  .clp-act-body { flex: 1 1 auto; min-height: 0; overflow-y: auto; -webkit-overflow-scrolling: touch; padding: 14px 18px 8px; }
+  .clp-act-foot { flex: 0 0 auto; display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 18px 14px; padding-bottom: calc(14px + env(safe-area-inset-bottom, 0px));
+    border-top: 1px solid rgba(255, 255, 255, .14); }
+  .clp-act-foot span { flex: 1 1 200px; color: rgba(255, 255, 255, .75); font-size: 15px; }
+  .clp-act-send { flex: 0 0 auto; min-height: 52px; padding: 8px 30px; border: 1px solid #ffd98a; border-radius: 10px; background: #ffd98a; color: #2b2118; font: inherit; font-weight: 800; font-size: 19px; cursor: pointer; }
+  .clp-act-send:disabled { opacity: .4; cursor: default; }
+  .clp-act-prev { flex: 0 0 auto; min-height: 52px; padding: 8px 18px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 10px; background: rgba(255, 255, 255, .12); color: #fff; font: inherit; font-weight: 800; font-size: 17px; cursor: pointer; }
+  .clp-act-prev[hidden] { display: none; }
+  .clp-act-big { margin: 12vh 0 10px; text-align: center; font: 900 180px/1 Georgia, "Times New Roman", serif; color: #ffd98a; text-shadow: 0 0 40px rgba(255, 217, 138, .7); font-variant-numeric: tabular-nums; }
+  .clp-act-lead { margin: 0 0 14px; text-align: center; color: #ffe8a8; font-weight: 700; font-size: 19px; }
+  .clp-act-q { margin: 0 0 10px; font-size: 20px; font-weight: 700; line-height: 1.55; }
+  .clp-act-q small { display: inline-block; margin-right: 8px; padding: 0 9px; border-radius: 6px; background: #e7c98c; color: #2b2118; font-size: 13.5px; font-weight: 800; vertical-align: 2px; }
+  .clp-act-opts { display: grid; gap: 10px; margin: 0 0 16px; }
+  .clp-act-opt { display: flex; gap: 12px; align-items: flex-start; width: 100%; padding: 12px 14px; border: 2px solid rgba(255, 255, 255, .3); border-radius: 12px; background: rgba(255, 255, 255, .08);
+    color: #fff; font: inherit; font-weight: 600; line-height: 1.55; text-align: left; cursor: pointer; }
+  .clp-act-opt b { flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: #e7c98c; color: #2b2118; font-size: 14px; line-height: 1; }
+  .clp-act-opt[aria-pressed="true"] { border-color: #ffd98a; background: rgba(255, 217, 138, .22); box-shadow: 0 0 0 2px rgba(255, 217, 138, .3); }
   .clp-act-opt:disabled { cursor: default; }
-  .clp-act-stage { margin: 0 0 16px; padding: 12px 14px; border: 1px solid #ead9bb; border-radius: 14px; background: #fffaf0; }
-  .clp-act-stage h4 { margin: 0 0 6px; font-size: 16.5px; color: #7a4a00; }
-  .clp-act-stage .clp-act-scene { margin: 0 0 12px; padding: 8px 12px; border-radius: 10px; background: #f6efe1; line-height: 1.7; }
-  .clp-act-stage.is-pass { border-color: #9cc7ae; background: #f2f8f4; }
-  .clp-act-stage.is-fail { border-color: #e2b8a6; background: #fdf4ef; }
+  /* 闯关：顶上的关卡圆点；一关一屏 */
+  .clp-act-steps { display: flex; align-items: center; gap: 10px; margin: 0 0 12px; color: rgba(255, 255, 255, .75); font-weight: 700; }
+  .clp-act-steps i { flex: 0 0 auto; display: grid; place-items: center; width: 36px; height: 36px; border: 2px solid rgba(255, 255, 255, .35); border-radius: 50%; font-style: normal; font-weight: 800; }
+  .clp-act-steps i.is-now { border-color: #ffd98a; background: #ffd98a; color: #2b2118; box-shadow: 0 0 16px rgba(255, 217, 138, .55); }
+  .clp-act-steps i.is-done { border-color: #9be0c9; background: rgba(35, 101, 95, .8); }
+  .clp-act-steps em { flex: 0 0 18px; height: 2px; background: rgba(255, 255, 255, .25); }
+  .clp-act-steps span { margin-left: 6px; }
+  .clp-act-stage { margin: 0 0 16px; padding: 14px 16px; border: 1px solid rgba(255, 255, 255, .2); border-radius: 14px; background: rgba(255, 255, 255, .05); }
+  .clp-act-stage.is-level { animation: clp-act-in .35s ease both; }
+  .clp-act-stage h4 { margin: 0 0 8px; font-size: 20px; color: #ffd98a; }
+  .clp-act-stage .clp-act-scene { margin: 0 0 14px; padding: 10px 14px; border-left: 5px solid #e7c98c; border-radius: 0 10px 10px 0; background: rgba(255, 255, 255, .07); line-height: 1.75; }
+  .clp-act-second { animation: clp-act-in .35s ease both; }
+  .clp-act-second[hidden] { display: none; }
+  .clp-act-stage.is-pass { border-color: #9be0c9; background: rgba(35, 101, 95, .35); }
+  .clp-act-stage.is-fail { border-color: #ffb199; background: rgba(160, 72, 48, .3); }
   .clp-act-verdict { margin: 0 0 6px; font-weight: 800; }
-  .clp-act-verdict.is-ok { color: #2f7a52; } .clp-act-verdict.is-no { color: #a4492d; }
-  .clp-act-explain { margin: 6px 0 0; padding: 8px 12px; border-left: 3px solid #c9a24a; background: #fff; border-radius: 0 8px 8px 0; font-size: 15px; }
+  .clp-act-verdict.is-ok { color: #9be0c9; } .clp-act-verdict.is-no { color: #ffb199; }
+  .clp-act-explain { margin: 6px 0 0; padding: 8px 12px; border-left: 3px solid #e7c98c; border-radius: 0 8px 8px 0; background: rgba(255, 255, 255, .07); color: rgba(255, 255, 255, .92); font-size: 15.5px; }
   .clp-act-explain p { margin: 2px 0; }
-  .clp-act-result { margin: 8px 0 14px; padding: 14px 16px; border-radius: 14px; background: #eef6f0; color: #23513a; font-size: 18px; font-weight: 800; text-align: center; }
-  .clp-act-result.is-miss { background: #fbf0e9; color: #7a3a22; }
-  .clp-act-result small { display: block; margin-top: 4px; font-size: 14.5px; font-weight: 500; }
-  @media (max-width: 560px) { .clp-act { padding: 6px; } .clp-act-big { font-size: 72px; } .clp-act-body { padding: 12px 12px 4px; } .clp-act-foot { padding: 8px 12px 10px; } }
-  @media (prefers-reduced-motion: reduce) { .clp-act-clock.is-low { animation: none; } }
+  .clp-act-result { margin: 8px 0 14px; padding: 16px; border: 1px solid #9be0c9; border-radius: 14px; background: rgba(35, 101, 95, .6); color: #fff; font-size: 24px; font-weight: 800; text-align: center;
+    animation: clp-act-pop .5s ease both; }
+  .clp-act-result.is-miss { border-color: #ffb199; background: rgba(160, 72, 48, .5); }
+  .clp-act-result small { display: block; margin-top: 4px; font-size: 15px; font-weight: 500; color: rgba(255, 255, 255, .85); }
+  @media (max-width: 560px) { .clp-act-big { font-size: 120px; } .clp-act-head { padding: 10px 12px 6px; } .clp-act-head b { font-size: 18px; } .clp-act-clock { font-size: 22px; }
+    .clp-act-body { padding: 12px 12px 4px; } .clp-act-bar { margin: 0 12px; } .clp-act-foot { padding: 8px 12px 10px; padding-bottom: calc(10px + env(safe-area-inset-bottom, 0px)); }
+    .clp-act-q { font-size: 18px; } .clp-act-send { padding: 8px 22px; } }
+  @media (prefers-reduced-motion: reduce) { .clp-act-clock.is-low, .clp-act-stage.is-level, .clp-act-second, .clp-act-result { animation: none; } }
   @media print { .clp-act, .clp-act-card { display: none !important; } }`;
     document.head.appendChild(css);
 
@@ -1617,7 +1635,7 @@
       card.setAttribute('data-ix', '');
       card.innerHTML = act.kind === 'rush'
         ? '<b>🎲 这道题由老师开启，可能是抢答</b><p>老师按下按钮后，题目会弹出来：先倒计时，再限时作答，每人只能交一次；前 10 位答对的同学各加 5 修为。先把上面的案例材料读熟。</p>'
-        : '<b>🚩 闯关入口由老师开放</b><p>老师开放后，三则小资料会弹出来，一则一关：每关两问——先选出讲对了的分析，再判断它对应哪个理论要点，两问都对才算过关。有倒计时，只能交一次；三关全过加 5 修为。交卷后这里会显示题目和解答。</p>';
+        : '<b>🚩 闯关入口由老师开放</b><p>老师开放后，三则小资料会弹出来，一则一关：每关两问——先选出讲对了的分析，再判断它对应哪个理论要点，两问都对才算过关；做完一关再出下一关。有倒计时，只能交一次；三关全过加 5 修为。交卷后这里会显示题目和解答。</p>';
       const first = act.kind === 'rush' ? act.items[0].box : act.el.querySelector('.tk-legend') || act.el.querySelector('.tk-items');
       first.insertAdjacentElement('beforebegin', card);
       act.card = card;
@@ -1638,12 +1656,14 @@
     overlay.setAttribute('aria-modal', 'true');
     overlay.innerHTML = '<div class="clp-act-box"><header class="clp-act-head"><b data-act-title></b><span class="clp-act-clock" data-act-clock></span><button type="button" class="clp-act-x" data-act-close aria-label="关闭" hidden>×</button></header>'
       + '<div class="clp-act-bar" data-act-bar hidden><i></i></div><div class="clp-act-body" data-act-body></div>'
-      + '<footer class="clp-act-foot" data-act-foot hidden><span data-act-note></span><button type="button" class="clp-act-send" data-act-send>交卷</button></footer></div>';
+      + '<footer class="clp-act-foot" data-act-foot hidden><span data-act-note></span><button type="button" class="clp-act-prev" data-act-prev hidden>‹ 上一关</button>'
+      + '<button type="button" class="clp-act-send" data-act-send>交卷</button></footer></div>';
     shield(overlay);
     document.body.appendChild(overlay);
     const ui = { title: overlay.querySelector('[data-act-title]'), clock: overlay.querySelector('[data-act-clock]'), close: overlay.querySelector('[data-act-close]'),
       bar: overlay.querySelector('[data-act-bar]'), body: overlay.querySelector('[data-act-body]'), foot: overlay.querySelector('[data-act-foot]'),
-      note: overlay.querySelector('[data-act-note]'), send: overlay.querySelector('[data-act-send]') };
+      note: overlay.querySelector('[data-act-note]'), send: overlay.querySelector('[data-act-send]'), prev: overlay.querySelector('[data-act-prev]') };
+    let level = 0;            // 闯关：现在显示第几关（一关一屏，做完一关再出下一关）
     let shownAct = null;      // 对话框现在显示的是哪一局
     let view = '';            // 对话框现在画的是哪一幕：count / open / result
     let picks = {};           // 本机还没交的作答：题号 → 值
@@ -1702,7 +1722,9 @@
     function renderOpen(act) {
       view = 'open';
       picks = {};
+      level = 0;
       ui.bar.hidden = false; ui.foot.hidden = false; ui.close.hidden = true;
+      ui.prev.hidden = true;
       ui.send.disabled = true;
       ui.send.textContent = '交卷';
       if (act.kind === 'rush') {
@@ -1710,21 +1732,39 @@
         ui.title.textContent = '抢答 · 材料归纳';
         ui.note.textContent = '多选题：选全、不多选才算对。只能交一次。';
         ui.body.innerHTML = `<p class="clp-act-q"><small>多选</small>${esc(it.prompt)}</p>${optionButtons(it, it.item)}`;
-      } else {
-        ui.title.textContent = '闯关 · 小资料分析';
-        ui.note.textContent = `共 ${act.items.length} 关，每关两问；${act.items.length * 2} 问都选好才能交卷，只能交一次。`;
-        ui.body.innerHTML = act.items.map((it, i) => `<section class="clp-act-stage"><h4>第 ${i + 1} 关　${esc(it.sceneTitle)}</h4><p class="clp-act-scene">${esc(it.sceneText)}</p>
+        ui.body.scrollTop = 0;
+      } else renderLevel(act);
+    }
+    // 闯关：一关一屏。先出第一问，选了以后才出第二问；两问都选好才能进下一关，最后一关交卷。交卷以前可以回上一关改
+    // （2026-11-20 用户：“闯关先显示第一关，做完再显示第二关。。。”）
+    function renderLevel(act) {
+      const n = act.items.length;
+      const it = act.items[level];
+      const first = picks[it.item];
+      const second = picks[`${it.item}k`];
+      ui.title.textContent = '闯关 · 小资料分析';
+      const dots = act.items.map((x, i) => `${i ? '<em></em>' : ''}<i class="${i < level ? 'is-done' : i === level ? 'is-now' : ''}">${i < level ? '✓' : i + 1}</i>`).join('');
+      ui.body.innerHTML = `<div class="clp-act-steps" aria-label="第 ${level + 1} 关，共 ${n} 关">${dots}<span>第 ${level + 1} 关 / 共 ${n} 关</span></div>
+        <section class="clp-act-stage is-level"><h4>第 ${level + 1} 关　${esc(it.sceneTitle)}</h4><p class="clp-act-scene">${esc(it.sceneText)}</p>
           <p class="clp-act-q"><small>第一问</small>${esc(it.prompt)}</p>${optionButtons(it, it.item)}
-          <p class="clp-act-q"><small>第二问</small>你在第一问选的那个分析，对应下面哪个理论要点？</p>
+          <div class="clp-act-second" data-act-second${first ? '' : ' hidden'}><p class="clp-act-q"><small>第二问</small>你在第一问选的那个分析，对应下面哪个理论要点？</p>
           <div class="clp-act-opts" data-act-group="${esc(it.item)}k" data-act-multi="">${act.legend.map((k) =>
-            `<button type="button" class="clp-act-opt" data-act-value="${esc(k.k)}" aria-pressed="false"><b>K${esc(k.k)}</b><span>${esc(k.text)}</span></button>`).join('')}</div></section>`).join('');
-      }
+            `<button type="button" class="clp-act-opt" data-act-value="${esc(k.k)}" aria-pressed="false"><b>K${esc(k.k)}</b><span>${esc(k.text)}</span></button>`).join('')}</div></div></section>`;
+      // 回到做过的一关：把选过的标出来
+      [[it.item, first], [`${it.item}k`, second]].forEach(([name, value]) => {
+        if (!value) return;
+        $$('.clp-act-opt', ui.body).filter((b) => b.closest('[data-act-group]').dataset.actGroup === name).forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.actValue === String(value))));
+      });
+      ui.prev.hidden = level === 0;
+      ui.send.textContent = level < n - 1 ? '下一关 ›' : '交卷';
+      ui.send.disabled = !(first && second);
+      ui.note.textContent = level < n - 1 ? '两问都选好，进入下一关。交卷以前可以回上一关改。' : '最后一关：两问都选好就可以交卷，只能交一次。';
       ui.body.scrollTop = 0;
     }
     const neededKeys = (act) => (act.kind === 'rush' ? [act.items[0].item] : act.items.flatMap((it) => [it.item, `${it.item}k`]));
     function renderResult(act, res, why) {
       view = 'result';
-      ui.bar.hidden = true; ui.foot.hidden = true; ui.close.hidden = false;
+      ui.bar.hidden = true; ui.foot.hidden = true; ui.close.hidden = false; ui.prev.hidden = true;
       ui.clock.textContent = '';
       ui.clock.classList.remove('is-low');
       let html = '';
@@ -1777,10 +1817,24 @@
           $$('.clp-act-opt', group).forEach((b) => b.setAttribute('aria-pressed', String(b === opt)));
           picks[name] = opt.dataset.actValue;
         }
-        if (shownAct) ui.send.disabled = !neededKeys(shownAct).every((k) => picks[k]);
+        if (shownAct && shownAct.kind === 'quest') {
+          // 闯关：第一问选了才出第二问；这一关两问都选好，才能点“下一关”或“交卷”
+          const it = shownAct.items[level];
+          const second = ui.body.querySelector('[data-act-second]');
+          if (second && second.hidden && picks[it.item]) { second.hidden = false; second.scrollIntoView({ block: 'nearest', behavior: 'smooth' }); }
+          ui.send.disabled = !(picks[it.item] && picks[`${it.item}k`]);
+        } else if (shownAct) ui.send.disabled = !neededKeys(shownAct).every((k) => picks[k]);
         return;
       }
-      if (event.target.closest('[data-act-send]') && view === 'open' && shownAct) send(shownAct, false);
+      if (event.target.closest('[data-act-prev]') && view === 'open' && shownAct && shownAct.kind === 'quest' && level > 0) { level -= 1; renderLevel(shownAct); return; }
+      if (event.target.closest('[data-act-send]') && view === 'open' && shownAct) {
+        if (shownAct.kind === 'quest' && level < shownAct.items.length - 1) {
+          const it = shownAct.items[level];
+          if (picks[it.item] && picks[`${it.item}k`]) { level += 1; renderLevel(shownAct); }
+          return;
+        }
+        send(shownAct, false);
+      }
     });
     async function send(act, auto) {
       if (busy || !act.game) return;
@@ -1822,7 +1876,10 @@
       acts.forEach((act) => {
         const g = act.game;
         const phase = phaseOf(g, now);
-        if (!shownAct && g && g.mode === 'game' && (phase === 'count' || phase === 'open') && act.dismissed !== g.id) { shownAct = act; overlay.hidden = false; view = ''; }
+        // 对话框空着，或者还停在上一局的结果页（学生没点“回到页面”）：新的一局开始时换过去
+        if (g && g.mode === 'game' && (phase === 'count' || phase === 'open') && act.dismissed !== g.id && (!shownAct || (shownAct !== act && view === 'result'))) {
+          shownAct = act; overlay.hidden = false; view = '';
+        }
       });
       const act = shownAct;
       if (!act) return;
