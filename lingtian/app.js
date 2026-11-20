@@ -1010,9 +1010,24 @@
     $('dialog-content').scrollTop = scrollTop;
     if (focusIndex !== undefined) $('dialog-content').querySelector(`[data-care-index="${focusIndex}"]:not(:disabled)`)?.focus({preventScroll:true});
   }
+  // 药铺回收可以选数量（2026-11-20 用户：“卖菜的时候可不可以加上买菜的数量，不想一次性全卖、一个一个点又太麻烦了。”）：
+  // 每种灵草一个数量框（− ＋、一半，也可以直接输入），记住上次选的数量；云端的 sell 本来就收数量，不用改
+  const sellCounts = {};
+  const sellCountOf = id => { const owned = engine.state.bag[id] || 0; return Math.max(1, Math.min(owned, Math.floor(Number(sellCounts[id]) || 1))); };
+  function setSellCount(id, value) {
+    const owned = engine.state.bag[id] || 0, crop = cropMap[id];
+    const n = Math.max(1, Math.min(owned, Math.floor(Number(value) || 1)));
+    sellCounts[id] = n;
+    const card = $('dialog-content').querySelector(`[data-sell-card="${id}"]`);
+    if (!card || !crop) return;
+    const input = card.querySelector('[data-sell-count]');
+    if (input && document.activeElement !== input) input.value = n;
+    card.querySelector('[data-sell-n]').textContent = n;
+    card.querySelector('[data-sell-sum]').textContent = fmt(n * crop.sellPrice);
+  }
   function inventoryMarkup() {
     const items = crops.filter(c => engine.state.bag[c.id] > 0), stats = engine.getStats();
-    return `<p class="dialog-intro">采收与偷采所得，皆藏于此。灵草可按丹方炼丹，也可挂到坊市卖给同学。下方是药铺的固定回收价，即时售出所得灵石可用于开田、买种与升级农具。</p>${items.length ? `<div class="dialog-grid">${items.map(c => `<article class="inventory-card"><span class="quantity">可用 ${engine.state.bag[c.id]} 份</span><div class="seed-art">${art(c.id,true)}</div><h3>${c.name}</h3><p>药铺回收 · 每份 ${c.sellPrice} 灵石</p><button class="button button-primary" data-sell="${c.id}" data-qty="1">${icon('gem')}售给药铺 1 份 · +${c.sellPrice}</button><button class="button button-secondary" data-sell="${c.id}" data-qty="all">全部售给药铺 · +${fmt(c.sellPrice*engine.state.bag[c.id])}</button></article>`).join('')}</div>` : `<div class="empty-bag">${icon('bag')}<h3>一只轻盈的乾坤袋</h3><p>收获成熟灵草、拜访道友，或到坊市买入炼丹原料。<br>已挂卖单的灵草暂时冻结，不计入可用库存。</p><button class="button button-primary" style="margin-top:20px" data-return-home>回灵田看看</button></div>`}<div class="dialog-footer"><span>可用 ${stats.bagCount} 份灵草 · 药铺回收合计 ${fmt(stats.bagValue)} 灵石</span>${items.length ? `<button class="button button-secondary" data-sell-all>${icon('gem')}全部售给药铺</button>` : ''}</div><div class="guide-note">药铺回收价是固定的游戏价格，坊市价格来自学生之间的真实成交。卖出材料前，可先看看丹方需求与市场行情。</div>`;
+    return `<p class="dialog-intro">采收与偷采所得，皆藏于此。灵草可按丹方炼丹，也可挂到坊市卖给同学。下方是药铺的固定回收价，即时售出所得灵石可用于开田、买种与升级农具。</p>${items.length ? `<div class="dialog-grid">${items.map(c => `<article class="inventory-card" data-sell-card="${c.id}"><span class="quantity">可用 ${engine.state.bag[c.id]} 份</span><div class="seed-art">${art(c.id,true)}</div><h3>${c.name}</h3><p>药铺回收 · 每份 ${c.sellPrice} 灵石</p><div class="sell-count" role="group" aria-label="${c.name}售出数量"><button type="button" class="sell-step" data-sell-step="-1" data-sell-for="${c.id}" aria-label="少一份">−</button><input type="number" inputmode="numeric" min="1" max="${engine.state.bag[c.id]}" step="1" value="${sellCountOf(c.id)}" data-sell-count="${c.id}" aria-label="售出份数"><button type="button" class="sell-step" data-sell-step="1" data-sell-for="${c.id}" aria-label="多一份">＋</button><button type="button" class="sell-step sell-half" data-sell-step="half" data-sell-for="${c.id}">一半</button></div><button class="button button-primary" data-sell="${c.id}" data-qty="count">${icon('gem')}<span class="sell-label">售给药铺 <span data-sell-n>${sellCountOf(c.id)}</span> 份 · +<span data-sell-sum>${fmt(c.sellPrice*sellCountOf(c.id))}</span></span></button><button class="button button-secondary" data-sell="${c.id}" data-qty="all">全部售给药铺 · +${fmt(c.sellPrice*engine.state.bag[c.id])}</button></article>`).join('')}</div>` : `<div class="empty-bag">${icon('bag')}<h3>一只轻盈的乾坤袋</h3><p>收获成熟灵草、拜访道友，或到坊市买入炼丹原料。<br>已挂卖单的灵草暂时冻结，不计入可用库存。</p><button class="button button-primary" style="margin-top:20px" data-return-home>回灵田看看</button></div>`}<div class="dialog-footer"><span>可用 ${stats.bagCount} 份灵草 · 药铺回收合计 ${fmt(stats.bagValue)} 灵石</span>${items.length ? `<button class="button button-secondary" data-sell-all>${icon('gem')}全部售给药铺</button>` : ''}</div><div class="guide-note">药铺回收价是固定的游戏价格，坊市价格来自学生之间的真实成交。卖出材料前，可先看看丹方需求与市场行情。</div>`;
   }
   function renderInventory() { $('dialog-content').innerHTML = inventoryMarkup(); }
   function openInventory() { openDialog('bag','乾坤袋 · 灵草',inventoryMarkup()); }
@@ -1162,7 +1177,14 @@
     }
 
     if (b.dataset.quest) return engine.claimQuest(b.dataset.quest);
-    if (b.dataset.sell) return engine.sell(b.dataset.sell,b.dataset.qty === 'all' ? 'all' : 1);
+    if (b.dataset.sellStep) {
+      const id = b.dataset.sellFor, owned = engine.state.bag[id] || 0, input = $('dialog-content').querySelector(`[data-sell-count="${id}"]`);
+      const now = Math.floor(Number(input?.value) || sellCountOf(id));
+      setSellCount(id, b.dataset.sellStep === 'half' ? Math.ceil(owned / 2) : now + Number(b.dataset.sellStep));
+      if (input) input.value = sellCountOf(id);
+      return;
+    }
+    if (b.dataset.sell) return engine.sell(b.dataset.sell,b.dataset.qty === 'all' ? 'all' : sellCountOf(b.dataset.sell));
     if (b.hasAttribute('data-sell-all')) return engine.sellAll();
     if (b.dataset.open) return openNamed(b.dataset.open);
     if (b.hasAttribute('data-return-home')) { dismissDialog(); setView('home'); return; }
@@ -1189,7 +1211,10 @@
   });
   $('harvest-all').addEventListener('click', collectAll);
   $('plot-list').addEventListener('click',openPlotCare);
+  // 乾坤袋的售出数量：边输入边更新按钮上的份数和金额；离开输入框时把超出范围的数字改回来
+  $('dialog-content').addEventListener('input', event => { const id = event.target?.dataset?.sellCount; if (id) setSellCount(id, event.target.value); });
   $('dialog-content').addEventListener('change', event => {
+    if (event.target?.dataset?.sellCount) { const id = event.target.dataset.sellCount; setSellCount(id, event.target.value); event.target.value = sellCountOf(id); return; }
     if (economy.handleChange(event)) return;
     if (farmUI.handleChange(event)) return;
     if (event.target.id !== 'care-seed') return;

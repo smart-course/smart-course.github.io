@@ -2124,7 +2124,7 @@
   window.addEventListener('focus', refreshLeaves);
   setInterval(refreshLeaves, 60000);
   $('[data-roster-filter]').addEventListener('change', renderCheckins);
-  // 在线状态：学生页在前台时每 45 秒报到一次（ck_ping）；2 分钟内报到过＝在线（小绿灯），报到过但超过 2 分钟＝灰点
+  // 在线状态：学生页（2026-11-20 起还有云间灵田页）在前台时每 30 秒报到一次（ck_ping）；2 分钟内报到过＝在线（小绿灯），报到过但超过 2 分钟＝灰点
   const ONLINE_MS = 2 * 60 * 1000;
   async function loadPresence() {
     const room = state.room;
@@ -4160,7 +4160,9 @@
   // 后续可以生成一些分析图片之类的。”）：ck_visits 每一段在线一行；“导出学习数据”生成多表 Excel 供分析 ----------------
   const VISIT_KIND = { login: '口令登录', open: '直接打开', back: '回到页面', view: '查看历史课堂' };
   const minutesOf = (seconds) => Math.round((Number(seconds) || 0) / 6) / 10;   // 保留一位小数
-  const durText = (seconds) => { const s = Number(seconds) || 0; return s < 60 ? (s ? `${s} 秒` : '—') : `${Math.round(s / 60)} 分钟`; };
+  // 0 秒不再显示“—”（2026-11-20 用户：“有的同学总是显示‘-’”）：这一段还没来得及报到就离开了，写“不到 1 分钟”；
+  // 用历史课堂码查看的（view）后台不累计时长，写“不计时”
+  const durText = (seconds, kind) => { const s = Number(seconds) || 0; return s < 60 ? (s ? `${s} 秒` : (kind === 'view' ? '不计时' : '不到 1 分钟')) : `${Math.round(s / 60)} 分钟`; };
   function renderVisits() {
     const box = $('[data-visit-rows]');
     if (!box) return;
@@ -4172,7 +4174,7 @@
     const recent = sec.visits.filter((row) => millis(row.last_at) > day && !row.auditor);
     $('[data-visit-count]').textContent = sec.visitProblem ? '' : `（最近 24 小时 ${new Set(recent.map((row) => sidKey(row.sid))).size} 人、${recent.length} 段，在线合计约 ${Math.round(recent.reduce((t, row) => t + (Number(row.seconds) || 0), 0) / 60)} 分钟）`;
     box.innerHTML = sec.visitProblem ? `<tr><td colspan="7" class="empty">${esc(sec.visitProblem)}</td></tr>`
-      : rows.slice(0, 80).map((row) => `<tr><td>${esc(stamp(row.started_at))}</td><td>${esc(clock(millis(row.last_at)))}</td><td>${esc(durText(row.seconds))}</td>
+      : rows.slice(0, 80).map((row) => `<tr><td>${esc(stamp(row.started_at))}</td><td>${esc(clock(millis(row.last_at)))}</td><td>${esc(durText(row.seconds, row.kind))}</td>
         <td>${esc(row.sid)}</td><td>${esc(row.name || '')}${row.auditor ? ' <small>旁听</small>' : ''}</td><td>${esc(roomName.get(String(row.classroom)) || row.unit || '')}</td><td>${esc(VISIT_KIND[row.kind] || row.kind)}</td></tr>`).join('')
         || `<tr><td colspan="7" class="empty">${query ? '没有符合条件的记录。' : '还没有记录：学生下次登录或打开章节页时开始记录。'}</td></tr>`;
   }
@@ -4289,7 +4291,7 @@
         }));
       const notes = [['项目', '说明'],
         ['范围', `${course.title} · ${state.klass.name}：本班全部 ${rooms.length} 个课堂；只含点名册上的同学，不含旁听；导出时间 ${timeParts(Date.now()).text}`],
-        ['登录与在线', '每一段在线一行（2026-11-05 起记录）：口令登录、直接打开（已登录的设备打开章节页）、回到页面（离开 3 分钟以上又回来）、查看历史课堂。页面开着且在前台时每 45 秒报一次在线，“在线（分钟）”是这一段的大致时长（两次报到之间最多算 90 秒）；3 分钟内接着打开别的页面算同一段。'],
+        ['登录与在线', '每一段在线一行（2026-11-05 起记录）：口令登录、直接打开（已登录的设备打开章节页）、回到页面（离开 3 分钟以上又回来）、查看历史课堂。课程页面和云间灵田开着且在前台时每 30 秒报一次在线、切走时再报一次（2026-11-20 起；之前每 45 秒一次、灵田里的时间不算），“在线（分钟）”是这一段的大致时长（两次报到之间最多算 90 秒）；3 分钟内接着打开别的页面算同一段。'],
         ['学习行为明细', '每个动作一行：登录方式、签到（每个课堂每天第一次进入）、选择递交、文字作答、作业递交（政治经济学）、发弹幕或祭出法宝（撤回的不算）、修炼场答题（含课后自修）、情境猜谜抢答、聊天室发言。时间都是北京时间；“小时”可用来看一天里什么时候在学。'],
         ['每日概况', '每人每天一行，把上面的明细按天汇总；“签到”1＝当天进过课堂。'],
         ['学生汇总', '每人一行；点名册上一直没有活动的同学也列出（全是 0）。'],

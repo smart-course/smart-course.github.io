@@ -14,7 +14,7 @@
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_my_lingen（学生面板“灵根八相”：本人八项与全班平均）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
  *       ck_stop_item（教师在投屏页停止或恢复某道题的递交）/ ck_stopped_items（本课堂已停止递交的题号）
  *       ck_request_leave / ck_my_leaves / ck_cancel_leave（学生请假、查看、撤销；教师读 ck_leaves）
- *       ck_ping（学生页在前台时每 45 秒报一次在线；教师读 ck_presence，工作台加入名单显示小绿灯）
+ *       ck_ping（学生页、云间灵田页在前台时每 30 秒报一次在线，切走时补报一次；教师读 ck_presence，工作台加入名单显示小绿灯）
  *       ck_record_draws（教师在投屏页记下猜词游戏抽中的同学；教师读、删 ck_draws）
  *       ck_my_submissions（学生读本人在这个课堂已经递交到后台的题目，学生页最下方“本堂作业递交情况”）
  *       ck_puzzle_open / ck_puzzle_close（教师在投屏页“情境猜谜”开始、结束一轮抢答；教师读、删 ck_puzzle_rounds、ck_puzzle_guesses）
@@ -44,7 +44,7 @@
   const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
 
   // ---------- 修为境界（两门课共用） ----------
-  // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期。
+  // 满分＝每次课 100 修为 × 全部课次；境界按修为占满分的比例划分，每个境界再分初期、中期、后期；元婴在后期之后还有一档“巅峰”（称号“元后巅峰”，见 PEAK_MIN）。
   // 称号材质由低到高：素石 → 青玉 → 金丹 → 紫霄（发光、星芒）→ 神光（黑曜底、七彩流光），学生面板、投屏、工作台共用（样式类 is-r0—is-r4）
   const REALMS = [
     { level: 0, name: '炼气', look: '素石', min: 0 },
@@ -53,7 +53,21 @@
     { level: 3, name: '元婴', look: '紫霄', min: 0.65 },
     { level: 4, name: '化神', look: '神光', min: 0.90 },   // 2026-10-22 用户要求化神 90%；2026-10-28 用户：“修为分到65%可以进阶元婴吧”
   ];
-  const STAGES = ['初期', '中期', '后期'];
+  const STAGES = ['初期', '中期', '后期', '巅峰'];
+  // 巅峰一档（2026-11-21）。用户：“按照现在的情况，元婴境界的进度条可能需要调整一下了，在化神之前再增加一档元后巅峰，没到化神就一直这个档位，
+  //   同时不要改动现有学生的等级。”“巅峰从100% 起”——化神门槛提高以后（习经 135%、政经 155%），元婴的初期／中期／后期仍按 65%—90% 三等分，
+  //   81.7% 以上直到化神原来一直是“后期”；现在修为到全学期满分的 100% 起单独算“巅峰”（stage 3，称号“元后巅峰”），一直到突破化神。
+  //   初期／中期／后期的算法不动，所以现有同学的境界和小境界都不变（定这条规则时没有同学到 100%）。
+  //   只有下一境界的门槛高于 PEAK_MIN 的课程才有这一档；与 cloudbase-pg.sql 的 ck_realm_level(points, max, course) 一致
+  const PEAK = 3;
+  const PEAK_MIN = { 3: 1 };              // 境界 level → 巅峰从占满分多少起
+  const PEAK_TITLE = { 3: '元后巅峰' };    // 用户定的叫法（元婴后期巅峰）
+  // 称号：元婴初期／中期／后期、元后巅峰
+  const stageTitle = (level, stage) => {
+    const realm = REALMS[level] || REALMS[0];
+    const s = Math.max(0, Math.min(STAGES.length - 1, Math.floor(Number(stage) || 0)));
+    return s === PEAK ? (PEAK_TITLE[realm.level] || `${realm.name}${STAGES[PEAK]}`) : `${realm.name}${STAGES[s]}`;
+  };
   // 按课程改门槛（2026-11-11 习经用户：“按照现在两个班第一名的修为境界，达到化神好像有点容易了，你看下后面还有7周，是不是把化神需要的分数再往上调一调，
   //   尽量在倒数第二周的时候有1-2名同学达到化神境界。”——按线上数据外推（修炼场每天约 7—8、额外奖励），第 15 周末前几名约 1300—1450／满分 1000，
   //   化神定为 140%；政经不变）。比例可以超过 100%：修炼场和额外奖励不计入满分。与 cloudbase-pg.sql 的 ck_realm_level(points, max, course) 一致
@@ -239,7 +253,27 @@
   };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
   const LEAVE = { points: 20 };
-  // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期），within 为本境界内的进度（0—1）；course 不同门槛可能不同（REALM_MIN）。
+  // 这一境界有没有“巅峰”一档：下一境界的门槛（按课程）高于巅峰的起点才有（现在是元婴：100% 到化神）
+  const peakFrom = (list, level) => (level < list.length - 1 && PEAK_MIN[level] != null && list[level + 1].min > PEAK_MIN[level] + 1e-9 ? PEAK_MIN[level] : null);
+  // 这一境界各档位各占哪一段（占满分的比例），画进度条上的刻度用：[{ stage, name, lo, hi }]
+  function stageBands(level, course) {
+    const list = realmsFor(course);
+    const at = Math.max(0, Math.min(list.length - 1, Math.floor(Number(level) || 0)));
+    const lo = list[at].min;
+    const top = at >= list.length - 1;
+    const end = top ? Math.max(1, lo + 0.1) : list[at + 1].min;   // 这一境界到哪里为止
+    const base = top ? end : REALMS[at + 1].min;                  // 初期／中期／后期按原来的门槛三等分
+    const third = (base - lo) / 3;
+    const peak = peakFrom(list, at);
+    const bands = [
+      { stage: 0, name: STAGES[0], lo, hi: lo + third },
+      { stage: 1, name: STAGES[1], lo: lo + third, hi: lo + 2 * third },
+      { stage: 2, name: STAGES[2], lo: lo + 2 * third, hi: peak == null ? end : peak },
+    ];
+    if (peak != null) bands.push({ stage: PEAK, name: STAGES[PEAK], lo: peak, hi: end });
+    return bands;
+  }
+  // 修为 → 境界：level 0—4，stage 0—2（初期／中期／后期）或 3（巅峰），within 为本境界内的进度（0—1）；course 不同门槛可能不同（REALM_MIN）。
   // 比例不再封顶 100%（2026-11-11），最高一境的初期／中期／后期按“门槛到 max(100%, 门槛＋10%)”三等分（政经化神 90%—100% 与原来一样）
   function realmOf(points, max, course) {
     const list = realmsFor(course);
@@ -251,8 +285,10 @@
     // 化神门槛提高以后（习经 135%、政经 155%），元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
     const hi = level < list.length - 1 ? REALMS[level + 1].min : Math.max(1, lo + 0.1);
     const within = hi > lo ? Math.max(0, Math.min(1, (ratio - lo) / (hi - lo))) : 1;
-    const stage = Math.min(2, Math.floor(within * 3));
-    return { level, stage, ratio, within, name: list[level].name, title: list[level].name + STAGES[stage] };
+    // 巅峰（2026-11-21）：过了巅峰的起点、还没到下一境界；初期／中期／后期照旧
+    const peak = peakFrom(list, level);
+    const stage = peak != null && ratio >= peak - 1e-9 ? PEAK : Math.min(2, Math.floor(within * 3));
+    return { level, stage, ratio, within, name: list[level].name, title: stageTitle(level, stage) };
   }
 
   // 以北京时间的日期作为“这节课”的标识，例如 2026-09-30
@@ -3019,6 +3055,7 @@
     return [
       { title: '最新', items: [
         ...(config.course === 'xjp-economy' ? [
+          ['机制图闯关换成大屏', '机制图下面点“开始闯关”，闯关铺满屏幕：上面一排节点卡片跟着一步一步点亮，下面出题。中途点右上角“×”（或按 Esc）先回页面，再点“继续闯关”接着来；通关后页面上的机制图整张亮起。', '2026-11-20'],
           ['闯关一关一关来', '小资料分析闯关改成一关一屏：先出第一问，选了以后再出第二问，两问都选好才能进下一关（交卷以前可以回上一关改），最后一关交卷。抢答和闯关的画面换成了铺满屏幕的深色大屏风格。', '2026-11-20'],
           ['点文字不再跳页', '以前在页面左右两侧点到文字、标签或卡片，会跳到上一节或下一节；现在只有点在真正的空白处才翻节，点内容不会再跳走。', '2026-11-20'],
           ['纠错诊断改成多选', '第二课时的“纠错诊断”不再先判断对错（两条说法本来就都有问题）：每条说法从 5 个选项里选出说中了的错处（多选，没说中的不要选），选好点“递交”。', '2026-11-20'],
@@ -3028,6 +3065,10 @@
           ['小资料分析改为限时闯关', '第二课时的“迁移任务 · 小资料分析”先收起：老师开放入口后，三则小资料一关一关作答，每关两问——先选出唯一讲对了的分析，再判断它对应哪个理论要点，两问都对才算过关；限时内只能交一次，到时间自动交卷，三关全过加 5 修为。交卷后可以看到题目、答案和讲解。', '2026-11-20'],
           ['四步解析对所有同学开放', 'Q1—Q4 每一组快答题都递交以后，题目下方可以点“展开四步解析”，看这道研讨题按“亮明观点—教材依据—案例事实—回到题目说明”写出来的完整分析（不看境界，所有同学都能看）。', '2026-11-20'],
         ] : []),
+        ['元婴多了一档「元后巅峰」', '修为到全学期满分的 100% 以后、突破「化神」以前，称号是「元后巅峰」。初期、中期、后期的分界没有变，大家现在的境界不受影响。点面板上的境界可以看到进度条上标出的四个档位。', '2026-11-21'],
+        ['退出放大时可以选回到哪里', '在“放大”里换过题以后，点“退出放大”或按 Esc 会先问一句：回到进来时的那一题，还是留在现在这一题（也可以点“继续看题”不退出）。没换过题直接退出。', '2026-11-20'],
+        ['云间灵田：卖灵草可以选数量', '乾坤袋里每种灵草多了一个数量框：点“−”“＋”或“一半”，也可以直接输入数字，再点“售给药铺 N 份”；不用一份一份点，也不用一次全卖。', '2026-11-20'],
+        ['面板里的“导出 HTML”去掉了', '网站上的作答递交以后就存在后台，不用再导出文件交给老师，所以面板里只留“导出 PDF”（复习用）。', '2026-11-20'],
         ['辩论赛加了自由讨论和倒计时', '辩论赛现在是四步：① 选立场 · 论据卡 → ② 自由讨论 5 分钟（和同一立场的同学当面讨论，想好自己的观点和理由，这一步聊天室还不能发言）→ ③ 聊天室发言点赞 → ④ 辩后投票。每一步的倒计时也显示在你的页面上，时间到了这一步就不能再递交（聊天室不能再发言）；老师加时以后可以继续。', '2026-11-20'],
         ['云间灵田：卡牌光效换了', '地品、天品卡牌的光效换了：光点从卡牌边框上随机冒出、向外飘散，书案上的展示牌也一样（不再是一圈圈向外扩散的框和放射的光线）。', '2026-11-20'],
         ['电脑上也能全屏答题', (config.course === 'political-economy'
@@ -3209,6 +3250,8 @@
     COLLECTIONS,
     REALMS,
     STAGES,
+    stageTitle,
+    stageBands,
     SECTS,
     SECT_MIN_REALM,
     GIFTS,

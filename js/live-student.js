@@ -5,7 +5,8 @@
  *     老师在投屏页“停止递交”某道题后，这道题不能再递交（数据库拒绝写入，不计修为）：本页每 30 秒和回到页面时核对一次，
  *     把递交按钮换成“老师已停止递交”的提示；老师恢复后按钮回来。
  *   · 每道题下方有“我的备注”：只保存在这台设备上，不交给老师，导出时一起带走。
- *   · 面板里可以“导出 HTML”（单个文件，离线可打开）或“导出 PDF”（浏览器“存储为 PDF”），内含题目、作答、递交状态与备注。
+ *   · 面板里可以“导出 PDF”（浏览器“存储为 PDF”），内含题目、作答、递交状态与备注；离线版另有“导出 HTML”（把作答交给老师用；
+ *     网站上 2026-11-20 起去掉——用户：“学生控制面板去掉导出html的选项”）。
  * 课程类型：
  *   · 案例课程（kind = case-html，如《习近平经济思想概论》章节页）：投票、配对、推演、文字作答 → ck_choices / ck_answers；
  *   · 概念学习课程（kind = concept-html，如《政治经济学》练习页）：各题 → RPC ck_submit_answer（并入每人一份作业）；
@@ -144,6 +145,11 @@
   .clp-news-ok button { padding: 7px 22px; border: 0; border-radius: 999px; background: #a4492d; color: #fff; font-family: inherit; font-weight: 700; font-size: 14.5px; line-height: 1.4; cursor: pointer; }
   .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
   .clp-realm-bar i { position: absolute; inset: 0 auto 0 0; border-radius: 999px; background: linear-gradient(90deg, #23655f, #b98cff, #ffd36b); }
+  /* 进度条上的档位（2026-11-21）：刻度线把初期／中期／后期（元婴还有巅峰）各占的一段隔开，下面一行写名称，现在所在的一档加粗 */
+  .clp-realm-bar b { position: absolute; top: 0; bottom: 0; width: 2px; margin-left: -1px; background: #fffdf8; }
+  .clp-realm-marks { display: flex; margin: 3px 0 2px; color: #8a7f74; font-size: 11px; line-height: 1.3; }
+  .clp-realm-marks span { flex: 0 0 auto; min-width: 0; text-align: center; white-space: nowrap; }
+  .clp-realm-marks span.is-now { color: #5b3aa6; font-weight: 800; }
   .clp-ladder { display: flex; align-items: flex-end; gap: 6px; margin: 8px 0 6px; padding: 16px 10px 0; border-radius: 12px; background: radial-gradient(ellipse at 40% 30%, #1f1a2c 0%, #13111a 55%, #0c0b10 100%); }
   .clp-step { position: relative; flex: 1 1 0; min-width: 0; display: flex; flex-direction: column; align-items: center; gap: 8px; }
   .clp-step .clp-realm { margin: 0; padding: 2px 8px; border-radius: 5px; font: 700 15px/1.4 "Kaiti SC", STKaiti, KaiTi, serif; cursor: default; white-space: nowrap; }
@@ -3012,7 +3018,7 @@
   }
 
   // ---------- 面板 ----------
-  const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-fs class="clp-fs-entry"${joined ? '' : ' hidden'} title="一题一屏，可以横屏；从第一道未递交的题开始">⤢ 全屏答题</button><button type="button" data-cl-export="html">导出 HTML</button><button type="button" data-cl-export="pdf">导出 PDF</button></div>
+  const tools = `<div class="clp-tools"><button type="button" data-cl-next class="is-main"${joined ? '' : ' hidden'}>下一道未递交 ↓</button><button type="button" data-cl-fs class="clp-fs-entry"${joined ? '' : ' hidden'} title="一题一屏，可以横屏；从第一道未递交的题开始">⤢ 全屏答题</button>${OFFLINE ? '<button type="button" data-cl-export="html">导出 HTML</button>' : ''}<button type="button" data-cl-export="pdf">导出 PDF</button></div>
     <p class="clp-hint" data-cl-export-state>导出内容：题目、我的作答、递交状态${questions.some((q) => q.extra) ? '、自检' : ''}和备注，方便课后复习。</p>`;
   if (!joined) {
     panel.classList.add('is-gate');
@@ -4301,17 +4307,21 @@
 
   // 在线状态：页面在前台（没有切走、手机没锁屏）时每 45 秒向后台报一次“在线”，老师在工作台加入名单里看到小绿灯；
   // 后台还没有 ck_ping（未执行 SQL）时安静停止；旁听不报在线（工作台小绿灯、猜词抽人只看点名册上的同学）
+  // 2026-11-20（用户：“统计学生的在线时长好像不是很准，有的同学总是显示‘-’”）：原来每 45 秒报一次、切走时不报，
+  // 打开页面不到 45 秒就离开（比如马上去了云间灵田）的同学，这一段在线就是 0。改为每 30 秒报一次，切走或关掉页面时再报一次把零头记上；
+  // 云间灵田页面自己也报（lingtian-bridge.js）。后台两次之间最多算 90 秒，离开 3 分钟以上另起一段，规则不变
   if (!LOCAL_ONLY) {
     let pingOff = false;
-    const ping = () => {
-      if (pingOff || document.hidden || loginNeeded) return;
-      backend.rpc('ck_ping', { p_classroom: Number(identity.classroom) || identity.classroom }).catch((problem) => {
+    const ping = (force) => {
+      if (pingOff || (document.hidden && force !== true) || loginNeeded) return;
+      Promise.resolve().then(() => backend.rpc('ck_ping', { p_classroom: Number(identity.classroom) || identity.classroom })).catch((problem) => {
         if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) pingOff = true;
       });
     };
-    checkedIn.then(ping);
-    setInterval(ping, 45000);
-    document.addEventListener('visibilitychange', () => { if (!document.hidden) ping(); });
+    checkedIn.then(() => ping());
+    setInterval(() => ping(), 30000);
+    document.addEventListener('visibilitychange', () => ping(document.hidden));
+    window.addEventListener('pagehide', () => ping(true));
   }
 
   // ---------- 时间轴排排站·全班分队（2026-11-11 用户：“PK 对决 · 时间轴排排站，改一下玩法，将已加入班级的同学随机平均分成两组，而不是抽两名同学上台。
@@ -5049,10 +5059,20 @@
     const next = REALMS[level + 1];
     const lo = REALMS[level] ? REALMS[level].min : 0;
     const hi = next ? next.min : 1;
-    const within = r ? Math.max(0, Math.min(1, ((Number(r.ratio) || 0) - lo) / (hi - lo || 1))) : 0;
+    // 档位（2026-11-21 元后巅峰）：进度条还是按实际距离画（大家现在的进度不变），条上用刻度标出各档各占哪一段
+    const bands = r && Live.stageBands ? Live.stageBands(level, config.course) : [];
+    const bandLo = bands.length ? bands[0].lo : lo;
+    const bandHi = bands.length ? bands[bands.length - 1].hi : hi;
+    const within = r ? Math.max(0, Math.min(1, ((Number(r.ratio) || 0) - bandLo) / (bandHi - bandLo || 1))) : 0;
+    const myStage = r ? Math.max(0, Math.floor(Number(r.stage) || 0)) : 0;
+    const myTitle = r ? (Live.stageTitle ? Live.stageTitle(level, myStage) : REALMS[level].name + ((Live.STAGES || [])[myStage] || '')) : '';
+    const share = (band) => ((band.hi - band.lo) / (bandHi - bandLo || 1)) * 100;
+    const ticks = bands.slice(1).map((band) => `<b style="left:${(((band.lo - bandLo) / (bandHi - bandLo || 1)) * 100).toFixed(2)}%"></b>`).join('');
+    const marks = bands.length > 1 ? `<div class="clp-realm-marks" aria-hidden="true">${bands.map((band) => `<span class="${band.stage === myStage ? 'is-now' : ''}" style="width:${share(band).toFixed(2)}%">${esc(band.name)}</span>`).join('')}</div>` : '';
+    const hasPeak = (Live.stageBands ? Live.stageBands(3, config.course) : []).length > 3;
     realmModal.innerHTML = `<div class="clp-realm-card" role="dialog" aria-modal="true" aria-label="修为说明">
-      <h3><span>修为境界 ${r ? chip(level, REALMS[level].name + (Live.STAGES || [])[r.stage || 0]) : chip(0, '炼气')}</span><button type="button" data-realm-close aria-label="关闭">×</button></h3>
-      ${r ? `<div class="clp-realm-bar" title="本境界进度"><i style="width:${Math.round(within * 100)}%"></i></div>
+      <h3><span>修为境界 ${r ? chip(level, myTitle) : chip(0, '炼气')}</span><button type="button" data-realm-close aria-label="关闭">×</button></h3>
+      ${r ? `<div class="clp-realm-bar" title="本境界进度" role="img" aria-label="${esc(`本境界进度约 ${Math.round(within * 100)}%，现在是${myTitle}`)}"><i style="width:${Math.round(within * 100)}%"></i>${ticks}</div>${marks}
         <p class="clp-hint">${next ? `再积累一些修为就能突破到「${next.name}」。` : '已达化神境界，继续保持！'}${r.updated_at ? ` 上次结算：${String(r.updated_at).slice(0, 10)}` : ''}</p>`
         : '<p class="clp-hint">老师结算后这里会显示你的境界（第一次结算前都是炼气）。</p>'}
       <button type="button" class="clp-rank-link" data-realm-rank>${TROPHY}看本班修为榜（前十名）</button>
@@ -5076,7 +5096,7 @@
       </ul>
       <h4>境界与奖励</h4>
       ${ladderHtml(r ? level : 0)}
-      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期${(REALMS[REALMS.length - 1] || {}).min > 1 ? `；修炼场和额外奖励也计入修为，所以可以超过 100%，「${esc(REALMS[REALMS.length - 1].name)}」要到 ${Math.round(REALMS[REALMS.length - 1].min * 100)}%` : ''}。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p>
+      <p class="clp-hint">百分比＝修为占全学期满分的比例，每个境界再分初期、中期、后期${hasPeak ? '；「元婴」修为到 100% 以后、突破「化神」以前是「元后巅峰」' : ''}${(REALMS[REALMS.length - 1] || {}).min > 1 ? `；修炼场和额外奖励也计入修为，所以可以超过 100%，「${esc(REALMS[REALMS.length - 1].name)}」要到 ${Math.round(REALMS[REALMS.length - 1].min * 100)}%` : ''}。每升到一个境界，获得一次祭出该境界法宝的机会（每件只能祭出一次，每次课最多一件），不加修为。</p>
       <p class="clp-hint">突破「元婴」「化神」时，课堂投屏和你自己的页面都会播放一次突破画面（每台设备各一次）。修为榜隐匿姓名只在「结丹」：到「元婴」以后照常显示姓名。面板上的“灵根”可以看自己八个方向的所长和待补。</p>
       ${PREVIEW && window.ClassLiveAscend ? '<p class="clp-hint">测试页预览突破画面：<button type="button" class="clp-rank-link" data-realm-ascend="3">突破元婴</button> <button type="button" class="clp-rank-link" data-realm-ascend="4">突破化神</button></p>' : ''}</div>`;
     realmModal.hidden = false;
@@ -5103,7 +5123,8 @@
   rankModal.hidden = true;
   document.body.appendChild(rankModal);
   let rankCache = null;   // 30 秒内重复打开不再读后台
-  const realmText = (row) => `${REALMS[row.realm] ? REALMS[row.realm].name : '炼气'}${(Live.STAGES || [])[row.stage || 0] || ''}`;
+  const realmText = (row) => (Live.stageTitle && REALMS[row.realm] ? Live.stageTitle(Number(row.realm) || 0, row.stage)
+    : `${REALMS[row.realm] ? REALMS[row.realm].name : '炼气'}${(Live.STAGES || [])[row.stage || 0] || ''}`);   // 元婴初期／中期／后期、元后巅峰
   const initial = (name) => Array.from(String(name || '').trim())[0] || '？';
   const youTag = (row) => (row.me ? '<i>你</i>' : '');
   // 修为榜隐匿姓名（2026-10-30 用户：“到结丹期后，学生可以选择在修为榜上隐匿自己的名字，修为值和排名正常显示……比如点击一下自己的名字就显示为‘***’”）：
@@ -5568,7 +5589,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261120-think-pe' : '20261120-debate-clock-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261121-peak-pe' : '20261121-peak-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部

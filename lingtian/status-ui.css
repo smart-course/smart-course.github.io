@@ -238,3 +238,16 @@
 .fallback-plot.farm-action-pending small{font-size:10px;line-height:1.35;white-space:normal}
 @keyframes farm-confirm-sweep{to{transform:translateX(100%)}}
 @media(prefers-reduced-motion:reduce){.farm-action-pending::after{animation:none;transform:none;opacity:.6}}
+
+/* 乾坤袋：药铺回收选数量（2026-11-20） */
+/* 手机竖着玩时卡片只有 150 像素宽：一行放不下就折行——“− 数量 ＋”一行，“一半”另起一行并拉满；宽卡片上仍是一行 */
+.game-dialog .inventory-card .sell-count { display: flex; flex-wrap: wrap; align-items: center; gap: 6px; margin-top: 9px; }
+.game-dialog .inventory-card .sell-count input { flex: 100 1 44px; min-width: 44px; width: auto; height: 32px; padding: 0 4px; border: 1px solid #d2d9bf; border-radius: 8px; background: #fff; color: #45684b;
+  font: inherit; font-size: 13px; font-weight: 700; text-align: center; -moz-appearance: textfield; appearance: textfield; }
+.game-dialog .inventory-card .sell-count input::-webkit-outer-spin-button, .game-dialog .inventory-card .sell-count input::-webkit-inner-spin-button { -webkit-appearance: none; margin: 0; }
+.game-dialog .inventory-card .sell-count input:focus { outline: none; border-color: #7f9a63; box-shadow: 0 0 0 3px #7f9a6326; }
+.game-dialog .inventory-card .sell-step { flex: 0 0 auto; min-width: 32px; height: 32px; padding: 0; border: 1px solid #d2d9bf; border-radius: 8px; background: #f3f4e7; color: #45684b; font: inherit; font-size: 15px;
+  font-weight: 700; line-height: 1; cursor: pointer; }
+.game-dialog .inventory-card .sell-step.sell-half { flex: 1 0 auto; padding: 0 9px; font-size: 11px; }
+.game-dialog .inventory-card .button .sell-label { min-width: 0; }
+.game-dialog .inventory-card .sell-step:active { background: #e6ead6; }

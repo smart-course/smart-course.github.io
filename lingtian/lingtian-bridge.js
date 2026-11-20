@@ -20,6 +20,24 @@
 
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
+
+  // 在线时长（2026-11-20 用户：“统计学生的在线时长好像不是很准，有的同学总是显示‘-’……尤其是加入云间灵田以后”）：
+  // 灵田是另开的标签页，课程页面切到后台以后就不再报在线，在灵田里的时间以前不算。这里和课程页面一样：页面在前台时每 30 秒报一次
+  // （ck_ping，记在进入灵田的那个课堂上，工作台“登录与在线记录”照常累计），切走或关掉时再报一次，把零头也记上。
+  // 没登录这个课堂（比如学生版测试页的老师）后台不记；后台没有这个功能时不再重试
+  if (backend && room) {
+    let pingOff = false;
+    const ping = (force) => {
+      if (pingOff || (!force && document.hidden)) return;
+      Promise.resolve().then(() => backend.rpc('ck_ping', { p_classroom: room })).catch((problem) => {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) pingOff = true;
+      });
+    };
+    setTimeout(ping, 4000);
+    setInterval(ping, 30000);
+    document.addEventListener('visibilitychange', () => ping(document.hidden));
+    global.addEventListener('pagehide', () => ping(true));
+  }
   const REASONS = {
     login: ['先回课堂登录', '请先回到课程页面，用本堂课的课堂码登录，再从左下角面板“宗门 → 云间灵田”进入。'],
     no_room: ['请从课程页面进入', '云间灵田要从课程页面左下角面板的“宗门 → 云间灵田”进入，这样才知道你是哪个班、哪门课的同学。'],

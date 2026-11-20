@@ -17,6 +17,8 @@
  *   形成一条链路或者闭环？让学生在闯关的过程中理解各节点之间的关系和联系？”
  *   闯关在学生页上进行（不用老师开局，不计修为）。投屏页机制图下面带 data-mech-board 的一块里放看板：在闯人数、推出链条的人数、通关人数，
  *   每个箭头有多少人答错过（答错最多的先讲），最先通关的 12 位。只写箭头编号（①→②），不写节点名称——大屏上的机制图这时还遮着。
+ *   看板上面有“打开闯关大屏”（同日，用户：“机制图闯关也一起改成大屏风格。”）：深色大屏上是一排节点卡片（先只亮第一步）和上面这些人数，
+ *   点“揭晓下一步”（→ 或回车）一步一步亮出节点和这个箭头的参考说法；不影响页面上机制图自己的“逐步演示”。
  */
 (function () {
   'use strict';
@@ -151,6 +153,26 @@
   .act-stage-rank li span { flex: 1 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
   .act-stage-rank li em { flex: 0 0 auto; font-style: normal; font-size: .8em; opacity: .85; }
   .act-stage-rank li.is-out { border-color: rgba(255, 255, 255, .25); background: rgba(255, 255, 255, .08); font-weight: 500; }
+  /* 机制图闯关大屏：一排节点卡片 */
+  .mqs-nodes { display: flex; align-items: stretch; gap: 10px; width: 100%; }
+  .mqs-node { flex: 1 1 0; min-width: 0; display: grid; align-content: center; gap: 6px; min-height: 130px; padding: 12px 16px; border: 2px dashed rgba(255, 255, 255, .25); border-radius: 14px;
+    background: rgba(255, 255, 255, .04); text-align: center; }
+  .mqs-node > b { color: rgba(255, 255, 255, .35); font-weight: 800; font-size: clamp(20px, 2.1vw, 30px); line-height: 1.35; }
+  .mqs-node > i { color: #ffd98a; font-style: normal; font-weight: 800; font-size: 17px; line-height: 1; }
+  .mqs-node > span { color: rgba(255, 255, 255, .85); font-weight: 600; font-size: clamp(15px, 1.4vw, 20px); line-height: 1.5; }
+  .mqs-node.is-lit { border-style: solid; border-color: rgba(155, 224, 201, .7); background: rgba(35, 101, 95, .5); text-align: left; }
+  .mqs-node.is-lit > b { color: #fff; }
+  .mqs-node.is-now { border-color: #ffd98a; box-shadow: 0 0 0 3px rgba(255, 217, 138, .3), 0 0 26px rgba(255, 217, 138, .4); animation: act-stage-pop .6s ease; }
+  .mqs-nodes > em { flex: 0 0 auto; align-self: center; color: #ffd98a; font-style: normal; font-weight: 800; font-size: 26px; }
+  .mqs-nodes > em.is-loop { color: rgba(255, 255, 255, .28); font-size: 32px; }
+  .mqs-nodes > em.is-loop.is-on { color: #ffd98a; text-shadow: 0 0 16px rgba(255, 217, 138, .7); }
+  .mqs-chips { display: flex; flex-wrap: wrap; justify-content: center; gap: 8px 10px; margin: 0; padding: 0; list-style: none; font-weight: 700; font-size: clamp(15px, 1.4vw, 20px); }
+  .mqs-chips li { padding: 4px 14px; border-radius: 999px; background: rgba(255, 255, 255, .1); }
+  .mqs-chips li.is-worst { background: #c8452d; }
+  /* 最先通关的同学：一行还要写用时和答错次数，格子比抢答的名次宽一些，姓名才不会被挤成省略号 */
+  .act-stage-rank.mqs-rank { grid-template-columns: repeat(auto-fill, minmax(290px, 1fr)); }
+  .act-stage-rank.mqs-rank li { gap: 8px; padding: 8px 12px; }
+  .act-stage-rank.mqs-rank li em { font-size: .72em; }
   .act-stage-empty { font-weight: 700; font-size: clamp(20px, 2vw, 30px); color: rgba(255, 255, 255, .8); text-align: center; }
   @media (prefers-reduced-motion: reduce) { .act-stage-count { animation: none; } }
   @media print { .act-ctl, .mq-board, .act-stage { display: none !important; } .act-veil > .quiz-item, .act-veil .tk-items, .act-veil .tk-legend { display: revert !important; } }
@@ -168,8 +190,81 @@
     let off = false;       // 后台还没有这个功能：不再问
     let seen = true;       // 这一块在屏幕附近才刷新
     let last = '';
+    let latest = null;     // 最近一次看板数据（大屏也用）
+    const text = (node) => (node ? node.textContent.replace(/\s+/g, ' ').trim() : '');
+    const lab = box.closest('[data-mechanism]');
+    const nodes = lab ? Array.from(lab.querySelectorAll('[data-mechanism-node]')).map((n) => ({ label: text(n.querySelector('h4')), text: text(n.querySelector('p')) })) : [];
+    const refs = Array.from(box.querySelectorAll('.mech-links-ref li')).map((li) => ({ head: text(li.querySelector('strong')), why: text(li.querySelector('span')) }));
+    const loop = refs.length >= nodes.length && nodes.length > 1;   // 循环图：最后一个箭头回到第一步
+    // ----- 大屏（2026-11-20 用户：“机制图闯关也一起改成大屏风格。”）-----
+    const opener = document.createElement('div');
+    opener.className = 'act-ctl';
+    opener.innerHTML = '<div class="act-ctl-row"><button type="button" class="is-main" data-ms-open>🖥 打开闯关大屏</button>'
+      + '<span class="act-state">学生在自己的页面上闯关（不用老师开局）。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
+    ['click', 'keydown', 'keyup'].forEach((type) => opener.addEventListener(type, (event) => event.stopPropagation()));
+    el.insertAdjacentElement('beforebegin', opener);
+    const stage = document.createElement('div');
+    stage.className = 'act-stage';
+    stage.hidden = true;
+    stage.setAttribute('role', 'dialog');
+    stage.setAttribute('aria-modal', 'true');
+    stage.setAttribute('aria-label', '机制图闯关大屏');
+    stage.innerHTML = `<button type="button" class="act-stage-x" data-ms-close aria-label="关闭大屏">×</button>
+      <div class="act-stage-top"><span class="act-stage-kicker">机制图闯关</span><span class="act-stage-info">${esc(text(lab && lab.querySelector('.interaction-heading h3')))}</span></div>
+      <div class="act-stage-center" data-ms-center></div>
+      <p class="act-stage-note" data-ms-note></p>
+      <div class="act-stage-actions" data-ms-actions></div>`;
+    ['click', 'keyup'].forEach((type) => stage.addEventListener(type, (event) => event.stopPropagation()));
+    document.body.appendChild(stage);
+    let shown = 1;         // 大屏上已经揭晓到第几个节点
+    let closed = false;    // 循环图：最后一个箭头（回到第一步）揭晓了没有
+    let stageSig = '';
+    const steps = () => nodes.length - 1 + (loop ? 1 : 0);          // 一共要揭晓几个箭头
+    const revealed = () => shown - 1 + (closed ? 1 : 0);            // 已经揭晓了几个箭头
+    function paintStage() {
+      if (stage.hidden) return;
+      const b = latest || { players: 0, chain: 0, cleared: 0, miss: {}, list: [] };
+      const sig = JSON.stringify([shown, closed, b.players, b.chain, b.cleared, b.miss, (b.list || []).length, Boolean(room)]);
+      if (sig === stageSig) return;
+      stageSig = sig;
+      const miss = b.miss || {};
+      const worst = links.map((tag) => ({ tag, n: Number(miss[tag]) || 0 })).sort((x, y) => y.n - x.n)[0];
+      const ref = revealed() > 0 ? refs[revealed() - 1] : null;
+      const cards = nodes.map((node, index) => (index < shown
+        ? `<div class="mqs-node is-lit${index === shown - 1 && !closed ? ' is-now' : ''}"><i>${'①②③④⑤⑥'[index]}</i><b>${esc(node.label)}</b><span>${esc(node.text)}</span></div>`
+        : '<div class="mqs-node"><b>？</b></div>')).join('<em>→</em>') + (loop ? `<em class="is-loop${closed ? ' is-on' : ''}">↺</em>` : '');
+      stage.querySelector('[data-ms-center]').innerHTML = `<div class="act-stage-run">
+        <div class="act-stage-stats"><div><b>${b.players}</b><span>在闯</span></div><div><b>${b.chain}</b><span>推出链条</span></div><div class="is-good"><b>${b.cleared}</b><span>通关</span></div></div>
+        <div class="mqs-nodes">${cards}</div>
+        ${ref ? `<p class="act-stage-answer">${esc(ref.head)}<br>${esc(ref.why)}</p>` : ''}
+        ${b.players ? `<ul class="mqs-chips"><li>推链条：${Number(miss.next) || 0} 人选错过</li>${links.map((tag) => `<li${worst && worst.n > 0 && worst.tag === tag ? ' class="is-worst"' : ''}>${esc(tag)}：${Number(miss[tag]) || 0} 人答错过</li>`).join('')}</ul>` : ''}
+        ${b.list && b.list.length ? `<ol class="act-stage-rank mqs-rank">${b.list.map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${span(row.ms)}${row.miss ? ` · 错 ${row.miss} 次` : ' · 全对'}</em></li>`).join('')}</ol>` : ''}</div>`;
+      stage.querySelector('[data-ms-note]').textContent = !room ? '当前课堂不是本章（或没有登录教师工作台）：人数不会更新，仍可以一步一步揭晓。'
+        : revealed() >= steps() ? '整张机制图揭晓完了：请同学把几步连起来说一遍。'
+          : worst && worst.n > 0 ? `同学们在自己的页面上闯关。答错的人最多的是 ${worst.tag}：揭晓到这一步时多讲两句。`
+            : '同学们在自己的页面上闯关：先推链条，再打 Boss。多数同学通关后，一步一步揭晓。';
+      stage.querySelector('[data-ms-actions]').innerHTML = `<button type="button" class="is-go" data-ms-next${revealed() >= steps() ? ' disabled' : ''}>揭晓下一步 ›</button>`
+        + `<button type="button" data-ms-reset${revealed() ? '' : ' disabled'}>重新遮住</button><button type="button" data-ms-close>关闭大屏</button>`;
+    }
+    const step = () => { if (shown < nodes.length) shown += 1; else if (loop && !closed) closed = true; paintStage(); };
+    const openStage = () => { stage.hidden = false; document.body.classList.add('act-stage-open'); stageSig = ''; paintStage(); refresh(); };
+    const closeStage = () => { stage.hidden = true; if (!document.querySelector('.act-stage:not([hidden])')) document.body.classList.remove('act-stage-open'); };
+    opener.querySelector('[data-ms-open]').addEventListener('click', openStage);
+    stage.addEventListener('click', (event) => {
+      if (event.target.closest('[data-ms-close]')) closeStage();
+      else if (event.target.closest('[data-ms-next]')) step();
+      else if (event.target.closest('[data-ms-reset]')) { shown = 1; closed = false; paintStage(); }
+    });
+    document.addEventListener('keydown', (event) => {
+      if (stage.hidden) return;
+      if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); closeStage(); return; }
+      if (event.key === 'ArrowRight' || event.key === 'Enter' || event.key === 'PageDown') { event.preventDefault(); event.stopPropagation(); step(); return; }
+      if (['ArrowUp', 'ArrowDown', 'ArrowLeft', 'PageUp', ' '].includes(event.key)) event.stopPropagation();
+    }, true);
     const span = (ms) => { const sec = Math.max(1, Math.round((Number(ms) || 0) / 1000)); return sec >= 60 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`; };
     const paint = (b) => {
+      latest = b;
+      paintStage();
       const sig = JSON.stringify(b);
       if (sig === last) return;
       last = sig;
@@ -201,7 +296,7 @@
       seen = false;
       new IntersectionObserver((entries) => { seen = entries.some((entry) => entry.isIntersecting); if (seen) refresh(); }, { rootMargin: '400px 0px' }).observe(box);
     }
-    setInterval(() => { if (!document.hidden && seen) refresh(); }, 3000);
+    setInterval(() => { if (!document.hidden && (seen || !stage.hidden)) refresh(); }, 3000);
     (async () => {
       try { room = await roomFor(no); } catch (error) { room = null; }
       refresh();
