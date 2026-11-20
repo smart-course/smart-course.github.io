@@ -1449,7 +1449,7 @@
   const openKey = (q) => !worksheet && /^\d{2}:q\d+$/.test(q.key);
   const explainLabel = (q) => (withLearn(q) ? '展开解答与概念讲解' : openKey(q) ? '展开四步解析' : '展开解答');
   function paintExplain(q) {
-    if (!canExplain || !q.bar || !q.bar.classList.contains('is-locked')) return;
+    if (!canExplain || !q.bar || !q.bar.classList.contains('is-locked') || q.self) return;   // q.self：习经出门测（课后自修）不给解答
     let box = q.bar.querySelector('.clp-ex');
     if (!box) {
       box = document.createElement('div');
@@ -1504,7 +1504,9 @@
     q.button.hidden = true;
     q.lock();
     if (entry && entry.v !== undefined && entry.v !== null && q.restore) q.restore(entry.v);
-    setQ(q, entry && entry.other ? '已在其他设备递交（每题只算第一次）' : `已递交（${(entry && entry.at) || ''}），不能再修改`, 'ok');
+    setQ(q, entry && entry.other ? '已在其他设备递交（每题只算第一次）'
+      : q.self && !OFFLINE ? `已递交（${(entry && entry.at) || ''}）。出门测不显示答案：答对的每题另加 2 修为，答案在下一次课讲评`
+        : `已递交（${(entry && entry.at) || ''}），不能再修改`, 'ok');
     paintExplain(q);
   };
   questions.forEach((q) => {
@@ -6016,6 +6018,8 @@
       });
       list.push({
         key: `${box.dataset.liveCase}:${box.dataset.liveItem}`, section: caseTitle(box), title: box.dataset.quizTitle || '客观题',
+        // 出门测（2026-11-20 起照政经“课后自修”）：递交后不给解答，答对的每题另加修为，答案在下一次课讲评
+        self: Boolean(box.closest('.quiz-set.is-exit')),
         // 题干在用到时再读（旧版圆桌会议的秘密任务题曾在递交角色后才填入）
         get prompt() { return textOf(box.querySelector('.quiz-q')).replace(/^(单选|多选|判断|选 \d+ 张)/, ''); },
         anchor: (bar) => box.appendChild(bar),

@@ -1993,6 +1993,19 @@
   // 习经 2026-11-12 前的迁移任务（小案例）题号：match-1—4、transfer-k、说一说（transfer）。用小案例上过的课仍按它们计题、计分
   const OLD_TK = /^(match-\d+|transfer-k|transfer)$/;
   const TK_SINCE = '2026-11-13';   // 迁移任务改为小资料分析后的第一次课（北京时间）；这天之前上过、又没有新题记录的案例按小案例算
+  // 纠错诊断（2026-11-20 起每条误区一道多选 mythN-diag；以前是判断＋单选 mythN-judge、mythN-why）：用旧题上过的课仍按旧题计题、计分
+  const OLD_MYTH = /^myth\d+-(judge|why)$/;
+  const NEW_MYTH = /^myth\d+-diag$/;
+  // 出门测（2026-11-20 起照政经“课后自修”）：不计入“作答完成／作答正确”，答对每题另加 SELF_EXIT 修为（记在“修炼”一栏）。
+  // NEW_SINCE＝这两处改动发布的时刻：一个案例在本班的第一条作答记录早于它（没有记录时看本单元最后一次课早于 NEW_DAY），就仍按原来的办法算
+  const SELF_EXIT = 2;
+  const NEW_SINCE = Date.parse('2026-11-20T17:28:00+08:00');   // 发布时刻（北京时间）
+  const NEW_DAY = '2026-11-20';
+  const oldMythIn = (caseNo) => state.docs.choices.some((doc) => doc.case === caseNo && OLD_MYTH.test(doc.item));
+  const mythExtra = (item) => {
+    const group = ((item.practice || {}).groups || []).find((g) => g.legacy);
+    return group && oldMythIn(item.number) ? group.legacy.length - group.items.length : 0;
+  };
   // 章节案例课程：每人递交过的题目（投票、推演每轮、配对整体、每道文字题各算一题）
   const caseKey = (doc) => (/^match-/.test(doc.item) ? `${doc.case}:match` : `${doc.case}:${doc.item}`);
   // 实操改版案例另加客观题、辩论、圆桌（认领角色）的题数（practice.count）
@@ -2002,7 +2015,7 @@
     const P = item.practice || {};
     const oldTk = !P.transfer || oldTkIn(item.number);
     return sum + 2 + item.sim.rounds.length + (oldTk ? (item.matching.clues.length ? 1 : 0) + (item.transfer ? 1 : 0) : P.transfer.items.length)
-      + item.items.filter((entry) => oldTk || entry.key !== 'transfer').length + (P.count || 0);
+      + item.items.filter((entry) => oldTk || entry.key !== 'transfer').length + (P.count || 0) + mythExtra(item);
   }, 0);
   const caseProgress = () => {
     const cases = new Set(roomCases().map((item) => item.number));
@@ -2660,7 +2673,10 @@
         <h2>经营沙盘 · 各角色组人数 <small>${sum(bizVotes)} 人选了角色组；代表、投票和结算在投屏页的经营台</small></h2>
         ${P.biz.roles.map((name, i) => `<div class="tw-option single"><div class="tw-option-label"><span>${L(i)}</span>${esc(name)}</div>${bar(bizVotes.get(`r${i + 1}`) || 0, sum(bizVotes))}</div>`).join('')}
       </article>`;
-      return P.groups.map(quizCard).join('') + (P.transfer ? quizCard(P.transfer) : '') + debate + roundtable + biz;
+      // 纠错诊断：这一课堂是用旧题（判断＋单选）上的，就按旧题列出
+      const oldMythHere = docs.some((doc) => OLD_MYTH.test(doc.item));
+      return P.groups.map((group) => quizCard(group.legacy && oldMythHere ? { ...group, title: `${group.title}（旧题：判断＋单选）`, items: group.legacy } : group)).join('')
+        + (P.transfer ? quizCard(P.transfer) : '') + debate + roundtable + biz;
     })() : '';
     view.innerHTML = poll + match + sim + transfer + practice;
   }
@@ -3499,7 +3515,13 @@
     }
     (c.items || []).forEach((entry) => { if (oldTk || entry.key !== 'transfer') qs.push({ kind: 'text', items: [entry.key], min: 10 }); });
     if (!oldTk) P.transfer.items.forEach((q) => qs.push({ kind: 'obj', items: [q.key], score: (m) => (sameSet(m[q.key], q.answer) ? 1 : 0) }));
-    (P.groups || []).forEach((group) => group.items.forEach((q) => qs.push({ kind: 'obj', items: [q.key], score: (m) => (sameSet(m[q.key], q.answer) ? 1 : 0) })));
+    // 纠错诊断：用旧题上过的课（opts.legacyMyth）按旧题算。出门测（group.self）：改动发布以后的课不计入作答完成／正确，
+    // 记成 kind 'self'（结算时答对每题另加 SELF_EXIT 修为）；发布以前的课（opts.legacyExit）照旧按客观题算
+    (P.groups || []).forEach((group) => {
+      const list = group.legacy && opts && opts.legacyMyth ? group.legacy : group.items;
+      const kind = group.self && !(opts && opts.legacyExit) ? 'self' : 'obj';
+      list.forEach((q) => qs.push({ kind, items: [q.key], score: (m) => (sameSet(m[q.key], q.answer) ? 1 : 0) }));
+    });
     if (P.debate) ['debate-pre', 'debate-post', 'debate-cards'].forEach((key) => qs.push({ kind: 'part', items: [key] }));
     // 圆桌会议（2026-10-16 简化）：只计认领角色；三项议程的投票在上面 sim-1—3 里（参与即可）
     if (P.roundtable) qs.push({ kind: 'part', items: ['rt-role'] });
@@ -3677,22 +3699,32 @@
         } else {
           // 迁移任务按哪种题算（按全班，不按个人，以前的修为不变）：有人递交过小案例（match、transfer-k、说一说）的，或者没有人做过新题（tk）
           // 而这个案例在 TK_SINCE 之前就上过（有记录早于它；没有任何记录时看本单元最后一次课）的，按小案例算；其余按小资料分析算
+          // 纠错诊断（2026-11-20 起多选）、出门测（同日起照课后自修）同样按全班看：有人递交过旧的纠错题，或这个案例在改动发布以前就上过，按原来的办法算
           if (!info.tkLegacy) info.tkLegacy = new Map();
           const legacyOf = (c) => {
             const key = String(c.number);
             if (!info.tkLegacy.has(key)) {
               let old = false;
               let fresh = false;
+              let oldMyth = false;
+              let freshMyth = false;
               let first = '';
+              let firstMs = 0;
               [info.choices, info.answers].forEach((map) => map.forEach((list) => list.forEach((doc) => {
                 if (String(doc.case) !== key) return;
                 if (OLD_TK.test(doc.item)) old = true;
                 if (/^tk-\d+$/.test(doc.item)) fresh = true;
-                const day = isoDay(serverAt(doc));
+                if (OLD_MYTH.test(doc.item)) oldMyth = true;
+                if (NEW_MYTH.test(doc.item)) freshMyth = true;
+                const at = serverAt(doc);
+                const day = isoDay(at);
                 if (day && (!first || day < first)) first = day;
+                if (at && (!firstMs || at < firstMs)) firstMs = at;
               })));
               const last = info.classDays.slice().sort().pop() || '';
-              info.tkLegacy.set(key, old || (!fresh && (first ? first < TK_SINCE : Boolean(last) && last < TK_SINCE)));
+              const before = firstMs ? firstMs < NEW_SINCE : Boolean(last) && last < NEW_DAY;   // 这个案例在改动发布以前就上过
+              info.tkLegacy.set(key, { legacyTransfer: old || (!fresh && (first ? first < TK_SINCE : Boolean(last) && last < TK_SINCE)),
+                legacyMyth: oldMyth || (!freshMyth && before), legacyExit: before });
             }
             return info.tkLegacy.get(key);
           };
@@ -3701,7 +3733,9 @@
             const answers = firstOf((info.answers.get(person.sid) || []).filter((doc) => doc.case === c.number));
             const m2 = {};
             choices.forEach((doc, item) => { m2[item] = String(doc.choice); });
-            xjpQuestions(c, m2, { legacyTransfer: legacyOf(c) }).forEach((q) => {
+            xjpQuestions(c, m2, legacyOf(c)).forEach((q) => {
+              // 出门测（照课后自修）：不算题数，答对每题另加修为，记在“修炼”
+              if (q.kind === 'self') { total.practice += SELF_EXIT * q.score(m2); return; }
               count += 1;
               if (q.kind === 'text') {
                 const doc = answers.get(q.items[0]);
@@ -4683,7 +4717,9 @@
         if (!item) return;
         const m = {};
         firstOf(docs).forEach((doc, k) => { m[k] = doc.choice; });
-        xjpQuestions(item, m, { legacyTransfer: oldTkCases.has(String(caseNo)) }).filter((q) => q.kind === 'obj').forEach((q) => {
+        // 学情分析的正确率：出门测照常统计（legacyExit: true，只是不计入修为的两项）；纠错诊断按这位同学实际做的是旧题还是新题
+        xjpQuestions(item, m, { legacyTransfer: oldTkCases.has(String(caseNo)), legacyMyth: Object.keys(m).some((k) => OLD_MYTH.test(k)), legacyExit: true })
+          .filter((q) => q.kind === 'obj').forEach((q) => {
           if (!q.items.every((k) => m[k] != null)) return;
           const label = q.items.length > 1 ? `案例${caseNo} 证据—理论配对` : `案例${caseNo} ${itemLabel(caseNo, q.items[0])}`;
           addAnswer(`${caseNo}|${q.items.join('+')}`, label, caseNo, sid, q.score(m));
