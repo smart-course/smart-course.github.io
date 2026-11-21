@@ -139,6 +139,11 @@
   .clp-realm-card h3 button { border: 0; background: none; font-size: 22px; cursor: pointer; color: #6d6259; }
   .clp-realm-card h4 { margin: 12px 0 4px; font-size: 15px; color: #a4492d; }
   .clp-realm-card ul { margin: 0; padding-left: 20px; }
+  /* 更新说明按天分组（2026-11-21）：日期一行，后面拉一条细线 */
+  .clp-news-card h4.clp-news-day { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; font-size: 15.5px; }
+  .clp-news-card h4.clp-news-day span { flex: 0 0 auto; padding: 1px 12px; border-radius: 999px; background: #a4492d; color: #fff; font-weight: 800; letter-spacing: .02em; }
+  .clp-news-card h4.clp-news-day small { flex: 0 0 auto; color: #8a7f74; font-size: 12.5px; font-weight: 600; }
+  .clp-news-card h4.clp-news-day::after { content: ""; flex: 1 1 auto; height: 1px; background: rgba(70,51,34,.16); }
   .clp-news-card li { margin: 2px 0; }
   .clp-news-card li b { color: #463322; }
   .clp-news-ok { display: flex; justify-content: flex-end; margin-top: 14px; }
@@ -267,6 +272,24 @@
   .clp-tools button { padding: 7px 11px; border: 1px solid rgba(35,101,95,.45); border-radius: 7px; color: #23655f; background: #fff; font-family: inherit; font-weight: 700; font-size: 13px; line-height: 1; cursor: pointer; }
   .clp-tools button.is-main { border-color: #23655f; color: #fff; background: #23655f; }
   .clp-danmaku { display: flex; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(70,51,34,.2); }
+  /* 表情包（2026-11-21，live-stickers.js）：“发弹幕”右边的“表情”按钮、一格一格的表情、“我发过的弹幕”里的小图 */
+  .clp-stk-open { display: inline-flex; align-items: center; gap: 3px; margin-left: auto; padding: 1px 11px 1px 3px; border: 1.5px solid rgba(184,134,43,.6); border-radius: 999px;
+    background: linear-gradient(180deg, #fff8e1, #f6e2a8); color: #5a3a00; font-family: inherit; font-weight: 800; font-size: 13px; line-height: 1.2; cursor: pointer; }
+  .clp-stk-open img { width: 26px; height: 26px; }
+  .clp-stk-open[aria-expanded="true"] { background: #f2c64f; border-color: #b8801a; }
+  .clp-stk-box { margin: 8px 0 2px; padding: 8px 6px 6px; border: 1.5px solid rgba(184,134,43,.45); border-radius: 12px; background: #fffaf0; }
+  .clp-stk-box[hidden] { display: none; }
+  .clp-stk-head { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 2px 8px; margin: 0 4px 6px; color: #8a7f74; font-size: 12.5px; }
+  .clp-stk-head b { color: #8a5a1a; font-size: 13.5px; }
+  .clp-stk-grid { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 3px; max-height: 268px; overflow-y: auto; overscroll-behavior: contain; }
+  .clp-stk { display: grid; justify-items: center; min-width: 0; padding: 4px 1px 3px; border: 1px solid transparent; border-radius: 10px; background: none; color: #4a3f36;
+    font-family: inherit; font-weight: 700; font-size: 11.5px; line-height: 1.25; cursor: pointer; }
+  .clp-stk:hover, .clp-stk:focus-visible { border-color: rgba(184,134,43,.65); background: #fff; outline: 0; }
+  .clp-stk:active { transform: scale(.94); }
+  .clp-stk-img { width: 56px; height: 56px; }
+  .clp-stk span { max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .clp-stk-grid.is-cooling .clp-stk { opacity: .45; cursor: default; }
+  .clp-stk-in { width: 32px; height: 32px; margin: -4px 1px; vertical-align: middle; }
   .clp-mydm { margin-top: 6px; }
   .clp-mydm summary { cursor: pointer; color: #23655f; font-size: 13px; font-weight: 700; }
   .clp-mydm-list { display: grid; gap: 5px; max-height: 200px; margin: 6px 0 0; padding: 0; overflow: auto; list-style: none; }
@@ -1370,6 +1393,9 @@
       bottom = Math.max(bottom, Math.ceil(innerHeight - box.top) + 8);
     });
     panel.style.bottom = `${bottom}px`;
+    // 面板最高到窗口上边（留 12px）：底下让开得多时（手机上页面自带的底部导航），内容一长——比如展开表情——面板顶部原来会顶出窗口外。
+    // 里面的内容照常在面板里滚动。旧浏览器不认 dvh 时这一句不生效，沿用样式表里的高度
+    panel.style.maxHeight = `calc(100dvh - ${bottom + 12}px)`;
   };
   let dodgeTimer = null;
   window.addEventListener('resize', () => { clearTimeout(dodgeTimer); dodgeTimer = setTimeout(dodge, 200); });
@@ -3160,11 +3186,12 @@
       <section class="clp-sec"${AUDIT ? ' hidden' : ''}>
         <div class="clp-relogin" data-cl-relogin hidden><b>请回首页重新登录</b>：本课堂要核对身份（课堂码＋点名册＋个人口令），核对通过后才能递交作答、发弹幕。<a href="${joinUrl()}" data-cl-relogin-link>去首页登录 →</a></div>
         ${MAKEUP ? `<p class="clp-hint clp-makeup-note">${esc(MAKEUP_NOTE)}</p>` : ''}<div class="clp-dm-wrap"${MAKEUP ? ' hidden' : ''}>
-        <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span></div>
+        <div class="clp-sec-head"><span class="clp-sec-title">发弹幕</span>${Live.stickers && !OFFLINE ? `<button type="button" class="clp-stk-open" data-cl-stk-open aria-expanded="false" title="修仙表情包：点一个就发到投屏上（不计修为）"><img src="${Live.stickers.uri('miaoa')}" alt="" width="24" height="24">表情</button>` : ''}</div>
         <form class="clp-danmaku" data-cl-danmaku>
           <span class="clp-dm-field"><input type="text" maxlength="40" placeholder="说点什么，发到投屏上…" aria-label="弹幕内容" autocomplete="off"></span>
           <button type="submit">发送</button>
         </form>
+        ${Live.stickers && !OFFLINE ? '<div class="clp-stk-box" data-cl-stk hidden><div class="clp-stk-head"><b>修仙表情</b><span>点一个就发出去 · 不计修为</span></div><div class="clp-stk-grid" data-cl-stk-grid></div></div>' : ''}
         <div class="clp-dm-meta"><p class="clp-hint" data-cl-dm-state>${DM_HINT}</p><span data-cl-dm-len>0/40</span></div>
         <div class="clp-colors" data-cl-colors hidden><span class="clp-label">字色</span><em data-cl-colors-note></em></div>
         <div class="clp-gifts" data-cl-gifts hidden></div></div>
@@ -3273,6 +3300,57 @@
     loadMyDanmaku(true);
   }
 
+  // ---------- 表情包（2026-11-21 用户：“帮我开发一套修仙风格的表情包，可以在弹幕中发送。”见 live-stickers.js） ----------
+  // 点“表情”展开一格一格的修仙表情，点一个就作为一条弹幕发出去（文字是一个记号，投屏上画成图）。和发文字弹幕一样：每 5 秒一条、
+  // 受老师的弹幕开关和审核约束、可以在“我发过的弹幕”里删除；表情不计修为（“有效字”不算标点和符号，记号里只有这两样）
+  const plainDm = (text) => (Live.stickers ? Live.stickers.plain(text) : String(text == null ? '' : text));
+  const stkOpen = panel.querySelector('[data-cl-stk-open]');
+  const stkBox = panel.querySelector('[data-cl-stk]');
+  if (stkOpen && stkBox && Live.stickers) {
+    const St = Live.stickers;
+    const grid = stkBox.querySelector('[data-cl-stk-grid]');
+    let built = false;
+    const build = () => {
+      if (built) return;
+      built = true;
+      St.list.forEach((sticker) => {
+        const button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'clp-stk';
+        button.dataset.stk = sticker.key;
+        button.title = `${sticker.name}：${sticker.tip}`;
+        button.setAttribute('aria-label', `发送表情：${sticker.name}（${sticker.tip}）`);
+        button.appendChild(St.img(sticker.key, 0, 'clp-stk-img'));
+        const label = document.createElement('span');
+        label.textContent = sticker.name;
+        button.appendChild(label);
+        grid.appendChild(button);
+      });
+    };
+    const toggle = (open) => { stkBox.hidden = !open; stkOpen.setAttribute('aria-expanded', String(open)); if (open) build(); };
+    stkOpen.addEventListener('click', () => toggle(stkBox.hidden));
+    // 跟着“每 5 秒一条”的冷却变灰（showCooling 给每个登记的按钮写 textContent、disabled，这里借它的调用更新格子的样子）
+    dmButtons.push({ button: { set textContent(value) { /* 表情格子不显示倒计时 */ }, set disabled(value) { grid.classList.toggle('is-cooling', cooling > 0); } }, ready: () => true });
+    grid.addEventListener('click', async (event) => {
+      const button = event.target.closest('[data-stk]');
+      const sticker = button && St.list.find((item) => item.key === button.dataset.stk);
+      if (!sticker) return;
+      if (cooling > 0) { dmState.dataset.state = ''; dmState.textContent = `发得太快了，再等 ${cooling} 秒。`; return; }
+      grid.classList.add('is-cooling');
+      try {
+        await sendDanmaku(St.token(sticker.key));
+        dmState.dataset.state = 'ok';
+        dmState.textContent = `已发送表情「${sticker.name}」（${time()}）。若老师开启了审核，通过后才会上屏。`;
+        toggle(false);
+      } catch (problem) {
+        console.error(problem);
+        grid.classList.remove('is-cooling');
+        dmState.dataset.state = 'error';
+        dmState.textContent = dmProblem(problem);
+      }
+    });
+  }
+
   // ---------- 我发过的弹幕：查看、删除（后台函数只认本人这次登录发的；删除＝撤回：投屏不再显示，老师的记录里仍保留） ----------
   const mydm = panel.querySelector('[data-cl-mydm]');
   const mydmList = mydm.querySelector('[data-cl-mydm-list]');
@@ -3298,7 +3376,7 @@
     const body = document.createElement('span');
     const { tags, rest } = splitTags(row.text);
     tags.forEach((tag) => { const label = document.createElement('b'); label.textContent = tag; body.appendChild(label); });
-    body.appendChild(document.createTextNode(rest));
+    if (Live.stickers) Live.stickers.fill(body, rest, 'clp-stk-in'); else body.appendChild(document.createTextNode(rest));
     const meta = document.createElement('em');
     const at = row.ts ? new Date(Number(row.ts)).toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit' }) : '';
     meta.textContent = [row.liked ? '「师赞」老师点赞' : '', MY_STATUS[row.status] || '', at].filter(Boolean).join(' · ');
@@ -3360,7 +3438,7 @@
     const box = document.createElement('div');
     box.className = 'clp-zan';
     box.setAttribute('role', 'status');
-    const text = splitTags(row.text).rest.trim();
+    const text = plainDm(splitTags(row.text).rest.trim());
     box.innerHTML = '<div class="clp-zan-seal" aria-hidden="true">师<br>赞</div><div class="clp-zan-text"></div>';
     const caption = box.querySelector('.clp-zan-text');
     caption.textContent = `老师赞了你的弹幕「${text.length > 18 ? text.slice(0, 18) + '…' : text}」${more > 1 ? `等 ${more} 条` : ''}！`;
@@ -3400,7 +3478,7 @@
       const list = (got && got.removed) || [];
       if (!list.length) return;
       const quote = (row) => {
-        const text = splitTags(row.text).rest.trim() || String(row.text);
+        const text = plainDm(splitTags(row.text).rest.trim() || String(row.text));
         return `“${text.length > 18 ? `${text.slice(0, 18)}…` : text}”`;
       };
       const total = Number(got.points) || 0;
@@ -5122,7 +5200,7 @@
         <li>签到：上课时进入本次课堂就算；课后再打开页面不算。</li>
         <li>作答完成：每道题点“递交”就算（投票、站队也算）；要写的题认真写满一句话，只填几个字或留着空格线不算。</li>
         <li>作答正确：有参考答案的题按你第一次递交的答案判对错，递交后改不了，先想清楚再递交。</li>
-        <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算。被老师删除的无效弹幕，已经得到的修为会撤回，页面上会提醒你。</li>
+        <li>弹幕：每条有内容的弹幕都有修为，同一句只算一次，每次课最多 10；被老师隐藏或自己撤回的不算，表情也不算。被老师删除的无效弹幕，已经得到的修为会撤回，页面上会提醒你。</li>
         <li>请假：不能来上课时，点面板上的“请假”选好日期、写明原因；请假的那次课计 ${(Live.LEAVE || {}).points || 20} 修为（相当于签到）。没有登录也没有请假的课，不得任何修为（作答、弹幕也不算）。</li>
         <li>猜词游戏：每次课得分第一的一组，两位同学各加 ${(Live.WORDGAME || {}).points || 10} 修为。</li>
         ${config.course === 'xjp-economy' ? `<li>PK 对决：被抽到上台一对一（擂台抢答、因果链拼图赛、数据猜猜猜），获胜的同学加 ${(Live.PK || {}).points || 5} 修为；时间轴排排站是全班随机分成红、蓝两队，每人在自己页面弹出的对话框里选位置，每题答对人数多的一队得 1 分，最后得分高的一队每人加 ${(Live.TIMELINE || {}).points || 1} 修为。</li>` : ''}
@@ -5629,10 +5707,11 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261121b-debate-pe' : '20261121b-debate-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261121d-stickers-pe' : '20261121d-stickers-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
+  // 2026-11-21 起按天分组（Live.newsList 返回一天一组，最近的一天在最上面）
   function newsSections() {
     return Live.newsList ? Live.newsList(config.course, Live.NEWS_DAYS || 20) : [];
   }
@@ -5643,8 +5722,8 @@
   function openNews() {
     newsModal.innerHTML = `<div class="clp-realm-card clp-news-card" role="dialog" aria-modal="true" aria-label="版本更新说明">
       <h3><span>版本更新说明</span><button type="button" data-news-close aria-label="关闭">×</button></h3>
-      <p class="clp-hint">${esc(newsRangeText())}，课程网站做了这些更新（只列最近 ${Live.NEWS_DAYS || 20} 天的）。以后点面板底部的“更新说明”可以再看。</p>
-      ${newsSections().map((section) => `<h4>${esc(section.title)}</h4><ul>${section.items.map(([label, text]) => `<li><b>${esc(label)}</b>：${esc(text)}</li>`).join('')}</ul>`).join('')}
+      <p class="clp-hint">${esc(newsRangeText())}，课程网站做了这些更新（只列最近 ${Live.NEWS_DAYS || 20} 天的，一天一组，最近的在最上面）。以后点面板底部的“更新说明”可以再看。</p>
+      ${newsSections().map((section) => `<h4 class="clp-news-day"><span>${esc(section.title)}</span><small>${section.items.length} 条</small></h4><ul>${section.items.map(([label, text, , topic]) => `<li><b>${esc(topic ? `${topic} · ${label}` : label)}</b>：${esc(text)}</li>`).join('')}</ul>`).join('')}
       <div class="clp-news-ok"><button type="button" data-news-close>知道了</button></div></div>`;
     newsModal.hidden = false;
     newsModal.querySelector('[data-news-close]').focus();

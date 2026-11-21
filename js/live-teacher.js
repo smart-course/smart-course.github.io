@@ -3175,6 +3175,9 @@
     state.docs.checkins.forEach((doc) => map.set(doc.sid, doc));
     return map;
   };
+  // 表情包（2026-11-21，live-stickers.js）：弹幕记录里把表情记号画成小图；查找、删除确认、导出表格里写成“[表情·悟了]”
+  const dmHtml = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.html(text, 34, 'tw-stk') : esc(text));
+  const dmPlain = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.plain(text) : String(text == null ? '' : text));
   $('[data-dm-date]').addEventListener('change', renderDanmaku);
   $('[data-dm-search]').addEventListener('input', renderDanmaku);
   function renderDanmaku() {
@@ -3197,7 +3200,7 @@
     const rows = all.filter((doc) => !chosen || isoDay(doc.ts) === chosen).filter((doc) => {
       if (!query) return true;
       const info = who.get(doc.sid) || {};
-      return [doc.name, doc.sid, doc.text, info.class_name, info.group_name].some((value) => String(value || '').includes(query));
+      return [doc.name, doc.sid, doc.text, dmPlain(doc.text), info.class_name, info.group_name].some((value) => String(value || '').includes(query));
     });
     const senders = new Set(rows.map((doc) => doc.sid)).size;
     $('[data-dm-summary]').textContent = `${chosen || '全部日期'}：共 ${rows.length} 条，发送人 ${senders} 人。`;
@@ -3208,7 +3211,7 @@
       const canShow = !withdrawn && doc.status !== 'shown' && !(mode === 'direct' && doc.status === 'new');
       const shownClass = withdrawn ? 'hidden' : mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
       return `<tr class="tw-dm is-${esc(shownClass)}"><td>${esc(isoDay(doc.ts))}</td><td>${clock(doc.ts)}</td><td>${esc(doc.name)}</td><td>${esc(doc.sid)}</td>
-        <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${doc.liked_at ? '<b class="tw-dm-liked" title="老师点赞">👍</b> ' : ''}${doc.gift ? `法宝 ${esc(((window.ClassLive.GIFTS || []).find((gift) => gift.id === doc.gift) || {}).icon || '')} ` : ''}${esc(doc.text)}</td><td><em>${esc(status)}</em></td>
+        <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${doc.liked_at ? '<b class="tw-dm-liked" title="老师点赞">👍</b> ' : ''}${doc.gift ? `法宝 ${esc(((window.ClassLive.GIFTS || []).find((gift) => gift.id === doc.gift) || {}).icon || '')} ` : ''}${dmHtml(doc.text)}</td><td><em>${esc(status)}</em></td>
         <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${!withdrawn && doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有弹幕记录。</td></tr>';
   }
@@ -3218,7 +3221,7 @@
     if (trash) {
       const id = trash.dataset.dmDelete;
       const doc = state.docs.danmaku.find((item) => String(item.id) === id);
-      const preview = doc ? `${doc.name}：${String(doc.text).slice(0, 30)}` : '';
+      const preview = doc ? `${doc.name}：${dmPlain(doc.text).slice(0, 30)}` : '';
       if (!window.confirm(`确定删除这条弹幕吗？\n\n${preview}\n\n删除后无法恢复，弹幕记录和导出里都不再有它，投屏上也会撤下。这条弹幕已经结算过修为的，会撤回相应修为；学生页面会弹窗提醒。\n\n只想不上屏可以点“隐藏”（不提醒，下次结算时不算）。`)) return;
       trash.disabled = true;
       const note = $('[data-dm-note]');
@@ -3317,7 +3320,7 @@
       const stamp = window.ClassLive.today();
       const prefix = `${course.title}_${state.klass ? safeName(state.klass.name) + '_' : ''}${label}_${stamp}`;
       const danmakuCsv = () => csv([['课堂', '课堂码', '日期', '时间', '学号', '姓名', '班级', '小组', '弹幕', '状态'],
-        ...danmaku.map((d) => [...roomCols(d), isoDay(d.ts), clock(d.ts), ...person(d), d.text, recordStatus(d)])]);
+        ...danmaku.map((d) => [...roomCols(d), isoDay(d.ts), clock(d.ts), ...person(d), dmPlain(d.text), recordStatus(d)])]);
       if (only === 'danmaku') {
         download(`${prefix}_弹幕记录.csv`, danmakuCsv());
         status.textContent = `已导出${label}弹幕记录：${danmaku.length} 条（含发送人姓名、学号、班级、小组）。`;
@@ -4967,29 +4970,36 @@
     const Live = window.ClassLive;
     const days = Live.NEWS_DAYS || 20;
     const cutoff = new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(Date.now() - days * 86400000));
+    // 2026-11-21 用户：“更新说明，不同日期的单独列出来，按照天为单位……按照最近日期更新放最上面。不要一段时间的更新都放一起。”
+    //   newsList 现在一天一组（最近的一天在最上面）；一天里的条目要么都还在学生页显示、要么都已不显示，标在日期后面
     const sections = Live.newsList ? Live.newsList(course.slug, 0) : [];
-    const shown = sections.reduce((n, section) => n + section.items.filter((item) => item[2] >= cutoff).length, 0);
+    const shown = sections.reduce((n, section) => n + (section.day >= cutoff ? section.items.length : 0), 0);
     const total = sections.reduce((n, section) => n + section.items.length, 0);
-    $('[data-up-news-note]').textContent = `${course.title}：共 ${total} 条，学生页现在显示最近 ${days} 天的 ${shown} 条`;
-    $('[data-up-news]').innerHTML = sections.map((section) => `<section class="tw-up-sec"><h4>${esc(section.title)}</h4><ul>${section.items.map(([label, text, date]) => {
-      const off = date < cutoff;
-      return `<li class="${off ? 'is-off' : ''}"><span class="tw-up-date">${esc(date.slice(5).replace('-', '/'))}</span><div><b>${esc(label)}</b>${esc(text)}</div><em>${off ? '学生页已不显示' : '学生页显示中'}</em></li>`;
-    }).join('')}</ul></section>`).join('') || '<p class="tw-hint">（没有读到学生页的更新说明）</p>';
+    $('[data-up-news-note]').textContent = `${course.title}：共 ${total} 条，学生页现在显示最近 ${days} 天的 ${shown} 条；一天一组，最近的在最上面`;
+    $('[data-up-news]').innerHTML = sections.map((section) => {
+      const off = section.day < cutoff;
+      return `<section class="tw-up-sec${off ? ' is-off' : ''}"><h4><span>${esc(section.title)}</span><small>${section.items.length} 条</small><em>${off ? '学生页已不显示' : '学生页显示中'}</em></h4><ul>${section.items.map(([label, text, , topic]) => `<li><b>${esc(topic ? `${topic} · ${label}` : label)}</b>${esc(text)}</li>`).join('')}</ul></section>`;
+    }).join('') || '<p class="tw-hint">（没有读到学生页的更新说明）</p>';
     paintUpdateRows();
   }
+  // 全部更新记录：同样一天一组，每天前面一行日期（和这一天有几次更新），最近的一天在最上面
+  const updateDay = (date) => `${String(date).slice(0, 4) === String(new Date().getFullYear()) ? '' : `${Number(String(date).slice(0, 4))} 年 `}${Number(String(date).slice(5, 7))} 月 ${Number(String(date).slice(8, 10))} 日`;
   function paintUpdateRows() {
     const rows = (DATA.updates || []).slice().reverse();
     const query = $('[data-up-search]').value.trim();
-    const list = rows.filter((row) => !query || `${row.date} ${row.no} ${row.title} ${row.commit}`.includes(query));
+    const list = rows.filter((row) => !query || `${row.date} ${updateDay(row.date)} ${updateDay(row.date).replace(/\s/g, '')} ${row.no} ${row.title} ${row.commit}`.includes(query));
+    const dayCount = new Set(rows.map((row) => row.date)).size;
     $('[data-up-summary]').textContent = rows.length
-      ? `共 ${rows.length} 次更新（${rows[rows.length - 1].date.slice(5).replace('-', '/')}—${rows[0].date.slice(5).replace('-', '/')}）${query ? `，符合条件 ${list.length} 次` : ''}。“上线”是网站发布的提交号；空着的是和后面某次一起上线，或只改了本机文件（讲义、Word 等）。`
+      ? `共 ${rows.length} 次更新，分在 ${dayCount} 天（${updateDay(rows[rows.length - 1].date)}—${updateDay(rows[0].date)}）${query ? `，符合条件 ${list.length} 次` : ''}。“上线”是网站发布的提交号；空着的是和后面某次一起上线，或只改了本机文件（讲义、Word 等）。`
       : '还没有整理出更新记录（网站构建时从对话记录整理）。';
+    const perDay = list.reduce((map, row) => map.set(row.date, (map.get(row.date) || 0) + 1), new Map());
     let day = '';
     $('[data-up-rows]').innerHTML = list.map((row) => {
       const first = row.date !== day;
       day = row.date;
-      return `<tr class="${first ? 'is-day' : ''}"><td>${first ? esc(row.date.slice(5).replace('-', '/')) : ''}</td><td>${esc(row.no)}</td><td class="tw-up-title">${esc(row.title)}</td><td>${row.commit ? `<code>${esc(row.commit)}</code>` : ''}</td></tr>`;
-    }).join('') || '<tr><td colspan="4" class="empty">没有符合条件的更新。</td></tr>';
+      return `${first ? `<tr class="tw-up-day"><th colspan="3" scope="colgroup"><span>${esc(updateDay(row.date))}</span><small>${perDay.get(row.date)} 次更新</small></th></tr>` : ''}`
+        + `<tr><td>${esc(row.no)}</td><td class="tw-up-title">${esc(row.title)}</td><td>${row.commit ? `<code>${esc(row.commit)}</code>` : ''}</td></tr>`;
+    }).join('') || '<tr><td colspan="3" class="empty">没有符合条件的更新。</td></tr>';
   }
   $('[data-tab="updates"]').addEventListener('click', renderUpdates);
   $('[data-up-search]').addEventListener('input', paintUpdateRows);

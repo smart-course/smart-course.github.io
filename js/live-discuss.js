@@ -1,8 +1,10 @@
 /* 分组讨论投屏页（习经课堂完整版，有圆桌会议的案例 02、03、04、05、10、11、13、14）：卡片里的 [data-disc-board] 和 [data-disc-result]。
  * 2026-11-11 用户：“你看下能否把‘机制图 · 弹幕接龙’和‘圆桌会议’改为讨论课，比如让学生进行分组讨论？比如可以按照角色的不同分成四组。
  * 讨论的题目要能激发学生的积极性。讨论的形式可以让同学们在聊天室中进行，然后点赞，参照习经的做法？”
- *   讨论看板（② 组内讨论）：四个角色组的人数、发言数、全部发言（按发布时间固定排列，可上下滑动；可隐藏不合适的发言）、每组点赞最多的发言人；
- *     “揭晓姓名”后显示姓名（③ 各组亮观点时请发言人起来说）。
+ *   讨论看板（② 组内讨论）：四个角色组各一间聊天室——成员名单（谁进来了、在线的小绿点）、全部发言（按发布时间固定排列，可上下滑动；
+ *     每条后面的“×”可以隐藏不合适的发言）、每组点赞最多的发言人；“揭晓姓名”后显示姓名（③ 各组亮观点时请发言人起来说）。
+ *     2026-11-21 用户：“教师版聊天室的样子跟学生版的一样吧，也能显示加入的人。”——聊天室的样子照学生页（ClassLive.chatRoom，live-core.js），
+ *     成员名单读 ck_debate_members（房间号＝案例号＋d）、在线状态读 ck_presence，没有新的后台函数。
  *   公布结果（⑤ 揭晓对照）：按三项议程（sim-1—3）全班表决的票数，算出哪几组的提案被采纳（提案对应的方案在那一项里票数最多，并列不算，老师可以点组名改），
  *     点“公布结果，加修为”（ck_set_disc_awards）：各组发言人加 leader，提案被采纳的组里在聊天室发过言的同学加 win；可改判、撤销。
  * 需要在本机登录教师工作台（ck_disc_board、ck_set_disc_awards 只给教师）；看板每 3 秒刷新一次（页面在前台、卡片在屏幕上时）。
@@ -16,6 +18,7 @@
   try { backend = window.ClassLive.create(config); } catch (error) { console.warn('[分组讨论]', error.message); return; }
   const DS = window.ClassLive.DISCUSS || { leader: 5, win: 5, roles: ['r1', 'r2', 'r3', 'r4'] };
   const ROLES = DS.roles || ['r1', 'r2', 'r3', 'r4'];
+  const CR = window.ClassLive.chatRoom;   // 聊天室的样子和成员名单（live-core.js，三种聊天室共用）
   const unit = config.unit || window.ClassLive.unitOf();
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const problemText = (error) => {
@@ -27,24 +30,10 @@
   const style = document.createElement('style');
   style.textContent = `
   .dsb { border-radius: 14px; border: 1px solid rgba(70,51,34,.18); background: #fffdf8; box-shadow: 0 8px 22px rgba(70,51,34,.08); overflow: hidden; }
-  .dsb-cols { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); }
-  .dsb-col { min-width: 0; padding: 0 0 12px; }
-  .dsb-col + .dsb-col { border-left: 1px solid rgba(70,51,34,.12); }
-  .dsb-col header { display: grid; gap: 2px; padding: 9px 14px; color: #fff; background: #23655f; }
-  .dsb-col.is-r2 header { background: #a4492d; } .dsb-col.is-r3 header { background: #3d5a99; } .dsb-col.is-r4 header { background: #8a5a1a; }
-  .dsb-col header b { font-size: 17px; letter-spacing: .06em; } .dsb-col header span { font-size: 13px; opacity: .92; }
-  .dsb-lead { margin: 10px 12px 6px; padding: 8px 10px; border-radius: 10px; border: 1px solid rgba(184,134,43,.4); background: #fff7e3; font-size: 14.5px; line-height: 1.5; }
-  .dsb-lead b { color: #8a5a1a; } .dsb-lead em { font-style: normal; font-weight: 800; color: #c0392b; } .dsb-lead small { color: #6d6259; }
-  .dsb-lead.is-none { border-style: dashed; background: #fbf8f2; color: #8a7f74; }
-  .dsb-feed { margin: 0; padding: 0 10px 0 12px; list-style: none; display: grid; gap: 6px; grid-auto-rows: max-content; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-  .dsb-feed[hidden], .dsb-none[hidden] { display: none; }
-  .dsb-feed li { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 4px 8px; padding: 7px 9px; border-radius: 9px; background: #fff; border: 1px solid rgba(70,51,34,.1); font-size: 15px; line-height: 1.55; }
-  .dsb-feed li b { flex: 0 0 auto; color: #23655f; } .dsb-col.is-r2 .dsb-feed li b { color: #a4492d; } .dsb-col.is-r3 .dsb-feed li b { color: #3d5a99; } .dsb-col.is-r4 .dsb-feed li b { color: #8a5a1a; }
-  .dsb-feed li b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
-  .dsb-feed li span { flex: 1 1 100%; word-break: break-word; } .dsb-feed li time { color: #8a7f74; font-size: 12.5px; font-variant-numeric: tabular-nums; }
-  .dsb-feed em { font-style: normal; color: #c0392b; font-weight: 800; white-space: nowrap; }
-  .dsb-feed button { margin-left: auto; width: 22px; height: 22px; border: 0; border-radius: 50%; background: transparent; color: #9a8b7a; font-size: 15px; line-height: 1; cursor: pointer; }
-  .dsb-feed button:hover { background: rgba(192,57,43,.1); color: #c0392b; }
+  .dsb-cols > .dsb-none { grid-column: 1 / -1; }
+  .dsb-lead b { margin-right: 6px; padding: 0 8px; border-radius: 999px; background: #b8862b; color: #fff; font-size: 12.5px; font-weight: 800; letter-spacing: .04em; }
+  .dsb-lead em { font-style: normal; font-weight: 800; color: #c0392b; } .dsb-lead small { color: #6d6259; }
+  .dsb-lead.is-none { color: #8a7f74; }
   .dsb-none { margin: 4px 12px 0; color: #8a7f74; font-size: 14px; }
   .dsb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 16px; border-top: 1px solid rgba(70,51,34,.12); background: #fbf6ec; }
   .dsb-bar button, .dsr-acts button { padding: 7px 14px; border: 1.5px solid rgba(70,51,34,.25); border-radius: 9px; background: #fff; color: #201c18; font-weight: 800; font-size: 14px; line-height: 1.2; cursor: pointer; }
@@ -67,8 +56,8 @@
   .dsr-acts { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
   .dsr-acts button.is-main { border-color: #b8862b; background: linear-gradient(180deg, #f6dc98, #dcb253); color: #3b2a07; font-size: 15px; }
   .dsr-acts button[disabled] { opacity: .5; cursor: default; }
-  @media (max-width: 900px) { .dsb-cols, .dsr-groups { grid-template-columns: 1fr 1fr; } .dsb-col:nth-child(3) { border-left: 0; } .dsb-col:nth-child(n+3) { border-top: 1px solid rgba(70,51,34,.12); } }
-  @media (max-width: 560px) { .dsb-cols, .dsr-groups { grid-template-columns: 1fr; } .dsb-col + .dsb-col { border-left: 0; border-top: 1px solid rgba(70,51,34,.12); } }
+  @media (max-width: 900px) { .dsr-groups { grid-template-columns: 1fr 1fr; } }
+  @media (max-width: 560px) { .dsr-groups { grid-template-columns: 1fr; } }
   `;
   document.head.appendChild(style);
 
@@ -98,8 +87,9 @@
     const realOf = (m) => (reveal && m && m.name && !String(m.nick || '').startsWith(String(m.name).replace(/\s+/g, '').slice(0, 7)) ? m.name : '');
     let picks = null;       // 老师手动改过的“采纳”组；null＝按票数自动算
     let published = null;   // 刚公布的结果 { list }
+    const people = CR.tracker(backend);   // 四间聊天室的成员名单和在线状态（隔几秒读一次）
 
-    board.innerHTML = '<div class="dsb"><div class="dsb-cols"></div><div class="dsb-bar"><button type="button" data-dsb-reveal>揭晓姓名</button>'
+    board.innerHTML = '<div class="dsb"><div class="dsb-cols tcr-rooms is-4"></div><div class="dsb-bar"><button type="button" data-dsb-reveal>揭晓姓名</button>'
       + '<span class="dsb-status" data-dsb-status role="status"></span></div></div>';
     const status = (text, ok) => { const el = board.querySelector('[data-dsb-status]'); el.textContent = text || ''; el.classList.toggle('is-ok', Boolean(ok)); };
     if (resultBox) resultBox.innerHTML = '<div class="dsr"></div>';
@@ -129,26 +119,26 @@
         cols.innerHTML = '<p class="dsb-none" style="padding:14px 18px">当前没有开放本案例的课堂：在教师工作台发布或打开“学生可进入”后，这里显示四个组的聊天室。</p>';
         return;
       }
-      if (!cols.querySelector('[data-dsb-feed]')) {
-        cols.innerHTML = ROLES.map((key) => `<section class="dsb-col is-${key}"><header><b>${esc(nameOf(key))}组</b><span data-dsb-count></span></header>
-          <div class="dsb-lead" data-dsb-lead></div><ul class="dsb-feed" data-dsb-feed="${key}"></ul><p class="dsb-none" data-dsb-none>还没有发言</p></section>`).join('');
-      }
+      if (!cols.querySelector('[data-tcr]')) cols.innerHTML = ROLES.map((key) => CR.shell(key, key)).join('');
       const leaders = (data && data.leaders) || [];
+      const joined = people.list();
       ROLES.forEach((key) => {
         const d = (data && data[key]) || { members: 0, posts: 0, all: [], top: [] };
-        const col = cols.querySelector(`.dsb-col.is-${key}`);
-        col.querySelector('[data-dsb-count]').textContent = `${d.members} 人 · ${d.posts} 条发言`;
         const lead = leaders.find((l) => l.side === key) || ((d.top || [])[0] && d.top[0].likes > 0 ? d.top[0] : null);
-        const leadBox = col.querySelector('[data-dsb-lead]');
-        leadBox.className = `dsb-lead${lead ? '' : ' is-none'}`;
-        leadBox.innerHTML = lead ? `<b>发言人</b> ${esc(lead.nick)}${realOf(lead) ? `（${esc(realOf(lead))}）` : ''} <em>♥ ${lead.likes}</em> <small>· ${lead.posts} 条</small>`
-          : '还没有人被点赞：点赞最多的就是本组发言人';
-        const box = col.querySelector(`[data-dsb-feed="${key}"]`);
         const rows = d.all || [];
-        col.querySelector('[data-dsb-none]').hidden = rows.length > 0;
-        box.hidden = !rows.length;
-        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${realOf(h) ? `<small>${esc(realOf(h))}</small>` : ''}</b>`
-          + `<time>${esc(window.ClassLive.feedClock(h.at))}</time>${h.likes ? `<em>♥ ${h.likes}</em>` : ''}<button type="button" data-dsb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button><span>${esc(h.text)}</span>`);
+        const mine = joined ? CR.roster(joined.filter((m) => m.side === key), rows) : null;
+        const badge = (m) => (lead && lead.nick === m.nick ? '发言人' : '');
+        CR.paint(cols.querySelector(`[data-tcr="${key}"]`), {
+          title: `${nameOf(key)}组`,
+          meta: `${d.members} 人${mine ? `（在线 ${mine.filter((m) => m.online).length}）` : ''} · ${d.posts} 条发言`,
+          extra: lead ? `<div class="dsb-lead"><b>发言人</b>${esc(lead.nick)}${realOf(lead) ? `（${esc(realOf(lead))}）` : ''} <em>♥ ${lead.likes}</em> <small>· ${lead.posts} 条</small></div>`
+            : '<div class="dsb-lead is-none">还没有人被点赞：点赞最多的就是本组发言人</div>',
+          people: mine && mine.map((m) => ({ ...m, real: realOf(m), badge: badge(m) })),
+          count: d.members,
+          posts: rows.map((h) => ({ ...h, real: realOf(h), badge: badge(h) })),
+          empty: '还没有发言',
+          hide: true,
+        });
       });
       board.querySelector('[data-dsb-reveal]').textContent = reveal ? '收起姓名' : '揭晓姓名';
     }
@@ -189,7 +179,8 @@
       try {
         room = await roomFor(no);
         data = room ? await rpcOne('ck_disc_board', { p_classroom: Number(room.id) || room.id, p_case: no }) : null;
-        const key = JSON.stringify([data, reveal, Boolean(room), picks, published]);
+        if (room) await people.refresh(room.id, `${no}d`, ROLES.reduce((n, key) => n + (Number((data[key] || {}).members) || 0), 0));   // 聊天室的房间号＝案例号＋d
+        const key = JSON.stringify([data, reveal, Boolean(room), picks, published, room ? people.list() : null]);
         if (force || key !== last) {
           last = key;
           renderBoard();
@@ -206,14 +197,14 @@
     }
     board.addEventListener('click', async (event) => {
       const revealButton = event.target.closest('[data-dsb-reveal]');
-      const hide = event.target.closest('[data-dsb-hide]');
+      const hide = event.target.closest('[data-tcr-hide]');
       if (revealButton) {
         reveal = !reveal;
         renderBoard();
         renderResult();
       } else if (hide) {
         if (!window.confirm('隐藏这条发言？学生的聊天室里也看不到了，它的点赞也不再计入。')) return;
-        try { await backend.rpc('ck_debate_hide', { p_post: Number(hide.dataset.dsbHide) || hide.dataset.dsbHide, p_hidden: true }); status('已隐藏这条发言。', true); load(true); }
+        try { await backend.rpc('ck_debate_hide', { p_post: Number(hide.dataset.tcrHide) || hide.dataset.tcrHide, p_hidden: true }); status('已隐藏这条发言。', true); load(true); }
         catch (error) { status(`隐藏失败：${error.message || error}`); }
       }
     });

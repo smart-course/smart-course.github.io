@@ -3059,6 +3059,16 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-21（下午）：每题常显“⤢ 全屏”、全屏时带上题干和解析、“本课时步骤”日程表、更新说明按天分组
+        ...(config.course === 'xjp-economy' ? [
+          ['每道题右上角都有“⤢ 全屏”', '电脑上，每道题、每一块内容的右上角都有“⤢ 全屏”，一直显示，不用再把鼠标移上去找“⤢”（步骤卡右边的“⤢ 放大”也改叫“⤢ 全屏”）。全屏看题时，题干和解析跟着题目一起显示：纠错诊断里那条错误说法、每组快问快答的研讨题、迁移任务的理论要点清单，都在这一屏里。顶栏的“退出放大”改叫“退出全屏”，原来的“全屏”改叫“占满屏幕”（连浏览器的标签栏也收起）。', '2026-11-21'],
+          ['“本课时步骤”换了排版', '每个课时开头的“本课时步骤”改成日程表：一行一个环节，左边是用时和起止时间，右边是这一环节的步骤，点一下就跳到页面上的对应位置。', '2026-11-21'],
+        ] : [
+          ['线索放进了题目里', '案例的线索不再集中放在前面（案例 01、02、13、17、22 原来就是线索和概念穿插着排，没有变）：每个概念第 1 步“先想一想”的开头，就是这个概念要用的线索卡——读完线索，紧接着回答下面的问题；全屏看题时，线索和题目在同一屏。放在最前面单独一页的线索是案例的开头；放在概念学完之后的线索没有对应的题目，是延伸阅读。你已经递交的作答不受影响。', '2026-11-21'],
+          ['每一题右上角都有“⤢ 全屏”', '电脑上，每一题（每个概念的每一步、迁移任务、辩论赛、概念串联、深度思考、课后自修的每一块）右上角都有“⤢ 全屏”，一直显示，不用再把鼠标移到卡片上找“⤢”：点一下，这一题铺满窗口，照常选择、输入和递交。顶栏的“退出放大”改叫“退出全屏”，原来的“全屏”改叫“占满屏幕”（连浏览器的标签栏也收起）。', '2026-11-21'],
+        ]),
+        ['修仙表情包', '“发弹幕”右边多了“表情”：一套 20 个修仙小表情——悟了、受教了、妙啊、前辈高见、求解惑、道友留步、闭关中、炼丹中、渡劫中、突破啦、稳了、道友加油、道心不稳、走火入魔、罢了罢了、灵力耗尽、御剑赶到、静观其变、天机不可泄露、告辞。点一个就发到投屏上；和发弹幕一样每 5 秒一条，老师关了弹幕或开了审核时同样受约束，发出去的可以在“我发过的弹幕”里删除。表情不计修为，想攒修为还是要写有内容的弹幕。', '2026-11-21'],
+        ['更新说明按天排', '“更新说明”改为一天一组，最近的一天排在最上面，不再把一段时间的更新放在一起。', '2026-11-21'],
         ...(config.course === 'xjp-economy' ? [
           ['机制图闯关换成大屏', '机制图下面点“开始闯关”，闯关铺满屏幕：上面一排节点卡片跟着一步一步点亮，下面出题。中途点右上角“×”（或按 Esc）先回页面，再点“继续闯关”接着来；通关后页面上的机制图整张亮起。', '2026-11-20'],
           ['闯关一关一关来', '小资料分析闯关改成一关一屏：先出第一问，选了以后再出第二问，两问都选好才能进下一关（交卷以前可以回上一关改），最后一关交卷。抢答和闯关的画面换成了铺满屏幕的深色大屏风格。', '2026-11-20'],
@@ -3209,16 +3219,24 @@
     if (a === b) return newsMd(a);
     return a.slice(5, 7) === b.slice(5, 7) ? `${Number(a.slice(5, 7))} 月 ${Number(a.slice(8, 10))}—${Number(b.slice(8, 10))} 日` : `${newsMd(a)}—${newsMd(b)}`;
   }
-  // days＞0：只要最近 days 天的条目（今天往前数）；分组标题带日期范围
+  // 2026-11-21 用户：“更新说明，不同日期的单独列出来，按照天为单位，比如11月21日：……11月20日：……按照最近日期更新放最上面。不要一段时间的更新都放一起。”
+  // 按天分组：一天一组，最近的一天在最上面；同一天里按上面 news() 里写的先后。
+  // 每组 { day: 'YYYY-MM-DD', title: '11 月 21 日'（不是今年的带年份）, items: [[小标题, 说明, 日期, 主题]] }；主题＝news() 里那一组的标题（如“修为境界”），没有就是空。
+  // days＞0：只要最近 days 天的条目（今天往前数）
   function newsList(course, days) {
     const cutoff = days ? newsDay(Date.now() - days * 86400000) : '';
-    return news(course).map((section) => {
-      const items = section.items.filter((item) => !cutoff || item[2] >= cutoff);
-      if (!items.length) return null;
-      const range = newsRange(items.map((item) => item[2]));
-      return { title: section.title === '最新' ? `最新（${range}）` : `${range}${section.title ? ` · ${section.title}` : ''}`, topic: section.title, items,
-        last: items.reduce((m, item) => (item[2] > m ? item[2] : m), '') };
-    }).filter(Boolean).sort((x, y) => (y.last > x.last ? 1 : y.last < x.last ? -1 : 0));   // 新的分组在前
+    const year = newsDay(Date.now()).slice(0, 4);
+    const byDay = new Map();
+    news(course).forEach((section) => {
+      const topic = section.title === '最新' ? '' : section.title || '';
+      section.items.forEach((item) => {
+        if (!item[2] || (cutoff && item[2] < cutoff)) return;
+        if (!byDay.has(item[2])) byDay.set(item[2], []);
+        byDay.get(item[2]).push([item[0], item[1], item[2], topic]);
+      });
+    });
+    return Array.from(byDay.keys()).sort().reverse()
+      .map((day) => ({ day, title: `${day.slice(0, 4) === year ? '' : `${Number(day.slice(0, 4))} 年 `}${newsMd(day)}`, items: byDay.get(day), last: day }));
   }
 
   // 聊天室看板的发言列表（2026-11-07 用户：“课堂完整版正文中聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”）：
@@ -3244,10 +3262,189 @@
   const feedClockFormat = new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', hour12: false });
   const feedClock = (at) => { const ms = Date.parse(at); return Number.isNaN(ms) ? '' : feedClockFormat.format(new Date(ms)); };
 
+  // ---------- 投屏页的聊天室（2026-11-21；辩论赛 live-debate.js、分组讨论 live-discuss.js、经营沙盘 biz_sim.js 共用） ----------
+  // 用户：“教师版聊天室的样子跟学生版的一样吧，也能显示加入的人。”
+  //   样子照学生页的聊天室（live-student.js 的 .dbr-room）：上面一条有底色的标题栏，成员名单（头像、在线的小绿点、被点赞数和发言数），
+  //   一条一条的消息气泡（头像、名字、时间、点赞数）。老师这里不发言、不点赞；每条发言后面有“×”，可以隐藏不合适的发言。
+  //   聊天室够宽时（辩论赛两间并排）成员名单在左边竖着排，和学生页一样；窄的时候（分组讨论、经营沙盘四间并排）名单横着排在消息上面，
+  //   和学生手机上一样。按聊天室自己的宽度切换（容器查询），不看窗口宽度。
+  //   成员名单直接读 ck_debate_members（教师可读），在线状态读 ck_presence（2 分钟内报到过＝在线，和工作台的小绿灯一样），不用新的后台函数。
+  const chatRoom = (() => {
+    const ONLINE_MS = 2 * 60 * 1000;
+    const h = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+    // 头像：名字第一个字，底色按名字算出（同一个名字颜色固定，和学生页一样）；online 不传＝不显示在线点
+    const avatar = (nick, online) => {
+      const hue = Array.from(String(nick || '')).reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 17);
+      return `<i class="tcr-av" style="--h:${hue}" aria-hidden="true">${h(Array.from(String(nick || '?'))[0])}${online === undefined ? '' : `<s class="${online ? 'is-on' : ''}"></s>`}</i>`;
+    };
+    const CSS = `
+    .tcr-rooms { display: grid; gap: 12px; padding: 12px; }
+    .tcr-rooms.is-2 { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+    .tcr-rooms.is-4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+    @media (max-width: 1100px) { .tcr-rooms.is-4 { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+    @media (max-width: 760px) { .tcr-rooms.is-2, .tcr-rooms.is-4 { grid-template-columns: minmax(0, 1fr); } }
+    .tcr-room { container-type: inline-size; display: flex; flex-direction: column; min-width: 0; border-radius: 14px; border: 1.5px solid rgba(35,101,95,.4); background: #fbfdfc; color: #201c18; overflow: hidden; text-align: left; }
+    .tcr-room.is-con, .tcr-room.is-r2 { border-color: rgba(164,73,45,.45); background: #fffbf8; }
+    .tcr-room.is-r3 { border-color: rgba(61,90,153,.45); background: #f8faff; }
+    .tcr-room.is-r4 { border-color: rgba(138,90,26,.45); background: #fffcf4; }
+    .tcr-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; padding: 10px 16px; background: linear-gradient(180deg, #2b7169, #23655f); color: #fff; }
+    .tcr-room.is-con .tcr-head, .tcr-room.is-r2 .tcr-head { background: linear-gradient(180deg, #b55536, #a4492d); }
+    .tcr-room.is-r3 .tcr-head { background: linear-gradient(180deg, #4a68a8, #3d5a99); }
+    .tcr-room.is-r4 .tcr-head { background: linear-gradient(180deg, #9b6a25, #8a5a1a); }
+    .tcr-head > div { display: flex; flex-wrap: wrap; align-items: baseline; gap: 4px 12px; min-width: 0; }
+    .tcr-head b { font-size: 18px; letter-spacing: .06em; }
+    .tcr-head span { font-size: 14px; opacity: .94; }
+    .tcr-head .tcr-tag { padding: 3px 10px; border-radius: 999px; background: rgba(255,255,255,.2); font-size: 13.5px; font-weight: 700; opacity: 1; overflow-wrap: anywhere; }
+    .tcr-tag[hidden], .tcr-extra[hidden] { display: none; }
+    .tcr-extra { padding: 8px 14px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; color: #3b3129; font-size: 14px; line-height: 1.6; }
+    .tcr-body { display: flex; flex-direction: column; min-height: 0; }
+    .tcr-people { flex: 0 0 auto; padding: 8px 10px; border-bottom: 1px solid rgba(70,51,34,.1); background: rgba(70,51,34,.03); }
+    .tcr-people h5 { margin: 0 4px 6px; font-size: 13.5px; font-weight: 800; color: #6d6259; letter-spacing: .04em; }
+    .tcr-people ul { margin: 0; padding: 0 0 2px; list-style: none; display: flex; flex-wrap: wrap; gap: 6px; max-height: 124px; overflow-y: auto; overscroll-behavior: contain; }
+    .tcr-people li { flex: 0 0 auto; display: flex; align-items: center; gap: 6px; max-width: 100%; padding: 3px 10px 3px 3px; border: 1px solid rgba(70,51,34,.1); border-radius: 999px; background: #fff; }
+    .tcr-people li > span { display: grid; min-width: 0; }
+    .tcr-people b { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 14px; color: #201c18; }
+    .tcr-people b small { margin-left: 4px; font-weight: 400; color: #6d6259; }
+    .tcr-people span > small { display: none; color: #8a7f74; font-size: 12px; white-space: nowrap; }
+    .tcr-people em, .tcr-who em { margin-right: 4px; padding: 0 6px; border-radius: 999px; background: #b8862b; color: #fff; font-style: normal; font-size: 11.5px; font-weight: 800; white-space: nowrap; }
+    .tcr-people li.tcr-none { padding: 2px 4px; border: 0; background: none; color: #8a7f74; font-size: 13.5px; }
+    .tcr-av { position: relative; flex: 0 0 auto; display: grid; place-items: center; width: 28px; height: 28px; border-radius: 50%; background: hsl(var(--h) 45% 46%); color: #fff; font-style: normal; font-weight: 800; font-size: 14px; line-height: 1; }
+    .tcr-av s { position: absolute; right: -1px; bottom: -1px; width: 10px; height: 10px; border-radius: 50%; border: 2px solid #fbfdfc; background: #c8c0b5; text-decoration: none; }
+    .tcr-av s.is-on { background: #2fb36b; }
+    .tcr-main { flex: 1 1 auto; display: flex; flex-direction: column; min-width: 0; min-height: 0; }
+    .tcr-list { flex: 1 1 auto; margin: 0; padding: 12px 14px; list-style: none; display: grid; align-content: start; gap: 12px; max-height: 420px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
+    .tcr-list::-webkit-scrollbar, .tcr-people ul::-webkit-scrollbar, .tcr-people::-webkit-scrollbar { width: 8px; }
+    .tcr-list::-webkit-scrollbar-thumb, .tcr-people ul::-webkit-scrollbar-thumb, .tcr-people::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(70,51,34,.28); }
+    .tcr-list[hidden], .tcr-empty[hidden] { display: none; }
+    .tcr-list > li { display: flex; align-items: flex-start; gap: 8px; min-width: 0; margin: 0; padding: 0; }
+    .tcr-list > li .tcr-av { width: 32px; height: 32px; font-size: 15px; }
+    .tcr-msg-body { display: grid; gap: 3px; min-width: 0; max-width: 100%; }
+    .tcr-who { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 6px; font-size: 12.5px; color: #8a7f74; }
+    .tcr-who b { color: #4a4038; font-size: 13.5px; } .tcr-who b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
+    .tcr-who time { font-variant-numeric: tabular-nums; }
+    .tcr-who .tcr-hide { margin-left: auto; }
+    /* 气泡里先是发言，点赞数在右下角；发言长、一行放不下时点赞数换到下一行靠右，发言占满整行（投屏页字大、聊天室窄，能多放几个字） */
+    .tcr-bubble { display: flex; flex-wrap: wrap; justify-content: flex-end; align-items: flex-end; gap: 4px 8px; padding: 8px 10px 8px 12px; border-radius: 4px 14px 14px 14px; background: #fff; border: 1px solid rgba(70,51,34,.12); box-shadow: 0 1px 2px rgba(0,0,0,.04); }
+    .tcr-bubble p { flex: 1 1 auto; min-width: 0; margin: 0; font-size: 16px; line-height: 1.6; color: #201c18; word-break: break-word; }
+    .tcr-like { flex: 0 0 auto; padding: 3px 8px; border: 1px solid rgba(192,57,43,.3); border-radius: 999px; background: #fff; color: #c0392b; font-weight: 700; font-size: 12.5px; line-height: 1; white-space: nowrap; }
+    .tcr-like.is-zero { border-color: rgba(70,51,34,.15); color: #b3a89b; }
+    .tcr-hide { flex: 0 0 auto; align-self: center; width: 22px; height: 22px; padding: 0; border: 0; border-radius: 50%; background: transparent; color: #b3a89b; font-size: 16px; line-height: 1; cursor: pointer; }
+    .tcr-hide:hover, .tcr-hide:focus-visible { background: #f3e3dc; color: #a4492d; outline: 0; }
+    .tcr-empty { margin: 0; padding: 18px 16px; color: #8a7f74; font-size: 14.5px; line-height: 1.7; }
+    @container (min-width: 520px) {
+      .tcr-body { display: grid; grid-template-columns: 176px minmax(0, 1fr); min-height: 300px; }
+      .tcr-people { border-bottom: 0; border-right: 1px solid rgba(70,51,34,.1); padding: 10px 8px; max-height: 480px; overflow-y: auto; overscroll-behavior: contain; }
+      .tcr-people h5 { margin: 0 6px 8px; }
+      .tcr-people ul { display: grid; gap: 2px; max-height: none; overflow: visible; }
+      .tcr-people li { padding: 6px; border: 0; border-radius: 9px; background: none; }
+      .tcr-people li.is-key { background: rgba(184,134,43,.12); }
+      .tcr-people span > small { display: block; }
+      .tcr-people .tcr-av { width: 32px; height: 32px; font-size: 15px; }
+      .tcr-list { max-height: 480px; }
+    }
+    @media print { .tcr-hide { display: none; } }
+    `;
+    let styled = false;
+    function style() {
+      if (styled || typeof document === 'undefined') return;
+      styled = true;
+      const el = document.createElement('style');
+      el.textContent = CSS;
+      document.head.appendChild(el);
+    }
+    // 一间聊天室的外壳：只建一次，之后用 paint 更新。tone：pro / con / r1—r4（标题栏和边框的颜色，同学生页）
+    function shell(key, tone) {
+      style();
+      return `<section class="tcr-room is-${h(tone)}" data-tcr="${h(key)}"><header class="tcr-head"><div><b data-tcr-title></b><span data-tcr-meta></span></div><span class="tcr-tag" data-tcr-tag hidden></span></header>`
+        + '<div class="tcr-extra" data-tcr-extra hidden></div>'
+        + '<div class="tcr-body"><aside class="tcr-people"><h5 data-tcr-count>成员</h5><ul data-tcr-people></ul></aside>'
+        + '<div class="tcr-main"><ul class="tcr-list" data-tcr-list aria-live="polite"></ul><p class="tcr-empty" data-tcr-none hidden></p></div></div></section>';
+    }
+    // 内容没变就不动页面（每隔几秒刷新一次，翻看名单、发言时不被打断）
+    function put(room, selector, value, asHtml) {
+      const el = room.querySelector(selector);
+      if (!el) return null;
+      const text = value == null ? '' : String(value);
+      if (el.dataset.tcrPut !== text) { if (asHtml) el.innerHTML = text; else el.textContent = text; el.dataset.tcrPut = text; }
+      return el;
+    }
+    // 画一间聊天室。view：
+    //   title、meta：标题栏；tag：标题栏右边的小标签（如“代表：某某”），空＝不显示；extra：标题栏下面一条（HTML，各看板自己的内容），空＝不显示；
+    //   people：[{ nick, real（要补在后面的姓名）, online, likes, posts, badge（如“发言人”“代表”） }]，还没读到名单时给 null；count：成员人数（名单没读到时显示）；
+    //   posts：[{ id, nick, real, text, at, likes, badge }]，按发布先后；empty：还没有发言时的说明；hide：true＝每条发言后面有“×”（data-tcr-hide＝发言的 id）
+    function paint(room, view) {
+      if (!room) return;
+      put(room, '[data-tcr-title]', view.title);
+      put(room, '[data-tcr-meta]', view.meta);
+      const tag = put(room, '[data-tcr-tag]', view.tag);
+      if (tag) tag.hidden = !view.tag;
+      const extra = put(room, '[data-tcr-extra]', view.extra, true);
+      if (extra) extra.hidden = !view.extra;
+      const people = Array.isArray(view.people) ? view.people : null;
+      const online = people ? people.filter((p) => p.online).length : 0;
+      put(room, '[data-tcr-count]', people ? `成员 ${people.length} · 在线 ${online}` : `成员 ${Number(view.count) || 0}`);
+      put(room, '[data-tcr-people]', people
+        ? people.map((p) => `<li class="${p.badge ? 'is-key' : ''}" title="${h(`${p.nick}：被点赞 ${p.likes} 次，发言 ${p.posts} 条，${p.online ? '在线' : '不在线'}`)}">${avatar(p.nick, Boolean(p.online))}`
+          + `<span><b>${p.badge ? `<em>${h(p.badge)}</em>` : ''}${h(p.nick)}${p.real ? `<small>${h(p.real)}</small>` : ''}</b><small>♥ ${Number(p.likes) || 0} · ${Number(p.posts) || 0} 条</small></span></li>`).join('')
+          || '<li class="tcr-none">还没有人进来</li>'
+        : `<li class="tcr-none">${Number(view.count) ? '正在读取成员名单……（一直读不到时，请确认本机已登录教师工作台）' : '还没有人进来'}</li>`, true);
+      const list = room.querySelector('[data-tcr-list]');
+      const rows = Array.isArray(view.posts) ? view.posts : [];
+      const none = put(room, '[data-tcr-none]', view.empty || '还没有发言');
+      if (none) none.hidden = rows.length > 0;
+      list.hidden = !rows.length;
+      syncFeed(list, rows, (p) => `${avatar(p.nick)}<div class="tcr-msg-body"><div class="tcr-who"><b>${h(p.nick)}${p.real ? `<small>${h(p.real)}</small>` : ''}</b>${p.badge ? `<em>${h(p.badge)}</em>` : ''}<time>${h(feedClock(p.at))}</time>`
+        + `${view.hide ? `<button type="button" class="tcr-hide" data-tcr-hide="${h(p.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button>` : ''}</div>`
+        + `<div class="tcr-bubble"><p>${h(p.text)}</p><span class="tcr-like${Number(p.likes) ? '' : ' is-zero'}" title="被点赞 ${Number(p.likes) || 0} 次">♥ ${Number(p.likes) || 0}</span></div></div>`);
+    }
+    // 读成员名单和在线状态。classroom：课堂 id；caseNo：聊天室的房间号（辩论赛＝案例号，分组讨论＝案例号＋d，经营沙盘＝案例号＋b）。
+    // 返回 [{ sid, name, nick, side, online }]，按进来的先后；读不到在线状态时都算不在线
+    async function people(backend, classroom, caseNo) {
+      const id = Number(classroom) || classroom;
+      const members = await backend.fetchAll('debatemembers', { classroom: id, case_no: String(caseNo) });
+      let seen = new Map();
+      try {
+        seen = new Map((await backend.fetchAll('presence', { classroom: id })).map((row) => [String(row.sid), Date.parse(String(row.last_seen || '').replace(/(\.\d{3})\d+/, '$1')) || 0]));
+      } catch (error) { /* 在线状态读不到：名单照常显示，都不点绿灯 */ }
+      return members.map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, side: m.side, online: Date.now() - (seen.get(String(m.sid)) || 0) < ONLINE_MS }));
+    }
+    // 一组成员配上各自被点赞数、发言数（从这一组的发言里数），按点赞、发言从多到少排，再按进来的先后（同学生页的名单）
+    function roster(members, posts) {
+      const stat = new Map();
+      (posts || []).forEach((p) => { const s = stat.get(p.nick) || { likes: 0, posts: 0 }; s.likes += Number(p.likes) || 0; s.posts += 1; stat.set(p.nick, s); });
+      return (members || []).map((m, i) => ({ ...m, ...(stat.get(m.nick) || { likes: 0, posts: 0 }), order: i }))
+        .sort((a, b) => b.likes - a.likes || b.posts - a.posts || a.order - b.order);
+    }
+    // 每块看板一个：隔 8 秒读一次名单（在线状态会变）；看板上的人数和手里的名单对不上时马上重读（有人刚进来）
+    function tracker(backend) {
+      let at = 0;
+      let list = null;
+      let key = '';
+      let busy = false;
+      let tried = -1;
+      return {
+        list: () => list,
+        async refresh(classroom, caseNo, count) {
+          const now = `${classroom}|${caseNo}`;
+          if (now !== key) { key = now; list = null; at = 0; tried = -1; }
+          const behind = count != null && (!list || count !== list.length) && count !== tried;
+          if (busy || (!behind && Date.now() - at < 8000)) return list;
+          busy = true;
+          try { list = await people(backend, classroom, caseNo); }
+          catch (error) { console.warn('[聊天室成员名单]', error); }
+          finally { busy = false; at = Date.now(); tried = count == null ? -1 : count; }
+          return list;
+        },
+      };
+    }
+    return { shell, paint, people, roster, tracker, avatar, style, ONLINE_MS };
+  })();
+
   window.ClassLive = window.ClassLive || {};
   Object.assign(window.ClassLive, {
     syncFeed,
     feedClock,
+    chatRoom,
     news,
     newsList,
     newsRange,

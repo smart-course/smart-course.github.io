@@ -52,6 +52,14 @@
     font: 800 clamp(22px, 2.4vw, 34px)/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.6);
     will-change: transform; animation: dm-fly var(--dm-duration, 11s) linear forwards; }
   .dm-item.is-new { background: rgba(164, 73, 45, .78); }
+  /* 表情（2026-11-21，live-stickers.js）：大表情比一行字高，从弹幕条上下探出来，轻轻摇；夹在文字里的是一个字高的小图 */
+  .dm-stk { display: inline-block; width: 3em; height: 3em; margin: -.86em -6px -.86em 2px; vertical-align: middle; filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)); animation: dm-stk-bob 1.7s ease-in-out infinite; }
+  .dm-stk-in { display: inline-block; width: 1.5em; height: 1.5em; margin: -.3em 2px; vertical-align: middle; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
+  .dm-item.is-sticker { z-index: 1; }
+  .dm-bubble .dm-stk-in { width: 2.3em; height: 2.3em; margin: 0 2px; filter: none; }
+  @keyframes dm-stk-bob { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-3px); } }
+  .dm-stage.is-paused .dm-stk { animation-play-state: paused; }
+  @media (prefers-reduced-motion: reduce) { .dm-stk { animation: none; } }
   .dm-item.is-dahong { background: rgba(26, 16, 12, .78); }
   .dm-item.is-dahong .dm-text { text-shadow: 0 0 8px rgba(255, 70, 50, .55), 0 1px 2px rgba(0, 0, 0, .8); }
   .dm-name { margin-right: 2px; }
@@ -382,16 +390,23 @@
   };
   setLoop(looping);
 
+  // 表情包（2026-11-21，live-stickers.js）：整条弹幕就是一个表情记号时画成一张大图；夹在文字里的记号画成一个字高的小图
+  const Stickers = window.ClassLive.stickers || null;
   const launch = (doc, isNew) => {
     const id = String(doc.id);
     if (paused || flying.has(id)) return false;
     const now = Date.now();
-    let lane = 0;
-    for (let i = 1; i < LANES; i += 1) if (laneFree[i] < laneFree[lane]) lane = i;
+    const tag = tagOf(doc);
+    const sticker = Stickers && !tag ? Stickers.only(doc.text) : null;
+    // 大表情比一行字高，会从弹幕条里探出来：不走最上、最下两条轨道（免得被舞台边缘切掉），上下相邻的轨道稍后再进弹幕
+    let lane = sticker ? 1 : 0;
+    const lastLane = sticker ? LANES - 2 : LANES - 1;
+    for (let i = lane + 1; i <= lastLane; i += 1) if (laneFree[i] < laneFree[lane]) lane = i;
     // 所有轨道都还没空出来时，循环播放先等一等（新弹幕仍然排队上屏）
     if (!isNew && laneFree[lane] > now + 400) return false;
     const delay = Math.max(0, laneFree[lane] - now);
     laneFree[lane] = Math.max(now, laneFree[lane]) + 2200;
+    if (sticker) [lane - 1, lane + 1].forEach((i) => { laneFree[i] = Math.max(laneFree[i], now + delay + 1500); });
     const item = document.createElement('div');
     item.className = isNew ? 'dm-item is-new' : 'dm-item';
     // 修为境界：姓名前的称号随姓名一起显示或隐藏，姓名颜色与称号一致；弹幕字色随境界（匿名时也有）
@@ -413,10 +428,9 @@
       const span = document.createElement('span');
       span.className = 'dm-text';
       if (color && color.flow) { span.classList.add('dm-flowtext'); span.style.backgroundImage = color.flow; } else if (color) span.style.color = color.value;
-      span.textContent = text;
+      if (Stickers) Stickers.fill(span, text, 'dm-stk-in'); else span.textContent = text;
       return span;
     };
-    const tag = tagOf(doc);
     if (tag) {
       name.textContent = doc.name;
       const link = document.createElement('span');
@@ -424,6 +438,13 @@
       link.textContent = tag.link;
       if (tag.side) item.append(sideBadge(tag.side));
       item.append(title, name, link, body(`：${tag.text}`));
+    } else if (sticker) {
+      item.classList.add('is-sticker');
+      name.textContent = `${doc.name}：`;
+      const span = document.createElement('span');
+      span.className = 'dm-text';
+      span.appendChild(Stickers.img(sticker.key, 0, 'dm-stk'));
+      item.append(title, name, span);
     } else {
       name.textContent = `${doc.name}：`;
       item.append(title, name, body(doc.text));
@@ -631,7 +652,8 @@
     <div class="dm-demo-row"><b></b><button type="button" class="dm-demo-btn is-main" data-demo-send>发一条试用弹幕</button>
       <label class="dm-demo-check"><input type="checkbox" data-demo-liked>带「师赞」朱印</label><button type="button" class="dm-demo-btn" data-demo-all>一键演示五个境界</button><button type="button" class="dm-demo-btn" data-demo-sectall>一键演示四大宗门</button></div>
     <div class="dm-demo-row"><b>突破</b><button type="button" class="dm-demo-btn" data-demo-ascend="3">突破元婴</button><button type="button" class="dm-demo-btn" data-demo-ascend="4">突破化神</button></div>
-    <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small>（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>`;
+    <div class="dm-demo-row" data-demo-gifts><b>法宝</b>${Array.from(GIFT.values()).map((gift) => `<button type="button" class="dm-demo-btn" data-demo-gift="${esc(gift.id)}">${esc(gift.name)}<small>（${esc(realmName(gift.level))}）</small></button>`).join('')}</div>
+    ${Stickers ? `<div class="dm-demo-row"><b>表情</b><button type="button" class="dm-demo-btn" data-demo-stickers="6">试发 6 个表情</button><button type="button" class="dm-demo-btn" data-demo-stickers="all">整套 ${Stickers.list.length} 个过一遍</button><small style="color:#b9afa0;font-weight:600;font-size:12px">学生在“发弹幕”旁边的“表情”里发</small></div>` : ''}`;
   document.body.appendChild(demo);
   const demoText = demo.querySelector('[data-demo-text]');
   function paintDemo() {
@@ -697,6 +719,14 @@
       return;
     }
     if (colorButton) { demoState.color[demoState.level] = colorButton.dataset.demoColor; paintDemo(); return; }
+    const stickerButton = event.target.closest('[data-demo-stickers]');
+    if (stickerButton && Stickers) {
+      // 表情包（live-stickers.js）：试发几个，或整套按顺序过一遍（每个隔 0.9 秒，轨道不够时自己排队）
+      const all = Stickers.list.slice();
+      const pick = stickerButton.dataset.demoStickers === 'all' ? all : all.sort(() => Math.random() - 0.5).slice(0, 6);
+      pick.forEach((sticker, i) => setTimeout(() => sendDemo(demoState.level, Stickers.token(sticker.key), null, false), i * 900));
+      return;
+    }
     if (event.target.closest('[data-demo-send]')) {
       sendDemo(demoState.level, demoText.value.trim() || '试用弹幕', demoState.color[demoState.level], demo.querySelector('[data-demo-liked]').checked);
       return;
@@ -1022,7 +1052,9 @@
           badge.innerHTML = '师<br>赞';
           bubble.dataset.dmId = String(doc.id);
           bubble.classList.toggle('is-liked', liked.has(String(doc.id)));
-          bubble.append(document.createTextNode(tag.text), badge, hoverTools(doc, bubble));
+          const said = document.createElement('span');
+          if (Stickers) Stickers.fill(said, tag.text, 'dm-stk-in'); else said.textContent = tag.text;
+          bubble.append(said, badge, hoverTools(doc, bubble));
           wall.appendChild(bubble);
         });
         wall.scrollTop = follow ? wall.scrollHeight : top;

@@ -5,6 +5,7 @@
  *   “‘迁移任务 · 小资料分析’改成闯关游戏，学生端先隐藏题目，教师端也设置一个开放入口按钮，老师按了以后，学生端进入类似于情景揭秘的页面，每个小资料设置两道题目……
  *   你算下6个题目，大概给他们多少时间做合适（至少7分钟），要有倒计时。都回答正确的+5修为值。”
  * 页面上带 data-act 的两处各加一条控制条：
+ *   （2026-11-21 用户：“‘材料归纳 · 多选’里面的抢答，不要出现以下内容：‘99% 的概率触发抢答——’”：页面上的说明不再写概率，做法不变。）
  *   · rush（材料归纳 · 多选）：“🎲 随机抢答”——99% 触发抢答（倒计时 5 秒，作答时长按章：第五章及以前 60 秒、第六章 50、第七章 40、第八章起 30），
  *     1% 不触发（题目照常开放给学生作答）；也可以直接点“不抢答，直接开放”。看板：已交、答对人数，按先后列出答对的前 10 名。
  *   · quest（迁移任务 · 小资料分析）：“🚩 开放闯关入口”，时长可选 7／8／10 分钟。估算：读三则小资料约 1.5 分钟，三道四选一约 3 分钟，
@@ -336,7 +337,7 @@
         <button type="button" class="is-warn" data-act-stop hidden>${kind === 'rush' ? '结束抢答' : '结束闯关'}</button>
       </div>
       <p class="act-note">${kind === 'rush'
-        ? `学生页先不显示这道题。点“打开抢答大屏”，在大屏上点“随机抢答”：${Math.round(RUSH.chance * 100)}% 的概率触发抢答——学生页弹出 ${RUSH.delay} 秒倒计时，随后限时 ${RUSH.secs} 秒作答，每人只能交一次，前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为；没有触发时题目照常开放。抢答结束后再点下面的“核对”讲评。`
+        ? `学生页先不显示这道题。点“打开抢答大屏”，在大屏上点“随机抢答”：学生页弹出 ${RUSH.delay} 秒倒计时，随后限时 ${RUSH.secs} 秒作答，每人只能交一次，前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。抢答结束后再点下面的“核对”讲评。`
         : `学生页先不显示这三道题。点“打开闯关大屏”，在大屏上选时长、点“开始闯关”：学生页弹出 ${QUEST.delay} 秒倒计时，随后三则小资料一关一关作答（做完一关再出下一关）——每关两问（先选讲对了的分析，再判断它对应哪个理论要点），两问都对才算过关；限时内只能交一次，三关全过加 ${QUEST.points} 修为。交卷后学生页显示题目和解答。`}</p>
       <div class="act-board" data-act-board hidden></div>`;
     const head = box.querySelector('.interaction-heading') || box.querySelector('.tk-intro') || box.firstElementChild;
@@ -436,7 +437,7 @@
       note = '';
       if (kind === 'rush') {
         if (Math.random() < RUSH.chance) act(() => control('start', { mode: 'game', answer, secs: RUSH.secs, delay: RUSH.delay }));
-        else { note = `这一次没有触发抢答（${Math.round((1 - RUSH.chance) * 100)}% 的概率）：题目已经照常开放给学生作答。`; act(() => control('start', { mode: 'plain', secs: 0, delay: 0 })); }
+        else { note = '这一次没有进入抢答：题目已经照常开放给学生作答。'; act(() => control('start', { mode: 'plain', secs: 0, delay: 0 })); }
       } else {
         act(() => control('start', { mode: 'game', answer, secs: Number(ui.mins.value) * 60, delay: QUEST.delay }));
       }

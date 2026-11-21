@@ -4,7 +4,10 @@
  * 然后3.辩后投票，看大家支持哪一方，票数高的一方再加5修为分。”
  *   辩论流程图（放在卡片正文“辩论流程”的位置，投屏页上原来的静态流程隐藏）：① 选立场 · 论据卡（1 分钟）→ ② 聊天室发言点赞（3 分钟）→ ③ 辩后投票（1 分钟）
  *     → 停止递交 · 公布结果。当前一步高亮、倒计时（只在本机计时，存在本机，刷新不丢；可暂停、加 30 秒），点“下一步”或点流程图里的任一步推进。
- *   聊天室看板：全场点赞前三（“揭晓姓名”后显示姓名）、两方人数和发言数、两方全部发言（按发布时间固定排列，旧的在上、新的接在下面，在列表里上下滑动；可隐藏不合适的发言）、辩后票数。
+ *   聊天室看板：全场点赞前三（“揭晓姓名”后显示姓名）、正反两方各一间聊天室、辩后票数。
+ *     2026-11-21 用户：“教师版聊天室的样子跟学生版的一样吧，也能显示加入的人。”——两间聊天室的样子照学生页（ClassLive.chatRoom，live-core.js）：
+ *     左边成员名单（谁进来了、在线的小绿点、被点赞数和发言数），右边消息气泡（按发布时间固定排列，旧的在上、新的接在下面，在列表里上下滑动）；
+ *     每条发言后面的“×”可以隐藏不合适的发言。成员名单读 ck_debate_members、在线状态读 ck_presence（教师可读），没有新的后台函数。
  *   辩后投票停止递交（流程图最后一步、辩后投票里的按钮，或投屏统计里的“停止递交”）后按票数公布哪一方获胜（平票就是平票），
  *     给全场点赞前三各加 5 修为（ck_set_debate_winners）；可撤销、按票数重新公布。
  *     2026-11-21 用户：“辩论赛，只有全场点赞最多的三位同学加分，胜利方不加分。这样可以避免有的同学看哪方人数最多而选择那一方，从而获胜。”
@@ -20,6 +23,7 @@
   let backend = null;
   try { backend = window.ClassLive.create(config); } catch (error) { console.warn('[辩论赛]', error.message); return; }
   const DB = window.ClassLive.DEBATE || { likes: 5, win: 0, top: 3 };
+  const CR = window.ClassLive.chatRoom;   // 聊天室的样子和成员名单（live-core.js，三种聊天室共用）
   const unit = config.unit || window.ClassLive.unitOf();
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const SIDE = { pro: '正方', con: '反方' };
@@ -44,23 +48,7 @@
   .dbb-lead li > small i { font-style: normal; font-weight: 800; }
   .dbb-lead li > em { grid-row: 1 / span 2; grid-column: 3; font-style: normal; color: #c0392b; font-weight: 800; font-size: 18px; white-space: nowrap; }
   .dbb-lead .dbb-empty { margin: 0; }
-  .dbb-cols { display: grid; grid-template-columns: 1fr 1fr; }
-  .dbb-side { padding: 14px 18px 16px; }
-  .dbb-side + .dbb-side { border-left: 1px solid rgba(70,51,34,.12); }
-  .dbb-side header { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: space-between; gap: 4px 10px; margin: -14px -18px 12px; padding: 10px 18px; color: #fff; background: #23655f; }
-  .dbb-side.is-con header { background: #a4492d; }
-  .dbb-side header b { font-size: 18px; letter-spacing: .08em; } .dbb-side header span { font-size: 14px; opacity: .9; }
-  .dbb-side h5 { margin: 12px 0 6px; font-size: 14px; color: #8a5a1a; letter-spacing: .04em; }
-  .dbb-hot { margin: 0; padding: 0 4px 0 0; list-style: none; display: grid; gap: 6px; grid-auto-rows: max-content; max-height: 460px; overflow-y: auto; overscroll-behavior: contain; touch-action: pan-y; }
-  .dbb-hot::-webkit-scrollbar { width: 8px; } .dbb-hot::-webkit-scrollbar-thumb { border-radius: 8px; background: rgba(70,51,34,.28); }
-  @supports not selector(::-webkit-scrollbar) { .dbb-hot { scrollbar-width: thin; } }
-  .dbb-hot[hidden], .dbb-empty[hidden] { display: none; }
-  .dbb-hot li time { flex: 0 0 auto; color: #8a7f74; font-size: 13px; line-height: 1.8; font-variant-numeric: tabular-nums; }
-  .dbb-hot li { display: flex; align-items: flex-start; gap: 8px; padding: 7px 10px; border-radius: 9px; background: #fff; border: 1px solid rgba(70,51,34,.1); font-size: 15.5px; line-height: 1.55; }
-  .dbb-hot li b { flex: 0 0 auto; color: #23655f; } .dbb-side.is-con .dbb-hot li b { color: #a4492d; } .dbb-hot li b small { margin-left: 4px; font-weight: 400; color: #8a7f74; }
-  .dbb-hot li span { flex: 1 1 auto; word-break: break-word; } .dbb-hot em { font-style: normal; color: #c0392b; font-weight: 800; white-space: nowrap; }
-  .dbb-hot button { flex: 0 0 auto; width: 24px; height: 24px; border: 0; border-radius: 50%; background: transparent; color: #9a8b7a; font-size: 16px; line-height: 1; cursor: pointer; }
-  .dbb-hot button:hover { background: #f3e3dc; color: #a4492d; }
+  .dbb-cols > .dbb-empty { grid-column: 1 / -1; margin: 0; padding: 2px 6px; }
   .dbb-empty { color: #8a7f74; font-size: 14px; }
   .dbb-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 12px 18px; border-top: 1px solid rgba(70,51,34,.12); background: #f7f1e6; font-size: 15px; }
   .dbb-bar button { padding: 8px 14px; border: 1.5px solid rgba(70,51,34,.25); border-radius: 9px; background: #fff; color: #201c18; font-weight: 800; font-size: 14px; line-height: 1.2; cursor: pointer; }
@@ -110,7 +98,6 @@
   @media (max-width: 760px) {
     .dbf-nodes { gap: 8px 18px; padding: 12px; } .dbf-node button { min-width: 0; } .dbf-clock { font-size: 30px; }
     .dbb-lead ol { grid-template-columns: 1fr; }
-    .dbb-cols { grid-template-columns: 1fr; } .dbb-side + .dbb-side { border-left: 0; border-top: 1px solid rgba(70,51,34,.12); }
   }
   `;
   document.head.appendChild(style);
@@ -152,6 +139,7 @@
     let stopped = false;   // 辩后投票已停止递交
     let stopsAt = 0;
     let verdict = null;    // 公布的结果 { side（pro / con / tie）, pro, con, list } / { cleared } / { restored, list }
+    const people = CR.tracker(backend);   // 两间聊天室的成员名单和在线状态（隔几秒读一次）
 
     // ---------- 流程图：插在正文“辩论流程”的位置 ----------
     const flow = document.createElement('div');
@@ -167,7 +155,7 @@
     const postBox = section.querySelector(`[data-vote-key="${no}:debate-post"], [data-debate-vote="post"]`);
     if (postBox) postBox.insertAdjacentElement('beforeend', result);
 
-    board.innerHTML = '<div class="dbb"><div class="dbb-lead" data-dbb-lead></div><div class="dbb-cols"></div>'
+    board.innerHTML = '<div class="dbb"><div class="dbb-lead" data-dbb-lead></div><div class="dbb-cols tcr-rooms is-2"></div>'
       + '<div class="dbb-bar"><button type="button" data-dbb-reveal>揭晓姓名</button><span class="dbb-votes" data-dbb-votes></span>'
       + '<span class="dbb-status" data-dbb-status role="status"></span></div></div>';
     const status = (text, ok) => { const el = board.querySelector('[data-dbb-status]'); el.textContent = text || ''; el.classList.toggle('is-ok', Boolean(ok)); };
@@ -256,21 +244,23 @@
       lead.innerHTML = `<h5>全场点赞前三 · 各加 ${DB.likes} 修为</h5>${leaders.length
         ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(m.nick)}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
         : '<p class="dbb-empty">还没有人被点赞。两方聊天室里的发言被点赞后，这里按点赞数排出前三（正反两方合起来算）。</p>'}`;
-      // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”：
-      // 两方的列表只建一次，刷新时只更新变化的行（ClassLive.syncFeed），滑动位置不会被 4 秒一次的刷新打断
-      if (!cols.querySelector('[data-dbb-feed]')) {
-        cols.innerHTML = ['pro', 'con'].map((side) => `<section class="dbb-side is-${side}"><header><b>${SIDE[side]}聊天室</b><span data-dbb-count></span></header>
-          <h5>全部发言 · 按发布时间，可上下滑动</h5><ul class="dbb-hot" data-dbb-feed="${side}"></ul><p class="dbb-empty" data-dbb-none>还没有发言</p></section>`).join('');
-      }
+      // 两间聊天室只建一次，刷新时只更新变化的地方（ClassLive.chatRoom.paint；发言列表用 syncFeed，滑动位置不会被 4 秒一次的刷新打断）。
+      // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”
+      if (!cols.querySelector('[data-tcr]')) cols.innerHTML = ['pro', 'con'].map((side) => CR.shell(side, side)).join('');
+      const joined = people.list();
       ['pro', 'con'].forEach((side) => {
         const d = (data && data[side]) || { members: 0, posts: 0 };
-        const box = cols.querySelector(`[data-dbb-feed="${side}"]`);
         const rows = d.all || (d.hot || []).slice().sort((a, b) => Number(a.id) - Number(b.id));   // 后台还没更新时只有 hot
-        box.parentElement.querySelector('[data-dbb-count]').textContent = `${d.members} 人 · ${d.posts} 条发言`;
-        box.parentElement.querySelector('[data-dbb-none]').hidden = rows.length > 0;
-        box.hidden = !rows.length;
-        window.ClassLive.syncFeed(box, rows, (h) => `<b>${esc(h.nick)}${realOf(h) ? `<small>${esc(realOf(h))}</small>` : ''}</b><span>${esc(h.text)}</span>`
-          + `<time>${esc(window.ClassLive.feedClock(h.at))}</time>${h.likes ? `<em>♥ ${h.likes}</em>` : ''}<button type="button" data-dbb-hide="${esc(h.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button>`);
+        const mine = joined ? CR.roster(joined.filter((m) => m.side === side), rows) : null;
+        CR.paint(cols.querySelector(`[data-tcr="${side}"]`), {
+          title: `${SIDE[side]}聊天室`,
+          meta: `${d.members} 人${mine ? `（在线 ${mine.filter((m) => m.online).length}）` : ''} · ${d.posts} 条发言`,
+          people: mine && mine.map((m) => ({ ...m, real: realOf(m) })),
+          count: d.members,
+          posts: rows.map((h) => ({ ...h, real: realOf(h) })),
+          empty: `还没有发言。学生递交辩前票、进入${SIDE[side]}聊天室以后，发言按发布时间显示在这里。`,
+          hide: true,
+        });
       });
       board.querySelector('[data-dbb-reveal]').textContent = reveal ? '收起姓名' : '揭晓姓名';
       const t = tally();
@@ -454,6 +444,7 @@
         room = await roomFor(no);
         if (room) {
           data = await rpcOne('ck_debate_board', { p_classroom: Number(room.id) || room.id, p_case: no });
+          await people.refresh(room.id, no, (Number((data.pro || {}).members) || 0) + (Number((data.con || {}).members) || 0));
           // 停止递交的状态：打开页面时、辩后投票前后各查一次（投屏统计里停止递交会另外通知）
           if (force || Date.now() - stopsAt > 15000 || ['vote', 'result'].includes(nowKey())) {
             stopsAt = Date.now();
@@ -465,7 +456,7 @@
         } else {
           data = null;
         }
-        const key = JSON.stringify([data, reveal, Boolean(room), stopped, verdict && (verdict.side || verdict.tie || verdict.cleared || verdict.restored)]);
+        const key = JSON.stringify([data, reveal, Boolean(room), stopped, verdict && (verdict.side || verdict.tie || verdict.cleared || verdict.restored), room ? people.list() : null]);
         if (force || key !== last) {
           last = key;
           renderBoard();
@@ -482,14 +473,14 @@
     }
     board.addEventListener('click', async (event) => {
       const revealButton = event.target.closest('[data-dbb-reveal]');
-      const hide = event.target.closest('[data-dbb-hide]');
+      const hide = event.target.closest('[data-tcr-hide]');
       if (revealButton) {
         reveal = !reveal;
         renderBoard();
         renderResult();
       } else if (hide) {
         if (!window.confirm('隐藏这条发言？学生的聊天室里也看不到了，它的点赞也不再计入。')) return;
-        try { await backend.rpc('ck_debate_hide', { p_post: Number(hide.dataset.dbbHide) || hide.dataset.dbbHide, p_hidden: true }); load(true); }
+        try { await backend.rpc('ck_debate_hide', { p_post: Number(hide.dataset.tcrHide) || hide.dataset.tcrHide, p_hidden: true }); status('隐藏了一条发言。', true); load(true); }
         catch (error) { status(`隐藏失败：${error.message || error}`); }
       }
     });

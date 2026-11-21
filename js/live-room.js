@@ -252,6 +252,15 @@
       return backend.rpc(name, { p_classroom: Number(current.id) || current.id, ...params });   // 后台都返回 JSON 对象或数组，原样交回
     },
     hide(id) { return backend.rpc('ck_debate_hide', { p_post: Number(id) || id, p_hidden: true }); },
+    // 2026-11-21 角色组聊天室显示加入的人（用户：“教师版聊天室的样子跟学生版的一样吧，也能显示加入的人。”）：
+    // 成员名单读 ck_debate_members（聊天室的房间号＝案例号＋b）、在线状态读 ck_presence，隔几秒读一次；count＝看板上四个组的人数之和，对不上就马上重读
+    trackers: {},
+    async people(caseNo, count) {
+      const current = await roomHere();
+      const key = String(caseNo);
+      const tracker = this.trackers[key] || (this.trackers[key] = window.ClassLive.chatRoom.tracker(backend));
+      return tracker.refresh(current.id, `${key}b`, count);
+    },
   };
 
   // 情境猜谜抢答（投屏页“课堂工具 → 情境猜谜”调用，见 #政治经济学/情境猜谜/situation_puzzle.js）：出题时开一轮（谜底只交给后台），
