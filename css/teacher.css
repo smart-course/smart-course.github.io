@@ -251,9 +251,10 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
   position: relative; display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; min-height: 232px; margin: 0; padding: 24px 24px 18px;
   overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--white); box-shadow: var(--shadow);
   color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
-.tw-pick[data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); }
-.tw-pick[data-tone="gold"] { --tone: var(--gold); --tone-ink: #84601f; --tone-soft: #f5ecd9; }
-.tw-pick[data-tone="slate"] { --tone: #3f5f86; --tone-ink: #3a5779; --tone-soft: #e6edf4; }
+.tw-course-chip { --tone: var(--rust); --tone-ink: var(--rust); --tone-soft: var(--rust-soft); }
+.tw-pick[data-tone="teal"], .tw-course-chip[data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); }
+.tw-pick[data-tone="gold"], .tw-course-chip[data-tone="gold"] { --tone: var(--gold); --tone-ink: #84601f; --tone-soft: #f5ecd9; }
+.tw-pick[data-tone="slate"], .tw-course-chip[data-tone="slate"] { --tone: #3f5f86; --tone-ink: #3a5779; --tone-soft: #e6edf4; }
 .tw-pick::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--tone); }
 .tw-pick:hover { transform: translateY(-2px); border-color: var(--tone); border-color: color-mix(in srgb, var(--tone) 45%, transparent); box-shadow: 0 16px 32px rgba(53, 38, 24, .13); }
 .tw-pick:focus-visible { outline: none; border-color: var(--tone); box-shadow: var(--shadow), 0 0 0 3px var(--tone-soft); }
@@ -274,13 +275,48 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-pick-go { display: inline-flex; align-items: center; gap: 6px; flex: 0 0 auto; color: var(--tone-ink); font-size: 14px; font-weight: 800; }
 .tw-pick-go b { display: inline-block; transition: transform .18s ease; }
 .tw-pick:hover .tw-pick-go b, .tw-pick:focus-visible .tw-pick-go b { transform: translateX(3px); }
+/* 选择班级（2026-11-22 改版）：班级卡片同上（配色跟着课程走），右上角垃圾桶；标题旁的课程标签；新建班级表单 */
+.tw-picker h1 small:has(.tw-course-chip) { font-size: inherit; }
+.tw-course-chip { display: inline-flex; align-items: center; gap: 6px; margin-left: 10px; padding: 4px 13px 4px 9px; border-radius: 999px; background: var(--tone-soft); color: var(--tone-ink);
+  font-size: 15px; font-weight: 800; line-height: 1.5; letter-spacing: .02em; vertical-align: 6px; white-space: nowrap; }
+.tw-course-chip svg { flex: 0 0 auto; color: var(--tone); }
+.tw-class-grid { margin-top: 22px; }
+.tw-class-grid > .tw-empty { grid-column: 1 / -1; margin: 0; }
+.tw-class-grid > .tw-class-item > .tw-pick { width: 100%; height: 100%; min-height: 0; }
+.tw-class-grid .tw-pick-now { margin-right: 42px; }   /* 给右上角的垃圾桶让位 */
+.tw-class-grid > .tw-class-item > .tw-trash { top: 31px; right: 18px; transition: transform .18s ease, background .15s, color .15s; }   /* 选择器要比后面的 .tw-class-item .tw-trash 具体 */
+.tw-class-grid > .tw-class-item:hover > .tw-pick, .tw-class-grid > .tw-class-item:hover > .tw-trash { transform: translateY(-2px); }   /* 卡片浮起时垃圾桶跟着走 */
+.tw-class-when { display: flex; align-items: flex-start; gap: 7px; margin: -6px 0 12px; color: var(--muted); font-size: 13.5px; line-height: 1.55; word-break: keep-all; overflow-wrap: anywhere; }
+.tw-class-when svg { flex: 0 0 auto; margin-top: 2px; color: var(--tone); }
+.tw-pick-facts > span.is-warn { background: var(--rust-soft); color: var(--rust); font-weight: 700; }
+.tw-class-notice:not(:empty) { margin: 16px 0 0; padding: 10px 14px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); color: var(--ink); }
+.tw-new-class { margin-top: 28px; padding: 24px 26px 22px; border: 1px solid var(--line); border-radius: 16px; }
+.tw-new-head { display: flex; align-items: center; gap: 14px; }
+.tw-new-icon { display: grid; place-items: center; flex: 0 0 auto; width: 46px; height: 46px; border-radius: 13px; background: var(--teal-soft); color: var(--teal); }
+.tw-new-head h2 { margin: 0; font-size: 20px; }
+.tw-new-head .tw-hint { margin: 2px 0 0; }
+.tw-new-class > label { margin-top: 18px; }
+.tw-fold { margin: 12px 0 0; border: 1px solid var(--line); border-radius: 12px; background: #fffaf2; transition: background .15s; }
+.tw-fold[open] { background: var(--white); }
+.tw-fold > summary { position: relative; display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 12px; padding: 12px 16px 12px 40px; cursor: pointer; list-style: none; }
+.tw-fold > summary::-webkit-details-marker { display: none; }
+.tw-fold > summary::before { content: ""; position: absolute; left: 18px; top: 19px; width: 7px; height: 7px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(-45deg); transition: transform .15s; }
+.tw-fold[open] > summary::before { top: 17px; transform: rotate(45deg); }
+.tw-fold > summary b { color: var(--ink); font-size: 15px; }
+.tw-fold > summary > span { color: var(--muted); font-size: 13px; }
+.tw-fold > summary:hover b, .tw-fold > summary:focus-visible b { color: var(--teal); }
+.tw-fold > summary:focus-visible { outline: none; border-radius: 12px; box-shadow: var(--ring); }
+.tw-fold > div { padding: 0 16px 14px; }
 @media (max-width: 640px) {
   .tw-pick { min-height: 0; padding: 20px 18px 16px; }
   .tw-pick-title { font-size: 21px; }
+  .tw-class-grid > .tw-class-item > .tw-trash { top: 27px; right: 14px; }
+  .tw-course-chip { margin: 6px 0 0; }
+  .tw-new-class { padding: 20px 18px; }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tw-pick, .tw-pick-go b { transition: none; }
-  .tw-pick:hover { transform: none; }
+  .tw-pick, .tw-pick-go b, .tw-class-grid > .tw-class-item > .tw-trash { transition: none; }
+  .tw-pick:hover, .tw-class-grid > .tw-class-item:hover > .tw-pick, .tw-class-grid > .tw-class-item:hover > .tw-trash { transform: none; }
 }
 .tw-class-item { position: relative; }
 .tw-class-item .tw-course { width: 100%; height: 100%; padding-right: 60px; }

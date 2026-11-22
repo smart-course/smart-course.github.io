@@ -138,7 +138,7 @@
     // 这门课的学生页不发弹幕；界面上提到修为的几句话换成中性的说法
     $$('[data-tab="danmaku"]').forEach((tab) => { tab.hidden = true; });
     $$('[data-stat-danmaku]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });
-    $$('.tw-scope-box > summary').forEach((el) => { el.textContent = '本学期上课范围（默认全部）'; });
+    $$('[data-scope-note]').forEach((el) => { el.textContent = '默认全部；只上部分单元的，在这里选'; });   // 2026-11-22：原来改的是整个折叠标题，连“上课时间与教室”也被改成了“上课范围”
     $$('[data-leave-status]').forEach((el) => { el.textContent = '学生在首页点“请假”提交，不需要审批。'; });
     $$('.tw-enter').forEach((el) => { el.title = '打开：学生可以用这个课堂码进入、递交作答；关掉：成为历史课堂，学生用课堂码只能进来查看。'; });
     $('[data-room-classroom]').title = '上课投屏用（教师投屏页）：含参考答案与依据，学生的递交人数和分布在这里显示';
@@ -291,12 +291,12 @@
     bank: '<path d="M3.5 9 12 4l8.5 5"/><path d="M5 9.5h14"/><path d="M6.8 9.5v7.5M10.3 9.5v7.5M13.7 9.5v7.5M17.2 9.5v7.5"/><path d="M4.5 17.5h15M3.5 20.5h17"/>',
     scale: '<path d="M12 3.5v17M8 20.5h8M4.5 7h15"/><path d="M4.5 7 2 13a2.5 2.5 0 0 0 5 0z"/><path d="M19.5 7 17 13a2.5 2.5 0 0 0 5 0z"/>',
     calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+    users: '<path d="M15.5 19v-1.4a3.6 3.6 0 0 0-3.6-3.6H7.1a3.6 3.6 0 0 0-3.6 3.6V19"/><circle cx="9.5" cy="7.8" r="3.3"/><path d="M20.5 19v-1.4a3.6 3.6 0 0 0-2.6-3.45"/><path d="M15.4 4.65a3.3 3.3 0 0 1 0 6.3"/>',
+    clock: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.5V12l3 2"/>',
   };
   const pickOf = (item) => item.picker || {};
-  const pickIcon = (item) => {
-    const name = pickOf(item).icon || (item.flavor === 'session' ? 'calendar' : item.kind === 'concept-html' ? 'bulb' : 'book');
-    return `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${PICK_ICONS[name] || PICK_ICONS.book}</svg>`;
-  };
+  const pickSvg = (name, size = 26, stroke = 1.7) => `<svg viewBox="0 0 24 24" width="${size}" height="${size}" fill="none" stroke="currentColor" stroke-width="${stroke}" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">${PICK_ICONS[name] || PICK_ICONS.book}</svg>`;
+  const pickIcon = (item, size) => pickSvg(pickOf(item).icon || (item.flavor === 'session' ? 'calendar' : item.kind === 'concept-html' ? 'bulb' : 'book'), size);
   // 规模：副标题去掉第一段（课程类别）；按章节、按案例的课再加上单元数（与副标题重复的不加），按次上课的课副标题里已经有“几次课”
   const pickFacts = (item) => {
     const facts = String(pickOf(item).subtitle || '').split('·').map((part) => part.trim()).filter(Boolean).slice(1);
@@ -392,7 +392,8 @@
     $('[data-course-picker]').hidden = true;
     $('[data-class-picker]').hidden = false;
     updateNav('class');
-    $('[data-class-course]').textContent = course.title;
+    const tone = pickOf(course).tone;   // 班级卡片的配色跟着课程走（2026-11-22 改版）
+    $('[data-class-course]').innerHTML = `<span class="tw-course-chip"${tone ? ` data-tone="${esc(tone)}"` : ''}>${pickIcon(course, 18)}${esc(course.title)}</span>`;
     $('[data-course-title]').textContent = course.title;
     if (!state.started) setLive('请选择班级');
     let rooms = [];
@@ -406,16 +407,24 @@
     }
     // 上课时间较长时只在“ · ”处换行，不把“教学班 1209”“明理楼北306”拆开
     const timeParts = (text) => text.split(' · ').map((part) => esc(part).replace(/ /g, '&nbsp;')).join('&nbsp;· ');   // 圆点留在上一行末尾
+    // 班级卡片（2026-11-22 改版，同“选择课程”）：图标、班级名、上课时间，课堂数和点名册（没上传的标出来：没有点名册学生登录不了），
+    // 底部只写开放中的课堂有几个，不再列出课堂名和课堂码
     $('[data-class-list]').innerHTML = state.classes.map((klass) => {
       const mine = rooms.filter((room) => sameClass(room, klass));
-      const current = mine.filter((room) => room.is_current);
+      const open = mine.filter((room) => room.is_current).length;
       const roster = Array.isArray(klass.roster) ? klass.roster.length : 0;
-      return `<div class="tw-class-item"><button type="button" class="tw-course${state.klass && String(state.klass.id) === String(klass.id) ? ' is-current' : ''}" data-class="${esc(klass.id)}">
-        <small>课堂 ${mine.length} 个 · 点名册 ${roster ? `${roster} 人` : '未上传'}</small>
-        <strong>${esc(klass.name)}</strong>
-        <span>${current.length ? `开放中：${current.map((room) => `${esc(room.name)}（${esc(room.code)}）${room.submissions_open ? '' : ' · 已结束提交'}`).join('、')}` : '暂无开放中的课堂'}</span>
-        ${klass.schedule && window.ClassLivePlanner ? `<em class="tw-class-time">${timeParts(window.ClassLivePlanner.summary(klass.schedule))}</em>` : ''}
-      </button><button type="button" class="tw-trash" data-class-delete="${esc(klass.id)}" title="删除班级" aria-label="删除班级 ${esc(klass.name)}">${TRASH_ICON}</button></div>`;
+      const current = state.klass && String(state.klass.id) === String(klass.id);
+      const when = klass.schedule && window.ClassLivePlanner ? window.ClassLivePlanner.summary(klass.schedule) : '';
+      return `<div class="tw-class-item">
+        <button type="button" class="tw-pick tw-class-card${current ? ' is-current' : ''}" data-class="${esc(klass.id)}"${tone ? ` data-tone="${esc(tone)}"` : ''}>
+          <span class="tw-pick-top"><span class="tw-pick-icon" aria-hidden="true">${pickSvg('users')}</span>${current ? '<span class="tw-pick-now">当前班级</span>' : ''}</span>
+          <strong class="tw-pick-title">${esc(klass.name)}</strong>
+          ${when ? `<span class="tw-class-when">${pickSvg('clock', 15, 2)}<span>${timeParts(when)}</span></span>` : ''}
+          <span class="tw-pick-facts"><span>课堂 ${mine.length} 个</span>${roster ? `<span>点名册 ${roster} 人</span>` : '<span class="is-warn">点名册未上传</span>'}</span>
+          <span class="tw-pick-foot"><span class="tw-pick-live${open ? ' is-on' : ''}">${open ? `${open} 个课堂开放中` : '暂无开放中的课堂'}</span><span class="tw-pick-go">进入<b aria-hidden="true">→</b></span></span>
+        </button>
+        <button type="button" class="tw-trash" data-class-delete="${esc(klass.id)}" title="删除班级" aria-label="删除班级 ${esc(klass.name)}">${TRASH_ICON}</button>
+      </div>`;
     }).join('') || '<p class="tw-empty">本课程还没有班级。先在下面新建一个班级，例如“2026秋 经济学一班”。</p>';
     // 班级功能上线前发布的课堂：归入某个班级后才在该班级里显示（记录不会丢失）
     const legacy = rooms.filter((room) => !room.class_id);
