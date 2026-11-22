@@ -38,9 +38,11 @@
   .rm-bar .rm-open::before { content: ""; display: inline-block; width: 8px; height: 8px; margin: 0 5px 1px 0; border-radius: 50%; background: #f0b49e; vertical-align: middle; }
   .rm-bar .rm-open.is-on::before { background: #7fd3a3; box-shadow: 0 0 0 3px rgba(127,211,163,.22); }
   .rm-bar [data-rm-min], .dm-bar [data-dm-toggle] { display: none; }   /* 不用再单独收起：鼠标离开几秒后自动收成小条 */
-  html.cl-dock-idle .rm-bar > :not([data-rm-state]), html.cl-dock-idle .rm-bar .rm-name, html.cl-dock-idle .rm-bar .rm-case { display: none; }
-  html.cl-dock-idle .dm-bar > :not(label):not([data-dm-state]):not([data-dm-likes]) { display: none; }
-  html.cl-dock-idle .rm-bar, html.cl-dock-idle .dm-bar { padding: 4px 11px; opacity: .86; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+  /* 收起时（2026-11-22 晚 用户：“这两个还是按照之前的，缩小后就两个字的大小。然后放到左边的页码上面。”）：只剩“课堂”“弹幕”两个字，
+     叠在左下角页码的上面；鼠标移过去再展开成完整的控件条 */
+  html.cl-dock-idle .rm-bar > :not([data-rm-state]), html.cl-dock-idle .rm-bar .rm-rest { display: none; }
+  html.cl-dock-idle .dm-bar > :not(label), html.cl-dock-idle .dm-bar label select { display: none; }
+  html.cl-dock-idle .rm-bar, html.cl-dock-idle .dm-bar { padding: 5px 10px; border-radius: 9px; font-size: 14px; line-height: 1.3; opacity: .88; box-shadow: 0 4px 12px rgba(0,0,0,.18); cursor: pointer; }
   html.cl-has-dock body { padding-bottom: 72px; }
   /* “操作提示：关”（html.cl-hide-ops，本机记住）：投屏页上只写给老师看的操作说明先藏起来——步骤条的说明、课时步骤表下的提示、
      活动的组织提示、“开始”控制条下的说明、辩论流程的提示 */
@@ -78,7 +80,7 @@
   bar.setAttribute('data-ix', '');
   bar.setAttribute('role', 'group');
   bar.setAttribute('aria-label', '课堂控制');
-  bar.innerHTML = '<span data-rm-state>课堂：连接中……</span>'
+  bar.innerHTML = '<span data-rm-state><span class="rm-k">课堂</span><span class="rm-rest">：连接中……</span></span>'
     + '<button type="button" data-rm-open hidden>结束提交</button>'
     + '<button type="button" class="is-warn" data-rm-stop hidden>停止课堂</button>'
     + '<button type="button" data-rm-reset title="把本页题目恢复到未作答、未核对的状态（弹幕、计时、积分等不变）">复原</button>'
@@ -128,23 +130,30 @@
   const html = document.documentElement;
   html.classList.add('cl-has-dock');
   const dmBar = () => document.querySelector('.dm-bar');
-  const dockLeft = () => {
-    let left = 18;
+  // 左下角的小部件（页码）：两条控件叠在它上面、和它左对齐（2026-11-22 晚 用户：“放到左边的页码上面”）；没有页码（如全屏看题时）贴左下角
+  const dockAnchor = () => {
+    let found = null;
     Array.from(document.body.children).forEach((el) => {
       if (el === bar || el.classList.contains('dm-bar') || el.classList.contains('dm-demo')) return;
       const cs = getComputedStyle(el);
       if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return;
       const rect = el.getBoundingClientRect();
       if (!rect.width || !rect.height || rect.width > 160 || rect.left > 140 || rect.top < innerHeight - 160) return;
-      left = Math.max(left, Math.ceil(rect.right) + 10);
+      if (!found || rect.top < found.top) found = rect;
     });
-    return left;
+    return found ? { left: Math.max(8, Math.round(found.left)), bottom: Math.ceil(innerHeight - found.top) + 8 } : { left: 18, bottom: 22 };
   };
   const dodge = () => {
-    html.style.setProperty('--dock-left', `${dockLeft()}px`);
+    const at = dockAnchor();
+    html.style.setProperty('--dock-left', `${at.left}px`);
     const dm = dmBar();
+    if (dm) {
+      dm.style.bottom = `${at.bottom}px`;
+      dm.style.left = '';        // live-danmaku.js 先运行时把弹幕条放在了页码右边：清掉，跟着 --dock-left
+      dm.style.maxWidth = '';
+    }
     const dmH = dm && dm.getClientRects().length ? Math.ceil(dm.getBoundingClientRect().height) : 0;
-    bar.style.bottom = `${22 + (dmH ? dmH + 8 : 0)}px`;
+    bar.style.bottom = `${at.bottom + (dmH ? dmH + 8 : 0)}px`;
     const top = bar.getClientRects().length ? Math.ceil(innerHeight - bar.getBoundingClientRect().top) : 22 + dmH;
     html.style.setProperty('--dock-top', `${top + 10}px`);
     html.style.setProperty('--rm-clear', '0px');
@@ -173,9 +182,11 @@
     idleTimer = setTimeout(sleep, IDLE_MS);
   };
   document.addEventListener('pointermove', (event) => {
-    if (event.clientY < innerHeight - 170) return;
-    const right = Math.max(0, ...[bar, dmBar()].filter(Boolean).map((el) => el.getBoundingClientRect().right));
-    if (event.clientX <= Math.max(right + 60, 420)) wake();
+    const rects = [bar, dmBar()].filter(Boolean).map((el) => el.getBoundingClientRect()).filter((r) => r.width);
+    if (!rects.length) return;
+    const top = Math.min(...rects.map((r) => r.top));
+    const right = Math.max(...rects.map((r) => r.right));
+    if (event.clientY >= top - 60 && event.clientX <= right + 60) wake();
   }, { passive: true });
   ['pointerover', 'pointerdown', 'focusin'].forEach((type) => document.addEventListener(type, (event) => {
     if (event.target && event.target.closest && event.target.closest('.rm-bar, .dm-bar, .dm-demo')) wake();
@@ -260,8 +271,9 @@
   });
 
   let room = null;
-  const show = (html, current) => {
-    stateEl.innerHTML = html;
+  // rest：“课堂”两个字后面的说明（收起时只显示“课堂”）
+  const show = (rest, current) => {
+    stateEl.innerHTML = `<span class="rm-k">课堂</span><span class="rm-rest">${rest}</span>`;
     openButton.hidden = !current;
     stopButton.hidden = !current;
     if (current) openButton.textContent = room.submissions_open ? '结束提交' : '重新开放提交';
@@ -271,9 +283,9 @@
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
       room = window.ClassLive.pickRoom(rooms, config.course, unit);
-      if (!room) show('课堂：当前没有开放的课堂（在工作台发布）', false);
-      else if (room.chapter !== unit) show(`课堂：当前课堂“${esc(room.name)}”不是${HERE}`, false);
-      else show(`<span class="rm-k">课堂</span><span class="rm-name">：${esc(room.name)}</span> <b>${esc(room.code)}</b><span class="rm-case">${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''}</span>`
+      if (!room) show('：当前没有开放的课堂（在工作台发布）', false);
+      else if (room.chapter !== unit) show(`：当前课堂“${esc(room.name)}”不是${HERE}`, false);
+      else show(`：${esc(room.name)} <b>${esc(room.code)}</b>${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''}`
         + ` · <span class="rm-open${room.submissions_open ? ' is-on' : ''}">${room.submissions_open ? '学生可递交' : '已结束提交'}</span>`, true);
       // 一章两个案例分开上（2026-10-23，习经）：当前课堂只上其中一个时，投屏页也只显示这个案例；没有当前课堂或整章上时全部显示
       // 课堂工具（猜词游戏得分榜）按“班级＋课堂”分开记（2026-10-28 用户：“猜词游戏的排行榜只限于本班级本堂课”）
@@ -282,7 +294,7 @@
       if (window.ChapterCases && only !== shownCase) { shownCase = only; window.ChapterCases.show(only); stepLater(120); }
     } catch (error) {
       room = null;
-      show('课堂：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>', false);
+      show('：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>', false);
     }
     dodge();
   }
@@ -528,7 +540,7 @@
   (async () => {
     const session = await backend.session().catch(() => null);
     if (!session || session.anonymous) {
-      show('课堂：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>，再刷新本页', false);
+      show('：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>，再刷新本页', false);
       dodge();
       return;
     }

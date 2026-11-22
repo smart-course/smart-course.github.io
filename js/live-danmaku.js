@@ -780,6 +780,11 @@
   // 弹幕条放在左下角页码（.page-counter／.page-progress）的右边；试用面板放在弹幕条上方，左边与弹幕条对齐，
   // 和右下角的课堂控件条（.rm-bar）左右有重叠时，再抬到控件条上方
   function placeBar() {
+    // 2026-11-22 起两条控件由 live-room.js 一起排在左下角页码的上面（html.cl-has-dock，左边用 --dock-left）：这里不再单独把弹幕条放到页码右边
+    if (document.documentElement.classList.contains('cl-has-dock')) {
+      ['left', 'maxWidth'].forEach((key) => { bar.style[key] = ''; demo.style[key] = ''; });
+      return;
+    }
     let left = 108;
     document.querySelectorAll('.page-counter, .page-progress').forEach((el) => {
       const r = el.getBoundingClientRect();
