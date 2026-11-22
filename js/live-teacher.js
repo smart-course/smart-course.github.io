@@ -144,7 +144,7 @@
   if (PLAIN) {
     // 这门课的学生页不发弹幕；界面上提到修为的几句话换成中性的说法
     $$('[data-tab="danmaku"]').forEach((tab) => { tab.hidden = true; });
-    $$('[data-stat-danmaku]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });
+    $$('[data-stat-lingtian]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });   // 这门课没有云间灵田
     $$('[data-scope-note]').forEach((el) => { el.textContent = '默认全部；只上部分单元的，在这里选'; });   // 2026-11-22：原来改的是整个折叠标题，连“上课时间与教室”也被改成了“上课范围”
     $$('[data-leave-status]').forEach((el) => { el.textContent = '学生在首页点“请假”提交，不需要审批。'; });
     $$('.tw-enter').forEach((el) => { el.title = '打开：学生可以用这个课堂码进入、递交作答；关掉：成为历史课堂，学生用课堂码只能进来查看。'; });
@@ -273,6 +273,7 @@
     state.classOpening = false;
     await loadLeaves();
     await loadPresence();
+    renderStats();
     renderCheckins();
     realmResult = null;
     realmSaved = '';
@@ -684,7 +685,7 @@
     renderRoom();
     renderSecAlert();
     if (changed) {
-      state.openStudents.clear(); state.openTexts.clear(); setupSelectors(); subscribe(); loadPresence().then(renderCheckins);
+      state.openStudents.clear(); state.openTexts.clear(); setupSelectors(); subscribe(); loadPresence().then(() => { renderStats(); renderCheckins(); });
       // 学情分析选的是“当前课堂”时，换课堂也要跟着换（切换班级时 openApp 统一刷新）
       if (!state.classOpening && !$('[data-panel="insight"]').hidden && $('[data-ins-scope]').value === 'room') renderInsights(false);
     }
@@ -2426,13 +2427,25 @@
     caseProgress().forEach((row, sid) => { if (total && row.keys.size >= total) map.set(sid, row.ts); });
     return map;
   };
+  // “我的课堂”的四项统计（2026-11-22 用户：“这几个卡片换成‘已加入’‘现在在线’（加入名单中的‘现在在线’换成‘已全部递交’），
+  // ‘灵田在线’‘今天在线’，不需要‘尚未全部递交’”）：现在在线＝课程页面或云间灵田 2 分钟内报到过；灵田在线＝2 分钟内从云间灵田报到过
+  // （ck_presence.lt_seen，后台还没有这一列时显示“—”）；今天在线＝今天（北京时间零点起）报到过或登录过
   function renderStats() {
     const joined = students();
-    const submitted = submissions();
-    $('[data-stat-joined]').textContent = joined.length;
-    $('[data-stat-submitted]').textContent = submitted.size;
-    $('[data-stat-pending]').textContent = joined.filter((row) => !submitted.has(row.sid)).length;
-    $('[data-stat-danmaku]').textContent = state.docs.danmaku.length;
+    const today = window.ClassLive.today();
+    const dayStart = Date.parse(`${today}T00:00:00+08:00`);
+    const put = (selector, value) => {
+      const el = $(selector);
+      if (!el) return;
+      el.textContent = value;
+      const box = el.closest('.tw-stat');
+      if (box) box.classList.toggle('is-quiet', !Number(value));
+    };
+    put('[data-stat-joined]', joined.length);
+    put('[data-stat-online]', joined.filter((row) => isOnline(row.sid)).length);
+    if (state.presence.ltKnown) put('[data-stat-lingtian]', joined.filter((row) => inLingtian(row.sid)).length);
+    else put('[data-stat-lingtian]', '—');
+    put('[data-stat-today]', joined.filter((row) => row.days.has(today) || seenAt(row.sid) >= dayStart).length);
   }
   // ---------------- 点名册（班级）与考勤核对 ----------------
   const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
@@ -2526,14 +2539,21 @@
     if (!room) return;
     try {
       const rows = await backend.fetchAll('presence', { classroom: Number(room.id) || room.id });
-      state.presence = { room: String(room.id), map: new Map(rows.map((row) => [sidKey(row.sid), millis(row.last_seen)])) };
+      // lt：从云间灵田报到的时间（2026-11-22，ck_presence.lt_seen）；ltKnown：后台已经有这一列（还没执行 SQL 时没有，“灵田在线”显示“—”）
+      state.presence = { room: String(room.id), map: new Map(rows.map((row) => [sidKey(row.sid), millis(row.last_seen)])),
+        lt: new Map(rows.filter((row) => row.lt_seen).map((row) => [sidKey(row.sid), millis(row.lt_seen)])),
+        ltKnown: !rows.length || rows.some((row) => 'lt_seen' in row) };
     } catch (error) {
       if (!missingTable(error)) console.warn('[在线状态]', error);
-      state.presence = { room: String(room.id), map: new Map() };
+      state.presence = { room: String(room.id), map: new Map(), lt: new Map(), ltKnown: false };
     }
   }
   const seenAt = (sid) => (state.room && state.presence.room === String(state.room.id) ? state.presence.map.get(sidKey(sid)) || 0 : 0);
   const isOnline = (sid) => { const at = seenAt(sid); return Boolean(at) && Date.now() - at < ONLINE_MS; };
+  const inLingtian = (sid) => {
+    const at = state.room && state.presence.room === String(state.room.id) && state.presence.lt ? state.presence.lt.get(sidKey(sid)) || 0 : 0;
+    return Boolean(at) && Date.now() - at < ONLINE_MS;
+  };
   const onlineDot = (sid) => {
     const at = seenAt(sid);
     if (!at) return '';
@@ -2542,9 +2562,10 @@
   };
   // 每 20 秒（加入名单页开着、工作台在前台时）、回到工作台窗口时：重新读取在线状态
   const refreshPresence = async () => {
-    if (!state.room || $('[data-app]').hidden || document.hidden || $('[data-panel="checkins"]').hidden) return;
+    if (!state.room || $('[data-app]').hidden || document.hidden) return;
     await loadPresence();
-    renderCheckins();
+    renderStats();   // “我的课堂”的在线人数在每个标签上面都看得到（2026-11-22）
+    if (!$('[data-panel="checkins"]').hidden) renderCheckins();
   };
   setInterval(refreshPresence, 20000);
   window.addEventListener('focus', refreshPresence);
@@ -2587,8 +2608,9 @@
     // 现在在线：本课堂所有登录过的学号里，2 分钟内报到过的人数（与按日期查看无关）
     const onlineCount = students().filter((row) => isOnline(row.sid)).length;
     $('[data-online-count]').textContent = onlineCount;
-    $('[data-roster-online]').textContent = onlineCount;
-    $('[data-roster-online]').closest('.tw-stat').classList.toggle('is-quiet', !onlineCount);
+    // 2026-11-22：统计条里的“现在在线”换成“已全部递交”（“现在在线”放到上面“我的课堂”的四项统计里）
+    $('[data-roster-done]').textContent = submitted.size;
+    $('[data-roster-done]').closest('.tw-stat').classList.toggle('is-quiet', !submitted.size);
     if (!hasRoster) {
       $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>${day ? `登录时间（${shortDay(day)}）` : '登录记录'}</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
       const rows = joinedList.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names]));

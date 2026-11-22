@@ -25,12 +25,20 @@
   // 灵田是另开的标签页，课程页面切到后台以后就不再报在线，在灵田里的时间以前不算。这里和课程页面一样：页面在前台时每 30 秒报一次
   // （ck_ping，记在进入灵田的那个课堂上，工作台“登录与在线记录”照常累计），切走或关掉时再报一次，把零头也记上。
   // 没登录这个课堂（比如学生版测试页的老师）后台不记；后台没有这个功能时不再重试
+  // 2026-11-22（用户要在工作台看“灵田在线”）：报到时带 p_place = 'lingtian'，后台另记在 ck_presence.lt_seen；
+  // 后台还没执行 cloudbase-pg-20261122-灵田在线.sql（不认这个参数）时，退回原来只带课堂的报到，在线时长照常累计
   if (backend && room) {
     let pingOff = false;
+    let placeOk = true;
+    const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
     const ping = (force) => {
       if (pingOff || (!force && document.hidden)) return;
-      Promise.resolve().then(() => backend.rpc('ck_ping', { p_classroom: room })).catch((problem) => {
-        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) pingOff = true;
+      Promise.resolve().then(() => backend.rpc('ck_ping', placeOk ? { p_classroom: room, p_place: 'lingtian' } : { p_classroom: room })).catch((problem) => {
+        if (!missing(problem)) return;
+        if (placeOk) {
+          placeOk = false;
+          backend.rpc('ck_ping', { p_classroom: room }).catch((again) => { if (missing(again)) pingOff = true; });
+        } else pingOff = true;
       });
     };
     setTimeout(ping, 4000);

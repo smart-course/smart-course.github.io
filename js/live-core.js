@@ -1699,8 +1699,14 @@
           const sid = sidKey(me.sid);
           const row = rows.find((item) => String(item.classroom) === String(params.p_classroom) && item.sid === sid);
           const now = new Date().toISOString();
-          if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now });
-          else if (Date.now() - Date.parse(row.last_seen) > 20000) Object.assign(row, { name: me.name, owner: uid, last_seen: now });
+          // 2026-11-22：云间灵田页报到时带 p_place = 'lingtian'，另记 lt_seen（工作台“灵田在线”）
+          const lt = params.p_place === 'lingtian';
+          if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now, lt_seen: lt ? now : null });
+          else {
+            if (Date.now() - Date.parse(row.last_seen) > 20000) Object.assign(row, { name: me.name, owner: uid, last_seen: now });
+            if (lt && (!row.lt_seen || Date.now() - Date.parse(row.lt_seen) > 20000)) row.lt_seen = now;
+            if (!('lt_seen' in row)) row.lt_seen = null;
+          }
           write('presence', rows);
           visitTouch(params.p_classroom, sid, me.name, uid, 'ping', false);
           return true;

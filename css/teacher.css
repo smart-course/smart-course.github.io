@@ -1700,3 +1700,13 @@ details.tw-up-sec > ul > li { min-width: 0; }
   .tw-rm-more { max-width: calc(100vw - 48px); padding: 12px; }
   .tw-rm-same blockquote, .tw-rm-same-who { margin-left: 0; }
 }
+
+/* ---------- “我的课堂”统计换成：已加入、现在在线、灵田在线、今天在线（2026-11-22 用户：“这几个卡片换成‘已加入’‘现在在线’……‘灵田在线’‘今天在线’”）---------- */
+.tw-room-stats .tw-stat.is-online .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
+.tw-room-stats .tw-stat.is-online:not(.is-quiet) .tw-stat-ico { animation: tw-dot-pulse 2.4s ease-in-out infinite; }
+.tw-room-stats .tw-stat.is-lingtian .tw-stat-ico { background: #e7f1dc; color: #4f7a24; }
+.tw-room-stats .tw-stat.is-today .tw-stat-ico { background: #e6eef8; color: #2f5d8c; }
+.tw-room-stats .tw-stat.is-quiet .tw-stat-ico { background: #efeae3; color: #a3978b; animation: none; }
+.tw-room-stats .tw-stat.is-quiet b { color: #a3978b; }
+.tw-strip .tw-stat.is-done .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
+@media (prefers-reduced-motion: reduce) { .tw-room-stats .tw-stat.is-online .tw-stat-ico { animation: none; } }
