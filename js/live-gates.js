@@ -54,18 +54,36 @@
   .gate-state { flex: 1 1 260px; min-width: 0; font-weight: 700; }
   .gate-note { margin: 6px 0 0; color: #6d6259; font-size: 13.5px; }
   .gate-ctl.is-on .gate-note { color: #3f6b55; }
+  .gate-ctl.is-merged .act-ctl-row { gap: 10px; }
+  .gate-ctl.is-merged .gate-state { flex: 1 1 240px; }
   `;
   document.head.appendChild(style);
 
   list.forEach((t) => {
     const key = `${t.kind}:${t.no}`;
-    const bar = document.createElement('div');
-    bar.className = 'gate-ctl';
-    bar.setAttribute('data-ix', '');
-    bar.innerHTML = `<div class="gate-row"><button type="button" class="is-main" data-gate-go>🚩 开始${esc(NAME[t.kind])}</button>`
-      + '<button type="button" data-gate-undo hidden>收起，重新开始</button><span class="gate-state" data-gate-state role="status"></span></div>'
-      + `<p class="gate-note">点“开始”以前，${esc(STUDENT[t.kind])}都收起，只显示“等老师开始”；点了以后马上显示。</p>`;
-    t.place.insertAdjacentElement(t.where, bar);
+    // 机制图闯关：和下面“打开闯关大屏”那条控制条（live-acts.js）合成一条（2026-11-22 用户“都做吧”：两条控制条上下叠着、样式不一）
+    const opener = t.kind === 'mech' ? t.place.querySelector('.act-ctl') : null;
+    let bar;
+    if (opener && opener.querySelector('[data-ms-open]')) {
+      bar = opener;
+      bar.classList.add('gate-ctl', 'is-merged');
+      const row = bar.querySelector('.act-ctl-row');
+      row.querySelector('[data-ms-open]').classList.remove('is-main');
+      const told = row.querySelector('.act-state');
+      if (told) told.remove();
+      row.insertAdjacentHTML('afterbegin', `<button type="button" class="is-main" data-gate-go>🚩 开始${esc(NAME[t.kind])}</button><button type="button" data-gate-undo hidden>收起，重新开始</button>`);
+      row.insertAdjacentHTML('beforeend', '<span class="gate-state" data-gate-state role="status"></span>');
+      row.insertAdjacentHTML('afterend', `<p class="gate-note">点“开始”以前，${esc(STUDENT[t.kind])}收起，只显示“等老师开始”；点了以后马上显示。`
+        + '学生在自己的页面上闯关（不计修为）；点“打开闯关大屏”，在大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</p>');
+    } else {
+      bar = document.createElement('div');
+      bar.className = 'gate-ctl';
+      bar.setAttribute('data-ix', '');
+      bar.innerHTML = `<div class="gate-row"><button type="button" class="is-main" data-gate-go>🚩 开始${esc(NAME[t.kind])}</button>`
+        + '<button type="button" data-gate-undo hidden>收起，重新开始</button><span class="gate-state" data-gate-state role="status"></span></div>'
+        + `<p class="gate-note">点“开始”以前，${esc(STUDENT[t.kind])}都收起，只显示“等老师开始”；点了以后马上显示。</p>`;
+      t.place.insertAdjacentElement(t.where, bar);
+    }
     const go = bar.querySelector('[data-gate-go]');
     const undo = bar.querySelector('[data-gate-undo]');
     const state = bar.querySelector('[data-gate-state]');

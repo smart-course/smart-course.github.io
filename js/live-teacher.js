@@ -1728,6 +1728,8 @@
       }
       lt.players = Array.isArray(row.players) ? row.players : [];
       lt.loaded = true;
+      $('[data-lt-enabled]').disabled = false;   // 读到了后台的设置才能拨开关、点保存（见下面“刷新页面时”）
+      $('[data-lt-save]').disabled = false;
       $('[data-lt-status]').textContent = `${set.enabled ? '本课程已开放云间灵田。' : '本课程尚未开放：学生面板“宗门”里不显示入口。'}${lt.dirty ? '（上面的设置改了还没保存）' : ''}（${clock(Date.now())} 刷新）`;
       ltRender();
       ltStatsLoad();
@@ -2280,9 +2282,24 @@
     // 2026-11-18 用户：“教师工作台点击‘云间灵田’后自动刷新内容”：每次点开都重读开放设置、谁是谁和数据统计（开放设置改了没保存的不覆盖）
     ltTab.addEventListener('click', () => { ltLoad(); });
     ['[data-lt-enabled]', '[data-lt-water]', '[data-lt-clear]', '[data-lt-steal]'].forEach((sel) => { const input = $(sel); if (input) ['input', 'change'].forEach((type) => input.addEventListener(type, () => { lt.dirty = true; })); });
-    $('[data-lt-enabled]').addEventListener('change', ltSwitchNote);
+    // 开关一拨就保存（2026-11-22 用户：“我开了以后刷新一下又关了”——原来拨了开关还要点“保存设置”才算数）；关掉会让学生进不了灵田，先确认
+    $('[data-lt-enabled]').addEventListener('change', () => {
+      const box = $('[data-lt-enabled]');
+      if (!box.checked && !window.confirm('关闭云间灵田？关闭后学生面板“宗门”里看不到入口，正在灵田里的同学约 20 秒后也进不去；灵田里的数据都保留，之后可以再打开。')) {
+        box.checked = true;
+        return;
+      }
+      ltSwitchNote();
+      ltSave();
+    });
     ltPct('[data-lt-water]', 30); ltPct('[data-lt-clear]', 30); ltPct('[data-lt-steal]', 40);
     $('[data-lt-save]').addEventListener('click', ltSave);
+    // 刷新页面时工作台会自动回到上次的标签（上面“标签页”一段替你点一下），那一下在这段代码之前，这里收不到，“云间灵田”就没读开放设置，
+    // 开关停在默认的“关”（2026-11-22 用户：“为什么现在云间灵田开放的按钮是默认关闭的？”“我开了以后刷新一下又关了”；后台其实一直开着）。
+    // 现在：读到后台的设置以前，开关和“保存设置”都不能点，免得把没读到的“关”存进去；停在这个标签上时自己读一次
+    $('[data-lt-enabled]').disabled = true;
+    $('[data-lt-save]').disabled = true;
+    if (ltTab.getAttribute('aria-selected') === 'true') ltLoad();
     $('[data-lt-reload]').addEventListener('click', ltLoad);
     $('[data-lt-search]').addEventListener('input', ltRender);
     $('[data-lt-stats-reload]').addEventListener('click', ltStatsLoad);
@@ -4008,6 +4025,18 @@
   // 政经：按递交单位（submitKey）把 gradeOf 的逐题记录归成题目
   // 2026-10-23 起出门测、课后思考并入“课后自修”：学生递交后由修炼场后台另计修为（出门测答对 +2、课后思考写满 100 字 +5，在“修炼”一列），
   // 这里不再算进课堂的“作答完成／作答正确”，免得重复计分（递交记录照旧，工作台和投屏统计不受影响）
+  // 核查提示明细里文字题的名称（2026-11-22）：政经“概念 1 · 绝对剩余价值 · 说一说”，习经取案例文字题的标题（与“学生作答”下拉框一致）
+  const peTextLabel = (unit, key) => {
+    const m = /^([^.]+)\.explain$/.exec(key);
+    if (m) {
+      const i = ((unit && unit.concepts) || []).findIndex((k) => k.id === m[1]);
+      return i >= 0 ? `概念 ${i + 1} · ${unit.concepts[i].name} · 说一说` : '说一说';
+    }
+    if (key === 'discussion') return '小组辨析 · 我的理由';
+    if (key === 'discussion.after') return '小组辨析 · 讨论后的补充';
+    return key;
+  };
+  const xjpTextLabel = (c, key) => ((c.items || []).find((entry) => entry.key === key) || {}).label || key;
   const peKind = (key) => {
     if (/^exit\.\d+$/.test(key) || key === 'essay') return { kind: 'self' };
     if (/\.discover$/.test(key) || key === 'poll' || /^debate\.(pre|cards|post)$/.test(key)) return { kind: 'part' };
@@ -4103,14 +4132,40 @@
     const base = roster.length || new Set(docs.checkins.map((doc) => sidKey(doc.sid))).size;
     const need = base >= 10 ? Math.max(3, Math.ceil(base * 0.3)) : 1;   // “上课日”：当天本单元登录的人数
     // 文字作答雷同：同一段话（20 个有效字以上）出现在不同学号下
-    const textOwners = new Map();
-    const noteText = (sid, text) => {
+    // 2026-11-22 起记下每处的出处和原文（用户：“最好能够显示或者链接到相同的地方。比如点击一下就能展开到相同的地方，显示跟谁相同等”），
+    // 修为表“核查提示”点开就能看到是哪一题、原文、和谁相同
+    const textOwners = new Map();   // 有效文字 → Map(学号 → [出处])
+    const textSample = new Map();   // 有效文字 → 第一次见到的原文（显示用）
+    const noteText = (sid, text, where) => {
       const m = meaningful(text);
       if (m.length < 20) return;
-      if (!textOwners.has(m)) textOwners.set(m, new Set());
-      textOwners.get(m).add(sid);
+      if (!textOwners.has(m)) { textOwners.set(m, new Map()); textSample.set(m, String(text).trim()); }
+      const bySid = textOwners.get(m);
+      const list = bySid.get(sid) || [];
+      if (where && !list.includes(where)) list.push(where);
+      bySid.set(sid, list);
     };
+    // 每台设备（登录记录的 owner）在本班课堂里：每个学号登录了几次、第一次和最近一次、上过哪几次课（核查提示“N 台设备登录过”的明细）
+    const deviceUse = new Map();   // owner → Map(学号 → { n, first, last, units })
+    docs.checkins.forEach((doc) => {
+      const key = sidKey(doc.sid);
+      if (!doc.owner || !key) return;
+      if (!deviceUse.has(doc.owner)) deviceUse.set(doc.owner, new Map());
+      const bySid = deviceUse.get(doc.owner);
+      const use = bySid.get(key) || { n: 0, first: 0, last: 0, units: new Set() };
+      const at = serverAt(doc);
+      use.n += 1;
+      if (at && (!use.first || at < use.first)) use.first = at;
+      if (at > use.last) use.last = at;
+      const unitId = roomUnit.get(String(doc.classroom));
+      if (unitId) use.units.add(unitId);
+      bySid.set(key, use);
+    });
     const units = realmUnits();
+    // 课堂所属单元的名称（核查提示明细里“上过的课”用；本班上课范围以外的单元也要有名字）
+    const realmUnitNames = new Map(CONCEPT
+      ? course.units.map((x) => [x.unit, x.exam ? '期中考查作业' : `案例${x.number}`])
+      : course.chapters.map((ch) => [ch.id, ch.cn]));
     const perUnit = units.map((u) => {
       const inUnit = (doc) => roomUnit.get(String(doc.classroom)) === u.id;
       const days = new Map();
@@ -4163,7 +4218,7 @@
           count = score.total;
           ({ right, obj, bonus } = score);
           list.forEach((doc) => Object.entries(doc.payload || {}).forEach(([key, entry]) => {
-            if (isEntry(entry) && peKind(key).kind === 'text') noteText(person.sid, typeof entry.v === 'object' && entry.v ? entry.v.reason : entry.v);
+            if (isEntry(entry) && peKind(key).kind === 'text') noteText(person.sid, typeof entry.v === 'object' && entry.v ? entry.v.reason : entry.v, `${u.label} · ${peTextLabel(u.unit, key)}`);
           }));
         } else {
           // 迁移任务按哪种题算（按全班，不按个人，以前的修为不变）：有人递交过小案例（match、transfer-k、说一说）的，或者没有人做过新题（tk）
@@ -4208,7 +4263,7 @@
               count += 1;
               if (q.kind === 'text') {
                 const doc = answers.get(q.items[0]);
-                if (doc && validText(doc.text, q.min)) { done += 1; noteText(person.sid, doc.text); }
+                if (doc && validText(doc.text, q.min)) { done += 1; noteText(person.sid, doc.text, `${u.label} · 案例${String(c.number).padStart(2, '0')} · ${xjpTextLabel(c, q.items[0])}`); }
                 return;
               }
               const answered = q.items.every((item) => m2[item] != null);
@@ -4250,6 +4305,23 @@
       let same = 0;
       textOwners.forEach((sids) => { if (sids.size > 1 && sids.has(row.sid)) same += 1; });
       if (same) row.flags.push(`${same} 处文字作答与他人相同`);
+      // 明细（点“核查提示”展开）：设备按第一次登录排；同一台设备上还登录过别的学号的一并列出
+      const nameOf = (sid) => ((rosterMap.get(sid) || people.get(sid) || {}).name || '');
+      const unitName = (id) => (realmUnitNames.get(id) || id);
+      row.more = {};
+      if (row.owners > 1) {
+        row.more.devices = Array.from(deviceUse.values()).filter((bySid) => bySid.has(row.sid)).map((bySid) => {
+          const use = bySid.get(row.sid);
+          return { n: use.n, first: use.first, last: use.last, units: Array.from(use.units).map(unitName),
+            others: Array.from(bySid.keys()).filter((other) => other !== row.sid).map((other) => ({ sid: other, name: nameOf(other) })) };
+        }).sort((a, b) => (a.first || Infinity) - (b.first || Infinity));
+      }
+      if (same) {
+        row.more.same = Array.from(textOwners.entries()).filter(([, bySid]) => bySid.size > 1 && bySid.has(row.sid)).map(([m, bySid]) => ({
+          text: textSample.get(m), mine: bySid.get(row.sid) || [],
+          others: Array.from(bySid.entries()).filter(([other]) => other !== row.sid).map(([other, wheres]) => ({ sid: other, name: nameOf(other), wheres })),
+        }));
+      }
     });
     rows.sort((a, b) => b.points - a.points || String(a.sid).localeCompare(String(b.sid)));
     return { rows, max, units: perUnit.filter((info) => info.held).length, total: units.length, meetings: units.reduce((s, u) => s + u.meetings, 0) };
@@ -4332,7 +4404,55 @@
   let realmResult = null;
   let realmSaved = '';
   // 2026-11-11 重排：顶部境界阶梯（人数、门槛、占全班比例）、表格名次奖牌、修为进度条、提示标签
-  const realmFlagHtml = (flag) => `<span class="tw-rm-flag${/^不在点名册|^请假/.test(flag) ? ' is-info' : ''}">${esc(flag)}</span>`;
+  // 核查提示（2026-11-22 起“N 台设备登录过”“N 处文字作答与他人相同”可以点开看明细：用户“最好能够显示或者链接到相同的地方。
+  // 比如点击一下就能展开到相同的地方，显示跟谁相同等”）。展开的明细排在这位同学那一行下面，搜索、重新计算后仍保持展开
+  const realmOpen = new Map();   // 学号 → 'devices' | 'same'
+  const realmFlagKind = (flag) => (/台设备登录过$/.test(flag) ? 'devices' : /文字作答与他人相同$/.test(flag) ? 'same' : '');
+  const realmFlagHtml = (flag, row) => {
+    const kind = realmFlagKind(flag);
+    if (kind && row && row.more && row.more[kind] && row.more[kind].length) {
+      const open = realmOpen.get(row.sid) === kind;
+      return `<button type="button" class="tw-rm-flag is-more${open ? ' is-open' : ''}" data-rm-more="${kind}" data-sid="${esc(row.sid)}" aria-expanded="${open}" title="${open ? '收起明细' : '点一下看明细'}">${esc(flag)}<i aria-hidden="true">${open ? '▴' : '▾'}</i></button>`;
+    }
+    return `<span class="tw-rm-flag${/^不在点名册|^请假/.test(flag) ? ' is-info' : ''}">${esc(flag)}</span>`;
+  };
+  const realmWhen = (ms) => (ms ? `${isoDay(ms).slice(5)} ${clock(ms).slice(0, 5)}` : '—');
+  const LETTER = 'ABCDEFGHIJKLMNOPQRSTUVWXYZ';
+  // 和本人写了同样一段话的同学，按他们写在哪一题分组（和本人同一题的排在前面）
+  const realmSameGroups = (s) => {
+    const groups = new Map();
+    s.others.forEach((o) => {
+      const key = o.wheres.join('；') || '（出处不详）';
+      if (!groups.has(key)) groups.set(key, []);
+      groups.get(key).push(o);
+    });
+    const mine = s.mine.join('；');
+    return Array.from(groups.entries()).sort(([a], [b]) => (b === mine) - (a === mine))
+      .map(([key, people]) => `<div class="tw-rm-same-group"><i>${key === mine ? '和本人同一题' : esc(key)}</i><div>${people.map((o) => `<span class="tw-rm-person"><b>${esc(o.name || o.sid)}</b><small>${esc(o.sid)}</small></span>`).join('')}</div></div>`).join('');
+  };
+  function realmMoreRow(row) {
+    const kind = realmOpen.get(row.sid);
+    const list = kind && row.more && row.more[kind];
+    if (!list || !list.length) return '';
+    const who = esc(row.name || row.sid);
+    let body;
+    if (kind === 'devices') {
+      const shared = list.filter((d) => d.others.length).length;
+      body = `<h4>${who} 用 ${list.length} 台设备登录过本班课堂${shared ? `<em>其中 ${shared} 台还登录过别的同学</em>` : ''}</h4>
+        <p class="tw-rm-more-note">每台新设备第一次登录都要输入本人的 4 位口令；同一台设备上还登录过别的同学的，标成红色——可能是借同学的手机，也可能是替人登录。</p>
+        <div class="tw-rm-dev-wrap"><table class="tw-rm-dev"><thead><tr><th>设备</th><th>第一次登录</th><th>最近一次</th><th>登录次数</th><th>上过的课</th><th>这台设备上还登录过</th></tr></thead><tbody>
+        ${list.map((d, i) => `<tr${d.others.length ? ' class="is-shared"' : ''}><td><b>设备 ${LETTER[i] || i + 1}</b></td><td>${realmWhen(d.first)}</td><td>${realmWhen(d.last)}</td><td class="is-num">${d.n}</td>`
+          + `<td>${esc(d.units.join('、') || '—')}</td><td>${d.others.length ? d.others.map((o) => `<span class="tw-rm-person"><b>${esc(o.name || o.sid)}</b><small>${esc(o.sid)}</small></span>`).join('') : '<span class="tw-rm-none">没有</span>'}</td></tr>`).join('')}
+        </tbody></table></div>`;
+    } else {
+      body = `<h4>${who} 有 ${list.length} 处文字作答和别人的一样</h4>
+        <p class="tw-rm-more-note">去掉空格和标点以后，20 个字以上一字不差才算相同。下面是本人写的原文、出自哪一题，以及还有谁写了同样的话。</p>
+        ${list.map((s, i) => `<div class="tw-rm-same"><div class="tw-rm-same-head"><span class="tw-rm-same-no">${i + 1}</span><span class="tw-rm-same-where">${(s.mine.length ? s.mine : ['（出处不详）']).map((w) => `<b>${esc(w)}</b>`).join('')}</span></div>
+          <blockquote>${esc(s.text)}</blockquote>
+          <div class="tw-rm-same-who"><span class="tw-rm-same-label">相同的还有 ${s.others.length} 人（按写在哪一题分组）</span>${realmSameGroups(s)}</div></div>`).join('')}`;
+    }
+    return `<tr class="tw-rm-more-row"><td colspan="14"><div class="tw-rm-more is-${kind}">${body}<div class="tw-rm-more-foot"><button type="button" class="tw-rm-more-close" data-rm-more="${kind}" data-sid="${esc(row.sid)}">收起明细</button></div></div></td></tr>`;
+  }
   const numCell = (value) => `<td class="is-num${Number(value) ? '' : ' is-zero'}">${esc(String(value == null ? 0 : value))}</td>`;
   // 2026-11-22 第二档美化：签到与请假、作答完成与作答正确各并成一列，上下两行各带小字标签（修为表少两列，宽屏上不用再左右拖；导出的修为表照旧分列）
   const pairCell = (...pairs) => `<td class="is-num is-pair">${pairs.map(([label, value]) => `<span class="tw-rm-kv${Number(value) ? '' : ' is-zero'}"><i>${label}</i>${esc(String(value == null ? 0 : value))}</span>`).join('')}</td>`;
@@ -4376,7 +4496,7 @@
       <td>${realmChip(row.realm, row.title)}</td><td class="tw-sect-cell">${sectCell(row.sid)}</td>
       <td><div class="tw-rm-pts"><span><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></span><span class="tw-rm-pbar"><i class="is-r${row.realm}" style="width:${ratio}%"></i></span></div></td>
       ${pairCell(['签到', row.detail.attend], ['请假', row.detail.leave || 0])}${pairCell(['完成', row.detail.done], ['正确', row.detail.right])}${numCell(row.detail.danmaku)}${numCell(row.detail.like || 0)}${numCell(row.detail.game || 0)}${numCell(row.detail.practice || 0)}${numCell(row.detail.lingtian || 0)}
-      <td class="tw-realm-flags">${row.flags.map(realmFlagHtml).join('')}</td></tr>`;
+      <td class="tw-realm-flags">${row.flags.map((flag) => realmFlagHtml(flag, row)).join('')}</td></tr>${realmMoreRow(row)}`;
     }).join('')
       || '<tr><td colspan="14" class="empty">本班还没有学生记录。</td></tr>';
     renderSects();
@@ -4409,6 +4529,16 @@
   $('[data-realm-refresh]').addEventListener('click', () => refreshRealms(false));
   $('[data-realm-save]').addEventListener('click', () => refreshRealms(true));
   $('[data-realm-search]').addEventListener('input', renderRealms);
+  $('[data-realm-rows]').addEventListener('click', (event) => {
+    const more = event.target.closest('[data-rm-more]');
+    if (!more) return;
+    const { sid } = more.dataset;
+    const kind = more.dataset.rmMore;
+    if (realmOpen.get(sid) === kind) realmOpen.delete(sid); else realmOpen.set(sid, kind);
+    renderRealms();
+    const again = $(`[data-realm-rows] .tw-rm-flag[data-rm-more="${kind}"][data-sid="${CSS.escape(sid)}"]`);
+    if (again) again.focus({ preventScroll: true });
+  });
   $('[data-realm-rows]').addEventListener('click', async (event) => {
     const reset = event.target.closest('[data-sect-reset]');
     if (!reset) return;

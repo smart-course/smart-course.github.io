@@ -21,15 +21,49 @@
   const style = document.createElement('style');
   style.dataset.readable = 'panel';   // 控件条宽度有限：字号按温和倍数调整（live-readable.js）
   style.textContent = `
-  .rm-bar { position: fixed; z-index: 301; right: 22px; bottom: 22px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center; max-width: min(560px, calc(100vw - 44px)); padding: 5px 8px; border-radius: 8px;
-    background: rgba(32, 28, 24, .72); color: #fff; font: 700 12.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; opacity: .45; transition: opacity .2s ease; }
-  .rm-bar:hover, .rm-bar:focus-within { opacity: 1; }
-  .rm-bar button { padding: 3px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: transparent; font: inherit; cursor: pointer; }
+  /* 2026-11-22（用户“都做吧”：投屏页两块控制条不再压住正文）：课堂条和弹幕条（live-danmaku.js）一个样子，都放在左下角页码右边，
+     弹幕条在下、课堂条在上；鼠标离开几秒后都收成只剩状态的小条（html.cl-dock-idle），鼠标移到左下角或停在条上再展开 */
+  .rm-bar { position: fixed; z-index: 301; left: var(--dock-left, 84px); bottom: 69px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    max-width: min(640px, calc(100vw - var(--dock-left, 84px) - 24px)); padding: 6px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+    background: rgba(30, 26, 22, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 10px 26px rgba(0,0,0,.24);
+    color: #fff; font: 700 13px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; transition: opacity .2s ease, padding .2s ease; }
+  .rm-bar button { padding: 4px 11px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; background: rgba(255,255,255,.06); font: inherit; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease; }
+  .rm-bar button:hover { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.16); }
+  .rm-bar button[aria-pressed="false"] { color: rgba(255,255,255,.7); }
   .rm-bar button.is-warn { border-color: #f0b49e; color: #ffd2c2; }
   .rm-bar button[disabled] { opacity: .5; cursor: default; }
   .rm-bar a { color: #ffd98a; }
   .rm-bar b { color: #ffd98a; letter-spacing: .06em; }
-  .rm-bar.is-min > :not([data-rm-min]) { display: none; }
+  .rm-bar .rm-open::before { content: ""; display: inline-block; width: 8px; height: 8px; margin: 0 5px 1px 0; border-radius: 50%; background: #f0b49e; vertical-align: middle; }
+  .rm-bar .rm-open.is-on::before { background: #7fd3a3; box-shadow: 0 0 0 3px rgba(127,211,163,.22); }
+  .rm-bar [data-rm-min], .dm-bar [data-dm-toggle] { display: none; }   /* 不用再单独收起：鼠标离开几秒后自动收成小条 */
+  html.cl-dock-idle .rm-bar > :not([data-rm-state]), html.cl-dock-idle .rm-bar .rm-name, html.cl-dock-idle .rm-bar .rm-case { display: none; }
+  html.cl-dock-idle .dm-bar > :not(label):not([data-dm-state]):not([data-dm-likes]) { display: none; }
+  html.cl-dock-idle .rm-bar, html.cl-dock-idle .dm-bar { padding: 4px 11px; opacity: .86; box-shadow: 0 4px 12px rgba(0,0,0,.18); }
+  html.cl-has-dock body { padding-bottom: 72px; }
+  /* “操作提示：关”（html.cl-hide-ops，本机记住）：投屏页上只写给老师看的操作说明先藏起来——步骤条的说明、课时步骤表下的提示、
+     活动的组织提示、“开始”控制条下的说明、辩论流程的提示 */
+  html.cl-hide-ops .ix-step-howto, html.cl-hide-ops .ix-step-more, html.cl-hide-ops .plan-hint, html.cl-hide-ops .interaction-note,
+  html.cl-hide-ops .mech-quest.is-teacher > .mech-dm-head, html.cl-hide-ops .mechanism-lab > .mechanism-task,
+  html.cl-hide-ops .gate-note, html.cl-hide-ops .dbf-tip, html.cl-hide-ops .dbf-now small { display: none !important; }
+  /* 步骤条（习经）：每条说明先只显示一行，点“展开”看全文 */
+  .ix-step-howto li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  .ix-step.is-howto-open .ix-step-howto li { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  .ix-step-more { margin: 6px 0 0; padding: 2px 12px; border: 1px solid rgba(35,101,95,.3); border-radius: 999px; background: #fffdf8; color: #23655f;
+    font: 700 13px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  .ix-step-more:hover { background: #eef5f2; }
+  .ix-step-more[hidden] { display: none; }
+  /* 右侧目录：投屏时字大一些，当前一节加底色 */
+  .section-rail .rail-link { font-size: 13px; }
+  .section-rail .rail-link.active { padding: 1px 4px 1px 8px; border-radius: 6px; background: rgba(164,73,45,.1); color: #8d3a20; font-weight: 800; }
+  body > .rail a { font-size: 13px; }
+  body > .rail a.active { border-radius: 6px; background: rgba(164,73,45,.1); }
+  @media (min-width: 1600px) {
+    .section-rail { width: 150px; }
+    .section-rail .rail-link { font-size: 14.5px; }
+    body > .rail a { font-size: 14.5px; }
+  }
   .rm-font { position: absolute; right: 0; bottom: calc(100% + 8px); display: flex; align-items: center; gap: 6px; padding: 8px 10px; border-radius: 8px;
     background: rgba(32, 28, 24, .92); box-shadow: 0 8px 24px rgba(0,0,0,.3); white-space: nowrap; }
   .rm-font[hidden] { display: none; }
@@ -50,6 +84,7 @@
     + '<button type="button" data-rm-reset title="把本页题目恢复到未作答、未核对的状态（弹幕、计时、积分等不变）">复原</button>'
     + (window.ClassReadable ? '<button type="button" data-rm-font aria-haspopup="true" aria-expanded="false" title="调整投屏字号（标准、大、特大），本机记住">字号</button>'
       + `<div class="rm-font" data-rm-font-pop role="group" aria-label="投屏字号" hidden><span>投屏字号</span>${window.ClassReadable.LEVELS.map((name, i) => `<button type="button" data-font="${i}">${esc(name)}</button>`).join('')}</div>` : '')
+    + '<button type="button" data-rm-ops aria-pressed="true" title="投屏页上只写给老师看的操作说明（步骤条的说明、活动的组织提示等）：开＝显示，关＝先藏起来；这台电脑记住">操作提示：开</button>'
     + '<button type="button" data-rm-min title="收起 / 展开课堂控件">课堂</button>';
   ['click', 'keydown', 'keyup'].forEach((type) => bar.addEventListener(type, (event) => event.stopPropagation()));
   document.body.appendChild(bar);
@@ -86,28 +121,111 @@
     try { localStorage.setItem(MIN_KEY, value ? '1' : ''); } catch (error) { /* 忽略 */ }
   };
   minButton.addEventListener('click', () => setMin(!bar.classList.contains('is-min')));
-  let savedMin = false;
-  try { savedMin = Boolean(localStorage.getItem(MIN_KEY)); } catch (error) { /* 忽略 */ }
-  setMin(savedMin);
+  setMin(false);   // 2026-11-22 起不再单独收起：鼠标离开几秒后两条控件自动收成小条（见下面的 dock）
 
-  // 避开页面右下角自带的固定元素（如页码、工具条）；收起的面板（透明的）不算
-  // 再把控件条占了屏幕底部多高写进 --rm-clear，页面上别的浮动面板（政经“课堂工具”）据此让开，不盖住控件条
-  const dodge = () => {
-    const box = bar.getBoundingClientRect();
-    let bottom = 22;
-    document.querySelectorAll('body *').forEach((el) => {
-      if (el === bar || bar.contains(el) || el.classList.contains('dm-bar') || getComputedStyle(el).position !== 'fixed' || Number(getComputedStyle(el).opacity) < 0.05) return;
+  // 2026-11-22：两条控件放在左下角——从页码（左下角的小部件）右边起，弹幕条在下、课堂条在上；
+  // 右下角的面板（课堂工具）不用再给控件条让位（--rm-clear 设为 0）；试用特效面板放在两条控件上方（--dock-top）
+  const html = document.documentElement;
+  html.classList.add('cl-has-dock');
+  const dmBar = () => document.querySelector('.dm-bar');
+  const dockLeft = () => {
+    let left = 18;
+    Array.from(document.body.children).forEach((el) => {
+      if (el === bar || el.classList.contains('dm-bar') || el.classList.contains('dm-demo')) return;
+      const cs = getComputedStyle(el);
+      if (cs.position !== 'fixed' || cs.display === 'none' || cs.visibility === 'hidden' || Number(cs.opacity) < 0.05) return;
       const rect = el.getBoundingClientRect();
-      if (!rect.width || !rect.height || rect.top < innerHeight / 2 || rect.right <= box.left || rect.left >= box.right) return;
-      bottom = Math.max(bottom, Math.ceil(innerHeight - rect.top) + 8);
+      if (!rect.width || !rect.height || rect.width > 160 || rect.left > 140 || rect.top < innerHeight - 160) return;
+      left = Math.max(left, Math.ceil(rect.right) + 10);
     });
-    bar.style.bottom = `${bottom}px`;
-    const rect = bar.getBoundingClientRect();   // 固定定位的元素 offsetParent 总是 null，用高度判断是否显示
-    document.documentElement.style.setProperty('--rm-clear', rect.height ? `${Math.ceil(innerHeight - rect.top) + 8}px` : '0px');
+    return left;
   };
-  // 投屏字号变了：右下角的按钮跟着变大，控件条重新让位（等页面字号改完再量）
+  const dodge = () => {
+    html.style.setProperty('--dock-left', `${dockLeft()}px`);
+    const dm = dmBar();
+    const dmH = dm && dm.getClientRects().length ? Math.ceil(dm.getBoundingClientRect().height) : 0;
+    bar.style.bottom = `${22 + (dmH ? dmH + 8 : 0)}px`;
+    const top = bar.getClientRects().length ? Math.ceil(innerHeight - bar.getBoundingClientRect().top) : 22 + dmH;
+    html.style.setProperty('--dock-top', `${top + 10}px`);
+    html.style.setProperty('--rm-clear', '0px');
+  };
+  // 投屏字号变了、窗口大小变了、两条控件的大小变了：重新排
   if (window.ClassReadable && window.ClassReadable.onChange) window.ClassReadable.onChange(() => setTimeout(dodge, 60));
-  if ('ResizeObserver' in window) new ResizeObserver(() => dodge()).observe(bar);
+  if ('ResizeObserver' in window) {
+    const ro = new ResizeObserver(() => dodge());
+    ro.observe(bar);
+    if (dmBar()) ro.observe(dmBar());
+  }
+  addEventListener('resize', () => setTimeout(dodge, 60));
+  // 鼠标离开几秒后两条都收成只剩状态的小条；鼠标移到左下角、停在条上、用键盘移到条上时展开。正在调字号、开着试用特效时不收
+  const IDLE_MS = 2600;
+  let idleTimer = 0;
+  const busy = () => [bar, dmBar()].some((el) => el && el.matches(':hover, :focus-within'))
+    || Boolean(fontPop && !fontPop.hidden) || Boolean(document.querySelector('.dm-demo:not([hidden])'));
+  const sleep = () => {
+    if (busy()) { idleTimer = setTimeout(sleep, 1200); return; }
+    html.classList.add('cl-dock-idle');
+    dodge();
+  };
+  const wake = () => {
+    clearTimeout(idleTimer);
+    if (html.classList.contains('cl-dock-idle')) { html.classList.remove('cl-dock-idle'); dodge(); }
+    idleTimer = setTimeout(sleep, IDLE_MS);
+  };
+  document.addEventListener('pointermove', (event) => {
+    if (event.clientY < innerHeight - 170) return;
+    const right = Math.max(0, ...[bar, dmBar()].filter(Boolean).map((el) => el.getBoundingClientRect().right));
+    if (event.clientX <= Math.max(right + 60, 420)) wake();
+  }, { passive: true });
+  ['pointerover', 'pointerdown', 'focusin'].forEach((type) => document.addEventListener(type, (event) => {
+    if (event.target && event.target.closest && event.target.closest('.rm-bar, .dm-bar, .dm-demo')) wake();
+  }, { passive: true }));
+  wake();   // 打开页面时先展开几秒，让老师看到控件在哪
+
+  // “操作提示”开关（2026-11-22）：关掉时投屏页上只写给老师看的操作说明先藏起来（样式见上），这台电脑记住
+  const OPS_KEY = 'classlive-hide-ops';
+  const opsButton = bar.querySelector('[data-rm-ops]');
+  const setOps = (show) => {
+    html.classList.toggle('cl-hide-ops', !show);
+    opsButton.setAttribute('aria-pressed', String(show));
+    opsButton.textContent = show ? '操作提示：开' : '操作提示：关';
+    try { localStorage.setItem(OPS_KEY, show ? '' : '1'); } catch (error) { /* 忽略 */ }
+  };
+  let opsHidden = false;
+  try { opsHidden = Boolean(localStorage.getItem(OPS_KEY)); } catch (error) { /* 忽略 */ }
+  setOps(!opsHidden);
+  opsButton.addEventListener('click', () => setOps(html.classList.contains('cl-hide-ops')));
+
+  // 步骤条（习经）：每条说明先只显示一行（样式见上）；有说明被截断的步骤，在说明下面加一个“展开说明”
+  let stepTimer = 0;
+  const stepMore = () => document.querySelectorAll('.ix-step').forEach((step) => {
+    const list = step.querySelector('.ix-step-howto');
+    if (!list) return;
+    const open = step.classList.contains('is-howto-open');
+    const cut = open || Array.from(list.children).some((li) => li.scrollHeight > li.clientHeight + 2);
+    let more = step.querySelector('.ix-step-more');
+    if (!more && cut) {
+      more = document.createElement('button');
+      more.type = 'button';
+      more.className = 'ix-step-more';
+      more.setAttribute('data-ix', '');
+      list.insertAdjacentElement('afterend', more);
+      more.addEventListener('click', (event) => {
+        event.stopPropagation();
+        step.classList.toggle('is-howto-open');
+        stepMore();
+      });
+    }
+    if (!more) return;
+    more.hidden = !cut;
+    more.textContent = open ? '收起说明 ▴' : '展开说明 ▾';
+    more.setAttribute('aria-expanded', String(open));
+  });
+  const stepLater = (ms) => { clearTimeout(stepTimer); stepTimer = setTimeout(stepMore, ms); };
+  stepLater(300);
+  if (document.fonts && document.fonts.ready) document.fonts.ready.then(() => stepLater(100));
+  addEventListener('resize', () => stepLater(200));
+  if (window.ClassReadable && window.ClassReadable.onChange) window.ClassReadable.onChange(() => stepLater(150));
 
   // 本页（讲解版）保存答题状态的键：政治经济学按案例编号和版本，习近平经济思想按页面路径；不碰登录、弹幕设置和导入的学生文件
   const pageKeys = () => {
@@ -155,12 +273,13 @@
       room = window.ClassLive.pickRoom(rooms, config.course, unit);
       if (!room) show('课堂：当前没有开放的课堂（在工作台发布）', false);
       else if (room.chapter !== unit) show(`课堂：当前课堂“${esc(room.name)}”不是${HERE}`, false);
-      else show(`课堂：${esc(room.name)} <b>${esc(room.code)}</b>${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''} · ${room.submissions_open ? '学生可递交' : '已结束提交'}`, true);
+      else show(`<span class="rm-k">课堂</span><span class="rm-name">：${esc(room.name)}</span> <b>${esc(room.code)}</b><span class="rm-case">${room.case_no ? ` · 案例 ${String(room.case_no).padStart(2, '0')}` : ''}</span>`
+        + ` · <span class="rm-open${room.submissions_open ? ' is-on' : ''}">${room.submissions_open ? '学生可递交' : '已结束提交'}</span>`, true);
       // 一章两个案例分开上（2026-10-23，习经）：当前课堂只上其中一个时，投屏页也只显示这个案例；没有当前课堂或整章上时全部显示
       // 课堂工具（猜词游戏得分榜）按“班级＋课堂”分开记（2026-10-28 用户：“猜词游戏的排行榜只限于本班级本堂课”）
       window.ClassLiveScope = room && room.chapter === unit ? { room: String(room.id), klass: String(room.class_id || 0) } : null;
       const only = room && room.chapter === unit ? Number(room.case_no) || 0 : 0;
-      if (window.ChapterCases && only !== shownCase) { shownCase = only; window.ChapterCases.show(only); }
+      if (window.ChapterCases && only !== shownCase) { shownCase = only; window.ChapterCases.show(only); stepLater(120); }
     } catch (error) {
       room = null;
       show('课堂：请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>', false);

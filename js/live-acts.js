@@ -201,7 +201,7 @@
     const opener = document.createElement('div');
     opener.className = 'act-ctl';
     opener.innerHTML = '<div class="act-ctl-row"><button type="button" class="is-main" data-ms-open>🖥 打开闯关大屏</button>'
-      + '<span class="act-state">老师点上面的“开始机制图闯关”以后，学生在自己的页面上闯关。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
+      + '<span class="act-state">学生在自己的页面上闯关（不计修为）。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
     ['click', 'keydown', 'keyup'].forEach((type) => opener.addEventListener(type, (event) => event.stopPropagation()));
     el.insertAdjacentElement('beforebegin', opener);
     const stage = document.createElement('div');

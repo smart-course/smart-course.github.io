@@ -117,16 +117,20 @@
   .dm-bar [data-dm-likes]:empty { display: none; }
   .dm-stage.is-paused .dm-item { animation-play-state: paused; }
   @keyframes dm-fly { from { transform: translateX(0); } to { transform: translateX(calc(-100vw - 100%)); } }
-  .dm-bar { position: fixed; z-index: 301; left: 108px; bottom: 22px; display: flex; gap: 6px; align-items: center; padding: 5px 8px; border-radius: 8px;
-    background: rgba(32, 28, 24, .72); color: #fff; font: 700 12.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; opacity: .45; transition: opacity .2s ease; }
-  .dm-bar:hover, .dm-bar:focus-within { opacity: 1; }
-  .dm-bar { flex-wrap: wrap; max-width: calc(100vw - 130px); }
+  /* 2026-11-22 起和“课堂”控件条（live-room.js）同一个样子，叠放在左下角页码右边：弹幕条在下、课堂条在上；鼠标离开几秒后
+     两条都收成只剩状态的小条（html.cl-dock-idle，由 live-room.js 控制），鼠标移到左下角再展开 */
+  .dm-bar { position: fixed; z-index: 301; left: var(--dock-left, 84px); bottom: 22px; display: flex; flex-wrap: wrap; gap: 6px; align-items: center;
+    max-width: calc(100vw - var(--dock-left, 84px) - 24px); padding: 6px 10px; border: 1px solid rgba(255,255,255,.12); border-radius: 12px;
+    background: rgba(30, 26, 22, .9); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px); box-shadow: 0 10px 26px rgba(0,0,0,.24);
+    color: #fff; font: 700 13px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; transition: opacity .2s ease, padding .2s ease; }
   .dm-bar > * { white-space: nowrap; }
-  .dm-bar button { padding: 3px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; background: transparent; font: inherit; cursor: pointer; }
-  .dm-bar button[aria-pressed="true"] { background: rgba(255,255,255,.2); }
+  .dm-bar button { padding: 4px 11px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; background: rgba(255,255,255,.06); font: inherit; cursor: pointer;
+    transition: background .15s ease, border-color .15s ease; }
+  .dm-bar button:hover { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.16); }
+  .dm-bar button[aria-pressed="true"] { background: rgba(255,255,255,.22); }
   .dm-bar a { color: #ffd98a; }
   .dm-bar label { display: inline-flex; align-items: center; gap: 5px; }
-  .dm-bar select { -webkit-appearance: none; appearance: none; padding: 2px 24px 2px 8px; border: 1px solid rgba(255,255,255,.4); border-radius: 5px; color: #fff; font: inherit; cursor: pointer;
+  .dm-bar select { -webkit-appearance: none; appearance: none; padding: 3px 26px 3px 10px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; font: inherit; cursor: pointer;
     background: rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center / 10px 7px; }
   .dm-bar select option { color: #201c18; background: #fff; }
   .dm-bar select[disabled] { opacity: .5; cursor: default; }
@@ -216,7 +220,7 @@
   .dm-bubble.is-con { border-color: rgba(164, 73, 45, .5); background: #fbefea; }
   /* 试用特效面板：宽度随内容（境界五个一行、法宝四件一行），不超过屏幕；投屏字号档位会把这里的字号放大（live-readable.js），
      所以标签宽、按钮内边距都按字号（em）算，放大后不会挤成竖排 */
-  .dm-demo { position: fixed; z-index: 302; left: 108px; bottom: 64px; width: max-content; max-width: calc(100vw - 130px); max-height: calc(100vh - 84px); overflow-y: auto;
+  .dm-demo { position: fixed; z-index: 302; left: var(--dock-left, 84px); bottom: var(--dock-top, 64px); width: max-content; max-width: calc(100vw - 130px); max-height: calc(100vh - 84px); overflow-y: auto;
     box-sizing: border-box; padding: 14px 18px 16px; border-radius: 14px; background: rgba(24, 20, 30, .95); color: #fff4e0; box-shadow: 0 16px 40px rgba(0,0,0,.45);
     font: 700 14px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .dm-demo[hidden] { display: none; }

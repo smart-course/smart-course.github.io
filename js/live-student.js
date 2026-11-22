@@ -139,13 +139,37 @@
   .clp-realm-card h3 button { border: 0; background: none; font-size: 22px; cursor: pointer; color: #6d6259; }
   .clp-realm-card h4 { margin: 12px 0 4px; font-size: 15px; color: #a4492d; }
   .clp-realm-card ul { margin: 0; padding-left: 20px; }
-  /* 更新说明按天分组（2026-11-21）：日期一行，后面拉一条细线 */
-  .clp-news-card h4.clp-news-day { display: flex; align-items: center; gap: 8px; margin: 16px 0 6px; font-size: 15.5px; }
-  .clp-news-card h4.clp-news-day span { flex: 0 0 auto; padding: 1px 12px; border-radius: 999px; background: #a4492d; color: #fff; font-weight: 800; letter-spacing: .02em; }
-  .clp-news-card h4.clp-news-day small { flex: 0 0 auto; color: #8a7f74; font-size: 12.5px; font-weight: 600; }
-  .clp-news-card h4.clp-news-day::after { content: ""; flex: 1 1 auto; height: 1px; background: rgba(70,51,34,.16); }
-  .clp-news-card li { margin: 2px 0; }
-  .clp-news-card li b { color: #463322; }
+  /* 更新说明（2026-11-22 改版，用户“都做吧”）：电脑上放宽；一天一组，最近一天展开、每条一张小卡片；更早的几天收起，点开看，
+     每条先只显示标题和一行，点一下看全文；右上角“全部展开／全部收起” */
+  .clp-realm-card.clp-news-card { width: min(680px, 100%); padding: 20px 22px; }
+  .clp-news-tools { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 6px 12px; margin: 0 0 6px; }
+  .clp-news-tools .clp-hint { flex: 1 1 260px; margin: 0; }
+  .clp-news-all { flex: 0 0 auto; padding: 3px 12px; border: 1px solid #d6cdbf; border-radius: 999px; background: #fff; color: #6d6259; font-family: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.6; cursor: pointer; }
+  .clp-news-all:hover { border-color: #a4492d; color: #a4492d; }
+  .clp-news-daybox { margin: 12px 0 0; }
+  .clp-news-daybox > summary { list-style: none; cursor: pointer; }
+  .clp-news-daybox > summary::-webkit-details-marker { display: none; }
+  .clp-news-card .clp-news-day { display: flex; align-items: center; gap: 8px; margin: 0 0 6px; font-size: 15px; font-weight: 800; }
+  .clp-news-card .clp-news-day span { flex: 0 0 auto; padding: 1px 12px; border-radius: 999px; background: #a4492d; color: #fff; letter-spacing: .02em; }
+  .clp-news-daybox:not([open]) .clp-news-day span { background: #efe6da; color: #6d4a33; }
+  .clp-news-card .clp-news-day small { flex: 0 0 auto; color: #8a7f74; font-size: 12.5px; font-weight: 600; }
+  .clp-news-card .clp-news-day::after { content: "▾"; order: 3; flex: 0 0 auto; color: #a89a8b; font-size: 12px; transition: transform .15s ease; }
+  .clp-news-daybox:not([open]) .clp-news-day::after { transform: rotate(-90deg); }
+  .clp-news-card .clp-news-day i { order: 2; flex: 1 1 auto; height: 1px; background: rgba(70,51,34,.16); }
+  .clp-news-items { display: grid; grid-template-columns: minmax(0, 1fr); gap: 6px; }   /* minmax(0,1fr)：一行预览不把卡片撑出弹窗 */
+  .clp-news-item { min-width: 0; border: 1px solid rgba(70,51,34,.12); border-radius: 10px; background: #fff; }
+  .clp-news-item > summary { display: flex; align-items: baseline; gap: 8px; padding: 8px 12px; list-style: none; cursor: pointer; }
+  .clp-news-item > summary::-webkit-details-marker { display: none; }
+  .clp-news-item > summary b { flex: 0 0 auto; max-width: 62%; color: #463322; font-size: 14.5px; }   /* 标题照常显示，太长才折行；后面的一行预览只占剩下的位置 */
+  .clp-news-item > summary span { flex: 1 1 0; min-width: 0; overflow: hidden; color: #8a7f74; font-size: 13px; white-space: nowrap; text-overflow: ellipsis; }
+  .clp-news-item[open] > summary span { display: none; }
+  .clp-news-item > summary::after { content: "▾"; flex: 0 0 auto; margin-left: auto; color: #b3a596; font-size: 11px; }
+  .clp-news-item[open] > summary::after { content: "▴"; }
+  .clp-news-item p { margin: 0; padding: 0 12px 10px; color: #3b2a1c; font-size: 14px; line-height: 1.75; }
+  @media (max-width: 560px) {
+    .clp-news-item > summary { flex-wrap: wrap; }
+    .clp-news-item > summary span { flex-basis: 100%; }
+  }
   .clp-news-ok { display: flex; justify-content: flex-end; margin-top: 14px; }
   .clp-news-ok button { padding: 7px 22px; border: 0; border-radius: 999px; background: #a4492d; color: #fff; font-family: inherit; font-weight: 700; font-size: 14.5px; line-height: 1.4; cursor: pointer; }
   .clp-realm-bar { position: relative; height: 10px; margin: 8px 0 2px; border-radius: 999px; background: #eee6d8; overflow: hidden; }
@@ -1095,6 +1119,20 @@
     .clp-panel.clp-v2.is-folded > :not(.clp-mini) { display: none; }
     .clp-panel.clp-v2.is-folded > .clp-mini { display: grid; }
   }
+  /* 2026-11-22（用户“都做吧”）：笔记本等屏幕上，正文离左边不到收起面板的宽度时，收起的面板也只剩小圆图标（和手机上一样），不再挡住正文 */
+  .clp-panel.clp-v2.is-folded.clp-bubble { width: auto; max-height: none; padding: 0; border: 0; background: none; box-shadow: none; overflow: visible; animation: none; }
+  .clp-panel.clp-v2.is-folded.clp-bubble > :not(.clp-mini) { display: none; }
+  .clp-panel.clp-v2.is-folded.clp-bubble > .clp-mini { display: grid; }
+  /* 手机上底部太挤（同日）：政经页面在手机上顶部、底部各有一条目录栏，只留顶部那条；页码不显示（顶部目录栏已标出当前一节）；
+     右下角的“↑”“使用说明”往下放；往下翻的时候左下角、右下角的圆按钮先变淡，停下来再恢复 */
+  @media (max-width: 700px) {
+    body > .rail, body > .page-counter { display: none !important; }
+    body > .back-top { bottom: 14px !important; }
+    body > .peg-toggle { bottom: 62px !important; }
+    .clp-panel.is-folded, .guide-toggle, .back-to-top, body > .back-top, body > .peg-toggle, .clp-pv-btn { transition: opacity .25s ease; }
+    html.clp-scrolling .clp-panel.is-folded, html.clp-scrolling .guide-toggle, html.clp-scrolling .back-to-top, html.clp-scrolling body > .back-top,
+    html.clp-scrolling body > .peg-toggle, html.clp-scrolling .clp-pv-btn { opacity: .28; }
+  }
   /* 老师点赞：本人页面上盖一枚「师赞」朱印 */
   .clp-zan { position: fixed; z-index: 2147483001; left: 50%; top: 42%; display: grid; justify-items: center; gap: 12px; transform: translate(-50%, -50%); pointer-events: none; }
   .clp-zan-seal { display: grid; place-items: center; width: 116px; height: 116px; border: 5px solid #c8281e; border-radius: 14px; color: #c8281e; background: rgba(255,244,224,.94);
@@ -1394,10 +1432,22 @@
   panel.setAttribute('aria-label', '课堂作业');
   shield(panel);
   // 避开页面自带的底部固定元素（页码、手机版底部导航等），防止互相遮挡
+  // 正文（政经 .page > .inner，习经 .section-inner）的左边离窗口左边不到收起面板的宽度（290＋左边 16＋留空）时，收起的面板改成小圆图标
+  const fitBubble = () => {
+    let left = Infinity;
+    document.querySelectorAll('.page > .inner, .page-section > .section-inner').forEach((box) => {
+      const r = box.getBoundingClientRect();
+      if (r.width > 300 && r.height > 0) left = Math.min(left, r.left);
+    });
+    panel.classList.toggle('clp-bubble', left !== Infinity && left < 322);
+  };
   const dodge = () => {
+    fitBubble();
     const left = panel.getBoundingClientRect().left;
     const right = panel.getBoundingClientRect().right;
-    let bottom = 80;
+    // 收成小圆图标时（手机上、正文贴近左边的电脑上）贴近底边放，原来至少离底边 80
+    const bubble = panel.classList.contains('is-folded') && (innerWidth <= 700 || panel.classList.contains('clp-bubble'));
+    let bottom = bubble ? 16 : 80;
     document.querySelectorAll('body *').forEach((el) => {
       if (el === panel || panel.contains(el) || getComputedStyle(el).position !== 'fixed') return;
       const box = el.getBoundingClientRect();
@@ -1411,6 +1461,14 @@
   };
   let dodgeTimer = null;
   window.addEventListener('resize', () => { clearTimeout(dodgeTimer); dodgeTimer = setTimeout(dodge, 200); });
+  // 手机上往下翻的时候圆按钮先变淡（样式见上），停下来 0.7 秒后恢复
+  let scrollFade = null;
+  window.addEventListener('scroll', () => {
+    if (innerWidth > 700) return;
+    document.documentElement.classList.add('clp-scrolling');
+    clearTimeout(scrollFade);
+    scrollFade = setTimeout(() => document.documentElement.classList.remove('clp-scrolling'), 700);
+  }, { passive: true });
 
   // ---------- 题目 ----------
   // 每道题：{ key, section, title, prompt, el, anchor, read(), check(v), show(v), lock(), restore(v), send(v) }
@@ -5813,7 +5871,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261122b-start-pe' : '20261122b-start-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261122c-tidy-pe' : '20261122c-tidy-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -5828,10 +5886,21 @@
   function openNews() {
     newsModal.innerHTML = `<div class="clp-realm-card clp-news-card" role="dialog" aria-modal="true" aria-label="版本更新说明">
       <h3><span>版本更新说明</span><button type="button" data-news-close aria-label="关闭">×</button></h3>
-      <p class="clp-hint">${esc(newsRangeText())}，课程网站做了这些更新（只列最近 ${Live.NEWS_DAYS || 20} 天的，一天一组，最近的在最上面）。以后点面板底部的“更新说明”可以再看。</p>
-      ${newsSections().map((section) => `<h4 class="clp-news-day"><span>${esc(section.title)}</span><small>${section.items.length} 条</small></h4><ul>${section.items.map(([label, text, , topic]) => `<li><b>${esc(topic ? `${topic} · ${label}` : label)}</b>：${esc(text)}</li>`).join('')}</ul>`).join('')}
+      <div class="clp-news-tools"><p class="clp-hint">${esc(newsRangeText())}，课程网站做了这些更新（只列最近 ${Live.NEWS_DAYS || 20} 天的，一天一组，最近的在最上面）。以后点面板底部的“更新说明”可以再看。</p>
+      <button type="button" class="clp-news-all" data-news-all>全部展开</button></div>
+      ${newsSections().map((section, i) => `<details class="clp-news-daybox"${i === 0 ? ' open' : ''}><summary class="clp-news-day"><span>${esc(section.title)}</span><i aria-hidden="true"></i><small>${section.items.length} 条</small></summary>
+        <div class="clp-news-items">${section.items.map(([label, text, , topic]) => `<details class="clp-news-item"${i === 0 ? ' open' : ''}><summary><b>${esc(topic ? `${topic} · ${label}` : label)}</b><span>${esc(text)}</span></summary><p>${esc(text)}</p></details>`).join('')}</div></details>`).join('')}
       <div class="clp-news-ok"><button type="button" data-news-close>知道了</button></div></div>`;
     newsModal.hidden = false;
+    const all = newsModal.querySelector('[data-news-all]');
+    const paintAll = () => { all.textContent = Array.from(newsModal.querySelectorAll('details')).every((d) => d.open) ? '全部收起' : '全部展开'; };
+    all.addEventListener('click', () => {
+      const open = all.textContent === '全部展开';
+      newsModal.querySelectorAll('details').forEach((d) => { d.open = open; });
+      paintAll();
+    });
+    newsModal.querySelectorAll('details').forEach((d) => d.addEventListener('toggle', paintAll));
+    paintAll();
     newsModal.querySelector('[data-news-close]').focus();
   }
   function closeNews() {
