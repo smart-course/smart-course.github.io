@@ -930,6 +930,10 @@
   .clp-sect-motto { display: block; margin-top: 2px; color: rgba(244,236,255,.72); font-size: 12px; line-height: 1.5; }
   .clp-sect-way { display: block; color: rgba(244,236,255,.5); font-size: 11.5px; }
   .clp-sect-meta { display: block; margin-top: 3px; color: rgba(255,232,168,.85); font-size: 12px; font-weight: 700; }
+  /* 本周宗主（2026-11-22）：境界、修为、连任第几周 */
+  .clp-sect-lord { display: block; margin-top: 3px; color: rgba(255,244,214,.92); font-size: 12px; line-height: 1.6; }
+  .clp-sect-lord i { display: inline-block; margin-right: 6px; padding: 0 6px; border: 1px solid rgba(255,214,120,.7); border-radius: 4px; color: #ffe2a0; font-style: normal; font-size: 11px; font-weight: 800; letter-spacing: .08em; }
+  .clp-sect-lord.is-empty { color: rgba(244,236,255,.45); }
   .clp-sect-pts { align-self: start; padding-top: 2px; text-align: right; color: #ffd36b; font: 800 18px/1.2 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; white-space: nowrap; }
   .clp-sect-pts small { display: block; margin-top: 3px; color: rgba(244,236,255,.62); font: 600 11px/1.4 -apple-system, "PingFang SC", sans-serif; }
   .clp-sect-act { grid-column: 1 / -1; display: flex; flex-wrap: wrap; align-items: center; justify-content: flex-end; gap: 8px; }
@@ -3175,7 +3179,7 @@
   panel.innerHTML = `
     <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
-      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：本宗元婴以上、修为第一" hidden><i aria-hidden="true"></i>宗主</b>'}
+      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：每周一推选，本宗元婴以上、修为最高；连任最多两周" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span>${MAKEUP ? '<b class="clp-makeup" title="这次课你请过假：可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补">请假补做</b>' : ''}</div>
       ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
@@ -5494,7 +5498,9 @@
     if (lordEl) {
       const lord = Boolean(sectRole && sectRole.leader), sect = lord ? (Live.SECTS || []).find((item) => item.key === sectRole.sect) : null;
       lordEl.hidden = !lord;
-      if (lord) lordEl.title = `${sect ? sect.name : '本宗'}宗主：本宗元婴以上、修为第一（随老师结算修为更新）`;
+      // 2026-11-22 宗主每周一推选、连任最多两周（后台 ck_sect_terms_roll）；weeks＝连任第几周（旧后台没有这一项）
+      const weeks = Number(sectRole && sectRole.weeks) || 0;
+      if (lord) lordEl.title = `${sect ? sect.name : '本宗'}宗主：每周一推选，本宗元婴以上、修为最高的担任；连任最多两周${weeks ? `（${weeks > 1 ? `本周是连任第 ${weeks} 周` : '本周新任'}）` : ''}`;
     }
     return sectRole;
   }
@@ -5580,13 +5586,24 @@
     list.forEach((row) => { row.rank = 1 + list.filter((other) => (Number(other.points) || 0) > (Number(row.points) || 0)).length; });
     const mine = data.mine || {};
     const choosing = Boolean(mine.can_join) && (!mine.sect || mine.sect === 'sanxiu');
+    // 本周宗主（2026-11-22 用户：“宗门能显示宗主的境界和分值。然后宗主最多连续做两个礼拜……换成第二名的同学来做以此类推”）：
+    //   每个宗门下面一行——境界、修为、连任第几周；不写姓名（宗主可能是别的班的同学），是本人或本班同学时注明。后台还是旧版（没有 leader 这一项）时不显示
+    const hasLords = (data.sects || []).some((row) => Object.prototype.hasOwnProperty.call(row, 'leader'));
+    const lordLine = (row) => {
+      if (!hasLords) return '';
+      const lord = row.leader;
+      if (!lord) return '<span class="clp-sect-lord is-empty">宗主暂缺：还没有元婴以上的在读弟子</span>';
+      const level = Math.max(0, Math.min(REALMS.length - 1, Number(lord.realm) || 0));
+      const title = Live.stageTitle ? Live.stageTitle(level, Number(lord.stage) || 0) : REALMS[level].name;
+      return `<span class="clp-sect-lord"><i aria-hidden="true">宗主</i>${esc(title)} · 修为 ${ptsText(lord.points)} · ${Number(lord.weeks) > 1 ? `连任第 ${Number(lord.weeks)} 周` : '本周新任'}${lord.mine ? '（就是你）' : lord.here ? '（本班同学）' : ''}</span>`;
+    };
     const rows = list.map((row, i) => {
       const isMine = mine.sect === row.key;
       return `<li class="clp-sect-row${isMine ? ' is-mine' : ''}" style="${sectVars(row)};--i:${i}">
         <span class="clp-rank-no">${row.rank}</span><span class="clp-sect-emb" aria-hidden="true">${esc(row.mark)}</span>
         <span class="clp-sect-main"><strong>${esc(row.name)}${isMine ? '<small>本门</small>' : ''}</strong>
           <span class="clp-sect-motto">“${esc(row.motto)}”——${esc(row.source)}</span><span class="clp-sect-way">宗风：${esc(row.way)}</span>
-          <span class="clp-sect-meta">历届弟子 ${Number(row.members) || 0} 人 · 本班 ${Number(row.class_members) || 0} 人</span></span>
+          <span class="clp-sect-meta">历届弟子 ${Number(row.members) || 0} 人 · 本班 ${Number(row.class_members) || 0} 人</span>${lordLine(row)}</span>
         <span class="clp-sect-pts">${bigNum(row.points)}<small>宗门分</small></span></li>`;
     }).join('');
     const sect = sectOf(mine.sect);
@@ -5599,7 +5616,7 @@
       : `<p class="clp-rank-mine">达到「${esc(REALMS[SECT_MIN].name)}」境界后可以拜入宗门（按老师最近一次结算的境界）。你现在${mine.realm != null ? `是「${esc(REALMS[Number(mine.realm)].name)}」` : '还没有结算境界'}，继续修炼吧！</p>`;
     return `<p class="clp-rank-meta">四大宗门 · 已有 ${Number(data.classes) || 0} 个班的弟子${Number(data.sanxiu) ? ` · 散修 ${Number(data.sanxiu)} 人` : ''}</p>
       <ol class="clp-sect-list">${rows}</ol>${mineHtml}${lingtianBlock(mine)}
-      <p class="clp-rank-note">宗门分＝本课程历届弟子的修为之和（按老师最近一次结算），分高者排名在前。弟子结课以后修为仍留在宗门里，一届一届传承下去，新同学随时可以加入；散修不计入任何宗门。拜入宗门以后有一次改投他宗的机会，改投时修为随你转到新宗门。</p>`;
+      <p class="clp-rank-note">宗门分＝本课程历届弟子的修为之和（按老师最近一次结算），分高者排名在前。弟子结课以后修为仍留在宗门里，一届一届传承下去，新同学随时可以加入；散修不计入任何宗门。拜入宗门以后有一次改投他宗的机会，改投时修为随你转到新宗门。${hasLords ? '宗主每周一推选一次：本宗元婴以上、在读的弟子里修为最高的担任，一任一周；连任最多两周，做满两周就换下一名，都轮过一遍以后再从头轮起。' : ''}</p>`;
   }
   async function openSect() {
     sectModal.innerHTML = sectShell('<p class="clp-rank-state">正在读取宗门榜……</p>');
@@ -5707,7 +5724,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261121d-stickers-pe' : '20261121d-stickers-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261122a-lingtian-pe' : '20261122a-lingtian-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部

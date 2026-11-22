@@ -1579,7 +1579,8 @@
   // ---------------- 云间灵田（2026-11-15） ----------------
   // 开放与抽题概率（lt_admin / lt_admin_set）；万象道藏学年卡池（经云函数 lingtian 的教师接口，凭 lt_teacher_ticket 凭证）；
   // “谁是谁”：道号与学生的对照、服丹折算的网站修为、偷菜次数；被敏感词挡下的道号，以及销号／恢复（lt_admin_ban）；
-  // “数据统计”：灵石、开垦、收获、偷菜、灵田答题、丹炉、道藏卡牌、坊市、活跃天数（lt_stats），全班汇总＋可排序明细＋导出 Excel
+  // “数据统计”：灵石、开垦、收获、偷菜、灵田答题、丹炉、道藏卡牌、坊市、活跃天数（lt_stats），全班汇总＋可排序明细＋导出 Excel；
+  // “种田行为分析”（2026-11-22）：灵石的来路和去向、累计获得、什么时候来、种什么卖什么（lt_behavior），经营得好的同学和个人种田分析卡
   const LT_REALMS = ['炼气', '筑基', '结丹', '元婴', '化神'];
   const lt = { loaded: false, players: [], catalog: null, plans: null, ticket: null, ticketAt: 0, stats: null, statsAt: 0, statsError: '', sort: { key: 'stones', dir: -1 } };
   const ltSectName = (key) => (((window.ClassLive && window.ClassLive.SECTS) || []).find((item) => item.key === key) || {}).name || (key || '—');
@@ -1705,6 +1706,7 @@
       lt.statsError = missing ? '数据统计要用最新的 tools/cloudbase-pg-20261115-云间灵田.sql：在云开发 SQL 编辑器再执行一次（可重复执行，不删数据）。' : `读取失败：${(error && error.message) || error}`;
     }
     ltStatsRender();
+    ltBehLoad();   // 种田行为分析要用到这里的现有灵石：统计读完接着读
   }
   // 当前班级的行（没选班级时是本课程全部）
   const ltStatRows = () => (lt.stats || []).filter((p) => !state.klass || String(p.class_id) === String(state.klass.id));
@@ -1811,6 +1813,7 @@
       + `<td class="tw-nowrap num">${p.brew}</td><td class="tw-nowrap num">${p.pillsTaken}</td><td class="tw-nowrap num">${p.banned ? `<s>${ltNum(p.qi_points).toFixed(1)}</s>` : p.qi.toFixed(1)}</td>`
       + `<td class="tw-nowrap num">${p.cards}（${p.packs} 包）</td><td class="tw-nowrap num">${p.trades}</td><td class="tw-nowrap num">${p.days}（${p.actions} 次）</td><td class="tw-nowrap">${esc(when(p.last))}</td></tr>`).join('')
       || `<tr><td colspan="${LT_STAT_COLS.length}" class="empty">${state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'}</td></tr>`;
+    if (ltBeh.rows) ltBehRender();   // 换了班级：种田行为分析跟着重画
   }
   function ltStatsExport() {
     if (!lt.stats) return;
@@ -1825,8 +1828,267 @@
         p.stealOk, p.stealFail, p.stolen, p.quizRight, p.quizTotal, p.quizTotal ? `${Math.round(p.quizRate * 100)}%` : '', p.guardRight, p.guardTotal, p.brew, p.pillsTaken, p.qi,
         p.cards, p.cardTotal, p.packs, p.trades, p.sectUnits, p.days, p.actions, when(p.first), when(p.last)]));
     const scope = state.klass ? safeName(state.klass.name) : '全部班级';
-    O.save(O.xlsxBook([{ name: '汇总', rows: summary, widths: [18, 18, 60] }, { name: '学生明细', rows: detail, widths: [14, 10, 16, 8].concat(Array(30).fill(10)) }]),
-      `${course.title}_${scope}_云间灵田数据_${window.ClassLive.today()}.xlsx`);
+    const sheets = [{ name: '汇总', rows: summary, widths: [18, 18, 60] }, { name: '学生明细', rows: detail, widths: [14, 10, 16, 8].concat(Array(30).fill(10)) }];
+    if (ltBeh.rows) {   // 种田行为分析（2026-11-22）：累计获得、灵石的来路和去向、来的次数
+      const beh = ltBehRows().sort((a, b) => b.earned - a.earned || a.sid.localeCompare(b.sid));
+      sheets.push({ name: '种田行为分析', widths: [14, 10, 16].concat(Array(31).fill(11)), rows: [['学号', '姓名', '道号', '累计获得', '现有灵石', '已经花掉', '置办家当', '经营花费', '冻结中', '对不上的差额', '开局赠送']
+        .concat(LT_INCOME.map((item) => `收入·${item[1]}`), LT_SPEND.map((item) => `支出·${item[1]}`), ['操作次数', '来的天数', '来的次数', '操作时长（分钟）', '每次操作带来', '主要种', '主要种占卖灵植收入', '第一次操作', '最近一次操作'])]
+        .concat(beh.map((p) => [p.sid, p.name, p.aliasText, p.earned, p.stones, p.spendTotal, p.assets, p.running, p.frozen, p.gap, p.start]
+          .concat(LT_INCOME.map((item) => ltNum(p.income[item[0]])), LT_SPEND.map((item) => ltNum(p.spend[item[0]])),
+            [p.ops, p.days, p.visits, p.minutes, Number(p.perOp.toFixed(1)), p.top ? p.top.name : '', p.top ? `${Math.round(p.topShare * 100)}%` : '', when(p.first), when(p.last)]))) });
+    }
+    O.save(O.xlsxBook(sheets), `${course.title}_${scope}_云间灵田数据_${window.ClassLive.today()}.xlsx`);
+  }
+  // ---------- 种田行为分析（2026-11-22 用户：“做一个类似于个人学情分析卡的种田行为分析……可以看看每个人是怎么运作自己的灵田的，可以重点分析一下
+  //   几个运营的比较好的同学……除了现在拥有的灵石以外，你还要统计一项已获得的总灵石（包括已经买了宅邸等道具支付掉的，出售灵植、以及通过坊市交易等
+  //   收获的灵石等等，相当于会计中的总资产的概念。）”） ----------
+  // 数据：lt_behavior（按游戏里每一步操作留下的记录逐条加出来的灵石来路、去向，和什么时候来、种什么）＋上面“数据统计”的 lt_stats（现有灵石、开垦、偷菜、答题）。
+  // “累计获得”＝开局送的 520 ＋ 全部收入；它等于 现有灵石 ＋ 置办家当 ＋ 经营花费 ＋ 冻结中（对不上的差额单独标出来）。
+  const LT_CROPS = { huangjing: '黄精芝', zihou: '紫猴花', tianling: '天灵果', yueyang: '养魂木', jiuqu: '九曲灵参' };
+  // 一块田种一茬：种子多少钱、收几份、每份药铺收多少、要多久、什么境界能种（与游戏 game.js 的 CROPS 一致，只用来写分析里的说明）
+  const LT_CROP_INFO = { huangjing: { seed: 18, sell: 12, units: 5, minutes: 40, realm: 0 }, zihou: { seed: 36, sell: 28, units: 4, minutes: 80, realm: 1 },
+    tianling: { seed: 64, sell: 52, units: 4, minutes: 120, realm: 2 }, yueyang: { seed: 100, sell: 90, units: 5, minutes: 160, realm: 3 }, jiuqu: { seed: 240, sell: 210, units: 6, minutes: 240, realm: 4 } };
+  const LT_INCOME = [['shop', '卖灵植给药铺'], ['commission', '宗门委托奖励'], ['quest', '修行任务奖励'], ['market', '坊市卖出'], ['cards', '卡牌坊市卖出'], ['guard', '守田赔付']];
+  const LT_SPEND = [['seed', '买种子'], ['unlock', '开垦灵田'], ['tool', '升级农具'], ['decor', '置办小景'], ['residence', '置办宅邸'], ['brew', '炼丹炉费'], ['market', '坊市买入'], ['cards', '买卡牌'], ['penalty', '偷菜赔付']];
+  const LT_ASSETS = ['unlock', 'tool', 'decor', 'residence'];   // 花出去换成家当的（其余是经营花费：种子、炉费、买入、赔付）
+  const LT_ASSET_NAME = { unlock: '开垦灵田', tool: '升级农具', decor: '置办小景', residence: '置办宅邸', hoe: '锄头', wateringCan: '浇水壶' };
+  const ltBeh = { rows: null, at: 0, error: '', person: '' };
+  const ltSum = (object, keys) => (keys || Object.keys(object || {})).reduce((total, key) => total + ltNum((object || {})[key]), 0);
+  const ltMedian = (list) => { const s = list.slice().sort((a, b) => a - b); const k = Math.floor(s.length / 2); return !s.length ? 0 : s.length % 2 ? s[k] : (s[k - 1] + s[k]) / 2; };
+  const ltDayText = (day) => `${Number(String(day).slice(5, 7))} 月 ${Number(String(day).slice(8, 10))} 日`;
+  // 一位同学的行为和收支（b：lt_behavior 的一行；st：数据统计里同一位同学的一行，可能没有）
+  function ltBehRow(b, st) {
+    const income = b.income || {}, spend = b.spend || {};
+    const incomeTotal = ltSum(income), spendTotal = ltSum(spend), assets = ltSum(spend, LT_ASSETS);
+    const stones = st ? st.stones : 0, frozen = ltNum(b.frozen), start = ltNum(b.start);
+    const earned = start + incomeTotal;
+    const crops = (Array.isArray(b.crops) ? b.crops : []).map((c) => ({ crop: c.crop || '', name: LT_CROPS[c.crop] || '几种一起卖', planted: ltNum(c.planted), seed: ltNum(c.seed), sold: ltNum(c.sold), earned: ltNum(c.earned) }));
+    const top = crops.filter((c) => c.crop).slice().sort((x, y) => y.earned - x.earned || y.seed - x.seed)[0] || null;
+    return {
+      actor: b.actor_id, sid: String(b.sid || ''), classId: b.class_id, name: st ? st.name : String(b.sid || ''), aliasText: st ? st.aliasText : '', banned: !!(st && st.banned), st: st || null,
+      start, income, spend, incomeTotal, spendTotal, assets, running: spendTotal - assets, frozen, stones, earned,
+      gap: st ? earned - spendTotal - frozen - stones : 0,   // 对不上的差额（应为 0）
+      ops: ltNum(b.ops), days: ltNum(b.days), visits: ltNum(b.visits), minutes: ltNum(b.minutes), sellOps: ltNum(b.sell_ops),
+      perOp: ltNum(b.ops) ? incomeTotal / ltNum(b.ops) : 0, perDay: ltNum(b.days) ? incomeTotal / ltNum(b.days) : 0,
+      crops, top, topShare: top && ltNum(income.shop) ? top.earned / ltNum(income.shop) : 0,
+      assetsLog: Array.isArray(b.assets) ? b.assets : [], daily: Array.isArray(b.daily) ? b.daily : [], hours: b.hours || {},
+      first: ltNum(b.first_at), last: ltNum(b.last_at), marketSold: ltNum(b.market_sold), marketBought: ltNum(b.market_bought),
+      plots: st ? st.plots : 0, stealOk: st ? st.stealOk : 0, stealFail: st ? st.stealFail : 0, quizRate: st && st.quizTotal ? st.quizRate : 0, quizTotal: st ? st.quizTotal : 0,
+      tools: (st && st.tools) || {},
+    };
+  }
+  async function ltBehLoad() {
+    if (!backend) return;
+    const status = $('[data-lt-beh-status]');
+    if (status) status.textContent = '正在分析……';
+    try {
+      const data = await backend.rpc('lt_behavior', { p_course: course.slug });
+      const row = (Array.isArray(data) ? data[0] : data) || {};
+      ltBeh.rows = Array.isArray(row.players) ? row.players : [];
+      ltBeh.at = Number(row.at) || Date.now();
+      ltBeh.error = '';
+    } catch (error) {
+      const missing = /PGRST202|42883|Could not find the function|lt_behavior|未知的后台函数/.test(String((error && error.message) || error));
+      ltBeh.error = missing ? '种田行为分析要先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261122-宗主任期与种田分析.sql（可重复执行，不删数据）。' : `读取失败：${(error && error.message) || error}`;
+    }
+    ltBehRender();
+  }
+  // 当前班级的行（没选班级时是本课程全部），已和数据统计合并；已销号的不参加排名和全班合计
+  function ltBehRows() {
+    const stats = new Map((lt.stats || []).map((p) => [p.actor_id, p]));
+    return (ltBeh.rows || []).filter((b) => !state.klass || String(b.class_id) === String(state.klass.id)).map((b) => ltBehRow(b, stats.get(b.actor_id)));
+  }
+  // 经营特点（给老师看的几句话）：都从这位同学自己的数字和全班的对比里来，不下“好坏”的评语
+  function ltBehInsight(p, ctx) {
+    const lines = [];
+    const rank = (key) => 1 + ctx.live.filter((q) => q[key] > p[key]).length;
+    lines.push(`累计获得 ${ltFmt(p.earned)} 灵石（本班第 ${rank('earned')}），现在手里有 ${ltFmt(p.stones)}（第 ${rank('stones')}）；已经花掉 ${ltFmt(p.spendTotal)}${p.frozen ? `，另有 ${ltFmt(p.frozen)} 冻结在坊市委托或守田阵法里` : ''}。`);
+    if (p.ops) {
+      const times = ctx.medPerOp > 0 ? p.perOp / ctx.medPerOp : 0;
+      lines.push(`来了 ${p.days} 天、${p.visits} 次，一共操作 ${ltFmt(p.ops)} 次（全班中位数 ${ltFmt(ctx.medOps)} 次），在灵田里操作约 ${ltFmt(p.minutes)} 分钟；平均每次操作带来 ${p.perOp.toFixed(1)} 灵石${times >= 1.5 ? `，是全班中位数（${ctx.medPerOp.toFixed(1)}）的 ${times.toFixed(1)} 倍` : times > 0 && times <= 0.67 ? `，低于全班中位数（${ctx.medPerOp.toFixed(1)}）` : `，全班中位数是 ${ctx.medPerOp.toFixed(1)}`}。`);
+    }
+    if (p.top && p.top.earned > 0) {
+      const info = LT_CROP_INFO[p.top.crop];
+      const net = info ? info.sell * info.units - info.seed : 0;
+      const base = LT_CROP_INFO.huangjing.sell * LT_CROP_INFO.huangjing.units - LT_CROP_INFO.huangjing.seed;
+      lines.push(`卖灵植的收入主要来自${p.top.name}：种了 ${ltFmt(p.top.planted)} 次、卖出 ${ltFmt(p.top.sold)} 份，得 ${ltFmt(p.top.earned)} 灵石，占卖灵植收入的 ${Math.round(p.topShare * 100)}%。`
+        + (info && p.top.crop !== 'huangjing' ? `${p.top.name}要${LT_REALMS[info.realm]}才能种，一块田一茬（约 ${info.minutes >= 60 ? `${(info.minutes / 60).toFixed(info.minutes % 60 ? 1 : 0)} 小时` : `${info.minutes} 分钟`}）净挣 ${net} 灵石，黄精芝是 ${base}。` : ''));
+    } else if (!ltNum(p.income.shop)) {
+      lines.push('还没有卖过灵植，收入来自委托、任务奖励和开局送的灵石。');
+    }
+    if (p.sellOps >= 3 && p.top && p.top.sold > 0) {
+      const each = p.crops.reduce((sum, c) => sum + c.sold, 0) / p.sellOps;
+      if (each >= 10) lines.push(`攒够了一起卖：${p.sellOps} 次卖出平均每次 ${each.toFixed(0)} 份。`);
+    }
+    const bought = [];
+    if (ltNum(p.spend.unlock)) bought.push(`开垦 ${ltFmt(p.spend.unlock)}（现有 ${p.plots} 块田）`);
+    if (ltNum(p.spend.tool)) bought.push(`农具 ${ltFmt(p.spend.tool)}（锄头 ${ltNum(p.tools.hoe) || 1} 级、浇水壶 ${ltNum(p.tools.wateringCan) || 1} 级）`);
+    if (ltNum(p.spend.decor)) bought.push(`小景 ${ltFmt(p.spend.decor)}`);
+    if (ltNum(p.spend.residence)) bought.push(`宅邸 ${ltFmt(p.spend.residence)}`);
+    const keep = p.earned ? Math.round(p.stones * 100 / p.earned) : 0;
+    lines.push(`花出去的 ${ltFmt(p.spendTotal)} 里，种子 ${ltFmt(p.spend.seed)}${ltNum(p.spend.brew) ? `、炼丹炉费 ${ltFmt(p.spend.brew)}` : ''}；置办家当 ${ltFmt(p.assets)}${bought.length ? `：${bought.join('、')}` : ''}${!ltNum(p.spend.decor) && !ltNum(p.spend.residence) ? '，没有买小景和宅邸' : ''}。累计获得的灵石有 ${keep}% 还留在手里。`);
+    const busy = Object.entries(p.hours).map(([hour, n]) => [Number(hour), ltNum(n)]).sort((a, b) => b[1] - a[1]).slice(0, 3).filter((item) => item[1] > 0).map((item) => item[0]).sort((a, b) => a - b);
+    if (busy.length) lines.push(`常在 ${busy.map((hour) => `${hour} 点`).join('、')}前后来。${p.stealOk + p.stealFail ? `偷菜成功 ${p.stealOk} 次、失败 ${p.stealFail} 次。` : ''}${p.marketSold + p.marketBought ? `坊市卖出成交 ${p.marketSold} 笔、买入 ${p.marketBought} 笔。` : ''}`);
+    if (p.gap) lines.push(`账上有 ${ltFmt(Math.abs(p.gap))} 灵石对不上（${p.gap > 0 ? '记录比存档多' : '存档比记录多'}）：个别操作在记录里成功了、存档里没有生效，是云函数 11 月 22 日以前的一个并发问题留下的，不影响这位同学现有的灵石。`);
+    return lines;
+  }
+  function ltBehRender() {
+    const box = $('[data-lt-beh-charts]'), status = $('[data-lt-beh-status]');
+    const I = window.ClassLiveInsights;
+    if (!box) return;
+    if (ltBeh.error) { box.textContent = ''; if (status) status.textContent = ltBeh.error; return; }
+    if (!ltBeh.rows || !lt.stats) return;
+    box.textContent = '';
+    if (!I) { box.textContent = '图表脚本没有加载，请刷新页面再试。'; return; }
+    I.addStyle();
+    const rows = ltBehRows();
+    const scope = state.klass ? `本班（${state.klass.name}）` : '本课程';
+    if (status) status.textContent = `${scope}：分析到 ${clock(ltBeh.at)}。灵石的来路和去向按游戏里每一步操作的记录逐条相加；点表里的姓名看个人种田分析卡。`;
+    if (!rows.length) { I.empty(box, state.klass ? '本班还没有同学进入过云间灵田。' : '还没有同学进入过云间灵田。'); return; }
+    const T = I.tones, CAT = I.cat;
+    const live = rows.filter((p) => !p.banned);
+    const ctx = { live, medOps: ltMedian(live.filter((p) => p.ops > 0).map((p) => p.ops)), medPerOp: ltMedian(live.filter((p) => p.ops > 0).map((p) => p.perOp)) };
+    const total = (key) => live.reduce((sum, p) => sum + ltNum(p[key]), 0);
+    const avg = (key) => (live.length ? total(key) / live.length : 0);
+    const richest = live.slice().sort((a, b) => b.earned - a.earned)[0];
+    I.tiles(box, [
+      { label: '累计获得（人均）', value: ltFmt(avg('earned')), note: `含开局送的 ${ltFmt(live[0] ? live[0].start : 520)}；最多 ${richest ? `${richest.name} ${ltFmt(richest.earned)}` : '—'}` },
+      { label: '现有灵石（人均）', value: ltFmt(avg('stones')), note: `全班累计获得的灵石有 ${total('earned') ? Math.round(total('stones') * 100 / total('earned')) : 0}% 还留在手里` },
+      { label: '已经花掉（合计）', value: ltFmt(total('spendTotal')), note: `置办家当 ${ltFmt(total('assets'))}；种子、炉费等经营花费 ${ltFmt(total('running'))}` },
+      { label: '每次操作带来的灵石', value: ctx.medPerOp.toFixed(1), note: `全班中位数；操作次数的中位数是 ${ltFmt(ctx.medOps)} 次` },
+    ]);
+    const grid = document.createElement('div');
+    grid.className = 'ins-grid';
+    box.appendChild(grid);
+    const add = (title, sub, wide) => { const c = I.card(grid, title, sub, wide); const host = document.createElement('div'); c.appendChild(host); return [c, host]; };
+    // 1 累计获得最多的同学：现有灵石＋置办家当＋经营花费
+    const SERIES = [{ name: '现有灵石', color: CAT[0] }, { name: '置办家当（开垦、农具、小景、宅邸）', color: CAT[1] }, { name: '经营花费（种子、炉费、买入、赔付）', color: CAT[2] }, { name: '冻结中', color: T.neutral }];
+    const topRows = live.slice().sort((a, b) => b.earned - a.earned || a.sid.localeCompare(b.sid)).slice(0, 12);
+    const [c1, h1] = add('累计获得灵石最多的同学', `前 ${topRows.length} 位（已销号的不计）。一整条是累计获得的灵石，分成还在手里的、置办成家当的和经营花掉的；悬停看具体数字。`, true);
+    I.keys(h1, SERIES.filter((s, k) => k < 3 || topRows.some((p) => p.frozen > 0)));
+    I.splitBars(h1, c1, topRows.map((p) => ({ label: p.name, values: [p.stones, p.assets, p.running, p.frozen],
+      lines: [`${p.name}（${p.aliasText || '未起道号'}）`, `累计获得 ${ltFmt(p.earned)}`, `操作 ${ltFmt(p.ops)} 次 · 来了 ${p.days} 天`] })), SERIES, { unit: '', aria: '累计获得灵石最多的同学分段横条图' });
+    I.tableView(c1, ['姓名', '道号', '累计获得', '现有灵石', '置办家当', '经营花费', '冻结中', '操作次数', '来的天数'], topRows.map((p) => [p.name, p.aliasText, p.earned, p.stones, p.assets, p.running, p.frozen, p.ops, p.days]));
+    // 2 灵石从哪里来、花到哪里去（全班）
+    const incomeParts = [{ label: '开局赠送', value: total('start'), color: T.neutral }].concat(LT_INCOME.map(([key, label], k) => ({ label, value: live.reduce((sum, p) => sum + ltNum(p.income[key]), 0), color: CAT[k % CAT.length] })));
+    const [c2, h2] = add('灵石从哪里来', `${scope}累计获得 ${ltFmt(total('earned'))} 灵石。`);
+    I.donut(h2, c2, incomeParts, { unit: '', center: ltFmt(total('earned')), centerSub: '累计获得', aria: '灵石来源环形图' });
+    I.tableView(c2, ['来源', '灵石'], incomeParts.map((d) => [d.label, d.value]));
+    const spendParts = LT_SPEND.map(([key, label], k) => ({ label, value: live.reduce((sum, p) => sum + ltNum(p.spend[key]), 0), color: (I.catExt || CAT)[k % (I.catExt || CAT).length] }));
+    const [c3, h3] = add('灵石花到哪里去', `${scope}一共花掉 ${ltFmt(total('spendTotal'))} 灵石。`);
+    I.donut(h3, c3, spendParts, { unit: '', center: ltFmt(total('spendTotal')), centerSub: '已经花掉', empty: '还没有同学花过灵石。', aria: '灵石去向环形图' });
+    I.tableView(c3, ['去向', '灵石'], spendParts.map((d) => [d.label, d.value]));
+    // 3 来得多不等于挣得多：操作次数和累计获得，颜色是主要种的灵植
+    const CROP_TONE = { huangjing: CAT[6], zihou: CAT[5], tianling: CAT[1], yueyang: CAT[2], jiuqu: CAT[3], '': T.other };
+    const pts = live.filter((p) => p.ops > 0).map((p) => ({ x: p.ops, y: p.earned, color: CROP_TONE[p.top ? p.top.crop : ''] || T.other, label: `${p.name}（${p.sid}）`,
+      lines: [`操作 ${ltFmt(p.ops)} 次 · 来了 ${p.days} 天`, `累计获得 ${ltFmt(p.earned)} · 现有 ${ltFmt(p.stones)}`, `主要种${p.top ? p.top.name : '（还没卖过灵植）'}`, `每次操作带来 ${p.perOp.toFixed(1)} 灵石`] }));
+    const [c4, h4] = add('操作次数和累计获得', '每个点是一位同学，颜色是 TA 卖得最多的灵植：横轴是在灵田里的操作次数，纵轴是累计获得的灵石；细线是两者的中位数。越靠左上，操作越少、挣得越多；刚进来、玩得不多的同学都挤在左下角。', true);
+    if (pts.length) I.keys(h4, Object.keys(LT_CROPS).filter((key) => live.some((p) => p.top && p.top.crop === key)).map((key) => ({ name: `主要种${LT_CROPS[key]}`, color: CROP_TONE[key], dot: true }))
+      .concat(live.some((p) => p.ops > 0 && !p.top) ? [{ name: '还没卖过灵植', color: T.other, dot: true }] : []));
+    I.scatter(h4, c4, pts, { xName: '操作次数', yName: '累计获得（灵石）', aria: '操作次数与累计获得散点图', empty: '还没有同学在灵田里操作过。',
+      quadrants: [[1, 1, '操作多 · 挣得多'], [0, 1, '操作少 · 挣得多'], [1, 0, '操作多 · 挣得少']] });   // 左下角点最密，不再压一行字
+    I.tableView(c4, ['学号', '姓名', '操作次数', '累计获得', '每次操作带来'], live.filter((p) => p.ops > 0).sort((a, b) => b.earned - a.earned).map((p) => [p.sid, p.name, p.ops, p.earned, Number(p.perOp.toFixed(1))]));
+    // 4 经营得好的同学，好在哪里（累计获得前五位）
+    const best = live.slice().sort((a, b) => b.earned - a.earned || a.sid.localeCompare(b.sid)).filter((p) => p.ops > 0).slice(0, 5);
+    const c5 = I.card(grid, '经营得好的同学，好在哪里', `累计获得灵石最多的 ${best.length} 位：每人几句话，都是从 TA 自己的操作记录和全班的对比里算出来的。`, true);
+    const list = document.createElement('div');
+    list.className = 'tw-lt-beh-best';
+    list.innerHTML = best.map((p, k) => `<article><h5><i>${k + 1}</i><button type="button" class="ins-name" data-lt-beh-person="${esc(p.actor)}" title="看个人种田分析卡">${esc(p.name)}</button><small>${esc(p.sid)}${p.aliasText ? ` · ${esc(p.aliasText)}` : ''}</small></h5><ul>${ltBehInsight(p, ctx).map((line) => `<li>${esc(line)}</li>`).join('')}</ul></article>`).join('')
+      || '<p class="ins-empty">还没有同学在灵田里操作过。</p>';
+    c5.appendChild(list);
+    // 5 个人种田分析卡
+    const cK = I.card(grid, '个人种田分析卡', '点上面或下表里的姓名，看这位同学怎么经营自己的灵田：和全班平均的对比、灵石的来路和去向、种什么卖什么、哪天置办了什么、什么时候来。', true);
+    cK.dataset.ltBehCard = '';
+    const hostK = document.createElement('div'); cK.appendChild(hostK);
+    const metric = (fn) => ({ avg: live.length ? Math.round(live.reduce((t, q) => t + fn(q), 0) / live.length * 10) / 10 : 0, max: Math.max(0, ...live.map(fn)) });
+    const METRICS = [['累计获得', (q) => q.earned, null, '', '累计获得'], ['现有灵石', (q) => q.stones, null, '', '现有灵石'], ['操作次数', (q) => q.ops, null, ' 次', '操作'],
+      ['来的天数', (q) => q.days, null, ' 天', '天数'], ['每次操作带来', (q) => Math.round(q.perOp * 10) / 10, null, '', '每次操作'], ['开垦灵田', (q) => q.plots, 25, ' 块', '开垦'],
+      ['偷菜成功', (q) => q.stealOk, null, ' 次', '偷菜'], ['灵田答题正确率', (q) => Math.round(q.quizRate * 100), 100, '%', '答题']];
+    const showPerson = (actor, scroll) => {
+      const p = rows.find((q) => q.actor === actor);
+      if (!p) return;
+      ltBeh.person = actor;
+      hostK.textContent = '';
+      const head = document.createElement('div');
+      head.className = 'ins-person';
+      const strong = document.createElement('strong'); strong.textContent = p.name;
+      const meta = document.createElement('span');
+      const who = lt.players.find((q) => q.actor_id === actor) || {};
+      const when = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—');
+      meta.textContent = `${p.sid} · 道号 ${p.aliasText || '（未起道号）'} · ${ltSectName(who.sect)} · ${LT_REALMS[Number(who.realm) || 0]}${p.banned ? ' · 已销号' : ''} · 第一次操作 ${when(p.first)} · 最近一次 ${when(p.last)}`;
+      head.append(strong, meta);
+      hostK.appendChild(head);
+      const notes = document.createElement('ul');
+      notes.className = 'tw-lt-beh-notes';
+      notes.innerHTML = ltBehInsight(p, ctx).map((line) => `<li>${esc(line)}</li>`).join('');
+      hostK.appendChild(notes);
+      const personRows = METRICS.map(([label, fn, max, unit, short]) => { const m = metric(fn); return { label, short, me: fn(p), avg: m.avg, max: max == null ? m.max : max, unit, note: max == null ? `全班最高 ${ltFmt(m.max, m.max % 1 ? 1 : 0)}${unit}` : '' }; });
+      I.keys(hostK, [{ name: '本人', color: T.pink }, { name: '全班平均', color: T.blue }]);
+      const pair = document.createElement('div');
+      pair.className = 'ins-person-grid';
+      const hostRadar = document.createElement('div'), hostBars = document.createElement('div');
+      pair.append(hostRadar, hostBars);
+      hostK.appendChild(pair);
+      I.radar(hostRadar, cK, personRows, { noKeys: true, aria: `${p.name} 和全班平均的雷达图` });
+      I.compare(hostBars, cK, personRows, { noKeys: true, aria: `${p.name} 的种田分析卡` });
+      const block = (title, note) => { const wrap = document.createElement('section'); wrap.className = 'tw-lt-beh-part'; const h = document.createElement('h5'); h.textContent = title; wrap.appendChild(h);
+        if (note) { const small = document.createElement('p'); small.className = 'tw-hint'; small.textContent = note; wrap.appendChild(small); } const host = document.createElement('div'); wrap.appendChild(host); return [wrap, host]; };
+      const two = document.createElement('div');
+      two.className = 'tw-lt-beh-two';
+      hostK.appendChild(two);
+      const [wIn, hIn] = block('灵石从哪里来', `累计获得 ${ltFmt(p.earned)}（含开局送的 ${ltFmt(p.start)}）`);
+      two.appendChild(wIn);
+      I.bars(hIn, cK, [{ label: '开局赠送', value: p.start, lines: ['开局赠送'] }].concat(LT_INCOME.map(([key, label]) => ({ label, value: ltNum(p.income[key]), lines: [label] }))).filter((d) => d.value > 0),
+        { unit: '', labelMax: 130, aria: `${p.name} 的灵石来源横条图`, empty: '还没有收入。' });
+      const [wOut, hOut] = block('灵石花到哪里去', `已经花掉 ${ltFmt(p.spendTotal)}；现有 ${ltFmt(p.stones)}${p.frozen ? `，冻结中 ${ltFmt(p.frozen)}` : ''}`);
+      two.appendChild(wOut);
+      I.bars(hOut, cK, LT_SPEND.map(([key, label]) => ({ label, value: ltNum(p.spend[key]), lines: [label] })).filter((d) => d.value > 0), { unit: '', labelMax: 130, aria: `${p.name} 的灵石去向横条图`, empty: '还没有花过灵石。' });
+      const two2 = document.createElement('div');
+      two2.className = 'tw-lt-beh-two';
+      hostK.appendChild(two2);
+      const [wCrop, hCrop] = block('种什么、卖什么', '按卖给药铺的收入从多到少；“一块田一茬净挣”是这种灵植的种子钱和药铺收购价算出来的。');
+      two2.appendChild(wCrop);
+      hCrop.innerHTML = p.crops.length ? `<div class="tw-scroll"><table class="tw-table compact tw-lt-beh-table"><thead><tr><th>灵植</th><th>种了</th><th>种子钱</th><th>卖出</th><th>卖得</th><th>一块田一茬净挣</th></tr></thead><tbody>${p.crops.map((c) => {
+        const info = LT_CROP_INFO[c.crop];
+        return `<tr><td>${esc(c.name)}</td><td class="num">${c.planted ? `${ltFmt(c.planted)} 次` : '—'}</td><td class="num">${c.seed ? ltFmt(c.seed) : '—'}</td><td class="num">${c.sold ? `${ltFmt(c.sold)} 份` : '—'}</td><td class="num">${c.earned ? ltFmt(c.earned) : '—'}</td><td class="num">${info ? info.sell * info.units - info.seed : '—'}</td></tr>`;
+      }).join('')}</tbody></table></div>` : '<p class="ins-empty">还没有种过、卖过灵植。</p>';
+      const [wAsset, hAsset] = block('哪天置办了什么', `开垦、农具、小景和宅邸，共 ${ltFmt(p.assets)} 灵石`);
+      two2.appendChild(wAsset);
+      const decorName = (id) => { const tree = { verdantPine: '苍翠松', banyanTree: '青冠榕', weepingWillow: '垂丝柳' }; const base = String(id || '').replace(/\d+$/, '');
+        return ({ bambooFence: '青竹篱', stoneLantern: '暖玉石灯', spiritPond: '照影灵池', lotusPond: '听荷莲池', moonArch: '照月景门', jadePavilion: '栖云亭', blossomTree: '绯桃花树',
+          bambooResidence: '听雨竹舍', mapleCourtyard: '枫庭雅院', moonResidence: '望月水榭', starResidence: '星河云邸', hoe: '锄头', wateringCan: '浇水壶' })[id] || tree[base] || String(id || ''); };
+      hAsset.innerHTML = p.assetsLog.length ? `<ul class="tw-lt-beh-log">${p.assetsLog.map((a) => `<li><time>${esc(ltDayText(a.day))}</time><span>${esc(a.kind === 'unlock' ? `开垦 ${ltNum(a.n)} 块灵田` : `${LT_ASSET_NAME[a.kind] || a.kind}：${decorName(a.what)}${ltNum(a.n) > 1 ? ` ×${ltNum(a.n)}` : ''}`)}</span><b>${ltFmt(a.amount)}</b></li>`).join('')}</ul>`
+        : '<p class="ins-empty">还没有置办过家当。</p>';
+      // 每天：操作次数、挣到的灵石（两张图，单位不同不混在一个轴上）
+      const days = p.daily.map((d) => ({ key: d.day, label: `${Number(String(d.day).slice(5, 7))}/${Number(String(d.day).slice(8, 10))}`, ops: ltNum(d.ops), earned: ltNum(d.earned), spent: ltNum(d.spent) }));
+      const two3 = document.createElement('div');
+      two3.className = 'tw-lt-beh-two';
+      hostK.appendChild(two3);
+      const [wOps, hOps] = block('每天操作多少次', `来了 ${p.days} 天、${p.visits} 次（相隔半小时以上算另一次）`);
+      two3.appendChild(wOps);
+      I.columns(hOps, cK, days.map((d) => ({ key: d.key, label: d.label, value: d.ops, lines: [ltDayText(d.key), `花掉 ${ltFmt(d.spent)} 灵石`] })), { unit: ' 次', height: 190, aria: `${p.name} 每天的操作次数柱状图`, empty: '还没有操作记录。' });
+      const [wEarn, hEarn] = block('每天挣到多少灵石', '卖灵植、委托和任务奖励（坊市成交、守田赔付不按天分）');
+      two3.appendChild(wEarn);
+      I.columns(hEarn, cK, days.map((d) => ({ key: d.key, label: d.label, value: d.earned, lines: [ltDayText(d.key), `操作 ${ltFmt(d.ops)} 次`] })), { unit: '', height: 190, color: T.green, aria: `${p.name} 每天挣到的灵石柱状图`, empty: '还没有挣到灵石。' });
+      const [wHour, hHour] = block('一天里什么时候来', '北京时间，各个钟点的操作次数（所有天加在一起）');
+      hostK.appendChild(wHour);
+      I.columns(hHour, cK, Array.from({ length: 24 }, (_, hour) => ({ key: String(hour), label: `${hour}`, value: ltNum(p.hours[hour]), lines: [`${hour} 点到 ${hour + 1} 点`] })), { unit: ' 次', height: 170, color: T.purple, aria: `${p.name} 各钟点的操作次数柱状图`, empty: '还没有操作记录。' });
+      if (scroll) cK.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    ltBeh.show = showPerson;
+    const firstPerson = rows.find((q) => q.actor === ltBeh.person) || best[0] || rows[0];
+    if (firstPerson) showPerson(firstPerson.actor, false);
+    // 6 每位同学一行
+    const all = rows.slice().sort((a, b) => b.earned - a.earned || a.sid.localeCompare(b.sid));
+    const c6 = I.card(grid, '每位同学', `按累计获得的灵石从多到少，共 ${all.length} 位；点姓名看个人种田分析卡。`, true);
+    const wrap = document.createElement('div');
+    wrap.className = 'tw-scroll';
+    wrap.innerHTML = `<table class="tw-table compact ins-people tw-lt-beh-table"><thead><tr><th>学号</th><th>姓名</th><th>道号</th><th title="开局送的 520 ＋ 全部收入">累计获得</th><th>现有灵石</th><th title="开垦、农具、小景、宅邸">置办家当</th><th title="种子、炉费、坊市买入、买卡牌、偷菜赔付">经营花费</th><th>操作</th><th>来的天数</th><th title="相隔半小时以上算另一次">来的次数</th><th title="全部收入 ÷ 操作次数">每次操作带来</th><th>主要种</th></tr></thead><tbody>${all.map((p) => `<tr${p.banned ? ' class="is-banned"' : ''}><td>${esc(p.sid)}</td>`
+      + `<td><button type="button" class="ins-name" data-lt-beh-person="${esc(p.actor)}" title="看个人种田分析卡">${esc(p.name)}</button></td><td>${p.banned ? `<s>${esc(p.aliasText)}</s>` : esc(p.aliasText)}</td>`
+      + `<td class="num"><b>${ltFmt(p.earned)}</b>${p.gap ? `<i class="tw-lt-beh-gap" title="账上有 ${ltFmt(Math.abs(p.gap))} 灵石对不上（${p.gap > 0 ? '记录比存档多' : '存档比记录多'}）：个别操作记录里成功了、存档里没有生效">*</i>` : ''}</td><td class="num">${ltFmt(p.stones)}</td><td class="num">${ltFmt(p.assets)}</td><td class="num">${ltFmt(p.running)}</td>`
+      + `<td class="num">${ltFmt(p.ops)}</td><td class="num">${p.days}</td><td class="num">${p.visits}</td><td class="num">${p.perOp.toFixed(1)}</td><td>${p.top ? esc(p.top.name) : '—'}</td></tr>`).join('')}</tbody></table>`;
+    c6.appendChild(wrap);
+    if (all.some((p) => p.gap)) { const foot = document.createElement('p'); foot.className = 'tw-hint'; foot.textContent = '带 * 的：账上有少量灵石对不上——个别操作在记录里成功了、存档里没有生效（云函数 11 月 22 日以前的一个并发问题，已修）。不影响这些同学现有的灵石。'; c6.appendChild(foot); }
   }
   // 销号／恢复（2026-11-15 用户：“填写道号的时候也要提醒学生文明取名，否则会被销号”）
   async function ltBan(actor, on) {
@@ -1922,6 +2184,11 @@
     $('[data-lt-search]').addEventListener('input', ltRender);
     $('[data-lt-stats-reload]').addEventListener('click', ltStatsLoad);
     $('[data-lt-stats-xlsx]').addEventListener('click', ltStatsExport);
+    if ($('[data-lt-beh-reload]')) $('[data-lt-beh-reload]').addEventListener('click', ltStatsLoad);   // 行为分析要用统计里的现有灵石：两样一起重读
+    if ($('[data-lt-beh-charts]')) $('[data-lt-beh-charts]').addEventListener('click', (event) => {
+      const who = event.target.closest('[data-lt-beh-person]');
+      if (who && ltBeh.show) ltBeh.show(who.dataset.ltBehPerson, true);
+    });
     $('[data-lt-stats-head]').addEventListener('click', (event) => {
       const button = event.target.closest('[data-lt-sort]');
       if (!button) return;
@@ -3797,6 +4064,8 @@
   const SECTS = window.ClassLive.SECTS || [];
   let sectRows = [];
   let sectProblem = '';
+  // 宗主任期（2026-11-22）：本周各宗门的宗主和最近十二周的记录（ck_sect_leader_list；后台还没更新时为 null，卡片上不显示宗主）
+  let sectTerms = null;
   const sectChip = (key) => {
     const sect = SECTS.find((item) => item.key === key);
     return sect ? `<span class="tw-sect" style="--sc:${sect.color}"><i>${esc(sect.mark)}</i>${esc(sect.name)}</span>` : key === 'sanxiu' ? '<span class="tw-sect is-sanxiu">散修</span>' : '';
@@ -3809,6 +4078,13 @@
     } catch (error) {
       sectRows = [];
       sectProblem = missingTable(error) ? '宗门的数据表还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261105-宗门.sql。' : `读取宗门失败：${error.message || error}`;
+    }
+    try {
+      const value = await backend.rpc('ck_sect_leader_list', { p_course: course.slug });
+      const data = (Array.isArray(value) ? value[0] : value) || null;
+      sectTerms = data && Array.isArray(data.leaders) ? data : null;
+    } catch (error) {
+      sectTerms = null;   // 后台还没有宗主任期（未执行 2026-11-22 的 SQL）或网络问题：宗门榜照常显示，只是不带宗主
     }
   }
   function renderSects() {
@@ -3826,9 +4102,29 @@
     list.forEach((row) => { row.rank = 1 + list.filter((other) => other.points > row.points).length; });
     const sanxiu = sectRows.filter((row) => row.sect === 'sanxiu');
     const years = new Set(sectRows.filter((row) => row.sect !== 'sanxiu').map((row) => String(row.class_id))).size;
+    // 本周宗主（2026-11-22 用户：“宗门能显示宗主的境界和分值。然后宗主最多连续做两个礼拜……换成第二名的同学来做以此类推”）
+    const Live = window.ClassLive;
+    const titleOf = (realm, stage) => (Live.stageTitle ? Live.stageTitle(Number(realm) || 0, Number(stage) || 0) : (REALMS[Number(realm) || 0] || {}).name || '');
+    const leaderOf = (key) => ((sectTerms && sectTerms.leaders) || []).find((item) => item.sect === key) || null;
+    const lordLine = (key) => {
+      if (!sectTerms) return '';
+      const lord = leaderOf(key);
+      if (!lord) return '<span class="tw-sect-lord is-empty">宗主暂缺：还没有元婴以上的在读弟子</span>';
+      const here = String(lord.class_id) === classId;
+      return `<span class="tw-sect-lord">宗主 <b>${esc(lord.name || lord.sid)}</b>${here ? '' : `（${esc(lord.class_name || '别的班')}）`} · ${esc(titleOf(lord.realm, lord.stage))} · 修为 <b>${Number(lord.points) || 0}</b> · ${Number(lord.weeks) > 1 ? `连任第 ${Number(lord.weeks)} 周` : '本周新任'}</span>`;
+    };
+    const weekText = (day) => `${Number(String(day).slice(5, 7))} 月 ${Number(String(day).slice(8, 10))} 日`;
+    const history = (sectTerms && sectTerms.history) || [];
+    const weeks = Array.from(new Set(history.map((item) => item.week))).sort().reverse();
+    const termTable = !sectTerms ? '' : `<details class="tw-sect-terms"><summary>宗主任期：每周一推选，连任最多两周（点开看规则和最近的任期）</summary>
+      <p>每周一（北京时间）推选一次，一任一周：本宗元婴以上、班级在读的弟子里修为最高的担任；连任最多两周，做满两周的这一轮不再当，换下一名；本宗够格的弟子都轮过一遍以后，再从头轮起。一周之内不换人，除非本周的宗主改投他宗、被解除或境界掉到元婴以下（当场补选）。从这条规则上线的那一周算第一周。学生页的宗门榜和云间灵田的宗门页会显示宗主的境界、修为和连任第几周（学生页不显示姓名，灵田里显示道号）。</p>
+      ${weeks.length ? `<div class="tw-scroll"><table class="tw-table compact"><thead><tr><th>哪一周（周一）</th>${SECTS.map((sect) => `<th>${esc(sect.name)}</th>`).join('')}</tr></thead><tbody>${weeks.map((week) => `<tr><td class="tw-nowrap">${esc(weekText(week))}${week === sectTerms.week ? '（本周）' : ''}</td>${SECTS.map((sect) => {
+        const item = history.find((row) => row.week === week && row.sect === sect.key);
+        return `<td class="tw-nowrap">${item ? `${esc(item.name || item.sid)}${String(item.class_id) === classId ? '' : `<small>（${esc(item.class_name || '别的班')}）</small>`} · 第 ${Number(item.weeks) || 1} 周` : '—'}</td>`;
+      }).join('')}</tr>`).join('')}</tbody></table></div>` : '<p>还没有任期记录。</p>'}</details>`;
     box.innerHTML = `<p>宗门榜（本课程历届，已有 ${years} 个班的弟子；散修 ${sanxiu.length} 人，本班 ${sanxiu.filter((row) => String(row.class_id) === classId).length} 人）：宗门分＝历届弟子修为之和，每次结算时同步。</p>`
       + list.map((row) => `<div class="tw-sect-card" style="--sc:${row.color}"><b>${esc(row.mark)}</b><strong><em>${row.rank}</em>${esc(row.name)}</strong>
-        <span>宗门分 <b>${row.points}</b> · 历届 ${row.members} 人 · 本班 ${row.classMembers} 人（${row.classPoints}）</span></div>`).join('');
+        <span>宗门分 <b>${row.points}</b> · 历届 ${row.members} 人 · 本班 ${row.classMembers} 人（${row.classPoints}）</span>${lordLine(row.key)}</div>`).join('') + termTable;
   }
   const sectCell = (sid) => {
     const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid);

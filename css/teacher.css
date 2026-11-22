@@ -344,6 +344,13 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-sect-card strong em { margin-right: 6px; color: var(--gold); font: italic 800 15px/1 Georgia, serif; }
 .tw-sect-card span { color: var(--muted); font-size: 13px; line-height: 1.5; }
 .tw-sect-card span b { all: unset; color: var(--ink); font-weight: 800; }
+/* 本周宗主（2026-11-22）：卡片里多一行；下面一栏是任期规则和记录 */
+.tw-sect-card .tw-sect-lord { grid-column: 2; padding-top: 3px; border-top: 1px dashed var(--line); margin-top: 3px; }
+.tw-sect-card .tw-sect-lord.is-empty { font-style: italic; }
+.tw-sect-terms { grid-column: 1 / -1; padding: 6px 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--white); }
+.tw-sect-terms > summary { cursor: pointer; padding: 4px 0; color: var(--teal); font-weight: 800; font-size: 14px; }
+.tw-sect-terms > p { margin: 6px 0 10px; color: var(--muted); font-size: 14px; line-height: 1.8; }
+.tw-sect-terms td small { display: inline; color: var(--muted); font-size: 12.5px; }
 .tw-realm.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; }
 .tw-realm.is-r2 { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 32%, #b8801a 68%, #e8b844); border-color: #7a5208; }
 .tw-realm.is-r3 { color: #f6eaff; background: linear-gradient(160deg, #4b1d8f, #7a3fe0 55%, #3a1673); border-color: #d8b8ff; box-shadow: 0 0 8px rgba(170,120,255,.6); }
@@ -1201,3 +1208,26 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-lt-charts { margin-top: 8px; }
 .tw-lt-detail { margin-top: 14px; }
 .tw-lt-detail > summary { cursor: pointer; padding: 8px 0; color: var(--teal); font-weight: 800; }
+/* 种田行为分析（2026-11-22）：经营得好的同学几句话、个人种田分析卡里的分块 */
+.tw-lt-beh-best { display: grid; gap: 14px; }
+.tw-lt-beh-best article { padding: 12px 14px; border: 1px solid rgba(70, 51, 34, .12); border-radius: 12px; background: #fffdf8; }
+.tw-lt-beh-best h5 { display: flex; align-items: baseline; flex-wrap: wrap; gap: 4px 10px; margin: 0 0 6px; font-size: 16px; }
+.tw-lt-beh-best h5 i { display: inline-grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: var(--teal); color: #fff; font-style: normal; font-size: 13px; font-weight: 800; }
+.tw-lt-beh-best h5 small { color: var(--muted); font-size: 13px; font-weight: 400; }
+.tw-lt-beh-best .ins-name, .tw-lt-beh-table .ins-name { padding: 0; border: 0; background: none; color: var(--teal); font: inherit; font-weight: 800; text-decoration: underline; text-underline-offset: 3px; cursor: pointer; }
+.tw-lt-beh-best .ins-name:hover, .tw-lt-beh-best .ins-name:focus-visible { color: var(--rust); outline: none; }
+.tw-lt-beh-best ul, .tw-lt-beh-notes { margin: 0; padding-left: 1.2em; color: var(--ink); font-size: 14.5px; line-height: 1.85; }
+.tw-lt-beh-notes { margin: 0 0 12px; }
+.tw-lt-beh-two { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 6px 28px; margin-top: 14px; }
+@media (max-width: 900px) { .tw-lt-beh-two { grid-template-columns: minmax(0, 1fr); } }
+.tw-lt-beh-part { min-width: 0; margin-top: 10px; }
+.tw-lt-beh-part > h5 { margin: 0 0 2px; font-size: 15px; color: var(--ink); }
+.tw-lt-beh-part > .tw-hint { margin: 0 0 6px; font-size: 12.5px; }
+.tw-lt-beh-table td, .tw-lt-beh-table th { white-space: nowrap; }
+.tw-lt-beh-table td.num { text-align: right; font-variant-numeric: tabular-nums; }
+.tw-lt-beh-table tr.is-banned td { color: var(--muted, #7a705f); }
+.tw-lt-beh-gap { margin-left: 2px; color: #c98500; font-style: normal; font-weight: 800; cursor: help; }
+.tw-lt-beh-log { margin: 0; padding: 0; list-style: none; font-size: 14px; }
+.tw-lt-beh-log li { display: grid; grid-template-columns: 5.6em minmax(0, 1fr) auto; gap: 10px; padding: 5px 0; border-bottom: 1px dashed rgba(70, 51, 34, .14); }
+.tw-lt-beh-log time { color: var(--muted); }
+.tw-lt-beh-log b { font-variant-numeric: tabular-nums; }

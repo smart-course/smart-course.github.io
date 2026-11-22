@@ -1776,6 +1776,50 @@
               hidden: row.hidden, sect: row.sect, realm: row.realm, stage: row.stage, points: Number(row.points), me: sid !== null && row.sid === sid })),
             mine: mine ? { rank: mine.rank, realm: mine.realm, stage: mine.stage, points: Number(mine.points), hidden: mine.hidden, can_hide: Number(mine.realm) === 2, locked: Number(mine.realm) >= 3, sect: mine.sect } : null };
         }
+        // 宗主任期（2026-11-22，规则同 cloudbase-pg.sql 的 ck_sect_terms_roll）：每周一推选，本宗元婴以上、班级还在的弟子里修为最高的担任；
+        //   连任最多两周，做满的这一轮不再当；都轮过一遍以后开新一轮（刚做满两周的排到最后）。本周已经定好、人也还够格的不动。返回本课程本周的宗主
+        const sectTermsOf = (course) => {
+          const now8 = new Date(Date.now() + 8 * 3600000);
+          const monday = Date.UTC(now8.getUTCFullYear(), now8.getUTCMonth(), now8.getUTCDate() - ((now8.getUTCDay() + 6) % 7));
+          const week = new Date(monday).toISOString().slice(0, 10), prevWeek = new Date(monday - 7 * 86400000).toISOString().slice(0, 10);
+          const classes = new Set(read('classes').map((row) => Number(row.id)));
+          const members = read('sectmembers').filter((m) => m.course === course && SECTS.some((item) => item.key === m.sect) && Number(m.realm) >= 3 && classes.has(Number(m.class_id)));
+          const same = (a, b) => Boolean(a && b) && Number(a.class_id) === Number(b.class_id) && String(a.sid) === String(b.sid);
+          let terms = read('sectterms');
+          let changed = false;
+          SECTS.forEach((item) => {
+            const ok = members.filter((m) => m.sect === item.key)
+              .sort((a, b) => Number(b.points) - Number(a.points) || String(a.joined_at).localeCompare(String(b.joined_at)) || String(a.sid).localeCompare(String(b.sid)));
+            const mine = terms.filter((t) => t.course === course && t.sect === item.key);
+            const cur = mine.find((t) => t.week === week);
+            if (cur ? ok.some((m) => same(m, cur)) : !ok.length) return;
+            const prev = mine.find((t) => t.week === prevWeek);
+            let round = Math.max(1, ...mine.map((t) => Number(t.round) || 1));
+            const done = Boolean(prev && Number(prev.streak) >= 2);
+            const servedOut = (m) => mine.some((t) => Number(t.round) === round && Number(t.streak) >= 2 && same(t, m));
+            let pick = ok.find((m) => !(done && same(m, prev)) && !servedOut(m));
+            if (!pick && ok.length) { round += 1; pick = ok.find((m) => !(done && same(m, prev))) || ok[0]; }
+            terms = terms.filter((t) => t !== cur);
+            if (pick) terms.push({ course, sect: item.key, week, class_id: Number(pick.class_id), sid: pick.sid, name: pick.name, points: Number(pick.points) || 0, realm: Number(pick.realm) || 0,
+              streak: prev && same(prev, pick) ? Number(prev.streak) + 1 : 1, round });
+            changed = true;
+          });
+          if (changed) write('sectterms', terms);
+          return { week, terms: terms.filter((t) => t.course === course && t.week === week), all: terms.filter((t) => t.course === course) };
+        };
+        const sectLord = (course, term) => {   // 宗主现在的修为、境界、小境界
+          const m = read('sectmembers').find((row) => row.course === course && Number(row.class_id) === Number(term.class_id) && String(row.sid) === String(term.sid)) || term;
+          const r = read('realms').find((row) => row.course === course && Number(row.class_id) === Number(term.class_id) && String(row.sid) === String(term.sid));
+          return { name: m.name, class_name: m.class_name || '', points: Number(m.points) || 0, realm: Number(m.realm) || 0, stage: r ? Number(r.stage) || 0 : 0 };
+        };
+        // 教师：本课程本周的宗主和任期记录（规则同 cloudbase-pg.sql 的 ck_sect_leader_list）
+        if (name === 'ck_sect_leader_list') {
+          if (!localStorage.getItem(prefix + 'teacher')) throw new Error('只有教师账号可以查看宗主任期');
+          const { week, terms, all } = sectTermsOf(params.p_course);
+          return { week,
+            leaders: terms.map((t) => ({ sect: t.sect, class_id: t.class_id, sid: t.sid, weeks: t.streak, round: t.round, ...sectLord(params.p_course, t) })),
+            history: all.slice().sort((a, b) => String(b.week).localeCompare(String(a.week))).map((t) => ({ week: t.week, sect: t.sect, class_id: t.class_id, sid: t.sid, name: t.name, points: t.points, weeks: t.streak, round: t.round, class_name: sectLord(params.p_course, t).class_name })) };
+        }
         // 宗门榜与拜入宗门（规则同 cloudbase-pg.sql 的 ck_sect_board / ck_sect_join）
         if (name === 'ck_sect_board' || name === 'ck_sect_join') {
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
@@ -1809,11 +1853,16 @@
           }
           const inCourse = list.filter((m) => m.course === room.course);
           const sum = (rows) => rows.reduce((total, m) => total + (Number(m.points) || 0), 0);
+          const lords = sectTermsOf(room.course).terms;   // 本周宗主（2026-11-22）：学生看到境界、修为、连任第几周，不带姓名
           return { status: 'ok',
             sects: SECTS.map((item) => {
               const rows = inCourse.filter((m) => m.sect === item.key);
               const mineClass = rows.filter((m) => Number(m.class_id) === classId);
-              return { key: item.key, points: sum(rows), members: rows.length, class_members: mineClass.length, class_points: sum(mineClass) };
+              const term = lords.find((t) => t.sect === item.key);
+              const lord = term ? sectLord(room.course, term) : null;
+              return { key: item.key, points: sum(rows), members: rows.length, class_members: mineClass.length, class_points: sum(mineClass),
+                leader: term ? { realm: lord.realm, stage: lord.stage, points: lord.points, weeks: term.streak, here: Number(term.class_id) === classId,
+                  mine: !teacher && Number(term.class_id) === classId && String(term.sid) === String(sid), ...(teacher ? { name: lord.name, class_name: lord.class_name } : {}) } : null };
             }),
             sanxiu: inCourse.filter((m) => m.sect === 'sanxiu').length,
             class_sanxiu: inCourse.filter((m) => m.sect === 'sanxiu' && Number(m.class_id) === classId).length,
@@ -3059,6 +3108,9 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-22：云间灵田小景夜里亮灯、摆放范围放宽；宗主每周推选、连任最多两周，宗门榜显示宗主的境界和修为
+        ['云间灵田 · 夜灯和摆放', '洞天里的“暖玉石灯”和“藏书小阁”到了晚上会亮灯。布置洞天时能摆的地方变大了：除了灵田和水渠，草地上都能摆，一直到草地边上；小景之间可以挨着放；压住原有的松树、灵石时，它们会自动收起，把小景挪开又回来。已经摆好的布局不受影响。', '2026-11-22'],
+        ['宗主每周推选，连任最多两周', '宗主改为每周一推选一次：本宗元婴以上的同门里修为最高的担任，一任一周；连任最多两周，做满两周就换下一名，本宗元婴以上的同门都轮过一遍以后再从头轮起。面板“宗门”里，每个宗门下面多了一行本周宗主的境界、修为和连任第几周；云间灵田的宗门页同样显示（灵田里写的是道号）。', '2026-11-22'],
         // 2026-11-21（下午）：每题常显“⤢ 全屏”、全屏时带上题干和解析、“本课时步骤”日程表、更新说明按天分组
         ...(config.course === 'xjp-economy' ? [
           ['每道题右上角都有“⤢ 全屏”', '电脑上，每道题、每一块内容的右上角都有“⤢ 全屏”，一直显示，不用再把鼠标移上去找“⤢”（步骤卡右边的“⤢ 放大”也改叫“⤢ 全屏”）。全屏看题时，题干和解析跟着题目一起显示：纠错诊断里那条错误说法、每组快问快答的研讨题、迁移任务的理论要点清单，都在这一屏里。顶栏的“退出放大”改叫“退出全屏”，原来的“全屏”改叫“占满屏幕”（连浏览器的标签栏也收起）。', '2026-11-21'],
@@ -3110,7 +3162,7 @@
         ['宗门弹幕', '拜入宗门的同学，投屏上的弹幕外框是本宗的颜色（枫霞谷枫红、玄月宗玄紫、灵犀山青绿、星澜宫星蓝）；宗主的弹幕带一圈炫彩流光。', '2026-11-18'],
         ['云间灵田 · 卡住修好了', '修好了做过“参悟”以后灵田一直显示“有操作待确认，请同步云端”（参悟里是“这次研习结果正在确认”）、什么也做不了的问题。如果你还看到这条提示，点一下“同步云端”（参悟里是“同步进度”）就恢复了；同一次操作只会结算一次，不会重复。', '2026-11-18'],
         ['回温', `${config.course === 'political-economy' ? '案例页“课后自修”的最后、“本堂作业递交情况”的后面' : '章节页最后一个出门测的后面'}新增“回温”：汇集你在课堂、修炼场和云间灵田里做错的题，逐题重做。答对了就从清单里移走；答错了可以看答案和讲解（课堂上的题要到「筑基」才给答案和讲解，同“展开解答”），过一会儿再来做一遍。${config.course === 'political-economy' ? '课后自修的出门测、温故，等下一次课讲评以后才进回温。' : ''}回温的题不算本堂作业，不计入递交情况，也不加修为，是帮你把易错点补牢。`, '2026-11-18'],
-        ['云间灵田', '拜入宗门（四大宗门之一，散修不能）以后，面板“宗门”里会出现“云间灵田”入口（老师开放后才有）：开辟自己的灵田，种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。第一次进入先起一个道号——道友们看到的是道号，不要用真实姓名；请文明取名，不能用国家领导人的姓名（含谐音、拼音、缩写），不能有辱骂、低俗、敏感的字词，道号不文明的会被老师销号。浇水、锄草时有一定概率要先答对一道本课程修炼场的题；偷菜会触发守田阵法，答对才偷得到，答错要赔灵石给田主。道友名单每批 5 位，每天前 5 批免费，之后每答对一题再换一批，最多再换 5 批。灵田里的境界以课程网站的修为境界为准；服丹可以折算网站修为（每颗 0.3—3，每天最多 3、每周最多 15，整学期最多为满分的 10%，老师结算修为时计入）。本宗元婴以上、修为第一的同学是宗主，境界旁会显示“宗主”标志，可以在灵田里布置本宗山门。', '2026-11-15'],
+        ['云间灵田', '拜入宗门（四大宗门之一，散修不能）以后，面板“宗门”里会出现“云间灵田”入口（老师开放后才有）：开辟自己的灵田，种灵植、炼丹、到坊市交易，也能去各课各届道友那里“偷菜”。第一次进入先起一个道号——道友们看到的是道号，不要用真实姓名；请文明取名，不能用国家领导人的姓名（含谐音、拼音、缩写），不能有辱骂、低俗、敏感的字词，道号不文明的会被老师销号。浇水、锄草时有一定概率要先答对一道本课程修炼场的题；偷菜会触发守田阵法，答对才偷得到，答错要赔灵石给田主。道友名单每批 5 位，每天前 5 批免费，之后每答对一题再换一批，最多再换 5 批。灵田里的境界以课程网站的修为境界为准；服丹可以折算网站修为（每颗 0.3—3，每天最多 3、每周最多 15，整学期最多为满分的 10%，老师结算修为时计入）。本宗元婴以上、修为第一的同学是宗主（11 月 22 日起改为每周一推选、连任最多两周），境界旁会显示“宗主”标志，可以在灵田里布置本宗山门。', '2026-11-15'],
         ...(config.course === 'political-economy' ? [['第八章新题', '第八章两个案例（案例 13、14）补上了“豁然开朗”（学习路线页先抛出的悬念，辩论赛之后揭晓）和完整的“课后自修”（闭卷默写、温故、讲给别人听，做了就积累修为）；修炼场也新增了这两个案例的情境辨析、易错判断和“讲给别人听”练习题。', '2026-11-11']] : []),
         ...(config.course === 'xjp-economy' ? [['迁移任务 · 小资料分析', '第二课时的“迁移任务”改为小资料分析：三则新的小资料，每题四个说法里只有一个用本案例的道理讲对了，选出来逐题递交（不用再写“说一说”）。出门测之前加了一轮“情境猜谜”抢答。猜词游戏不再放在页面里，老师在课堂工具里决定这堂课玩不玩。', '2026-11-12']] : []),
         ...(config.course === 'xjp-economy' ? [['分组讨论', `有圆桌会议的案例（案例 02、03、04、05、10、11、13、14）第二课时改为“分组讨论”：按四方角色分成四组，选好角色递交后取一个昵称进入本组聊天室，围绕讨论题和本组任务发言、给本组的好发言点赞；点赞最多的就是本组发言人，到大屏前亮观点；最后全班为三项议程表决。每组发言人加 ${DISCUSS.leader} 修为，本方提案被全班表决采纳的组里在聊天室发过言的同学各加 ${DISCUSS.win} 修为。机制图改由老师逐步演示，不再弹幕接龙。`, '2026-11-11']] : []),

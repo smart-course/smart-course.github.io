@@ -353,17 +353,24 @@
         <p class="journey-sect-gesture"><span class="sect-desktop-hint">拖动旋转 · 滚轮远近 · 点选景观</span><span class="sect-mobile-hint">单指滑动页面 · 双指旋转、缩放 · 也可使用上方按钮</span></p>
       </section>`;
     }
-    // 智慧课堂：宗主按课程网站实时推选（本课程本宗、修为元婴以上、排名第一；每门课各一位），没有周任期和分数公示
+    // 智慧课堂：宗主由课程网站每周一推选（本课程本宗、修为元婴以上、修为最高；每门课各一位）。
+    // 2026-11-22 用户：“宗门能显示宗主的境界和分值。然后宗主最多连续做两个礼拜……换成第二名的同学来做以此类推”——
+    // 道号下面显示境界、修为和连任第几周（terms：一般一项；同一位同学两门课都当选时每门课一行）；规则说明同步改成任期制
     function siteGovernanceMarkup(sect, visit, school, governance) {
       const leaders=(Array.isArray(governance.leaders)?governance.leaders:[]).filter(item=>item&&item.name);
       const greeting=courtCatalog().getGreeting(visit?.greetingId), initiative=courtCatalog().getInitiative(visit?.initiativeId);
       const active=leaders.length>0;
-      const names=leaders.map(item=>`<h4>${E(item.name)}${(item.courses||[]).map(course=>`<small>${E(course)}</small>`).join('')}${item.isSelf?'<small>我 · 宗主</small>':''}</h4>`).join('');
-      return `<section class="journey-sect-governance" data-ranking-source="host_site" data-ranking-status="ready" aria-label="${E(school.name)}宗主"><div class="journey-governance-heading"><div><span class="journey-eyebrow">课程网站修为 · 实时推选</span><h3>山门掌事</h3></div><span class="journey-governance-rule">元婴以上 · 本宗第一</span></div>
-        <div class="journey-leader-card${active?' is-active':''}"><span class="journey-leader-seal" aria-hidden="true">${active?'宗':'候'}</span><div><span class="journey-small-label">${active?'现任宗主':'宗主公示'}</span>${active?names:'<h4>宗主暂缺</h4>'}<p>${active?'课程网站上本宗修为达到元婴、且排名第一的同学担任宗主（每门课各一位），排名变化后随时更新。':'本宗暂时还没有修为达到元婴的同门；课程网站上本宗修为达到元婴、且排名第一的同学，就是宗主。'}</p></div></div>
+      const points=value=>typeof value==='number'&&Number.isFinite(value)?value.toLocaleString('zh-CN',{maximumFractionDigits:1}):'—';
+      const termLine=(term,many)=>`<p class="journey-leader-term journey-leader-standing">${many&&term.course?`<small>${E(term.course)}</small>`:''}<b>${E(term.realmName||'元婴')}</b><span>修为 <strong>${E(points(term.points))}</strong></span>${Number.isInteger(term.weeks)&&term.weeks>0?`<span>${term.weeks>1?`连任第 ${E(term.weeks)} 周`:'本周新任'}</span>`:''}</p>`;
+      const names=leaders.map(item=>{
+        const terms=(Array.isArray(item.terms)?item.terms:[]).filter(term=>term&&typeof term==='object');
+        return `<h4>${E(item.name)}${(item.courses||[]).map(course=>`<small>${E(course)}</small>`).join('')}${item.isSelf?'<small>我 · 宗主</small>':''}</h4>${terms.map(term=>termLine(term,terms.length>1)).join('')}`;
+      }).join('');
+      return `<section class="journey-sect-governance" data-ranking-source="host_site" data-ranking-status="ready" aria-label="${E(school.name)}宗主"><div class="journey-governance-heading"><div><span class="journey-eyebrow">课程网站修为 · 每周一推选</span><h3>山门掌事</h3></div><span class="journey-governance-rule">元婴以上 · 连任最多两周</span></div>
+        <div class="journey-leader-card${active?' is-active':''}"><span class="journey-leader-seal" aria-hidden="true">${active?'宗':'候'}</span><div><span class="journey-small-label">${active?'本周宗主':'宗主公示'}</span>${active?names:'<h4>宗主暂缺</h4>'}<p>${active?'每周一按课程网站的修为推选：本宗元婴以上的同门里修为最高的担任（每门课各一位）；连任最多两周，做满就换下一名。':'本宗暂时还没有修为达到元婴的同门；有人达到元婴，就按课程网站的修为推选宗主。'}</p></div></div>
         <div class="journey-sect-welcome"><span>${I('leaf')}${greeting?E(greeting.name):'山门迎客'}</span><p>${greeting?E(greeting.text):'山门常开，欢迎道友慢赏一山风物。'}</p></div>
         ${initiative?`<div class="journey-sect-initiative"><span>本宗倡议</span><div><h4>${E(initiative.name)}</h4><p>${E(initiative.description)}</p></div></div>`:''}
-        <details class="journey-details journey-leader-rules" data-journey-detail="leader-rules"${detailState.get('leader-rules')?' open':''}><summary><span>如何推选 · 宗主能做什么</span>${I('arrow')}</summary><div><p>宗主由课程网站的修为境界决定：在本课程的本宗门里，修为达到元婴及以上、且修为排名第一的同学担任宗主。两门课各推选一位，所以一座山门可能有两位宗主。</p><p>排名以课程网站为准，名次变化后宗主随之更新；当选的同学在课程网站的境界标志旁会显示“宗主”标志。</p><ul><li>布置六处公共庭位，挑选已开放的小景。</li><li>选择一项本宗共修倡议，引导同门交流与共建。</li><li>选择山门欢迎语，迎接来访道友。</li></ul><p>宗主权力用于公共建设；不增加个人修为、灵石或材料，也不改变同门归属。</p></div></details>
+        <details class="journey-details journey-leader-rules" data-journey-detail="leader-rules"${detailState.get('leader-rules')?' open':''}><summary><span>如何推选 · 宗主能做什么</span>${I('arrow')}</summary><div><p>宗主由课程网站的修为境界决定：每周一（北京时间）推选一次，在本课程的本宗门里，修为达到元婴及以上的同门中修为最高的担任，一任一周。两门课各推选一位，所以一座山门可能有两位宗主。</p><p>连任最多两周：做满两周的同学，即使修为仍是最高，也换下一名来做；本宗元婴以上的同门都轮过一遍以后，再从头轮起。一周之内不换人。当选的同学在课程网站的境界标志旁会显示“宗主”标志。</p><ul><li>布置六处公共庭位，挑选已开放的小景。</li><li>选择一项本宗共修倡议，引导同门交流与共建。</li><li>选择山门欢迎语，迎接来访道友。</li></ul><p>宗主权力用于公共建设；不增加个人修为、灵石或材料，也不改变同门归属。</p></div></details>
         ${mayManage(sect,visit)&&courtDraft?.sectId!==school.id?button('court-start','以宗主身份布置山门',key('court-start'),false,'primary'):''}
         ${courtDraft?.sectId===school.id?courtEditorMarkup(sect,visit):''}
       </section>`;

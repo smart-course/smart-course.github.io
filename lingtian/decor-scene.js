@@ -50,11 +50,38 @@
       curve(g,[[-half-.1,y+.33,0],[-half*.6,y+.36,0],[0,y+.52,0],[half*.6,y+.36,0],[half+.1,y+.33,0]],.045,0xe5d7ab);
       cyl(g,.04,.09,.15,0xcfad69,0,y+.63,0,6);
     }
-    function lantern(g,x=0,z=0,scale=1) {
+    // 夜里亮灯（2026-11-22 用户：“暖玉石灯和藏书小阁在晚上的时候也要有亮灯的效果”）：和宅邸、栖云亭的灯笼同一套做法——
+    // 灯身用单独的发光材质（随天色调亮），并留下灯位给天象层画光晕。每件小景各有一份材质，收起时一并释放
+    function lampKit(){
+      const glows=[],lamps=[],ownedMaterials=[];let lampMaterial=null,lightKey=-1;
+      return {
+        lit(item,parent,point){
+          if(!lampMaterial){lampMaterial=material(0xf5d292,{roughness:.75,emissive:0xd99443,emissiveIntensity:.12}).clone();ownedMaterials.push(lampMaterial);glows.push(lampMaterial);}
+          item.material=lampMaterial;
+          if(point)lamps.push({parent,point:new T.Vector3(point[0],point[1],point[2])});
+          return item;
+        },
+        attach(object){
+          if(!glows.length)return;
+          object.userData.homesteadRuntime={
+            ownedMaterials,
+            getLampAnchors(){return lamps;},
+            setEnvironment(snapshot){
+              const daylight=Math.max(0,Math.min(1,Number.isFinite(snapshot?.daylight)?snapshot.daylight:snapshot?.phaseId==='night'?0:1));
+              if(daylight===lightKey)return false;lightKey=daylight;
+              for(const glow of glows)glow.emissiveIntensity=.12+(1-daylight)*1.5;
+              return true;
+            }
+          };
+        }
+      };
+    }
+    function lantern(g,x=0,z=0,scale=1,kit=null) {
       const l=new T.Group();l.position.set(x,0,z);l.scale.setScalar(scale);g.add(l);
       cyl(l,.40,.46,.11,0xc3c8b3,0,.08,0);cyl(l,.26,.33,.12,0xe8e2c8,0,.20,0);
       cyl(l,.09,.13,.64,0xaebda4,0,.57,0);cyl(l,.30,.24,.09,0xcfd9bd,0,.94,0);
-      box(l,.36,.42,.36,0xf3d798,0,1.18,0);
+      const chamber=box(l,.36,.42,.36,0xf3d798,0,1.18,0);
+      if(kit)kit.lit(chamber,l,[0,1.18,0]);
       for(const x of [-.23,.23])for(const z of [-.23,.23])box(l,.055,.5,.055,0x789780,x,1.18,z);
       cyl(l,.08,.42,.28,0x557f6f,0,1.57,0,6);cyl(l,.045,.09,.16,0xd8bc7c,0,1.78,0,6);
       ring(l,.17,.014,0xa58d59,0,1.18,.20);
@@ -85,10 +112,11 @@
         if(homestead){homestead.userData.decorationId=id;return homestead;}
       }
       if(theme&&sectStages[id]&&typeof global.createSpiritSectModel==='function'){
-        const themed=global.createSpiritSectModel({THREE:T,material,mergeDetails,sectId:theme,stage:sectStages[id]});
+        const themed=global.createSpiritSectModel({THREE:T,material,mergeDetails,sectId:theme,stage:sectStages[id],nightGlow:true});
         if(themed){themed.userData.decorationId=id;themed.userData.decorationTheme=theme;return themed;}
       }
       const g=new T.Group();g.userData.decorationId=id;
+      const kit=lampKit();
       if(id==='bambooFence') {
         for(let i=0;i<7;i++){
           const x=(i-3)*.40,h=i%3===0?1.1:.92;
@@ -97,7 +125,7 @@
         }
         for(const y of [.31,.70]){const rail=cyl(g,.045,.055,2.7,0xa8aa76,0,y,.06,6);rail.rotation.z=Math.PI/2;}
         for(const x of [-1.2,0,1.2]){curve(g,[[x-.05,.65,.10],[x+.07,.74,.13],[x-.04,.79,.07]],.018,0xd6c89b);}
-      } else if(id==='stoneLantern') { lantern(g,-.48,0);lantern(g,.56,.18,.76); }
+      } else if(id==='stoneLantern') { lantern(g,-.48,0,1,kit);lantern(g,.56,.18,.76,kit); }
       else if(id==='spiritPond') pool(g,false);
       else if(id==='sectSpring') { base(g,2.25,2.25);pool(g,true); }
       else if(id==='masterStele') {
@@ -129,10 +157,19 @@
           for(let i=0;i<4;i++)box(g,.07,.67,.04,[0xadc2aa,0xd6c58f,0xa2b9b3,0xcbb58c][i],x+(i-1.5)*.11,1.06,.69);
         }
         roof(g,1.72,2.55,1.67);box(g,1.03,.38,.73,0xd8ddc2,0,2.30,0);roof(g,2.46,1.55,1.04);
+        // 夜里：阁楼的窗和两间书格上方的亮窗透出灯光，檐下左右各挂一盏灯
+        kit.lit(box(g,.56,.20,.014,0xf1d499,0,2.30,.372),g,[0,2.30,.40]).castShadow=false;
+        for(const x of [-.43,.43])kit.lit(box(g,.56,.11,.014,0xf1d499,x,1.59,.588),g,null).castShadow=false;
+        for(const x of [-1.08,1.08]){
+          cyl(g,.012,.012,.36,0x9b8457,x,1.72,.74,5);
+          kit.lit(cyl(g,.085,.085,.17,0xf1d499,x,1.46,.74,6),g,[x,1.46,.74]);
+          for(const y of [1.37,1.55])cyl(g,.09,.09,.02,0x668e75,x,y,.74,6);
+        }
         g.scale.setScalar(.82);
       } else return null;
       // Same merge path as the pavilion keeps geometry inexpensive on phones.
       if(mergeDetails){for(const child of g.children)if(child.isGroup)mergeDetails(child);mergeDetails(g);}
+      kit.attach(g);
       return g;
     }
     function footprint(id){
@@ -221,6 +258,8 @@
       },
       setEnvironment(snapshot){environment=snapshot||environment;for(const object of layer.children)object.userData.homesteadRuntime?.setEnvironment(environment);},
       getLampAnchors(){return layer.children.flatMap(object=>object.userData.homesteadRuntime?.getLampAnchors()||[]);},
+      // 现在画面上这份布置（含没有存过位置时补的默认位置）：场景据此收起被小景压住的原有景物
+      getLayout(){return currentLayout.map(entry=>({id:entry.id,x:entry.x,z:entry.z,rotation:entry.rotation}));},
       setEditor(value){editState=value?{selectedId:value.selectedId,valid:value.valid,showAreas:value.showAreas}:null;refreshEditor();},
       pick(raycaster){
         const hits=raycaster.intersectObjects(layer.children,true);

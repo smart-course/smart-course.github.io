@@ -763,10 +763,14 @@
       mergeEnvironmentDetails(g);return g;
     }
     const landscapeObstacles=window.SpiritGame?.DECOR_LAYOUT_RULES?.obstacles||[];
-    for(const item of landscapeObstacles)if(item.kind==='pine'){
+    // 2026-11-22：原有的松树、灵石和草地边上的小石头不再挡住小景；被小景压住的收起来，挪开又回来（refreshCoveredScenery）。
+    // fixedScenery 与 landscapeObstacles 一一对应；groundDetails 是没有登记成障碍的零碎小物（草丛边的石头、崖边小花）
+    const fixedScenery=landscapeObstacles.map(()=>[]),groundDetails=[];
+    landscapeObstacles.forEach((item,i)=>{
+      if(item.kind!=='pine')return;
       const tree=pine(main,item.x,item.z,item.scale);
-      tree.name='courtyard-fixed-pine';tree.userData.landscapeObstacle=item;
-    }
+      tree.name='courtyard-fixed-pine';tree.userData.landscapeObstacle=item;fixedScenery[i].push(tree);
+    });
 
     // The lotus pond, moon gate, pavilion and blossom tree are owned scenery.
     // Their geometry, snow, petals and lamps live only in the equipped cache.
@@ -783,14 +787,15 @@
       }
     }
     const spiritStones=[];
-    for(const item of landscapeObstacles.filter(item=>item.kind==='crystal')){
+    landscapeObstacles.forEach((item,i)=>{
+      if(item.kind!=='crystal')return;
       const {x,z,height:y}=item;
       const base=stone(main,x,.3,z,.44,.23,.39,0xc3cbb1);base.rotation.y=.4;
       const crystal=mesh(new T.OctahedronGeometry(.39,0),material(0xa2c9b0,{emissive:0x8abda0,emissiveIntensity:.20,roughness:.45}),main,x,y,z);crystal.scale.set(.72,2.08,.72);crystal.rotation.y=.4;
       const seal=mesh(new T.OctahedronGeometry(.095,0),material(0xffe5a2,{emissive:0xf3dc8d,emissiveIntensity:.2}),main,x-.08,y+.03,z+.17);seal.scale.set(.45,1.6,.35);seal.castShadow=false;
       const ring=mesh(new T.RingGeometry(.46,.477,24),sigilJade,main,x,.52,z);ring.rotation.x=-Math.PI/2;ring.castShadow=false;
-      spiritStones.push({crystal,seal,y});
-    }
+      spiritStones.push({crystal,seal,y});fixedScenery[i].push(base,crystal,seal,ring);
+    });
     // Irregular stepping stones and tufts link the miniature landscape.
     const pathPoints=[[-6.78,-5.4],[-6.78,-3.2],[-6.78,-1],[-6.78,1.2],[-6.78,3.4],[-6.78,5.6],[-5.4,6.78],[-3.2,6.78],[-1,6.78],[1.2,6.78],[3.4,6.78],[5.6,6.78]];
     if(!window.createSpiritGardenArt)for(const [x,z] of pathPoints){const p=cylinder(.15,.16,.025,0xc5c1a6,main,x,.205,z,6);p.scale.z=.8;p.rotation.y=rand(0,6);}
@@ -800,13 +805,15 @@
       return g;
     }
     for(const [x,z] of [[-10.8,6.1],[11.8,-4.2],[-4.8,11.5]]){
-      grass(main,x,z,rand(.65,.85));stone(main,x+.26,.23,z-.12,.15,.10,.18,0xb7b7a2);
+      const tuft=grass(main,x,z,rand(.65,.85)),pebble=stone(main,x+.26,.23,z-.12,.15,.10,.18,0xb7b7a2);
+      groundDetails.push({x:x+.1,z:z-.05,reach:.34,objects:[tuft,pebble]});
     }
     for(let i=0;i<8;i++) {
       const a=rand(0,Math.PI*2),r=rand(ISLAND_RADIUS*.945,ISLAND_RADIUS*.96),x=Math.cos(a)*r,z=Math.sin(a)*r;
       if(z<-3&&x<-2)continue;
       const f=mesh(new T.IcosahedronGeometry(.07,0),material(i%3?0xe7e5c4:0xf5dda5),main,x,.4,z);
-      cylinder(.015,.018,.19,0x6e9874,main,x,.28,z,4);
+      const stem=cylinder(.015,.018,.19,0x6e9874,main,x,.28,z,4);
+      groundDetails.push({x,z,reach:.1,objects:[f,stem]});
     }
 
     // All raised details stay outside the legal decoration radius. The soft
@@ -845,6 +852,24 @@
     mergeEnvironmentDetails(vergeDetails);
 
     const courtyardDecor = window.createSpiritDecorations?.({THREE:T,parent:main,material,mergeDetails:mergeEnvironmentDetails});
+    // 小景摆好（或布置时每挪一步）以后：被压住的松树、灵石、小石头收起来；自己的洞天和拜访别人时都按当前看到的布置算
+    function refreshCoveredScenery(){
+      const layout=courtyardDecor?.getLayout?.()||[],footprints=window.SpiritGame?.DECOR_LAYOUT_RULES?.footprints||{};
+      const covered=window.SpiritGame?.coveredDecorObstacles?.(layout)||[];
+      let changed=false;
+      const show=(objects,visible)=>{for(const object of objects)if(object.visible!==visible){object.visible=visible;changed=true;}};
+      fixedScenery.forEach((objects,i)=>show(objects,!covered[i]));
+      for(const detail of groundDetails){
+        const under=layout.some(entry=>{
+          const size=footprints[entry.id];if(!size)return false;
+          const a=entry.rotation*Math.PI/180,dx=detail.x-entry.x,dz=detail.z-entry.z;
+          return Math.abs(dx*Math.cos(a)-dz*Math.sin(a))<=size.width/2+detail.reach&&Math.abs(dx*Math.sin(a)+dz*Math.cos(a))<=size.depth/2+detail.reach;
+        });
+        show(detail.objects,!under);
+      }
+      if(changed){renderer.invalidate?.();renderer.shadowMap.needsUpdate=true;}
+      return changed;
+    }
 
     // A larger residence floats above the rear garden, with a real air gap.
     // Its rocky underside stays above even the full-sized pavilion; only the
@@ -1890,14 +1915,14 @@
           clearActions();hover=null;
         }
         decorationEdit={...value,layout:value.layout.map(entry=>({...entry}))};
-        courtyardDecor.set(decorationEdit.layout.map(entry=>entry.id),decorationEdit.layout,currentView.decorationThemes||{});courtyardDecor.setEditor(decorationEdit);refreshHomesteadLamps();
+        courtyardDecor.set(decorationEdit.layout.map(entry=>entry.id),decorationEdit.layout,currentView.decorationThemes||{});courtyardDecor.setEditor(decorationEdit);refreshHomesteadLamps();refreshCoveredScenery();
         labels.hidden=true;decorationLabels.hidden=false;container.classList.add('is-decorating');
         pointerControls?.setDecorationMode(true);refreshHighlight();
         if(entering)frameDecorations();else positionDecorationLabels();
       }else if(decorationEdit){
         pointerControls?.cancel();decorationEdit=null;decorationDrag=null;
         pointerControls?.setDecorationMode(false);labels.hidden=false;decorationLabels.hidden=true;container.classList.remove('is-decorating');
-        courtyardDecor.setEditor(null);courtyardDecor.set(currentView.decorations||[],currentView.decorationLayout||[],currentView.decorationThemes||{});refreshHomesteadLamps();
+        courtyardDecor.setEditor(null);courtyardDecor.set(currentView.decorations||[],currentView.decorationLayout||[],currentView.decorationThemes||{});refreshHomesteadLamps();refreshCoveredScenery();
         const saved=decorationEditCamera;decorationEditCamera=null;
         if(saved){
           angle=saved.angle;elevation=saved.elevation;zoom=saved.zoom;target.set(saved.x,saved.y,saved.z);
@@ -1958,6 +1983,7 @@
       const changedResidenceGround=residenceTerrace.visible!==showResidence;
       residenceTerrace.visible=showResidence;residenceCourt.visible=showResidence;residenceBridge.visible=showResidence;
       for(const cloud of clouds)if(cloud.residence)cloud.g.visible=showResidence;
+      if(changedDecor)refreshCoveredScenery();
       if(changedDecor||changedResidence||changedResidenceGround){refreshHomesteadLamps();renderer.invalidate?.();renderer.shadowMap.needsUpdate=true;}
       if(changedResidence&&residenceDecor?.getFramingModel)updateCamera();
       // A cloud sync replaces the array during a multi-field animation. Only an

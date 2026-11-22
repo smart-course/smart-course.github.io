@@ -8,7 +8,7 @@
     xinglan:{ink:0x587780,wood:0x5e7b88,roof:0x668f9a,trim:0xcdb47a,stone:0xa6bcb0,pale:0xe1dfc3,leaf:0x88a392,accent:0xc7a968,water:0x9bbfb4}
   };
   const bounds={gate:{width:3.2,depth:1.45},spring:{width:2.5,depth:2.5},library:{width:2.45,depth:1.75}};
-  global.createSpiritSectModel = function ({THREE:T,material,mergeDetails,sectId,stage}) {
+  global.createSpiritSectModel = function ({THREE:T,material,mergeDetails,sectId,stage,nightGlow}) {
     const p=typeof sectId==='string'&&Object.prototype.hasOwnProperty.call(palettes,sectId)?palettes[sectId]:null;
     const footprint=typeof stage==='string'&&Object.prototype.hasOwnProperty.call(bounds,stage)?bounds[stage]:null;
     if(!T||!p||!footprint||typeof material!=='function')return null;
@@ -17,6 +17,17 @@
     root.userData.sectId=sectId;root.userData.sectStage=stage;
     const details=global.SpiritSects?.map?.[sectId]?.stages?.find(item=>item.id===stage);
     root.userData.landmarkName=details?.name||`${sectId}-${stage}`;
+    // 洞天小景夜里亮灯（2026-11-22 用户：“暖玉石灯和藏书小阁在晚上的时候也要有亮灯的效果”）：灯身、亮着的窗换成单独的发光材质
+    // （随天色调亮），并留下灯位给天象层画光晕。只在 nightGlow 时启用：宗门游览场景不传这一项，模型和材质与以前完全一样
+    const glows=[],lamps=[],ownedMaterials=[];
+    let lampMaterial=null;
+    function lit(mesh,point){
+      if(!nightGlow)return mesh;
+      if(!lampMaterial){lampMaterial=material(0xf5d292,{roughness:.75,emissive:0xd99443,emissiveIntensity:.12}).clone();ownedMaterials.push(lampMaterial);glows.push(lampMaterial);}
+      mesh.material=lampMaterial;
+      if(point)lamps.push({parent:g,point:new T.Vector3(point[0],point[1],point[2])});
+      return mesh;
+    }
     function add(geometry,color,x=0,y=0,z=0,extra){
       const m=new T.Mesh(geometry,material(color,extra));m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;g.add(m);return m;
     }
@@ -52,14 +63,14 @@
     function lantern(x,y,z,s=.7){
       cyl(.18*s,.22*s,.11*s,p.stone,x,y+.05*s,z);
       cyl(.045*s,.07*s,.48*s,p.wood,x,y+.32*s,z);
-      cyl(.15*s,.11*s,.24*s,0xf1d499,x,y+.65*s,z,6);
+      lit(cyl(.15*s,.11*s,.24*s,0xf1d499,x,y+.65*s,z,6),[x,y+.65*s,z]);
       for(const dx of [-.11,.11])box(.024*s,.28*s,.025*s,p.wood,x+dx*s,y+.65*s,z+.08*s);
       cyl(.04*s,.21*s,.14*s,p.roof,x,y+.84*s,z,6);
       cyl(.025*s,.05*s,.10*s,p.trim,x,y+.95*s,z,6);
     }
     function hangingLamp(x,y,z){
       rod([x,y+.21,z],[x,y+.05,z],.013,p.trim);
-      cyl(.10,.10,.18,0xf1d499,x,y-.02,z,6);ring(.10,.013,p.wood,x,y+.07,z,'y',12);ring(.10,.013,p.wood,x,y-.11,z,'y',12);
+      lit(cyl(.10,.10,.18,0xf1d499,x,y-.02,z,6),[x,y-.02,z]);ring(.10,.013,p.wood,x,y+.07,z,'y',12);ring(.10,.013,p.wood,x,y-.11,z,'y',12);
       rod([x,y-.13,z],[x,y-.22,z],.011,p.trim);
     }
     function maple(x,z,height=1.25){
@@ -93,6 +104,14 @@
     function scroll(x,y,z){
       box(.34,.025,.24,p.pale,x,y,z);for(const dx of [-.18,.18]){const m=cyl(.025,.025,.29,p.trim,x+dx,y+.02,z);m.rotation.x=Math.PI/2;}
       for(let i=0;i<3;i++)box(.18,.009,.008,p.wood,x,y+.018,z+(i-1)*.045);
+    }
+    // 亮着的窗（只在洞天小景里加）：一片贴在墙面上的薄片；round 是圆窗，否则是 w×h 的方窗；turn 是绕竖轴转过的角度
+    function litPane(x,y,z,w,h,round=false,turn=0,anchor=true){
+      if(!nightGlow)return null;
+      const pane=round?lit(cyl(w,w,.012,0xf1d499,x,y,z,16),anchor?[x,y,z]:null):lit(box(w,h,.014,0xf1d499,x,y,z),anchor?[x,y,z]:null);
+      if(round)pane.rotation.x=Math.PI/2;
+      pane.rotation.y=turn;pane.castShadow=false;
+      return pane;
     }
     function star(x,y,z,r=.12){const m=add(new T.OctahedronGeometry(r,0),p.trim,x,y,z);m.scale.set(.65,1.3,.65);return m;}
     function bridge(x,z,w=1.05,y=.33){
@@ -189,6 +208,8 @@
         for(const x of [.54,.98])for(const z of [-.42,.42])box(.045,.91,.045,p.wood,x,.62,z);
         roof(.77,1.05,0,.72,1.17);box(.50,.055,.40,p.trim,.76,.49,.12);scroll(.76,.53,.12);
         for(const z of [-.43,.43])rod([.48,.57,z],[1.04,.57,z],.023,p.wood);
+        // 夜里：阁楼圆窗透出灯光，正屋檐角和侧亭各挂一盏灯
+        if(nightGlow){litPane(-.32,1.96,.259,.085,0,true);hangingLamp(-1.02,1.03,.50);hangingLamp(.76,.76,.50);}
       }else if(sectId==='xuanyue'){
         slab(2.29,1.59,.12);
         for(const x of [-.67,.67]){
@@ -201,6 +222,8 @@
         rod([-.25,1.72,.568],[.25,1.72,.568],.013,p.trim);rod([0,1.47,.568],[0,1.97,.568],.013,p.trim);
         cyl(.18,.82,.34,p.roof,0,2.14,-.07,12);ring(.78,.027,p.pale,0,1.99,-.07,'y');cyl(.045,.10,.17,p.trim,0,2.40,-.07,6);
         hangingLamp(-.27,1.20,.13);hangingLamp(.27,1.20,.13);scroll(0,.22,.28);
+        // 夜里：月窗亮起来（原有的两盏挂灯也亮）
+        litPane(0,1.72,.560,.235,0,true);
       }else if(sectId==='lingxi'){
         slab(2.25,1.61,.12);
         for(const x of [-.96,-.31,.31,.96])for(const z of [-.52,.52]){cyl(.035,.05,1.14,p.wood,x,.76,z,6);cyl(.058,.058,.045,p.trim,x,1.21,z,6);}
@@ -209,6 +232,8 @@
         box(1.58,.09,.43,p.trim,0,.67,.13);for(const x of [-.60,.60])for(const z of [-.02,.28])box(.05,.43,.05,p.wood,x,.42,z);
         for(const x of [-.65,-.23,.23,.65]){cyl(.095,.12,.27,p.wood,x,.31,.58,6);cyl(.13,.13,.055,p.trim,x,.47,.58,6);}
         box(.65,.06,.35,p.trim,0,.78,-.43);for(const x of [-.24,.24])box(.04,.56,.04,p.wood,x,.48,-.43);scroll(0,.82,-.43);scroll(-.31,.73,.13);books(.39,.72,.13,.23);
+        // 夜里：两间书亭檐下各挂一盏灯
+        if(nightGlow){hangingLamp(-.58,1.07,.42);hangingLamp(.58,1.07,.42);}
       }else{
         slab(2.25,1.58,.12);cyl(.46,.53,1.62,p.stone,.45,.97,-.10,8);
         for(let i=0;i<8;i++){const a=i*Math.PI/4;rod([.45+Math.cos(a)*.47,.22,-.10+Math.sin(a)*.47],[.45+Math.cos(a)*.43,1.78,-.10+Math.sin(a)*.43],.025,p.wood);}
@@ -220,6 +245,14 @@
         cyl(.27,.35,.48,p.wood,-.69,.40,.12,8);cyl(.42,.40,.09,p.pale,-.69,.69,.12,16);ring(.33,.014,p.trim,-.69,.745,.12,'y',20);ring(.17,.009,p.trim,-.69,.747,.12,'y',16);
         rod([-1.08,.75,.12],[-.30,.75,.12],.007,p.wood);rod([-.69,.75,-.27],[-.69,.75,.51],.007,p.wood);star(-.69,.77,.12,.045);
         for(let i=0;i<5;i++)box(.28,.12+i*.13,.20,p.stone,-.20+i*.10,.21+i*.065,.62-i*.15);
+        // 夜里：观星塔正面两扇窄窗亮起来（贴在塔身朝前的两个面上），台角添一盏石灯
+        if(nightGlow){
+          for(const side of [-1,1]){
+            const turn=side*Math.PI/8,reach=.462;
+            litPane(.45+Math.sin(turn)*reach,1.20,-.10+Math.cos(turn)*reach,.13,.27,false,turn,side>0);
+          }
+          lantern(1.0,.19,.60,.5);
+        }
       }
     }
     // Fit the *complete* silhouette (including roof tips and leaves) to the
@@ -235,6 +268,20 @@
     root.updateMatrixWorld(true);box3=new T.Box3().setFromObject(root);size=box3.getSize(new T.Vector3());
     root.userData.modelBounds={width:size.x,height:size.y,depth:size.z};
     root.userData.footprint={...footprint};
+    if(nightGlow&&glows.length){
+      // 与 homestead-models.js 的运行时同一约定：洞天小景层按天色调用 setEnvironment，天象层读 getLampAnchors 画灯晕
+      let lightKey=-1;
+      root.userData.homesteadRuntime={
+        ownedMaterials,
+        getLampAnchors(){return lamps;},
+        setEnvironment(snapshot){
+          const daylight=Math.max(0,Math.min(1,Number.isFinite(snapshot?.daylight)?snapshot.daylight:snapshot?.phaseId==='night'?0:1));
+          if(daylight===lightKey)return false;lightKey=daylight;
+          for(const glow of glows)glow.emissiveIntensity=.12+(1-daylight)*1.5;
+          return true;
+        }
+      };
+    }
     return root;
   };
 })(window);

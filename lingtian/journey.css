@@ -750,6 +750,11 @@
 .journey-leader-card h4 small { font: 11px var(--sans, sans-serif); line-height: 1.7; padding: 2px 7px; border-radius: 4px; background: #e6d5a5; color: #74603d; }
 .journey-root .journey-leader-card p { color: #7f7458; font-size: 12px; line-height: 1.9; margin: 0; }
 .journey-root .journey-leader-card .journey-leader-term { margin-top: 5px; font-size: 11px; }
+/* 宗主的境界、修为、连任第几周（2026-11-22）：道号下面一行小标签 */
+.journey-root .journey-leader-card .journey-leader-standing { display: flex; align-items: center; flex-wrap: wrap; gap: 5px 10px; margin: 0 0 6px; font-size: 12px; color: #6f6243; }
+.journey-root .journey-leader-card .journey-leader-standing b { padding: 1px 9px; border-radius: 999px; background: linear-gradient(120deg, #d9c182, #efe1b3); color: #5d4a22; font-weight: 700; letter-spacing: .04em; }
+.journey-root .journey-leader-card .journey-leader-standing strong { color: #5d4a22; font-size: 14px; font-variant-numeric: tabular-nums; }
+.journey-root .journey-leader-card .journey-leader-standing small { padding: 1px 7px; border-radius: 4px; background: #e6d5a5; color: #74603d; font-size: 11px; }
 .journey-root .journey-next-settlement { display: flex; align-items: center; flex-wrap: wrap; gap: 5px; font-size: 11px; color: #8b7852; margin: 12px 1px; line-height: 1.9; }
 .journey-next-settlement .icon { width: 14px; height: 14px; }
 .journey-sect-welcome { margin-top: 15px; padding: 14px 0 13px; border-top: 1px solid #e0d8c0; }

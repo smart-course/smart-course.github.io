@@ -9,7 +9,8 @@
  * 鼠标移到一条弹幕上：这条弹幕停住，旁边出现垃圾桶；点一次变成“确认删除？”，3 秒内再点一次即从记录里彻底删除（与工作台的删除相同）。
  * 习经辩论质询的弹幕带“【正方】/【反方】”（学生端按本人的辩前投票自动加上），投屏上显示为彩色标签。
  * 匿名（课堂的 danmaku_anon，工作台或左下角控件切换）：投屏只显示内容、不显示姓名；弹幕记录里照常有发送人。
- * 宗门（2026-11-18）：弹幕框外一圈宗门色（本班同学的宗门读 ck_sect_members），宗主一圈炫彩流光（宗主与后台 ck_sect_leaders() 同一规则在本页算出）；
+ * 宗门（2026-11-18）：弹幕框外一圈宗门色（本班同学的宗门读 ck_sect_members），宗主一圈炫彩流光（2026-11-22 起读后台定好的本周宗主 ck_sect_leader_list：
+ *   每周一推选、连任最多两周；后台还没更新时照原来的规则在本页算）；
  *   散修、没拜入宗门的不加；匿名时也显示（只显示颜色，与境界辉边一样）；弹幕墙同样加框。试用特效里可以选宗门、宗主预览。
  * 修为境界（教师结算后存于 ck_realms，本页按学号读取）：显示姓名时姓名前加境界称号，姓名颜色与称号一致（素石灰→青玉绿→金丹金→紫霄紫→化神七彩流光，
  *   还没有境界的按炼气）；弹幕字色：每升一个境界多解锁两种（炼气白灰→筑基蓝绿→结丹金红→元婴粉紫→化神流光），发送人自选、投屏按境界核对；
@@ -501,11 +502,23 @@
   const tintOf = (hex, p) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; const mix = (c) => Math.round(255 + (c - 255) * p);
     return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`; };
   let sectMap = new Map(), lordSet = new Set(), sectSig = '', activeClasses = null, activeAt = 0;
+  // 宗主（2026-11-22 起每周一推选、连任最多两周，由后台定）：读后台定好的本周宗主（ck_sect_leader_list，10 分钟读一次）；
+  //   后台还没更新到有这个函数时，照原来的规则在本页算（本宗在读弟子里元婴以上、修为最高）
+  let lordRows = null, lordAt = 0, lordLegacy = false;
   async function loadSects() {
     if (!room || !SECTS.size) return;
     try {
       const classId = Number(room.class_id) || 0, now = Date.now();
-      if (!activeClasses || now - activeAt > 600000) {   // 在读班级 10 分钟查一次
+      if (!lordAt || now - lordAt > 600000) {
+        try {
+          const value = await backend.rpc('ck_sect_leader_list', { p_course: config.course });
+          const data = (Array.isArray(value) ? value[0] : value) || {};
+          lordRows = Array.isArray(data.leaders) ? data.leaders : null;
+          lordLegacy = !lordRows;
+        } catch (error) { lordRows = null; lordLegacy = true; }
+        lordAt = now;
+      }
+      if (lordLegacy && (!activeClasses || now - activeAt > 600000)) {   // 在读班级 10 分钟查一次（只有旧后台才用得到）
         const [classes, rooms] = await Promise.all([backend.fetchAll('classes', { course: config.course }), backend.fetchAll('classrooms', { course: config.course })]);
         const exists = new Set(classes.map((row) => Number(row.id)));
         activeClasses = new Set(rooms.filter((row) => exists.has(Number(row.class_id)) && timeOf(row.created_at) > now - 200 * 86400000).map((row) => Number(row.class_id)));
@@ -514,7 +527,8 @@
       const rows = await backend.fetchAll('sectmembers', { course: config.course });
       const nextMap = new Map(rows.filter((row) => (Number(row.class_id) || 0) === classId && SECTS.has(row.sect)).map((row) => [sidKey(row.sid), row.sect]));
       const nextLords = new Set();
-      SECTS.forEach((sect, key) => {
+      if (!lordLegacy) (lordRows || []).forEach((row) => { if ((Number(row.class_id) || 0) === classId && SECTS.has(row.sect)) nextLords.add(sidKey(row.sid)); });
+      else SECTS.forEach((sect, key) => {
         const top = rows.filter((row) => row.sect === key && Number(row.realm) >= 3 && activeClasses.has(Number(row.class_id)))
           .sort((a, b) => Number(b.points) - Number(a.points) || timeOf(a.joined_at) - timeOf(b.joined_at) || (String(a.sid) < String(b.sid) ? -1 : String(a.sid) > String(b.sid) ? 1 : 0))[0];
         if (top && (Number(top.class_id) || 0) === classId) nextLords.add(sidKey(top.sid));

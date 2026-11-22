@@ -160,8 +160,13 @@
   const RESIDENCE_MAP = Object.freeze(Object.assign(Object.create(null), Object.fromEntries(RESIDENCES.map(item => [item.id, item]))));
   // Courtyard coordinates are shared by the renderer, editor and authoritative
   // server. Footprints include eaves/base overhang, not just the model's origin.
+  // 2026-11-22 放宽摆放范围（用户：“布置洞天里面小景可以摆放的范围再大一些……除了种田那块地方以外都可以摆放，如果是碰到石头之类的，
+  // 直接覆盖掉”）：可摆到草地边上（radius 11.5 → 12.6，仙山草地最窄处约 12.86）；原有的松树、灵石不再挡位置，被小景压住的自动收起
+  // （coveredDecorObstacles，渲染层据此隐藏）；小景之间可以挨着、略有交叠，只要各自中间的六成（overlapCore）不相叠；灵田和水渠照旧不能占。
+  // 新买、重新摆出的小景自动找空位时，仍先按原来的规矩（tidy：半径 11.5、留 0.12 的缝、避开松树灵石）找，找不到才用放宽后的规则。
   const DECOR_LAYOUT_RULES = Object.freeze({
-    grid: .25, rotationStep: 45, groundY: .24, radius: 11.5, terrainRadius: 13.2, clearance: .12,
+    grid: .25, rotationStep: 45, groundY: .24, radius: 12.6, terrainRadius: 13.2, clearance: 0, overlapCore: .6,
+    tidy: Object.freeze({ radius: 11.5, clearance: .12 }),
     fieldBounds: Object.freeze({ minX: -6.85, maxX: 6.85, minZ: -6.85, maxZ: 6.85 }),
     footprints: Object.freeze(Object.fromEntries([
       ['bambooFence', 2.9, .45], ['stoneLantern', 2, 1.15], ['spiritPond', 2, 2], ['masterStele', 1.6, 1.1],
@@ -184,11 +189,12 @@
     obstacles: Object.freeze([
       // The renderer uses these same objects. Solid scenery belongs to the
       // outer verge, so clearing it never leaves an invisible old collider.
-      { name: '松树', kind: 'pine', x: -12.5, z: -.9, width: 1.9, depth: 1.5, scale: .65, rotation: 0 },
-      { name: '松树', kind: 'pine', x: -10.4, z: 7.2, width: 1.9, depth: 1.5, scale: .62, rotation: 0 },
-      { name: '松树', kind: 'pine', x: 12.35, z: 2.6, width: 1.9, depth: 1.5, scale: .62, rotation: 0 },
-      { name: '灵石', kind: 'crystal', x: -9.5, z: -8.5, width: 1.1, depth: 1.1, height: 1.35, rotation: 0 },
-      { name: '灵石', kind: 'crystal', x: 7.4, z: 10.3, width: 1.1, depth: 1.1, height: 1.20, rotation: 0 }
+      // cover：小景的占地压到这件原有景物中间多大一块（占它 width/depth 的比例）时，把它收起
+      { name: '松树', kind: 'pine', x: -12.5, z: -.9, width: 1.9, depth: 1.5, scale: .65, rotation: 0, cover: .6 },
+      { name: '松树', kind: 'pine', x: -10.4, z: 7.2, width: 1.9, depth: 1.5, scale: .62, rotation: 0, cover: .6 },
+      { name: '松树', kind: 'pine', x: 12.35, z: 2.6, width: 1.9, depth: 1.5, scale: .62, rotation: 0, cover: .6 },
+      { name: '灵石', kind: 'crystal', x: -9.5, z: -8.5, width: 1.1, depth: 1.1, height: 1.35, rotation: 0, cover: .9 },
+      { name: '灵石', kind: 'crystal', x: 7.4, z: 10.3, width: 1.1, depth: 1.1, height: 1.20, rotation: 0, cover: .9 }
     ].map(Object.freeze))
   });
   const validDecorIds = ids => Array.isArray(ids) && ids.length <= JOURNEY_LIMITS.equippedDecorations
@@ -210,15 +216,35 @@
     });
     return { x: entry.x, z: entry.z, axes, half, corners };
   }
-  function decorBoxesOverlap(a, b) {
+  function decorBoxesOverlap(a, b, clearance = DECOR_LAYOUT_RULES.clearance) {
     const dot = (u, v) => u.x * v.x + u.z * v.z, offset = { x: b.x - a.x, z: b.z - a.z };
     return [...a.axes, ...b.axes].every(axis => {
       const reach = box => Math.abs(dot(box.axes[0], axis)) * box.half[0] + Math.abs(dot(box.axes[1], axis)) * box.half[1];
-      return Math.abs(dot(offset, axis)) < reach(a) + reach(b) + DECOR_LAYOUT_RULES.clearance - 1e-8;
+      return Math.abs(dot(offset, axis)) < reach(a) + reach(b) + clearance - 1e-8;
     });
   }
   const DECOR_FIELD_BOX = decorBox({ x: 0, z: 0, rotation: 0 }, { width: 13.7, depth: 13.7 });
-  const DECOR_OBSTACLE_BOXES = DECOR_LAYOUT_RULES.obstacles.map(item => ({ name: item.name, box: decorBox(item, item) }));
+  const DECOR_OBSTACLE_BOXES = DECOR_LAYOUT_RULES.obstacles.map(item => ({ name: item.name, box: decorBox(item, item),
+    cover: decorBox(item, { width: item.width * (item.cover || 1), depth: item.depth * (item.cover || 1) }) }));
+  // 小景之间只比中间这一块：两件可以挨着、檐角树冠略有交叠，但不能叠在同一处
+  const decorCoreBox = entry => {
+    const size = DECOR_LAYOUT_RULES.footprints[entry.id], scale = DECOR_LAYOUT_RULES.overlapCore;
+    return decorBox(entry, { width: size.width * scale, depth: size.depth * scale });
+  };
+  // 原有的松树、灵石里，哪几件被这份布置压住了（按 DECOR_LAYOUT_RULES.obstacles 的次序返回 true/false）；渲染层据此把它们收起
+  function coveredDecorObstacles(layout) {
+    const boxes = (Array.isArray(layout) ? layout : []).filter(entry => isRecord(entry) && DECOR_LAYOUT_RULES.footprints[entry.id]
+      && ['x', 'z', 'rotation'].every(key => finite(entry[key]))).map(entry => decorBox(entry, DECOR_LAYOUT_RULES.footprints[entry.id]));
+    return DECOR_OBSTACLE_BOXES.map(item => boxes.some(box => decorBoxesOverlap(box, item.cover, 0)));
+  }
+  // 自动找空位用的“整齐”位置：照原来的规矩，不贴边、留缝、不压松树灵石、不和别的小景相叠
+  function decorSpotIsTidy(entry, others) {
+    const tidy = DECOR_LAYOUT_RULES.tidy, box = decorBox(entry, DECOR_LAYOUT_RULES.footprints[entry.id]);
+    if (box.corners.some(point => point.x * point.x + point.z * point.z > tidy.radius ** 2 + 1e-8)) return false;
+    if (decorBoxesOverlap(box, DECOR_FIELD_BOX, tidy.clearance)) return false;
+    if (DECOR_OBSTACLE_BOXES.some(item => decorBoxesOverlap(box, item.box, tidy.clearance))) return false;
+    return !others.some(item => decorBoxesOverlap(box, decorBox(item, DECOR_LAYOUT_RULES.footprints[item.id]), tidy.clearance));
+  }
   function validateDecorLayout(layout, equipped) {
     const reject = (code, message) => ({ ok: false, code, message });
     if (!validDecorIds(equipped) || !Array.isArray(layout) || layout.length !== equipped.length || layout.length > JOURNEY_LIMITS.equippedDecorations)
@@ -234,11 +260,9 @@
         return reject('decor_layout_edge', `「${name}」太靠近仙山边缘，请往草地内侧移一点。`);
       if (decorBoxesOverlap(box, DECOR_FIELD_BOX))
         return reject('decor_layout_field', `「${name}」遮占灵田或引水渠，请放在田园周围的草地上。`);
-      const blocked = DECOR_OBSTACLE_BOXES.find(item => decorBoxesOverlap(box, item.box));
-      if (blocked) return reject('decor_layout_scenery', `「${name}」与${blocked.name}太近，请另选一处空地。`);
-      const occupied = boxes.find(item => decorBoxesOverlap(box, item.box));
-      if (occupied) return reject('decor_layout_overlap', `「${name}」与「${decorationLabel(DECORATION_MAP[occupied.id])}」重叠，请拉开一些距离。`);
-      boxes.push({ id: entry.id, box });
+      const core = decorCoreBox(entry), occupied = boxes.find(item => decorBoxesOverlap(core, item.box));
+      if (occupied) return reject('decor_layout_overlap', `「${name}」与「${decorationLabel(DECORATION_MAP[occupied.id])}」叠在一处了，请稍微拉开一点（可以挨着）。`);
+      boxes.push({ id: entry.id, box: core });
     }
     const byId = new Map(layout.map(item => [item.id, item]));
     return { ok: true, message: '这处布置可以保存。', layout: equipped.map(id => {
@@ -246,8 +270,14 @@
     }) };
   }
   function findDecorPlacement(id, current, preferred) {
-    const tryPlacement = entry => validateDecorLayout([...current, entry], [...current.map(item => item.id), id]).ok ? entry : null;
-    if (preferred && validDecorPlacement(preferred)) { const existing = tryPlacement({ ...preferred, id }); if (existing) return existing; }
+    const ids = [...current.map(item => item.id), id];
+    const fits = entry => validateDecorLayout([...current, entry], ids).ok;
+    // 以前亲手摆过的位置只要现在还合规就原样放回；其余先找整齐的空位，实在没有再按放宽后的规则找
+    if (preferred && validDecorPlacement(preferred)) { const existing = { ...preferred, id }; if (fits(existing)) return existing; }
+    return searchDecorPlacement(id, current, entry => decorSpotIsTidy(entry, current) && fits(entry) ? entry : null)
+      || searchDecorPlacement(id, current, entry => fits(entry) ? entry : null);
+  }
+  function searchDecorPlacement(id, current, tryPlacement) {
     const shopSpot = homesteadCatalog?.getScenery(id)?.preferredSpot;
     if (shopSpot) {
       for (let turn = 0; turn < 360; turn += DECOR_LAYOUT_RULES.rotationStep) {
@@ -1537,7 +1567,7 @@
     if (loadNotice) notify(loadNotice, 'info');
     return api;
   }
-  return Object.freeze({ create, CROPS, REALMS, NEIGHBORS: NEIGHBOR_DEFS, STORAGE_KEY, DEW_MAX, DEW_INTERVAL, NEIGHBOR_INTERVAL, isMature, getGrowthInfo, VERSION, GROWTH_RULES_VERSION, SUPPORTED_VERSIONS, PLOT_COUNT, STARTER_PLOTS, PLOT_UNLOCK_COSTS, WATERINGS_REQUIRED, GROWTH_STAGES, TOOL_CAPACITIES, TOOL_DEFS, PILLS, PILL_MAP, DAILY_LIMITS, BATCH_STEAL_MIN_REALM, dayKey, COMMISSION_PERIODS, JOURNEY_LIMITS, JOURNEY_SEASONS, DECORATIONS, DECOR_REALM_LIMITS, decorationLimitForRealm, RESIDENCES, DECOR_LAYOUT_RULES, getDefaultDecorLayout, validateDecorLayout, ACHIEVEMENTS, STORY_CHAPTERS });
+  return Object.freeze({ create, CROPS, REALMS, NEIGHBORS: NEIGHBOR_DEFS, STORAGE_KEY, DEW_MAX, DEW_INTERVAL, NEIGHBOR_INTERVAL, isMature, getGrowthInfo, VERSION, GROWTH_RULES_VERSION, SUPPORTED_VERSIONS, PLOT_COUNT, STARTER_PLOTS, PLOT_UNLOCK_COSTS, WATERINGS_REQUIRED, GROWTH_STAGES, TOOL_CAPACITIES, TOOL_DEFS, PILLS, PILL_MAP, DAILY_LIMITS, BATCH_STEAL_MIN_REALM, dayKey, COMMISSION_PERIODS, JOURNEY_LIMITS, JOURNEY_SEASONS, DECORATIONS, DECOR_REALM_LIMITS, decorationLimitForRealm, RESIDENCES, DECOR_LAYOUT_RULES, getDefaultDecorLayout, validateDecorLayout, coveredDecorObstacles, ACHIEVEMENTS, STORY_CHAPTERS });
   }
   global.createSpiritGameRuntime = createSpiritGameRuntime;
   if (typeof window !== 'undefined' && global === window) global.SpiritGame = createSpiritGameRuntime(window);
