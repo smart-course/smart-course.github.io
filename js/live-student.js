@@ -2065,11 +2065,26 @@
       group.appendChild(box);
       const button = box.querySelector('.clp-ex-btn');
       const body = box.querySelector('.clp-ex-body');
+      const hint = box.querySelector('.clp-steps-hint');
       let cached = '';
+      // 这一组题都递交以前，按钮锁着（2026-11-22 用户：“放在这组题目都递交后的最后一题就行，这组都递交后学生才能展开”）；每递交一题看一次
+      const groupQs = questions.filter((q) => q.bar && group.contains(q.bar));
+      const paint = () => {
+        if (button.dataset.busy || !body.hidden) return;
+        const done = groupQs.length > 0 && groupQs.every((q) => locked[q.key]);
+        button.disabled = !done;
+        button.classList.toggle('is-locked', !done);
+        button.textContent = done ? '展开四步解析' : '🔒 展开四步解析';
+        hint.textContent = done ? `这一组题都递交了：点开看 Q${number} 的道理怎样按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`
+          : `这一组题都递交以后才能展开：把 Q${number} 的道理按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`;
+      };
+      paint();
+      document.addEventListener('classlive:submitted', paint);
       button.addEventListener('click', async () => {
         if (!body.hidden) { body.hidden = true; button.textContent = '展开四步解析'; return; }
         if (!cached) {
           button.disabled = true;
+          button.dataset.busy = '1';
           button.textContent = '正在读取……';
           let note = '';
           try {
@@ -2085,6 +2100,7 @@
               ? '题目解答还没有开通（老师后台尚未更新）。' : '读取失败：请检查网络后再试。';
           }
           button.disabled = false;
+          delete button.dataset.busy;
           if (!cached) { body.innerHTML = `<p class="clp-ex-note">${esc(note)}</p>`; body.hidden = false; button.textContent = '再试一次'; return; }
         }
         body.innerHTML = cached;
