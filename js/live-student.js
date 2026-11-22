@@ -112,10 +112,11 @@
   .clp-realm.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
   .clp-realm.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; text-shadow: 0 1px 1px rgba(10,60,48,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
   .clp-realm.is-r2 { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 32%, #b8801a 68%, #e8b844); border-color: #7a5208; box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 0 6px rgba(240,194,75,.5); }
-  .clp-realm.is-r3 { color: #f6eaff; background: linear-gradient(160deg, #4b1d8f, #7a3fe0 55%, #3a1673); border-color: #d8b8ff; text-shadow: 0 0 6px rgba(220,190,255,.8); animation: clp-ying 2.4s ease-in-out infinite; }
+  .clp-realm.is-r3 { color: #f8f2ff; background: linear-gradient(180deg, #8a63ea 0%, #5b30b4 46%, #33167c 100%); border-color: #cfb9ff; text-shadow: 0 1px 1px rgba(24,6,60,.75); animation: clp-ying 2.4s ease-in-out infinite; }
   .clp-realm.is-r4 { color: #ffe08a; border: 1px solid transparent; background: linear-gradient(#140d24, #140d24) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
     background-size: 100% 100%, 300% 100%; box-shadow: 0 0 10px rgba(255,214,110,.7); animation: clp-flow 3s linear infinite; }
   .clp-realm.is-r3::before, .clp-realm.is-r4::before { content: '✦'; margin-right: 3px; font-size: .8em; }
+  .clp-realm.is-r3::before { color: #ffe3a1; }
   @keyframes clp-ying { 0%, 100% { box-shadow: 0 0 8px rgba(170,120,255,.7); } 50% { box-shadow: 0 0 16px rgba(190,140,255,1); } }
   @keyframes clp-flow { from { background-position: 0 0, 0% 50%; } to { background-position: 0 0, 300% 50%; } }
   .clp-colors { display: flex; flex-wrap: wrap; align-items: center; gap: 5px; margin: 4px 0 2px; font-size: 13px; color: #6d6259; }
@@ -797,6 +798,12 @@
   .clp-v2.has-color .clp-danmaku input::placeholder { color: #8d82a8; -webkit-text-fill-color: #8d82a8; font-weight: 500; }
   .clp-v2.is-r4.has-color .clp-danmaku input { border-color: #c9a24a; }
   .clp-v2.has-flow .clp-dm-field { background: #140d24; }
+  /* 元婴的樱粉、紫霄“宝光字”（2026-11-22 晚）：输入框里同投屏一样，上亮下深的宝石渐变，每隔几秒扫过一道白光 */
+  .clp-v2.has-gem .clp-danmaku input { background-color: transparent;
+    background-image: linear-gradient(100deg, transparent 40%, rgba(255,255,255,.95) 50%, transparent 60%), var(--clp-dm-gem);
+    background-size: 260% 100%, 100% 100%; background-repeat: no-repeat; background-position: 130% 0, 0 0; -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent; caret-color: #fff; animation: clp-gem-text 3.6s ease-in-out infinite; }
+  @keyframes clp-gem-text { 0% { background-position: 130% 0, 0 0; } 55%, 100% { background-position: -30% 0, 0 0; } }
   .clp-v2.has-flow .clp-danmaku input { background-color: transparent; background-image: var(--clp-dm-flow); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
     color: transparent; -webkit-text-fill-color: transparent; caret-color: #ffe08a; animation: clp-textflow 4s linear infinite; }
   /* 弹幕输入框的境界流光（2026-10-22）：结丹金丹一道金光绕框，元婴紫霄紫、冰蓝两道电光对绕并呼吸发光，化神神光七彩光环旋转、外晕变色。
@@ -5887,7 +5894,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261122c-tidy-pe' : '20261122c-tidy-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261122d-dm-pe' : '20261122d-dm-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6021,7 +6028,7 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.color = color.id;
-      button.style.background = color.flow || color.value;
+      button.style.background = color.gem || color.flow || color.value;
       const open = level >= color.level;   // 还没有境界记录的按炼气：霜白、月银人人可选
       button.disabled = !open;
       button.setAttribute('aria-pressed', String(open && current === color.id));
@@ -6034,8 +6041,10 @@
     const chosen = COLORS.find((color) => color.id === current) || null;
     panel.classList.toggle('has-color', Boolean(chosen));
     panel.classList.toggle('has-flow', Boolean(chosen && chosen.flow));
+    panel.classList.toggle('has-gem', Boolean(chosen && chosen.gem));
     panel.style.setProperty('--clp-dm-color', chosen && chosen.value ? chosen.value : '#e3cfff');
     panel.style.setProperty('--clp-dm-flow', chosen && chosen.flow ? chosen.flow : 'none');
+    panel.style.setProperty('--clp-dm-gem', chosen && chosen.gem ? chosen.gem : 'none');
     if (!dmState.dataset.state) dmState.textContent = chosen ? '输入框里的颜色就是投屏上的字色 · 请文明发言' : DM_HINT;
   }
   // 本人能用的弹幕字色：选过且境界够就用选的，否则用本境界默认色（炼气至结丹没有默认色，不选就是白字）

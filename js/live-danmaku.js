@@ -49,10 +49,14 @@
   const style = document.createElement('style');
   style.textContent = `
   .dm-stage { position: fixed; inset: 52px 0 auto 0; height: calc(58vh + 12px); z-index: 300; overflow: hidden; pointer-events: none; }
-  .dm-item { position: absolute; left: 100%; white-space: nowrap; padding: 4px 16px; border-radius: 22px; color: #fff; background: rgba(32, 28, 24, .55);
+  /* 弹幕配色（2026-11-22 晚 用户：“思考配色如何既能突出不同宗门的特色，又能突出个人境界”）：外圈看宗门，里面看境界——
+     宗门：框外一圈宗门色、前面的宗门徽章（见下面“宗门”一段）；境界：称号牌、姓名、框里的内圈和辉光、元婴以上的特效字。
+     底色是上浅下深的深色玻璃（原来是一层平的灰），金、紫、七彩在上面更显眼 */
+  .dm-item { position: absolute; left: 100%; white-space: nowrap; padding: 4px 16px; border-radius: 22px; color: #fff;
+    background: linear-gradient(180deg, rgba(46, 40, 35, .66), rgba(22, 19, 17, .66)); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .1);
     font: 800 clamp(22px, 2.4vw, 34px)/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; text-shadow: 0 1px 2px rgba(0,0,0,.6);
     will-change: transform; animation: dm-fly var(--dm-duration, 11s) linear forwards; }
-  .dm-item.is-new { background: rgba(164, 73, 45, .78); }
+  .dm-item.is-new { background: linear-gradient(180deg, rgba(182, 86, 54, .84), rgba(138, 56, 33, .84)); }
   /* 表情（2026-11-21，live-stickers.js）：大表情比一行字高，从弹幕条上下探出来，轻轻摇；夹在文字里的是一个字高的小图 */
   .dm-stk { display: inline-block; width: 3em; height: 3em; margin: -.86em -6px -.86em 2px; vertical-align: middle; filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)); animation: dm-stk-bob 1.7s ease-in-out infinite; }
   .dm-stk-in { display: inline-block; width: 1.5em; height: 1.5em; margin: -.3em 2px; vertical-align: middle; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
@@ -68,24 +72,51 @@
   .dm-name.is-r0 { color: #d9d4ca; }
   .dm-name.is-r1 { color: #8fe6c6; }
   .dm-name.is-r2 { color: #ffd36b; text-shadow: 0 0 8px rgba(240,194,75,.55), 0 1px 2px rgba(0,0,0,.6); }
-  .dm-name.is-r3 { color: #dcc2ff; text-shadow: 0 0 8px rgba(170,120,255,.85), 0 1px 2px rgba(0,0,0,.6); }
+  .dm-name.is-r3 { background: linear-gradient(180deg, #ffffff 0%, #f0e8ff 45%, #c9abff 100%); -webkit-background-clip: text; background-clip: text; color: transparent;
+    text-shadow: none; filter: drop-shadow(0 1px 1px rgba(12, 0, 34, .65)) drop-shadow(0 0 6px rgba(150, 100, 255, .8)); }
   .dm-name.is-r4 { background: linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) 0 0 / 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent;
     text-shadow: none; filter: drop-shadow(0 0 5px rgba(255,214,110,.55)); animation: dm-flowtext 4s linear infinite; }
   .dm-title { display: inline-block; margin-right: 6px; padding: 0 10px; border: 1px solid transparent; border-radius: 5px; font: 700 .7em/1.55 'Kaiti SC', 'STKaiti', 'KaiTi', serif; vertical-align: .12em; text-shadow: none; }
   .dm-title.is-r0 { color: #4a443c; background: #d9d4ca; border-color: #b9b1a3; }
   .dm-title.is-r1 { color: #f2fffa; background: linear-gradient(180deg, #9fe3cc, #3fa88d 52%, #2a7d69); border-color: #1f6455; text-shadow: 0 1px 1px rgba(10,60,48,.6); box-shadow: inset 0 1px 0 rgba(255,255,255,.6); }
   .dm-title.is-r2 { color: #3e2400; background: linear-gradient(180deg, #fff3c4, #f2c64f 32%, #b8801a 68%, #e8b844); border-color: #7a5208; box-shadow: inset 0 1px 0 rgba(255,255,255,.85), 0 0 8px rgba(240,194,75,.5); }
-  .dm-title.is-r3 { color: #f6eaff; background: linear-gradient(160deg, #4b1d8f, #7a3fe0 55%, #3a1673); border-color: #d8b8ff; text-shadow: 0 0 6px rgba(220,190,255,.8); box-shadow: 0 0 10px rgba(170,120,255,.8); }
+  /* 元婴称号牌（2026-11-22 晚）：深紫晶（上亮下深，原来是偏荧光的亮紫）、银紫细边、淡金色星，每隔几秒扫过一道光 */
+  .dm-title.is-r3 { position: relative; overflow: hidden; color: #f8f2ff; background: linear-gradient(180deg, #8a63ea 0%, #5b30b4 46%, #33167c 100%); border-color: #cfb9ff;
+    text-shadow: 0 1px 1px rgba(24, 6, 60, .75); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .42), 0 0 10px rgba(140, 90, 255, .62); }
+  .dm-title.is-r3::after { content: ''; position: absolute; inset: 0; pointer-events: none;
+    background: linear-gradient(100deg, transparent 38%, rgba(255, 255, 255, .55) 50%, transparent 62%) 0 0 / 260% 100% no-repeat; animation: dm-gem-sheen 3.6s ease-in-out infinite; }
   .dm-title.is-r4 { color: #ffe08a; background: linear-gradient(#140d24, #140d24) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
     background-size: 100% 100%, 300% 100%; box-shadow: 0 0 14px rgba(255,214,110,.75); animation: dm-flowbg 3s linear infinite; }
   .dm-title.is-r3::before, .dm-title.is-r4::before { content: '✦'; margin-right: 3px; font-size: .8em; }
+  .dm-title.is-r3::before { color: #ffe3a1; }
+  @keyframes dm-gem-sheen { 0% { background-position: 130% 0; } 55%, 100% { background-position: -30% 0; } }
+  @keyframes dm-gem-text { 0% { background-position: 130% 0, 0 0; } 55%, 100% { background-position: -30% 0, 0 0; } }
   @keyframes dm-flowbg { from { background-position: 0 0, 0% 50%; } to { background-position: 0 0, 300% 50%; } }
   @keyframes dm-flowtext { from { background-position: 0% 50%; } to { background-position: 300% 50%; } }
-  @keyframes dm-ying { 0%, 100% { box-shadow: 0 0 0 1.5px rgba(216,184,255,.75), 0 0 14px rgba(150,100,255,.45); } 50% { box-shadow: 0 0 0 1.5px rgba(232,212,255,.95), 0 0 24px rgba(170,120,255,.75); } }
-  /* 元婴：弹幕带紫色辉边；化神：弹幕带流动的七彩边框（与飞行动画并列） */
-  .dm-item.is-r3 { background: rgba(22, 12, 40, .74); animation: dm-fly var(--dm-duration, 11s) linear forwards, dm-ying 2.4s ease-in-out infinite; }
-  .dm-item.is-r4 { border: 2px solid transparent; background: linear-gradient(rgba(14,10,24,.84), rgba(14,10,24,.84)) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b, #ff8fc4) border-box;
-    background-size: 100% 100%, 300% 100%; box-shadow: 0 0 26px rgba(255,200,120,.45); animation: dm-fly var(--dm-duration, 11s) linear forwards, dm-flowbg 4s linear infinite; }
+  @keyframes dm-ying { 0%, 100% { box-shadow: inset 0 0 0 1.5px rgba(206, 184, 255, .85), inset 0 0 12px rgba(150, 100, 255, .4), 0 0 12px rgba(130, 80, 240, .42); }
+    50% { box-shadow: inset 0 0 0 1.5px rgba(238, 226, 255, 1), inset 0 0 22px rgba(170, 125, 255, .66), 0 0 26px rgba(150, 100, 255, .7); } }
+  @keyframes dm-ying-in { 0%, 100% { box-shadow: inset 0 0 0 1.5px rgba(206, 184, 255, .85), inset 0 0 12px rgba(150, 100, 255, .4); }
+    50% { box-shadow: inset 0 0 0 1.5px rgba(238, 226, 255, 1), inset 0 0 22px rgba(170, 125, 255, .66); } }
+  /* 框里的内圈看境界（2026-11-22 晚）：结丹一道细金线；元婴深紫晶底、银紫内线和紫色内光一明一暗（有宗门时外晕让给宗门色）；
+     化神流动的七彩边框（与飞行动画并列） */
+  .dm-item.is-r2 { box-shadow: inset 0 0 0 1px rgba(255, 214, 110, .62), inset 0 1px 0 rgba(255, 240, 200, .3); }
+  .dm-item.is-r3 { background: linear-gradient(180deg, rgba(60, 28, 114, .86), rgba(24, 9, 52, .86)); animation: dm-fly var(--dm-duration, 11s) linear forwards, dm-ying 2.8s ease-in-out infinite; }
+  .dm-item.is-r3.has-sect { animation-name: dm-fly, dm-ying-in; }
+  /* 化神（2026-11-22 晚）：元婴换了紫晶底以后，化神框里也加一层淡淡的七彩光（金、粉、紫、蓝），仍是最华丽的一档 */
+  .dm-item.is-r4 { border: 2px solid transparent;
+    background: linear-gradient(100deg, rgba(255, 211, 107, .2), rgba(255, 143, 196, .17) 32%, rgba(185, 140, 255, .2) 64%, rgba(127, 216, 255, .17)) padding-box,
+      linear-gradient(180deg, rgba(32, 22, 46, .88), rgba(10, 7, 18, .88)) padding-box,
+      linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b, #ff8fc4) border-box;
+    background-size: 100% 100%, 100% 100%, 300% 100%; box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 26px rgba(255,200,120,.45);
+    animation: dm-fly var(--dm-duration, 11s) linear forwards, dm-flowbg3 4s linear infinite; }
+  .dm-item.is-r4.has-sect:not(:hover):not(.is-holding) { box-shadow: inset 0 1px 0 rgba(255, 255, 255, .18), 0 0 14px rgba(255, 200, 120, .3); }
+  @keyframes dm-flowbg3 { from { background-position: 0 0, 0 0, 0% 50%; } to { background-position: 0 0, 0 0, 300% 50%; } }
+  /* 元婴的樱粉、紫霄“宝光字”（2026-11-22 晚）：上亮下深的宝石渐变、细描边和同色辉光，每隔几秒扫过一道白光（比化神的流光字安静） */
+  .dm-gemtext { background-image: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .95) 50%, transparent 60%), var(--dm-gem);
+    background-size: 260% 100%, 100% 100%; background-repeat: no-repeat; background-position: 130% 0, 0 0;
+    -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none;
+    filter: drop-shadow(0 1px 1px rgba(12, 0, 34, .7)) drop-shadow(0 0 7px var(--dm-gem-glow, rgba(146, 96, 255, .7))); animation: dm-gem-text 3.6s ease-in-out infinite; }
+  @media (prefers-reduced-motion: reduce) { .dm-gemtext, .dm-title.is-r3::after { animation: none; } }
   .dm-flowtext { background-size: 300% 100%; -webkit-background-clip: text; background-clip: text; color: transparent; text-shadow: none; filter: drop-shadow(0 0 5px rgba(255,214,110,.55)); animation: dm-flowtext 4s linear infinite; }
   .dm-gifts { position: fixed; inset: 0; z-index: 302; overflow: hidden; pointer-events: none; }   /* 法宝画面的样式在 live-gifts.js */
   /* 恭喜突破：最上方正中一行，3 秒 */
@@ -136,7 +167,9 @@
   .dm-bar select[disabled] { opacity: .5; cursor: default; }
   .dm-bar select.is-off { border-color: #f0b49e; }
   .dm-bar.is-min > :not([data-dm-toggle]) { display: none; }
-  .dm-link { margin: 0 4px; padding: 0 6px; border-radius: 9px; color: #201c18; background: #ffd98a; font-size: .8em; }
+  /* 问题编号（问1 等）：白色描边的小牌（2026-11-22 晚，原来是淡金色底，和结丹的金色称号、金色姓名挤在一起） */
+  .dm-link { margin: 0 4px; padding: 0 7px; border-radius: 9px; color: #fff8ec; background: rgba(255, 255, 255, .14); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .55);
+    font-size: .8em; text-shadow: none; }
   .dm-bubble { padding: 6px 10px; border: 1px solid rgba(35, 101, 95, .28); border-radius: 12px 12px 12px 3px; color: #201c18; background: #fff;
     box-shadow: 0 4px 12px rgba(35, 101, 95, .16); font: 600 15px/1.45 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; overflow-wrap: anywhere; }
   .dm-bubble b { margin-right: 4px; color: #6d6259; }
@@ -258,6 +291,10 @@
   .dm-demo .dm-demo-field.has-color input[type=text] { border-color: #8b5fe0; background: #1d1630; color: var(--dm-color, #e3cfff); font-weight: 700; caret-color: #fff; }
   .dm-demo .dm-demo-field.is-r4.has-color input[type=text] { border-color: #c9a24a; }
   .dm-demo-field.has-flow:not(.is-r2):not(.is-r3):not(.is-r4) { background: #140d24; }
+  .dm-demo .dm-demo-field.has-gem input[type=text] { background-color: transparent;
+    background-image: linear-gradient(100deg, transparent 40%, rgba(255, 255, 255, .95) 50%, transparent 60%), var(--dm-gem);
+    background-size: 260% 100%, 100% 100%; background-repeat: no-repeat; background-position: 130% 0, 0 0; -webkit-background-clip: text; background-clip: text;
+    color: transparent; -webkit-text-fill-color: transparent; caret-color: #fff; animation: dm-gem-text 3.6s ease-in-out infinite; }
   .dm-demo .dm-demo-field.has-flow input[type=text] { background-color: transparent; background-image: var(--dm-flow); background-size: 300% 100%; -webkit-background-clip: text; background-clip: text;
     color: transparent; -webkit-text-fill-color: transparent; caret-color: #ffe08a; animation: dm-demo-textflow 4s linear infinite; }
   .dm-demo-field.is-r2, .dm-demo-field.is-r3, .dm-demo-field.is-r4 { position: relative; isolation: isolate; padding: 2px; overflow: hidden; border-radius: 13px; }
@@ -294,8 +331,9 @@
   @keyframes dm-lord-halo { 0%, 100% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 8px var(--dm-sg), 0 4px 12px rgba(35, 101, 95, .16); }
     50% { box-shadow: 0 0 0 3px var(--dm-sa), 0 0 20px var(--dm-sg), 0 0 30px rgba(224, 169, 46, .45), 0 4px 12px rgba(35, 101, 95, .16); } }
   /* 2026-11-19 加粗加亮：边框 4px 亮色、外晕更大；前面加宗门徽章（见 DM_SECT_TONES） */
+  /* 2026-11-22 晚：外圈不再往里渗光（原来会盖住框里的境界内圈和元婴辉光），外沿一道深一档的细边、内沿一道白色细光，像一圈珐琅 */
   .dm-item.has-sect::before { content: ''; position: absolute; inset: -6px; border: 4px solid var(--dm-sc); border-radius: 28px; pointer-events: none;
-    box-shadow: 0 0 18px var(--dm-sg), 0 0 6px var(--dm-sc), inset 0 0 10px var(--dm-sg); }
+    box-shadow: 0 0 0 1px var(--dm-sk, rgba(0, 0, 0, .35)), 0 0 14px var(--dm-sg), inset 0 0 0 1px rgba(255, 255, 255, .45); }
   .dm-sect-mark { display: inline-flex; align-items: center; justify-content: center; width: 1.32em; height: 1.32em; margin: 0 .38em 0 -.3em; border-radius: 50%;
     background: var(--dm-sc); color: #fff; font-size: .7em; font-style: normal; font-weight: 900; line-height: 1; vertical-align: .14em;
     text-shadow: 0 1px 2px rgba(0, 0, 0, .55); box-shadow: 0 0 0 2px rgba(255, 255, 255, .85), 0 0 10px var(--dm-sg); }
@@ -427,12 +465,14 @@
     title.hidden = anonymous() || !realm;
     // 弹幕字色：发送人自选（每升一个境界多两种，境界不够的选择不算）；大红字配深色底，免得和新弹幕的砖红底撞色
     const color = window.ClassLive.colorFor ? window.ClassLive.colorFor(level, doc.color) : null;
-    if (level >= 3) item.classList.add(`is-r${level}`);
+    if (level >= 2) item.classList.add(`is-r${level}`);   // 框里的内圈：结丹金线、元婴紫晶辉光、化神七彩边框
     if (color && color.id === 'dahong') item.classList.add('is-dahong');
     const body = (text) => {
       const span = document.createElement('span');
       span.className = 'dm-text';
-      if (color && color.flow) { span.classList.add('dm-flowtext'); span.style.backgroundImage = color.flow; } else if (color) span.style.color = color.value;
+      if (color && color.flow) { span.classList.add('dm-flowtext'); span.style.backgroundImage = color.flow; }
+      else if (color && color.gem) { span.classList.add('dm-gemtext'); span.style.setProperty('--dm-gem', color.gem); if (color.glow) span.style.setProperty('--dm-gem-glow', color.glow); }
+      else if (color) span.style.color = color.value;
       if (Stickers) Stickers.fill(span, text, 'dm-stk-in'); else span.textContent = text;
       return span;
     };
@@ -505,6 +545,8 @@
   // 白底上调淡的不透明颜色（宗主弹幕框的流光边框在底色下面，底色不能透明）
   const tintOf = (hex, p) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; const mix = (c) => Math.round(255 + (c - 255) * p);
     return `rgb(${mix((n >> 16) & 255)}, ${mix((n >> 8) & 255)}, ${mix(n & 255)})`; };
+  // 深一档的不透明颜色（宗门外圈外沿的细边）
+  const shadeOf = (hex, k) => { const n = parseInt(String(hex).replace('#', ''), 16) || 0; return `rgb(${Math.round(((n >> 16) & 255) * k)}, ${Math.round(((n >> 8) & 255) * k)}, ${Math.round((n & 255) * k)})`; };
   let sectMap = new Map(), lordSet = new Set(), sectSig = '', activeClasses = null, activeAt = 0;
   // 宗主（2026-11-22 起每周一推选、连任最多两周，由后台定）：读后台定好的本周宗主（ck_sect_leader_list，10 分钟读一次）；
   //   后台还没更新到有这个函数时，照原来的规则在本页算（本宗在读弟子里元婴以上、修为最高）
@@ -563,6 +605,7 @@
     el.style.setProperty('--dm-sa', hexA(tone.color, 0.3));
     el.style.setProperty('--dm-sd', tone.deep);
     el.style.setProperty('--dm-st', tintOf(tone.color, 0.13));
+    el.style.setProperty('--dm-sk', shadeOf(tone.color, 0.5));
     // 宗门徽章（枫、月、犀、星）：颜色之外再用字认宗门（色弱的同学、黑白打印也分得清）
     const mark = document.createElement('i');
     mark.className = 'dm-sect-mark';
@@ -683,9 +726,10 @@
     // 内容框：与学生面板的输入框一样，随境界换边框流光，选了字色就预览字色
     const field = demo.querySelector('[data-demo-field]');
     const chosen = window.ClassLive.colorFor(demoState.level, demoState.color[demoState.level]);
-    field.className = `dm-demo-field is-r${demoState.level}${chosen ? ' has-color' : ''}${chosen && chosen.flow ? ' has-flow' : ''}`;
+    field.className = `dm-demo-field is-r${demoState.level}${chosen ? ' has-color' : ''}${chosen && chosen.flow ? ' has-flow' : ''}${chosen && chosen.gem ? ' has-gem' : ''}`;
     field.style.setProperty('--dm-color', chosen && chosen.value ? chosen.value : '#e3cfff');
     field.style.setProperty('--dm-flow', chosen && chosen.flow ? chosen.flow : 'none');
+    field.style.setProperty('--dm-gem', chosen && chosen.gem ? chosen.gem : 'none');
     const box = demo.querySelector('[data-demo-colors]');
     box.querySelectorAll('button, em').forEach((el) => el.remove());
     const open = DEMO_COLORS.filter((color) => demoState.level >= color.level);
@@ -700,7 +744,7 @@
       const button = document.createElement('button');
       button.type = 'button';
       button.dataset.demoColor = color.id;
-      button.style.background = color.flow || color.value;
+      button.style.background = color.gem || color.flow || color.value;
       button.title = color.name;
       button.setAttribute('aria-label', `字色：${color.name}`);
       button.setAttribute('aria-pressed', String(Boolean(current && current.id === color.id)));
@@ -751,7 +795,7 @@
     }
     if (event.target.closest('[data-demo-all]')) {
       // 每个境界用本境界解锁的两种字色各发一条（炼气霜白、月银 … 化神流金、七彩），文字说明这一境的特色
-      const looks = ['素石称号', '青玉称号', '金丹称号', '紫色辉边', '七彩流光边框'];
+      const looks = ['素石称号', '青玉称号', '金丹称号、框里金线', '紫晶辉光、宝光字', '七彩流光边框'];
       const lines = [];
       REALMS.forEach((realm) => DEMO_COLORS.filter((color) => color.level === realm.level).forEach((color) => {
         lines.push([realm.level, `${color.name}字 · ${realm.name}${realm.level ? '解锁' : '起步可选'}（${looks[realm.level] || realm.name}）`, color.id]);
