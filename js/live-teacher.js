@@ -550,6 +550,11 @@
     $('[data-course-title]').textContent = `${course.title} · ${klass.name}`;
     document.title = `教师工作台 · ${course.title} · ${klass.name}`;
     $('[data-class-name]').textContent = klass.name;
+    // “我的课堂”标题旁的课程、班级标签（2026-11-22 改版，同“选择班级”；配色跟着课程走）
+    const tone = pickOf(course).tone;
+    const toneAttr = tone ? ` data-tone="${esc(tone)}"` : '';
+    $('[data-app-context]').innerHTML = `<span class="tw-course-chip"${toneAttr}>${pickIcon(course, 18)}${esc(course.title)}</span>`
+      + `<span class="tw-course-chip is-class"${toneAttr}>${pickSvg('users', 18)}${esc(klass.name)}</span>`;
     $('[data-class-rooms]').textContent = state.rooms.length;
     $('[data-class-scope]').textContent = scopeText(klass);
     $('[data-class-schedule]').textContent = (window.ClassLivePlanner && window.ClassLivePlanner.summary(klass.schedule)) || '未填写';
@@ -588,16 +593,24 @@
     const wanted = state.rooms.find((room) => String(room.id) === String(preferId)) || current || state.rooms[0];
     selectRoom(wanted);
   }
+  // 课堂小卡片（2026-11-22 改版，同“选择课程”“选择班级”）：状态点（开放中／已结束提交／历史课堂）、课堂名、章节，底部是课堂码和发布日期；
+  // 选中的一张加边框，配色跟着课程走；完整的状态写在 title 里
+  const ROOM_STATE = { 'is-live': '开放中', 'is-closed': '已结束提交', 'is-past': '历史课堂' };
   function renderRoomList() {
+    const tone = pickOf(course).tone;
     $('[data-room-list]').innerHTML = state.rooms.map((room) => {
       const status = roomStatus(room);
       const active = state.room && String(state.room.id) === String(room.id);
       const day = isoDay(millis(room.created_at));
-      return `<div class="tw-class-item tw-room-item"><button type="button" class="tw-course${active ? ' is-current' : ''}" data-room="${esc(room.id)}" aria-pressed="${active}">
-        <small class="${status.cls}">${esc(status.text)}</small>
-        <strong>${esc(room.name)}</strong>
-        <span>${esc(chapterLabel(room))} · ${esc(room.code)}${day ? ` · ${day}` : ''}</span>
-      </button><button type="button" class="tw-trash" data-room-delete="${esc(room.id)}" title="删除本堂课" aria-label="删除课堂 ${esc(room.name)}">${TRASH_ICON}</button></div>`;
+      const label = chapterLabel(room);
+      const sub = label.startsWith(`${room.name} `) ? label.slice(room.name.length + 1) : label;   // 课堂名就是“第四章”时，章节名不再重复“第四章”
+      return `<div class="tw-class-item tw-room-item">
+        <button type="button" class="tw-room-card ${status.cls}${active ? ' is-current' : ''}" data-room="${esc(room.id)}" aria-pressed="${active}"${tone ? ` data-tone="${esc(tone)}"` : ''} title="${esc(status.text)}">
+          <span class="tw-room-card-state"><i aria-hidden="true"></i>${esc(ROOM_STATE[status.cls] || status.text)}</span>
+          <strong>${esc(room.name)}</strong>
+          <span class="tw-room-card-sub">${esc(sub)}</span>
+          <span class="tw-room-card-meta"><code>${esc(room.code)}</code>${day ? `<span>${esc(day)}</span>` : ''}</span>
+        </button><button type="button" class="tw-trash" data-room-delete="${esc(room.id)}" title="删除本堂课" aria-label="删除课堂 ${esc(room.name)}">${TRASH_ICON}</button></div>`;
     }).join('');
   }
   const roomNotice = (text) => { $('[data-room-notice]').textContent = text || ''; };

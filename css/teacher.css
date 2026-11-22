@@ -252,9 +252,9 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
   overflow: hidden; border: 1px solid var(--line); border-radius: 16px; background: var(--white); box-shadow: var(--shadow);
   color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: transform .18s ease, box-shadow .18s ease, border-color .18s ease; }
 .tw-course-chip { --tone: var(--rust); --tone-ink: var(--rust); --tone-soft: var(--rust-soft); }
-.tw-pick[data-tone="teal"], .tw-course-chip[data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); }
-.tw-pick[data-tone="gold"], .tw-course-chip[data-tone="gold"] { --tone: var(--gold); --tone-ink: #84601f; --tone-soft: #f5ecd9; }
-.tw-pick[data-tone="slate"], .tw-course-chip[data-tone="slate"] { --tone: #3f5f86; --tone-ink: #3a5779; --tone-soft: #e6edf4; }
+.tw-pick[data-tone="teal"], .tw-course-chip[data-tone="teal"], .tw-room-card[data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); }
+.tw-pick[data-tone="gold"], .tw-course-chip[data-tone="gold"], .tw-room-card[data-tone="gold"] { --tone: var(--gold); --tone-ink: #84601f; --tone-soft: #f5ecd9; }
+.tw-pick[data-tone="slate"], .tw-course-chip[data-tone="slate"], .tw-room-card[data-tone="slate"] { --tone: #3f5f86; --tone-ink: #3a5779; --tone-soft: #e6edf4; }
 .tw-pick::before { content: ""; position: absolute; inset: 0 0 auto; height: 4px; background: var(--tone); }
 .tw-pick:hover { transform: translateY(-2px); border-color: var(--tone); border-color: color-mix(in srgb, var(--tone) 45%, transparent); box-shadow: 0 16px 32px rgba(53, 38, 24, .13); }
 .tw-pick:focus-visible { outline: none; border-color: var(--tone); box-shadow: var(--shadow), 0 0 0 3px var(--tone-soft); }
@@ -1308,3 +1308,65 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-lt-beh-log li { display: grid; grid-template-columns: 5.6em minmax(0, 1fr) auto; gap: 10px; padding: 5px 0; border-bottom: 1px dashed rgba(70, 51, 34, .14); }
 .tw-lt-beh-log time { color: var(--muted); }
 .tw-lt-beh-log b { font-variant-numeric: tabular-nums; }
+
+/* ---------- 我的课堂（2026-11-22 改版，同“选择课程”“选择班级”）：标题旁的课程、班级标签；课堂小卡片；当前课堂大卡片；学生入口；四项统计 ---------- */
+.tw-head h1 small:has(.tw-course-chip) { font-size: inherit; }
+.tw-head h1 .tw-course-chip { margin-left: 10px; }
+.tw-head h1 .tw-course-chip + .tw-course-chip { margin-left: 8px; }
+.tw-course-chip.is-class { background: var(--white); color: var(--ink); box-shadow: inset 0 0 0 1px var(--line); }
+/* 课堂小卡片 */
+.tw-room-list { grid-template-columns: repeat(auto-fill, minmax(220px, 1fr)); gap: 12px; margin: 0 0 10px; }
+.tw-room-card { --tone: var(--rust); --tone-ink: var(--rust); --tone-soft: var(--rust-soft);
+  display: flex; flex-direction: column; align-items: stretch; justify-content: flex-start; gap: 3px; width: 100%; height: 100%; margin: 0; padding: 13px 44px 12px 15px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--white); box-shadow: 0 4px 14px rgba(53, 38, 24, .06);
+  color: var(--ink); text-align: left; font: inherit; cursor: pointer; transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+.tw-room-card:hover { transform: translateY(-1px); border-color: var(--tone); border-color: color-mix(in srgb, var(--tone) 40%, transparent); box-shadow: 0 10px 22px rgba(53, 38, 24, .1); }
+.tw-room-card:focus-visible { outline: none; border-color: var(--tone); box-shadow: 0 0 0 3px var(--tone-soft); }
+.tw-room-card.is-current { border-color: var(--tone); background: linear-gradient(180deg, var(--tone-soft), var(--white) 72%); box-shadow: inset 0 0 0 1px var(--tone), 0 8px 20px rgba(53, 38, 24, .08); }
+.tw-room-card-state { display: inline-flex; align-items: center; gap: 7px; color: var(--muted); font-size: 12.5px; font-weight: 700; line-height: 1.5; }
+.tw-room-card-state i { flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: #cbbfb3; }
+.tw-room-card.is-live .tw-room-card-state { color: #1f7a4d; }
+.tw-room-card.is-live .tw-room-card-state i { background: #2f9e6a; box-shadow: 0 0 0 3px rgba(47, 158, 106, .16); }
+.tw-room-card.is-closed .tw-room-card-state { color: #8a5a12; }
+.tw-room-card.is-closed .tw-room-card-state i { background: #d99a2b; box-shadow: 0 0 0 3px rgba(217, 154, 43, .18); }
+.tw-room-card strong { margin-top: 2px; font-size: 17px; font-weight: 800; line-height: 1.35; }
+.tw-room-card.is-past strong { color: #4a413a; }
+.tw-room-card-sub { display: -webkit-box; overflow: hidden; color: var(--muted); font-size: 13px; line-height: 1.5; -webkit-line-clamp: 2; -webkit-box-orient: vertical; }
+.tw-room-card-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; margin-top: auto; padding-top: 8px; color: var(--muted); font-size: 12.5px; }
+.tw-room-card-meta code { padding: 1px 7px; border-radius: 6px; background: var(--paper); color: var(--ink); font: 700 12.5px/1.6 ui-monospace, "SF Mono", Menlo, Consolas, monospace; letter-spacing: .06em; }
+.tw-room-item .tw-trash { top: 9px; right: 8px; }
+/* 当前课堂大卡片：圆角加大、右上角一点光；课堂码放进半透明的面板 */
+.tw-room { position: relative; overflow: hidden; gap: 24px; padding: 26px 28px; border-radius: 18px;
+  background: radial-gradient(120% 140% at 100% 0%, rgba(255, 255, 255, .10), transparent 55%), linear-gradient(135deg, #1b4a45, #23655f 60%, #2a7068);
+  box-shadow: 0 14px 34px rgba(29, 79, 74, .22); }
+.tw-room h2 { font-size: 28px; letter-spacing: .02em; }
+.tw-room [data-room-chapter] { max-width: 780px; line-height: 1.65; }
+.tw-room-code { padding: 16px 18px; border: 1px solid rgba(255, 255, 255, .16); border-radius: 16px; background: rgba(255, 255, 255, .07); box-shadow: inset 0 1px 0 rgba(255, 255, 255, .08); }
+.tw-room-code b { font-size: 46px; letter-spacing: .14em; text-shadow: 0 2px 10px rgba(0, 0, 0, .18); }
+.tw-room-code small { margin-top: 2px; }
+/* 学生入口：一条白色的链接栏 */
+[data-room-area] > .tw-link { margin: 12px 0 16px; padding: 5px 6px 5px 14px; border: 1px solid var(--line); border-radius: 12px; background: var(--white); color: var(--muted); font-size: 13.5px; font-weight: 700; white-space: nowrap; }
+[data-room-area] > .tw-link input { min-width: 0; padding: 7px 6px; border: 0; background: transparent; color: var(--ink); font: 500 13.5px/1.4 ui-monospace, "SF Mono", Menlo, Consolas, monospace; }
+[data-room-area] > .tw-link input:focus { outline: none; }
+/* 四项统计：排成一条，各带图标 */
+.tw-room-stats { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 14px; margin: 0 0 18px; }
+.tw-room-stats .tw-stat { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 14px; min-width: 0; padding: 16px 18px; border-radius: 14px; }
+.tw-room-stats .tw-stat-ico { grid-row: 1 / 3; display: grid; place-items: center; width: 46px; height: 46px; border-radius: 13px; background: var(--teal-soft); color: var(--teal); }
+.tw-room-stats .tw-stat b { align-self: end; color: var(--ink); font-size: 32px; line-height: 1.05; font-variant-numeric: tabular-nums; }
+.tw-room-stats .tw-stat span { align-self: start; color: var(--muted); font-size: 13.5px; font-weight: 700; }
+.tw-room-stats .tw-stat.is-done .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
+.tw-room-stats .tw-stat.is-wait .tw-stat-ico { background: #fbefdb; color: #8a5a12; }
+.tw-room-stats .tw-stat.is-chat .tw-stat-ico { background: var(--rust-soft); color: var(--rust); }
+@media (max-width: 760px) {
+  .tw-head h1 .tw-course-chip { margin: 6px 6px 0 0; }
+  .tw-room { padding: 22px 20px; }
+  .tw-room-code b { font-size: 38px; }
+  .tw-room-stats { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tw-room-stats .tw-stat { padding: 12px 14px; column-gap: 10px; }
+  .tw-room-stats .tw-stat-ico { width: 38px; height: 38px; }
+  .tw-room-stats .tw-stat b { font-size: 26px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-room-card { transition: none; }
+  .tw-room-card:hover { transform: none; }
+}
