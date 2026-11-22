@@ -2,7 +2,7 @@
  * 结束提交、重新发布；查看加入名单、弹幕，以及作答情况：
  *   章节案例课程（case-html）：投票与选择、文字作答；
  *   概念学习课程（concept-html，如《政治经济学》）：作业情况（逐题分布与正确率）、学生作答（逐人批阅）。
- * 导出 CSV；学期末清空。页面需先设置 window.CLASS_LIVE_CONFIG、window.TEACHER_DATA，并加载 live-core.js。
+ * 导出 CSV（数据一直保留，学期结束也不清空）。页面需先设置 window.CLASS_LIVE_CONFIG、window.TEACHER_DATA，并加载 live-core.js。
  */
 (function () {
   'use strict';
@@ -283,6 +283,39 @@
   }
 
   // ---------------- 选择课程 ----------------
+  // 2026-11-22 改版（用户：“把截图这个界面做得更美观一些吧，不一定要显示开放中的课堂”）：按 courses.config.json 的 picker.group 分组
+  // （本科课程、研究生课程），每门课一张卡片：图标、类型、课程名、几项规模；底部只写开放中的课堂有几个，不再列出课堂名和课堂码。
+  const PICK_ICONS = {
+    book: '<path d="M12 6.6C10.2 5.3 7.6 4.7 4 4.9v13.3c3.6-.2 6.2.4 8 1.8 1.8-1.4 4.4-2 8-1.8V4.9c-3.6-.2-6.2.4-8 1.7z"/><path d="M12 6.6V20"/>',
+    bulb: '<path d="M9.2 17.5h5.6M10.2 20.5h3.6"/><path d="M12 3.5a5.8 5.8 0 0 0-3.4 10.5c.6.5 1 1.2 1 2v1.5h4.8V16c0-.8.4-1.5 1-2A5.8 5.8 0 0 0 12 3.5z"/>',
+    bank: '<path d="M3.5 9 12 4l8.5 5"/><path d="M5 9.5h14"/><path d="M6.8 9.5v7.5M10.3 9.5v7.5M13.7 9.5v7.5M17.2 9.5v7.5"/><path d="M4.5 17.5h15M3.5 20.5h17"/>',
+    scale: '<path d="M12 3.5v17M8 20.5h8M4.5 7h15"/><path d="M4.5 7 2 13a2.5 2.5 0 0 0 5 0z"/><path d="M19.5 7 17 13a2.5 2.5 0 0 0 5 0z"/>',
+    calendar: '<rect x="3.5" y="5" width="17" height="15.5" rx="2.5"/><path d="M3.5 10h17M8 3v4M16 3v4"/>',
+  };
+  const pickOf = (item) => item.picker || {};
+  const pickIcon = (item) => {
+    const name = pickOf(item).icon || (item.flavor === 'session' ? 'calendar' : item.kind === 'concept-html' ? 'bulb' : 'book');
+    return `<svg viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round">${PICK_ICONS[name] || PICK_ICONS.book}</svg>`;
+  };
+  // 规模：副标题去掉第一段（课程类别）；按章节、按案例的课再加上单元数（与副标题重复的不加），按次上课的课副标题里已经有“几次课”
+  const pickFacts = (item) => {
+    const facts = String(pickOf(item).subtitle || '').split('·').map((part) => part.trim()).filter(Boolean).slice(1);
+    const units = `${item.chapters.length} 个${item.unit_label || '章节'}`;
+    if (item.flavor !== 'session' && !facts.includes(units)) facts.unshift(units);
+    return facts;
+  };
+  const pickCard = (item) => {
+    const current = !mustPick && item.slug === course.slug;
+    const tone = pickOf(item).tone;
+    return `
+      <button type="button" class="tw-pick${current ? ' is-current' : ''}" data-course="${esc(item.slug)}"${tone ? ` data-tone="${esc(tone)}"` : ''}>
+        <span class="tw-pick-top"><span class="tw-pick-icon" aria-hidden="true">${pickIcon(item)}</span>${current ? '<span class="tw-pick-now">当前课程</span>' : ''}</span>
+        <span class="tw-pick-kind">${esc(item.kind_label || (item.kind === 'concept-html' ? '概念学习案例' : '章节案例'))}</span>
+        <strong class="tw-pick-title">${esc(item.title)}</strong>
+        <span class="tw-pick-facts">${pickFacts(item).map((fact) => `<span>${esc(fact)}</span>`).join('')}</span>
+        <span class="tw-pick-foot"><span class="tw-pick-live" data-course-room>正在读取课堂……</span><span class="tw-pick-go">进入<b aria-hidden="true">→</b></span></span>
+      </button>`;
+  };
   function showPicker() {
     $('[data-app]').hidden = true;
     $('[data-class-picker]').hidden = true;
@@ -290,22 +323,26 @@
     updateNav('course');
     if (!state.started) setLive('请选择课程');
     const list = $('[data-course-list]');
-    list.innerHTML = DATA.courses.map((item) => `
-      <button type="button" class="tw-course${!mustPick && item.slug === course.slug ? ' is-current' : ''}" data-course="${esc(item.slug)}">
-        <small>${item.kind_label || (item.kind === 'concept-html' ? '概念学习案例' : '章节案例')} · 共 ${item.chapters.length} 个${esc(item.unit_label || '章节')}${!mustPick && item.slug === course.slug ? ' · 正在使用' : ''}</small>
-        <strong>${esc(item.title)}</strong>
-        <span data-course-room>正在读取当前课堂……</span>
-      </button>`).join('');
+    const groups = [];
+    DATA.courses.forEach((item) => {
+      const name = pickOf(item).group || '';
+      let group = groups.find((entry) => entry.name === name);
+      if (!group) groups.push(group = { name, items: [] });
+      group.items.push(item);
+    });
+    list.innerHTML = groups.map((group) => `
+      <section class="tw-pick-group">
+        ${group.name ? `<h2 class="tw-pick-group-title">${esc(group.name)}<small>${group.items.length} 门</small></h2>` : ''}
+        <div class="tw-pick-grid">${group.items.map(pickCard).join('')}</div>
+      </section>`).join('');
     DATA.courses.forEach(async (item) => {
       const label = list.querySelector(`[data-course="${item.slug}"] [data-course-room]`);
       try {
-        const rooms = await backend.fetchAll('classrooms', { course: item.slug });
-        const current = rooms.filter((room) => room.is_current);
-        label.textContent = current.length
-          ? `开放中的课堂：${current.map((room) => `${room.name}（${room.code}）`).join('、')}`
-          : `暂无开放中的课堂${rooms.length ? `（历史课堂 ${rooms.length} 个）` : ''}`;
+        const open = (await backend.fetchAll('classrooms', { course: item.slug })).filter((room) => room.is_current).length;
+        label.textContent = open ? `${open} 个课堂开放中` : '暂无开放中的课堂';
+        label.classList.toggle('is-on', open > 0);
       } catch (error) {
-        label.textContent = '无法读取课堂信息';
+        label.textContent = '课堂情况暂时读不到';
       }
     });
   }
