@@ -162,10 +162,12 @@
     });
   }
 
-  let rules = null;
+  let rules = null, lastProfile = null;
   async function afterBoot(engine) {
     let profile = null;
     try { const out = await request('/api/profile'); profile = out && out.status === 200 ? out.body : null; } catch (error) { profile = null; }
+    // 2026-11-22 进修模块：资料里带了头像和静修衣装，交给 focus-host.js 画左上角头像（不用再读一次）
+    if (profile) { lastProfile = profile; try { global.dispatchEvent(new CustomEvent('lingtian:profile', { detail: profile })); } catch (error) { /* 忽略 */ } }
     if (profile) {
       rules = profile.rules || null;
       if (rules && rules.alias) aliasRule = rules.alias;
@@ -280,5 +282,5 @@
     });
   }
 
-  global.LingtianBridge = { request, explain, goBack, afterBoot, onQuiz, askAlias, get rules() { return rules; }, room };
+  global.LingtianBridge = { request, explain, goBack, afterBoot, onQuiz, askAlias, get rules() { return rules; }, get profile() { return lastProfile; }, room };
 })(window);

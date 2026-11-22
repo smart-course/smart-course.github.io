@@ -710,7 +710,8 @@
   }
   function noteNavigation() { ++dialogNavigationRevision; ++visitViewRequest; }
   function isGardenCovered() {
-    return document.body.classList.contains('game-booting') || !!cardsUI?.isOpen();
+    // 智慧课堂 2026-11-22：静修（进修模块，focus-host.js）打开时也算盖住，3D 场景暂停
+    return document.body.classList.contains('game-booting') || !!cardsUI?.isOpen() || document.body.dataset.focusOpen === '1';
   }
   let exhibitHintShown = false;
   function renderStudyDecor() {
@@ -1502,10 +1503,16 @@
   } else revealGarden();
   farmUI.initialize();
   void engine.loadStudy?.();
+  // 智慧课堂 2026-11-22：进修（静修）模块的宿主接口（focus-host.js）——账号与道号（engine）、提示条、打开/关闭静修时暂停/恢复灵田渲染
+  window.LingtianHost = Object.freeze({
+    get engine(){return engine;},
+    toast,
+    syncRendering(){syncGardenRendering();if(document.body.dataset.focusOpen!=='1'&&!document.hidden){engine.tick();render(true);}},
+  });
   let neighborTick = 0;
-  const timer = setInterval(() => { if (document.hidden) return; engine.tick(); render(false); if (++neighborTick % 4 === 0) renderNeighbors(); },1000);
+  const timer = setInterval(() => { if (document.hidden || document.body.dataset.focusOpen === '1') return; engine.tick(); render(false); if (++neighborTick % 4 === 0) renderNeighbors(); },1000);
   function resumeGarden(){
-    if(document.hidden)return;
+    if(document.hidden || document.body.dataset.focusOpen === '1')return;
     // Wake a suspended phone tab from a fresh server snapshot; season progress
     // is still derived from the original saved origin, never from this event.
     if(engine.online)void engine.refresh({settlePending:false});

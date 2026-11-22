@@ -1,0 +1,54 @@
+/* 云间灵田 · 进修（静修）入口的样式（2026-11-22，focus-host.js）：底栏“静修”、左上角头像镜像、选择化身的弹窗。
+   静修界面本身的样式在 focus-1.0.0/frontend/focus/focus.css（独立作用域 .focus-root，不影响灵田） */
+
+/* 底栏第十个入口：手机竖屏时原来按九格平分，这里改按十格 */
+@media (max-width: 600px) and (orientation: portrait) {
+  .game-app .game-dock button { --dock-cell: min(40px, calc((100vw - var(--hud-left) - var(--hud-right) - 8px) / 10)); }
+}
+.game-app .game-dock button[data-focus-open-entry][aria-busy="true"] .dock-icon { animation: fh-breathe 1s ease-in-out infinite; }
+@keyframes fh-breathe { 50% { opacity: .55; } }
+
+/* 打开静修时：灵田的提示条照常在最上层（popover）；灵田的底栏、头像等被静修的全屏界面盖住，读屏也不再读到 */
+html.fh-focus-open body.game-app > :is(.game-hud, .game-dock, .game-quest-peek, .game-guard-resume, .app-layout) { visibility: hidden; }
+
+/* 左上角头像：选过化身以后显示静修里的当前穿戴（境界字仍在，只是藏在头像后面，境界名照旧写在道号下面） */
+.game-app .game-avatar.has-fh-portrait { position: relative; overflow: hidden; background: #e9ecd9; }
+.game-app .game-avatar.has-fh-portrait > #hud-realm-glyph { visibility: hidden; }
+.fh-hud-portrait { position: absolute; inset: 0; display: block; border-radius: 50%; overflow: hidden; pointer-events: none; }
+.fh-hud-portrait .fx-companion-avatar { width: 100%; height: 100%; }
+.fh-hud-portrait .fx-companion-atlas { transform: scale(1.65); transform-origin: 50% 25%; }
+
+/* 选择化身（原生模态 dialog：处在浏览器顶层，盖在静修界面之上） */
+.fh-picker { position: fixed; inset: 0; z-index: 2147483000; display: grid; place-items: center; padding: 18px;
+  width: 100%; height: 100%; max-width: none; max-height: none; margin: 0; border: 0; box-sizing: border-box; color: inherit;
+  background: rgba(35, 48, 40, .42); backdrop-filter: blur(3px); -webkit-backdrop-filter: blur(3px); }
+dialog.fh-picker:not([open]) { display: none; }
+dialog.fh-picker::backdrop { background: transparent; }
+.fh-card { width: min(100%, 560px); max-height: calc(100dvh - 36px); overflow: auto; padding: 24px 24px 20px; border-radius: 22px;
+  background: #fffdf5; border: 1px solid #dedfcb; box-shadow: 0 28px 90px rgba(34, 52, 42, .28); color: #344b43;
+  font-family: "PingFang SC", "Microsoft YaHei", system-ui, sans-serif; }
+.fh-eyebrow { margin: 0; font-size: 11px; letter-spacing: 3px; color: #aa8a4f; }
+.fh-card h2 { margin: 8px 0 8px; font: 600 22px/1.45 "Noto Serif SC", "Songti SC", "STSong", serif; color: #365e50; }
+.fh-note { margin: 0 0 14px; font-size: 13px; line-height: 1.8; color: #6f7462; text-wrap: pretty; }
+.fh-avatars { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 10px; }
+.fh-avatar { display: grid; justify-items: center; gap: 6px; padding: 10px 6px 9px; border: 1.5px solid #dedfcb; border-radius: 16px; background: #fbfaf2;
+  color: #344b43; font: inherit; cursor: pointer; transition: border-color .15s ease, background .15s ease, transform .15s ease; }
+.fh-avatar:hover { border-color: #8fae94; transform: translateY(-1px); }
+.fh-avatar[aria-pressed="true"] { border-color: #4e7967; background: #e8f1e6; box-shadow: inset 0 0 0 2px #fffdf5, 0 0 0 2px rgba(78, 121, 103, .25); }
+.fh-avatar b { font-size: 13px; font-weight: 600; white-space: nowrap; }
+.fh-avatar-face { display: block; width: 76px; height: 76px; border-radius: 50%; overflow: hidden; background: #e9ecd9; }
+.fh-avatar-face .fx-companion-atlas { transform: scale(1.65); transform-origin: 50% 25%; }
+.fh-gender { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin-top: 14px; font-size: 13px; color: #6f7462; }
+.fh-gender > span { margin-right: 2px; }
+.fh-gender button { min-width: 52px; min-height: 34px; padding: 4px 12px; border: 1px solid #cfd6c0; border-radius: 999px; background: #fff; color: #344b43; font: inherit; cursor: pointer; }
+.fh-gender button[aria-checked="true"] { border-color: #4e7967; background: #4e7967; color: #fffdf5; }
+.fh-status { min-height: 20px; margin: 12px 0 0; font-size: 13px; line-height: 1.8; color: #9b4f2c; }
+.fh-actions { display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 10px; margin-top: 12px; }
+.fh-btn { min-height: 42px; padding: 8px 18px; border: 1px solid #cfd6c0; border-radius: 12px; background: #fff; color: #365e50; font: inherit; font-size: 14px; font-weight: 600; cursor: pointer; }
+.fh-btn.fh-primary { border-color: #4e7967; background: linear-gradient(180deg, #5d8a74, #4e7967); color: #fffdf5; }
+.fh-btn:disabled { opacity: .6; cursor: default; }
+@media (max-width: 520px) {
+  .fh-avatars { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+  .fh-card { padding: 20px 16px 16px; }
+}
+@media (prefers-reduced-motion: reduce) { .fh-avatar { transition: none; } .game-app .game-dock button[data-focus-open-entry][aria-busy="true"] .dock-icon { animation: none; } }

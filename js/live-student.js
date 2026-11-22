@@ -262,7 +262,9 @@
     border: 1px solid rgba(140,32,24,.38); border-radius: 999px; background: rgba(255,253,248,.96); color: #8c2018; box-shadow: 0 6px 18px rgba(34,26,20,.16);
     font-family: -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
   .clp-pv-btn:hover, .clp-pv-btn:focus-visible, .clp-pv-btn[aria-expanded="true"] { border-color: #8c2018; outline: none; }
-  .clp-pv-btn b { display: grid; place-items: center; width: 22px; height: 22px; border-radius: 50%; background: #8c2018; color: #fff4e0; font-size: 12.5px; }
+  .clp-pv-btn b { display: grid; place-items: center; flex: none; width: 22px; height: 22px; border-radius: 50%; background: linear-gradient(135deg, #a8342a, #8c2018); color: #fff4e0; font-size: 12.5px;
+    box-shadow: 0 2px 6px rgba(140, 32, 24, .3); }
+  .clp-pv-btn span { white-space: nowrap; }
   .clp-pv-btn.is-warn::after { content: ''; position: absolute; top: -2px; right: -2px; width: 10px; height: 10px; border-radius: 50%; background: #d4452c; box-shadow: 0 0 0 2px #fffdf8; }
   @media (max-width: 900px) { .clp-pv-btn span { display: none; } .clp-pv-btn { padding: 6px 9px; } }
   .clp-pv-pop { position: fixed; z-index: 2147482990; right: 18px; bottom: 220px; box-sizing: border-box; width: min(340px, calc(100vw - 24px)); padding: 14px 16px 14px;
@@ -2452,6 +2454,41 @@
     }
   }
 
+  // ---------- 右下角“使用说明”不压住“返回顶部”箭头（2026-11-22 深夜 用户：“再稍微放上去一些，不要挡住返回顶部的那个向上箭头”）----------
+  //   习经学生页的“使用说明”在 bottom: 66px，箭头随字号放大后（49px）上沿到 69px，压住了箭头；政经离得也只有几像素。
+  //   按箭头实际的上沿把“使用说明”抬到它上面 12px（测试页的“测试页”按钮再叠在“使用说明”上面）。按钮、箭头都随字号档位变大，所以每次现量；
+  //   箭头隐藏时会往下挪一点，按 CSS 的 bottom 算显示时的位置；手机上两者横向不重叠、或页面样式写死了位置（!important）时不动
+  const CORNER_GAP = 12;
+  function liftGuide() {
+    const guide = document.querySelector('.guide-toggle, .peg-toggle');
+    if (!guide) return null;
+    guide.style.removeProperty('bottom');   // 先回到页面原来的位置再量
+    const arrow = document.querySelector('.back-to-top, body > .back-top');
+    const g = getComputedStyle(guide);
+    const gr = guide.getBoundingClientRect();
+    if (!arrow || g.position !== 'fixed' || !gr.width) return guide;
+    const a = getComputedStyle(arrow);
+    if (a.position !== 'fixed') return guide;
+    const ar = arrow.getBoundingClientRect();
+    const border = (parseFloat(a.borderTopWidth) || 0) + (parseFloat(a.borderBottomWidth) || 0);
+    const arrowH = ar.height || ((parseFloat(a.height) || 0) + (a.boxSizing === 'border-box' ? 0 : border));   // 政经的箭头没滚动时是 display: none，按样式里的高度算
+    const arrowW = ar.width || arrowH;
+    if (!arrowH) return guide;
+    const arrowLeft = window.innerWidth - (parseFloat(a.right) || 0) - arrowW;
+    if (gr.right <= arrowLeft) return guide;
+    const need = Math.ceil((parseFloat(a.bottom) || 0) + arrowH + CORNER_GAP);
+    if ((parseFloat(g.bottom) || 0) < need) guide.style.bottom = `${need}px`;
+    return guide;
+  }
+  {
+    const guide = liftGuide();
+    if (guide) {
+      window.addEventListener('resize', liftGuide);
+      window.addEventListener('load', liftGuide);
+      if (window.ResizeObserver) new ResizeObserver(() => { if (!PREVIEW) liftGuide(); }).observe(guide);   // 换字号档位时按钮会变大（测试页由下面的 place 一起排）
+    }
+  }
+
   // ---------- 学生版测试页：右下角“测试页”按钮（叠在“使用说明”上方，点开小卡片：说明、清空测试作答、清空修炼记录）；同一把钥匙的附页链接带上解密值 ----------
   //   2026-11-05 用户：“把这个缩小后放到右下角，做成类似于使用说明的按钮”（原来是页面顶部一整条提示条）
   if (PREVIEW) {
@@ -2500,19 +2537,34 @@
     });
     document.body.appendChild(bar);
     document.body.appendChild(pop);
-    // 叠在页面右下角“使用说明”按钮的正上方（两门课、学生版各页位置不同，按实际位置算；没有使用说明按钮时放在右下角）
+    // 叠在页面右下角“使用说明”按钮的正上方（两门课、学生版各页位置不同，按实际位置算；没有使用说明按钮时放在右下角）。
+    // 大小、字号、内边距、圆形图标都跟“使用说明”一样（2026-11-22 深夜 用户：“这两个框大小一样吧”；原来字号、图标小一号，宽度只按内容）
     const place = () => {
-      const guide = document.querySelector('.guide-toggle, .peg-toggle');
+      const guide = liftGuide();
       const box = guide ? guide.getBoundingClientRect() : null;   // 使用说明按钮是 position: fixed，offsetParent 总是 null，按尺寸判断是否显示
       const rect = box && box.width > 0 && box.height > 0 ? box : null;
       const right = rect ? Math.max(8, Math.round(window.innerWidth - rect.right)) : 18;
       const bottom = rect ? Math.round(window.innerHeight - rect.top + 10) : 20;
       bar.style.right = `${right}px`;
       bar.style.bottom = `${bottom}px`;
-      if (rect) {   // 外形跟使用说明按钮一致（习经圆角方形、政经胶囊形）
+      const icon = bar.querySelector('b');
+      if (rect) {
         const look = getComputedStyle(guide);
-        bar.style.borderRadius = look.borderRadius;
-        bar.style.minHeight = `${Math.round(rect.height)}px`;
+        ['fontSize', 'letterSpacing', 'gap', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderRadius', 'justifyContent'].forEach((key) => { bar.style[key] = look[key]; });
+        bar.style.boxSizing = 'border-box';
+        bar.style.width = `${Math.round(rect.width)}px`;
+        bar.style.height = `${Math.round(rect.height)}px`;
+        bar.style.minHeight = '0';
+        const mark = guide.querySelector('b');
+        const mr = mark ? mark.getBoundingClientRect() : null;
+        if (mr && mr.width > 0) {
+          icon.style.width = `${Math.round(mr.width)}px`;
+          icon.style.height = `${Math.round(mr.height)}px`;
+          icon.style.fontSize = getComputedStyle(mark).fontSize;
+        } else ['width', 'height', 'fontSize'].forEach((key) => { icon.style[key] = ''; });
+      } else {
+        ['fontSize', 'letterSpacing', 'gap', 'paddingTop', 'paddingRight', 'paddingBottom', 'paddingLeft', 'borderRadius', 'justifyContent', 'boxSizing', 'width', 'height', 'minHeight'].forEach((key) => { bar.style[key] = ''; });
+        ['width', 'height', 'fontSize'].forEach((key) => { icon.style[key] = ''; });
       }
       pop.style.right = `${right}px`;
       pop.style.bottom = `${bottom + bar.offsetHeight + 8}px`;
@@ -2521,6 +2573,8 @@
     window.addEventListener('resize', place);
     window.addEventListener('load', place);
     setTimeout(place, 800);
+    const guideEl = document.querySelector('.guide-toggle, .peg-toggle');
+    if (guideEl && window.ResizeObserver) new ResizeObserver(() => place()).observe(guideEl);   // 换字号档位时一起变
     backend.session().then((session) => {
       if (!session || session.anonymous) {
         const note = pop.querySelector('[data-preview-note]');
@@ -5894,7 +5948,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261122d-dm-pe' : '20261122d-dm-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261122e-focus-pe' : '20261122e-focus-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
