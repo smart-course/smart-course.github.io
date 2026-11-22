@@ -30,9 +30,12 @@
   const course = DATA.courses.find((item) => item.slug === savedCourse) || DATA.courses[0];
   const mustPick = DATA.courses.length > 1 && !DATA.courses.some((item) => item.slug === savedCourse);
   const CONCEPT = course.kind === 'concept-html';
+  // 《金融机构与市场》（2026-11-20）：按次上课的课程。作业通道同政经（CONCEPT），题目是通用的 extra 列表；
+  // 没有修为境界、宗门、云间灵田、修炼场（用户：“不要云间灵田和境界等级了”）
+  const PLAIN = Boolean(course.plain);
   const UNIT = course.unit_label || '章节';
   // 班级上课范围：本课程全部单元（政经按案例、习经按章节）、按章节号的快捷选择、范围的简短写法
-  const scopeUnits = () => (course.units && course.kind === 'concept-html'
+  const scopeUnits = () => (course.units && course.kind === 'concept-html' && !course.plain
     ? course.units.filter((u) => !u.exam).map((u) => ({ id: u.unit, short: `案例${u.number}`, label: `案例${u.number} · ${u.chapter}`, chapter: u.chapter }))
     : (course.chapters || []).map((ch) => ({ id: ch.id, short: ch.cn, label: `${ch.cn} ${ch.title}`, chapter: ch.cn })));
   const CN_DIGITS = '零一二三四五六七八九';
@@ -81,7 +84,7 @@
         const ch = (course.chapters || []).find((item) => item.id === box.value);
         return sum + Math.max(1, ch ? ch.cases.length : 1);
       }, 0);
-      host.querySelector('[data-scope-count]').textContent = `已选 ${n} 个${UNIT}，共 ${meetings} 次课，修为满分 ${meetings * 100}。`;
+      host.querySelector('[data-scope-count]').textContent = PLAIN ? `已选 ${n} 个单元。` : `已选 ${n} 个${UNIT}，共 ${meetings} 次课，修为满分 ${meetings * 100}。`;
     };
     host.querySelectorAll('[data-scope-preset]').forEach((button) => button.addEventListener('click', () => {
       const ids = presets[Number(button.dataset.scopePreset)].ids;
@@ -121,6 +124,7 @@
   // 按课程类型显示标签页与文字
   $$('[data-kind-only]').forEach((tab) => { tab.hidden = tab.dataset.kindOnly !== course.kind; });
   if (!(course.exams || []).length) $('[data-tab="exam"]').hidden = true;   // 只有政经有期中考查作业
+  if (PLAIN) $$('[data-tab="realm"], [data-tab="lingtian"], [data-tab="exam"]').forEach((tab) => { tab.hidden = true; });
   $$('[data-unit-label]').forEach((el) => { el.textContent = UNIT; });
   $('[data-publish-unit]').textContent = `本次${UNIT}`;
   $('[data-publish-case-hint]').hidden = CONCEPT;   // 只有习经有“一章两个案例”
@@ -129,6 +133,16 @@
     $('[data-room-classroom]').title = '上课投屏用（讲解版）：含参考答案，弹幕和学生作答分布在这里显示';
     $('[data-panel="pages"] .tw-note').textContent = '讲解版（含参考答案和教师参考）只在教师端提供，学生拿到的是练习版。上课投屏打开对应案例：弹幕开启时在页面上滚动显示；“想一想”“辨一辨”和出门测下方会显示学生的作答分布，点“显示分布”才展开。';
     $('[data-export="room"]').textContent = '导出本课堂（加入、作业汇总与明细、弹幕）';
+  }
+  if (PLAIN) {
+    // 这门课的学生页不发弹幕；界面上提到修为的几句话换成中性的说法
+    $$('[data-tab="danmaku"]').forEach((tab) => { tab.hidden = true; });
+    $$('[data-stat-danmaku]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });
+    $$('.tw-scope-box > summary').forEach((el) => { el.textContent = '本学期上课范围（默认全部）'; });
+    $$('[data-leave-status]').forEach((el) => { el.textContent = '学生在首页点“请假”提交，不需要审批。'; });
+    $$('.tw-enter').forEach((el) => { el.title = '打开：学生可以用这个课堂码进入、递交作答；关掉：成为历史课堂，学生用课堂码只能进来查看。'; });
+    $('[data-room-classroom]').title = '上课投屏用（教师投屏页）：含参考答案与依据，学生的递交人数和分布在这里显示';
+    $('[data-panel="pages"] .tw-note').textContent = '教师投屏页（含参考答案与依据）只在教师端提供，学生拿到的页面不含答案。上课投屏打开对应的次课：每道题下面显示递交人数，点“显示分布”才展开。';
   }
 
   let backend = null;
@@ -278,7 +292,7 @@
     const list = $('[data-course-list]');
     list.innerHTML = DATA.courses.map((item) => `
       <button type="button" class="tw-course${!mustPick && item.slug === course.slug ? ' is-current' : ''}" data-course="${esc(item.slug)}">
-        <small>${item.kind === 'concept-html' ? '概念学习案例' : '章节案例'} · 共 ${item.chapters.length} 个${esc(item.unit_label || '章节')}${!mustPick && item.slug === course.slug ? ' · 正在使用' : ''}</small>
+        <small>${item.kind_label || (item.kind === 'concept-html' ? '概念学习案例' : '章节案例')} · 共 ${item.chapters.length} 个${esc(item.unit_label || '章节')}${!mustPick && item.slug === course.slug ? ' · 正在使用' : ''}</small>
         <strong>${esc(item.title)}</strong>
         <span data-course-room>正在读取当前课堂……</span>
       </button>`).join('');
@@ -619,6 +633,7 @@
     const chapter = chapterMap.get(room.chapter);
     $('[data-room-chapter]').textContent = !chapter ? room.chapter : isExam(room.chapter)
       ? `${chapterLabel(room)}；${chapter.type}题，总分 100 分，${chapter.words} 字左右`
+      : PLAIN ? `${chapterLabel(room)}（${chapter.chapter}）`
       : CONCEPT ? `${chapterLabel(room)}（教材：${chapter.chapter}）`
       : `${chapterLabel(room)}：${chapter.cases.map((item) => `案例${item.number} ${item.title}`).join('；')}`;
     const open = $('[data-room-classroom]');
@@ -820,6 +835,7 @@
   const pad2 = (n) => String(n).padStart(2, '0');
   function fillChapterOptions() {
     publishForm.elements.chapter.innerHTML = course.chapters.map((chapter) => {
+      if (PLAIN) return `<option value="${chapter.id}">${esc(chapter.cn)}　${esc(chapter.title)}</option>`;
       if (CONCEPT) return `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（教材：${esc(chapter.chapter)}）</option>`;
       if (chapter.cases.length < 2) return `<option value="${chapter.id}">${esc(chapter.cn)} ${esc(chapter.title)}（案例 ${chapter.cases.map((item) => pad2(item.number)).join('、')}）</option>`;
       return `<optgroup label="${esc(chapter.cn)} ${esc(chapter.title)}">`
@@ -2994,6 +3010,7 @@
 
   function unitSections(unit) {
     if (unit.exam) return [{ id: 'exam', label: '期中考查作业：全部作答' }];
+    if (unit.plain) return [{ id: 'overview', label: '总览：逐题作答与正确率' }, ...(unit.sections || [])];   // 《金融机构与市场》：按页面上的各部分
     return [
       { id: 'overview', label: '总览：逐题作答与正确率' },
       ...unit.concepts.map((k, index) => ({ id: k.id, label: `概念 ${index + 1} · ${k.name}` })),
@@ -3034,6 +3051,26 @@
     if (unit.exam) {
       text('exam', 'exam', '期中考查作业', `${unit.exam.type}题（总分 ${unit.exam.score} 分）`, texts.exam, unit.exam.question);
       return { items, exitSubmitted: false, exitRight: 0, exitAnswered: 0, exitTotal: 0, autoRight: 0, autoAnswered: 0, autoTotal: 0 };
+    }
+    // 《金融机构与市场》（2026-11-20）的通用题目：单选、判断按选项统计；多选、填数按填写的内容统计；文字题不判对错
+    if (unit.plain) {
+      const X = S.x || {};
+      (unit.extra || []).forEach((q) => {
+        const v = X[q.key];
+        if (q.type === 'single') option(q.section, q.key, q.step, q.label, lettered(q.options), v, q.answer, q.prompt);
+        else if (q.type === 'judge') option(q.section, q.key, q.step, q.label, JUDGE, v, q.answer, q.prompt);
+        else if (q.type === 'multi') {
+          const letters = (list) => (Array.isArray(list) ? list.map(Number).sort((a, b) => a - b).map((i) => LET(i)).join('、') : '');
+          field(q.section, q.key, q.step, q.label, letters(v), letters(q.answer), (shown) => shown === letters(q.answer),
+            `${q.prompt}（多选：${q.options.map((text, i) => `${LET(i)}. ${text}`).join('；')}）`);
+        } else if (q.type === 'num') {
+          field(q.section, q.key, q.step, q.label, v, `${q.answer}${q.unit || ''}`, (shown) => Math.abs(toNumber(String(shown).replace(/[−–—－]/g, '-')) - q.answer) <= (q.tol || 1e-6),
+            `${q.prompt}${q.unit ? `（单位：${q.unit}）` : ''}`);
+        } else text(q.section, q.key, q.step, q.label, v, q.prompt);
+      });
+      const graded = items.filter((item) => item.ref != null);
+      return { items, exitSubmitted: false, exitRight: 0, exitAnswered: 0, exitTotal: 0,
+        autoRight: graded.filter((item) => item.correct).length, autoAnswered: graded.filter((item) => item.value != null).length, autoTotal: graded.length };
     }
     unit.concepts.forEach((k) => {
       const box = S[k.id] && typeof S[k.id] === 'object' ? S[k.id] : {};
@@ -3122,6 +3159,12 @@
     const P = payload && typeof payload === 'object' ? payload : {};
     const entries = Object.entries(P).filter(([, entry]) => isEntry(entry));
     if (!entries.length) return { S: P, at: {} };
+    if (unit.plain) {   // 《金融机构与市场》：题号就是作答项的编号，原样带过去
+      const x = {};
+      const when = {};
+      entries.forEach(([key, entry]) => { x[key] = entry.v; when[key] = entry.at; });
+      return { S: { x }, at: when };
+    }
     const S = { texts: {}, exit: { answers: [] } };
     const at = {};
     entries.forEach(([key, entry]) => {
@@ -3285,6 +3328,8 @@
     const exitAverage = exitDone.length ? (exitDone.reduce((sum, row) => sum + row.exitRight, 0) / exitDone.length).toFixed(1) : '—';
     summary.textContent = unit.exam
       ? `${chapterLabel(state.room)}：已有 ${rows.length} 人递交。只算第一次递交，约每 5 秒刷新；在“学生作答”里可以导出全部作答批阅（满分 100）。`
+      : unit.plain && !(unit.extra || []).length ? `${chapterLabel(state.room)}没有要递交的题目：同学们选了哪一款、经营到第几个月、总评多少，在“课堂网页 → 期中经营模拟成绩”里看。`
+      : unit.plain ? `${chapterLabel(state.room)}：已有 ${rows.length} 人递交（${submitted} 人全部递交），平均递交 ${average}% 的题目。每题只算第一次递交，约每 5 秒刷新。`
       : `${chapterLabel(state.room)}：已有 ${rows.length} 人递交（${submitted} 人全部递交），平均递交 ${average}% 的题目；`
       + `出门测 ${exitDone.length} 人递交了全部 ${unit.exit.length} 题${showRef ? `，平均答对 ${exitAverage} 题` : ''}。每题只算第一次递交，约每 5 秒刷新。`;
     const entries = new Map();
@@ -3357,7 +3402,7 @@
     const unit = peUnit();
     const body = $('[data-pe-rows]');
     $('[data-exam-export]').hidden = !(unit && unit.exam);
-    $('[data-pe-exit-head]').textContent = unit && unit.exam ? '字数' : '出门测';
+    $('[data-pe-exit-head]').textContent = unit && unit.exam ? '字数' : unit && unit.plain ? '客观题' : '出门测';
     $('[data-pe-done-head]').textContent = unit && unit.exam ? '期中作业' : '已递交';
     if (!unit) { body.innerHTML = ''; return; }
     const rows = new Map(gradedRows().map((row) => [row.doc.sid, row]));
@@ -3377,13 +3422,14 @@
           <td colspan="4" class="warn">已加入，还没有递交</td></tr>`;
       }
       const doc = row.doc;
-      const exit = row.exitAnswered ? `已递交 ${row.exitAnswered}/${row.exitTotal} · 答对 ${row.exitRight}` : '未递交';
+      const exit = unit.plain ? (row.autoAnswered ? `答对 ${row.autoRight}/${row.autoAnswered}` : '还没做')
+        : row.exitAnswered ? `已递交 ${row.exitAnswered}/${row.exitTotal} · 答对 ${row.exitRight}` : '未递交';
       const essay = unit.exam ? (row.items.find((item) => item.key === 'exam') || {}).value : null;
       const main = `<tr class="tw-pe-row${open ? ' is-open' : ''}" data-pe-sid="${esc(person.sid)}" tabindex="0" aria-expanded="${open}">
         <td>${open ? '▾' : '▸'} ${esc(doc.sid)}</td><td>${esc(doc.name)}</td><td>${esc(doc.class_name || '')}</td><td>${esc(doc.group_name || '')}</td>
         ${unit.exam ? `<td>${essay ? '已递交' : '未递交'}</td><td>${essay ? `${wordsOf(essay)} 字` : ''}</td>`
           : `<td>${doc.progress}/${doc.total} 题<small class="tw-sub">自动判分小题答对 ${row.autoRight}/${row.autoTotal}${wholeText(unit, row)}</small></td>
-        <td class="${row.exitSubmitted ? 'ok' : 'warn'}">${exit}</td>`}
+        <td class="${unit.plain ? '' : row.exitSubmitted ? 'ok' : 'warn'}">${exit}</td>`}
         <td class="${doc.submitted ? 'ok' : 'warn'}">${doc.submitted ? `是 ${clock(millis(doc.submitted_at))}` : '否'}</td><td>${clock(doc.ts)}</td></tr>`;
       if (!open) return main;
       let detail = '';
@@ -3540,7 +3586,10 @@
   function renderPages() {
     $('[data-pages]').innerHTML = course.chapters.map((chapter) => `
       <a class="tw-page" href="/${chapter.file}${state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : ''}" target="_blank" rel="noopener"><small>${esc(chapter.cn)}</small><strong>${esc(chapter.title)}</strong>
-      <span>${CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>')}</span></a>`).join('')
+      <span>${PLAIN ? esc(chapter.chapter) : CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>')}</span></a>`).join('')
+      // 教师工具页（《金融机构与市场》：课堂模拟控制台、期中经营模拟成绩）
+      + (course.tools || []).map((tool) => `<a class="tw-page is-notes" href="/${tool.file}${state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : ''}" target="_blank" rel="noopener"><small>教师工具</small><strong>${esc(tool.title)}</strong>
+      <span>${esc(tool.note)}</span></a>`).join('')
       // 复习资料（政经“理论知识点总结（前七章）”、习经“理论知识点总结”）：学生在每个案例页／章节页的“资料与延伸阅读”里也能打开
       + (course.notes ? `<a class="tw-page is-notes" href="/${course.notes.file}" target="_blank" rel="noopener"><small>复习资料</small><strong>${esc(course.notes.title)}</strong>
       <span>学生在每个${CONCEPT ? '案例' : '章节'}页最后的“资料与延伸阅读”里都能打开，可导出 PDF。</span></a>` : '');
@@ -4280,6 +4329,7 @@
     }
   }
   async function syncPractice(force) {
+    if (PLAIN) return;   // 《金融机构与市场》没有修炼场、题目解答、回温题库
     const status = $('[data-practice-status]');
     if (!backend || (!force && practiceSynced.has(course.slug))) return;
     practiceSynced.add(course.slug);
@@ -4293,6 +4343,7 @@
 
   // 打开班级时：距上次结算超过 6 小时就在后台自动结算一次（老师每周发布课堂时都会打开工作台）
   async function autoSettle() {
+    if (PLAIN) return;   // 《金融机构与市场》没有修为境界
     const last = Number(store.get(`realm-saved:${course.slug}:${state.klass && state.klass.id}`)) || 0;
     if (!state.klass || Date.now() - last < 6 * 3600 * 1000) return;
     await refreshRealms(true, true);
@@ -4758,8 +4809,8 @@
     const todayActive = (byDay.get(today) || { active: new Set() }).active.size;
     const minutesAll = visits.reduce((t, v) => t + (Number(v.seconds) || 0), 0) / 60;
     I.tiles(root, [
-      { label: '有学习行为的同学', value: `${activeCount} / ${total}`, note: `占 ${Math.round(activeCount * 100 / total)}%（这段时间里至少有一次登录、签到、递交、弹幕或修炼）` },
-      { label: '人均学习行为', value: (acts.length / total).toFixed(1), note: `共 ${acts.length} 次：登录与打开页面、签到、递交、弹幕、修炼场、抢答、聊天室` },
+      { label: '有学习行为的同学', value: `${activeCount} / ${total}`, note: `占 ${Math.round(activeCount * 100 / total)}%（这段时间里至少有一次${PLAIN ? '登录、签到或递交' : '登录、签到、递交、弹幕或修炼'}）` },
+      { label: '人均学习行为', value: (acts.length / total).toFixed(1), note: `共 ${acts.length} 次：${PLAIN ? '登录与打开页面、签到、递交' : '登录与打开页面、签到、递交、弹幕、修炼场、抢答、聊天室'}` },
       { label: '人均在线（分钟）', value: (minutesAll / total).toFixed(1), note: '页面开着且在前台的大致时长；2026-11-05 起记录' },
       { label: '今天在学', value: `${todayActive} 人`, note: `${today} 有学习行为的同学` },
     ]);
@@ -5049,7 +5100,7 @@
         let result;
         try { result = gradeOf(unit, mergePayload(docs)); } catch (error) { return; }
         result.items.filter((it) => it.ref != null && it.type !== 'text' && it.value != null).forEach((it) => {
-          addAnswer(`${unitKey}|${it.key}`, `案例${unit.number} ${it.step || ''}·${it.label || it.key}`, unitKey, sid, it.correct ? 1 : 0);
+          addAnswer(`${unitKey}|${it.key}`, unit.plain ? `第${Number(unit.number)}次课 ${it.label || it.key}` : `案例${unit.number} ${it.step || ''}·${it.label || it.key}`, unitKey, sid, it.correct ? 1 : 0);
         });
       });
     }
@@ -5067,6 +5118,7 @@
     const unitRows = unitOrder.filter((k) => byUnit.has(k)).map((k) => {
       const u = byUnit.get(k);
       const info = CONCEPT ? unitMap.get(k) : caseMap.get(k);
+      if (PLAIN) return { label: `第${Number(info.number)}次课 ${info.title || ''}`, tick: `第${Number(info.number)}次`, rate: pctOf(u.score, u.answered), answered: u.answered, n: u.n };
       return { label: CONCEPT ? `案例${info.number} ${info.title || ''}` : `案例${k} ${(info && info.title) || ''}`, tick: CONCEPT ? `案例${info.number}` : `案例${k}`, rate: pctOf(u.score, u.answered), answered: u.answered, n: u.n };
     });
     const cU = I.card(grid, '各次课平均正确率', '按课程顺序，每次课全部客观题的平均正确率；悬停看课名和作答人次。');
@@ -5215,7 +5267,7 @@
       ['到课次数', attendOf, lessons.length, ' 次', '到课'], ['学习天数', (p) => p.days.size, dayList.length, ' 天', '学习天数'], ['学习行为', (p) => p.acts, null, ' 次', '学习行为'],
       ['题目正确率', rightOf, 100, '%', '正确率'], ['弹幕', (p) => p.danmaku, null, ' 条', '弹幕'], ['修炼场答题', (p) => p.practice, null, ' 道', '修炼场'],
       ['在线时长', (p) => Math.round(p.seconds / 60), null, ' 分钟', '在线'], ['修为（全学期）', pointsOf, null, '', '修为'],
-    ];
+    ].filter(([label]) => !PLAIN || !/修炼场|修为|弹幕/.test(label));   // 按次上课的课程（PLAIN）没有这几项
     insState.showPerson = (sid, scroll) => {
       const p = per.get(sid);
       if (!p) return;
@@ -5225,7 +5277,8 @@
       const strong = document.createElement('strong'); strong.textContent = p.name || sid;
       const r = realmBySid.get(sid);
       const meta = document.createElement('span');
-      meta.textContent = `${sid} · ${r ? REALMS[Number(r.realm) || 0].name : '未结算'} · 最近一次 ${p.last ? timeParts(p.last).text.slice(5, 16) : '—'}`;
+      meta.textContent = PLAIN ? `${sid} · 最近一次 ${p.last ? timeParts(p.last).text.slice(5, 16) : '—'}`
+        : `${sid} · ${r ? REALMS[Number(r.realm) || 0].name : '未结算'} · 最近一次 ${p.last ? timeParts(p.last).text.slice(5, 16) : '—'}`;
       head.append(strong, meta);
       hostK.appendChild(head);
       const personRows = METRICS.map(([label, fn, max, unit, short]) => ({ label, short, me: fn(p), avg: avg(fn), max: max == null ? maxOf(fn) : max, unit, note: max == null ? `全班最高 ${maxOf(fn)}${unit}` : '' }));
@@ -5257,6 +5310,60 @@
       return `<tr><td>${esc(p.sid)}</td><td><button type="button" class="ins-name" data-ins-person="${esc(p.sid)}" title="看个人学情卡">${esc(p.name || p.sid)}</button></td><td>${r ? realmChip(Number(r.realm) || 0, `${REALMS[Number(r.realm) || 0].name}`) : ''}</td><td>${flag}</td><td>${p.days.size}</td><td>${p.acts}</td><td>${p.submit}</td><td>${p.danmaku}</td><td>${p.practice}</td><td>${Math.round(p.seconds / 60)}</td><td>${p.last ? esc(timeParts(p.last).text.slice(5, 16)) : '—'}</td></tr>`;
     }).join('')}</tbody></table>`;
     c6.appendChild(wrap);
+    // 《金融机构与市场》（PLAIN，2026-11-20）：去掉境界、修为、修炼场、宗门、弹幕互动的图表和表格列，换上“学习投入和作答正确率”
+    if (PLAIN) {
+      const DROP = ['境界分布', '修为榜第一的修为构成', '课堂互动', '每天有多少同学在练', '修炼场各单元正确率', '本班弟子', '宗门分（历届）', '学习投入和修为'];
+      Array.from(grid.querySelectorAll('.ins-card')).forEach((card) => { const h = card.querySelector('h3'); if (h && DROP.includes(h.firstChild && h.firstChild.textContent.trim())) card.remove(); });
+      Array.from(grid.querySelectorAll('h3.ins-sec')).forEach((h) => { if (/^(修炼场|宗门)/.test(h.textContent.trim())) h.remove(); });
+      const heads = Array.from(wrap.querySelectorAll('thead th')).map((th) => th.textContent);
+      ['修炼场', '弹幕', '境界'].map((name) => heads.indexOf(name)).filter((i) => i >= 0).sort((a, b) => b - a)
+        .forEach((i) => wrap.querySelectorAll('tr').forEach((tr) => { if (tr.children[i]) tr.children[i].remove(); }));
+      const cY = I.card(grid, '学习投入和作答正确率', '每个点是一位同学：横轴是这段时间的学习行为次数，纵轴是客观题的正确率（每题只认第一次递交）；细线是两者的中位数。右下角是投入多、正确率偏低的同学，值得问一问卡在哪里。');
+      const hostY = document.createElement('div'); cY.appendChild(hostY);
+      const ptsY = Array.from(per.values()).filter((p) => (meRight.get(p.sid) || {}).answered).map((p) => ({ x: p.acts, y: rightOf(p), color: T.blue, label: `${p.name}（${p.sid}）`,
+        lines: [`学习行为 ${p.acts} 次`, `客观题正确率 ${rightOf(p)}%（作答 ${meRight.get(p.sid).answered} 题）`, `学习天数 ${p.days.size}`] }));
+      I.scatter(hostY, cY, ptsY, { xName: '学习行为（次）', yName: '正确率（%）', aria: '学习投入与作答正确率散点图', empty: '这段时间还没有客观题的作答。',
+        quadrants: [[1, 1, '投入多 · 正确率高'], [0, 1, '投入少 · 正确率高'], [1, 0, '投入多 · 正确率偏低'], [0, 0, '投入少 · 正确率低']] });
+      I.tableView(cY, ['学号', '姓名', '学习行为', '正确率'], ptsY.map((pt) => [pt.label.replace(/^.*（(.*)）$/, '$1'), pt.label.replace(/（.*$/, ''), pt.x, `${pt.y}%`]));
+      grid.insertBefore(cY, cW);
+    }
+  }
+  if (PLAIN) {   // 这门课没有弹幕、修为、修炼场、灵田：工作台里几句通用的说明换成对得上的；匿名建议不设“点赞加修为”和回复
+    const introNote = $('[data-panel="insight"] .tw-note');
+    if (introNote) introNote.textContent = '按本班的登录与在线、签到、递交、课堂感受等记录，自动画出学习情况：每天在学人数、一周学习时段、各类行为、在线时长、每次课的到课和作答正确率，以及每位同学的明细。只统计点名册上的同学，不含旁听。每张图下面可以“查看数据表”，全部明细可以导出 Excel。';
+    const fbNote = $('[data-panel="feedback"] .tw-note');
+    if (fbNote) fbNote.textContent = '学生在每次课页面最后的“匿名建议和提问箱”里，对这堂课提的意见和建议，或者没想通的问题（可在下一次课统一解答）。这里和导出文件里只有内容和提交日期，看不到是谁写的。建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。';
+    const plainCss = document.createElement('style');
+    plainCss.textContent = '.tw-fb-like, .tw-fb-reply { display: none !important; }';
+    document.head.appendChild(plainCss);
+    const SWAP = [
+      [/、修为和修为榜/g, ''],
+      [/，不能发弹幕、提匿名建议，课堂小游戏（[^）]*）不会抽到/g, '，不能提匿名建议，课堂模拟分组时也不会分到'],
+      [/课程页面和云间灵田开着且在前台时/g, '课程页面开着且在前台时'],
+      [/（2026-11-20 起；在灵田里的时间也算）/g, ''],
+      [/（加入、作业汇总与明细、弹幕）/g, '（加入、作业汇总与明细）'],
+      [/递交、弹幕、修炼场答题、抢答、聊天室发言各一行/g, '递交各一行'],
+      [/。修为满分只按范围内的课次计算（[^）]*）。/g, '。'],
+      [/、作业、弹幕和匿名建议/g, '、作业和匿名建议'],
+      [/不能递交、发弹幕，也不计修为/g, '不能递交'],
+    ];
+    const fixText = (node) => {
+      const s = node.nodeValue;
+      if (!s || !/修为|弹幕|灵田|修炼场/.test(s)) return;
+      let out = s;
+      SWAP.forEach(([from, to]) => { out = out.replace(from, to); });
+      if (out !== s) node.nodeValue = out;
+    };
+    const fixTree = (root) => {
+      if (root.nodeType === 3) { fixText(root); return; }
+      if (root.nodeType !== 1 || /^(SCRIPT|STYLE|TEXTAREA|INPUT)$/.test(root.tagName)) return;
+      const walker = document.createTreeWalker(root, NodeFilter.SHOW_TEXT);
+      let node;
+      while ((node = walker.nextNode())) fixText(node);
+    };
+    fixTree(document.body);
+    new MutationObserver((list) => list.forEach((m) => { if (m.type === 'characterData') fixText(m.target); else m.addedNodes.forEach(fixTree); }))
+      .observe(document.body, { childList: true, subtree: true, characterData: true });
   }
   $('[data-tab="insight"]').addEventListener('click', () => renderInsights(false));
   // ---------------- 更新说明（2026-11-06 用户：“超过20天以上的更新状态不在学生端的‘更新说明’中显示。但是在教师控制台专门设置一个新的‘更新说明’板块记录所有更新情况。”） ----------------
