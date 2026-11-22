@@ -352,6 +352,9 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 @media (max-width: 760px) { .tw-top { position: static; } .tw-nav { flex-basis: calc(100% + 28px); width: calc(100% + 28px); margin: 2px -14px -10px; padding: 7px 14px; } .tw-crumbs button { max-width: 220px; } }
 .tw-table .tw-col-action { width: 52px; padding: 6px 8px; text-align: center; }
 .sr-only { position: absolute; width: 1px; height: 1px; overflow: hidden; clip: rect(0 0 0 0); white-space: nowrap; }
+/* 2026-11-22 查明：手机上“加入名单”把整页撑宽，是表头最后一格给读屏软件的隐藏文字（“删除”）用了绝对定位、又没有定位的上级，
+   它就挂到整页上，不受表格左右滑动框的约束，被排在表格最右端（演示班撑到 1062 像素）。让这一格兜住它，就随表格一起滑动 */
+.tw-table .tw-col-action { position: relative; }
 /* 概念学习课程：作业情况与学生作答 */
 .tw-step { margin: 18px 0 2px; padding-top: 10px; border-top: 2px solid var(--line); color: var(--teal); font-size: 18px; }
 .tw-card .tw-step:first-of-type { border-top: 0; }
@@ -480,7 +483,7 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-rm-scroll { max-height: min(72vh, 860px); overflow: auto; }
 .tw-rm-scroll thead th { position: sticky; top: 0; z-index: 1; }
 .tw-realm-table td { font-variant-numeric: tabular-nums; }
-.tw-realm-table td.is-num, .tw-realm-table th:nth-child(n+7):nth-child(-n+14) { text-align: right; }
+.tw-realm-table td.is-num, .tw-realm-table th:nth-child(n+7):nth-child(-n+13) { text-align: right; }   /* 2026-11-22 并列后第 7—13 列是数字，第 14 列是提示 */
 .tw-realm-table td.is-zero { color: #b8ada1; }
 .tw-realm-table tbody tr:hover td { background: rgba(35,101,95,.05); }
 .tw-rm-no { display: inline-grid; place-items: center; min-width: 26px; height: 26px; padding: 0 4px; border-radius: 13px; color: var(--muted); font: italic 800 14px/1 Georgia, 'Times New Roman', serif; }
@@ -1369,4 +1372,282 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 @media (prefers-reduced-motion: reduce) {
   .tw-room-card { transition: none; }
   .tw-room-card:hover { transform: none; }
+}
+
+/* ---------- 第一档美化（2026-11-22 用户：“第一档先做吧”）：统计条统一、表格状态小标签、各页长说明收起 ---------- */
+/* ① 统计条：加入名单（六项）、期中考查（可点的五项）、文字作答（两项），和“我的课堂”的四项统计一个样：图标＋数字＋说明，排满一行 */
+.tw-strip { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin: 2px 0 14px; }
+.tw-strip[hidden] { display: none; }
+.tw-strip.is-two { max-width: 620px; }
+.tw-strip .tw-stat { display: grid; grid-template-columns: auto minmax(0, 1fr); grid-template-rows: auto auto; align-items: center; column-gap: 12px;
+  min-width: 0; margin: 0; padding: 13px 16px; border-radius: 14px; text-align: left; }
+.tw-strip .tw-stat-ico { grid-row: 1 / 3; display: grid; place-items: center; width: 40px; height: 40px; border-radius: 12px; background: var(--teal-soft); color: var(--teal); }
+.tw-strip .tw-stat b { align-self: end; color: var(--ink); font-size: 26px; line-height: 1.1; font-variant-numeric: tabular-nums; }
+.tw-strip .tw-stat span { display: block; align-self: start; margin: 0; color: var(--muted); font-size: 13px; font-weight: 700; line-height: 1.45; }
+.tw-strip .tw-stat.is-good .tw-stat-ico, .tw-strip .tw-stat.is-online .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
+.tw-strip .tw-stat.is-wait .tw-stat-ico { background: #fbefdb; color: #8a5a12; }
+.tw-strip .tw-stat.is-alert .tw-stat-ico { background: #fbe6df; color: #b03a22; }
+.tw-strip .tw-stat.is-alert b { color: #b03a22; }
+.tw-strip .tw-stat.is-quiet .tw-stat-ico { background: #f1ece5; color: #9a8f84; }
+/* 现在在线：有人在线时图标外一圈慢慢呼吸的绿光，和名单里的小绿灯一样 */
+.tw-strip .tw-stat.is-online:not(.is-quiet) .tw-stat-ico { animation: tw-dot-pulse 2.4s ease-in-out infinite; }
+/* 期中考查的统计卡片可以点（按这一项筛选）：保留原来的边框、悬停和选中光圈 */
+.tw-strip .tw-exam-stat { font: inherit; cursor: pointer; }
+
+/* ② 表格里的状态：小标签（绿＝好、红＝要注意、黄＝待处理、灰＝还没有），时间等补充写成后面的灰色小字；递交了几题的下面一条细进度条 */
+.tw-tag { display: inline-flex; align-items: center; gap: 5px; padding: 1px 9px 1px 8px; border-radius: 999px; background: #f1ece5; color: #675d54;
+  font-size: 12.5px; font-weight: 800; line-height: 1.7; white-space: nowrap; vertical-align: 1px; }
+.tw-tag::before { content: ""; flex: 0 0 auto; width: 6px; height: 6px; border-radius: 50%; background: currentColor; opacity: .7; }
+.tw-tag.is-ok { background: #e3f3ea; color: #1f7a4d; }
+.tw-tag.is-bad { background: #fbe6df; color: #b03a22; }
+.tw-tag.is-warn { background: #fbefdb; color: #8a5a12; }
+.tw-tag.is-info { background: var(--teal-soft); color: var(--teal); }
+.tw-tag.is-mute::before { opacity: .4; }
+.tw-tag + .tw-sub { margin-top: 3px; }
+.tw-when, .tw-table td small.tw-when { display: inline; margin-left: 7px; color: var(--muted); font-size: 13px; font-weight: 400; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw-when-more, .tw-table td small.tw-when-more { display: inline; margin-left: 6px; padding: 1px 6px; border-radius: 6px; background: #f1ece5; color: var(--muted); font-size: 12px; font-weight: 800; white-space: nowrap; cursor: help; }
+.tw-prog { display: inline-grid; gap: 4px; min-width: 120px; vertical-align: middle; }
+.tw-prog-txt { color: var(--ink); font-size: 14px; font-weight: 700; font-variant-numeric: tabular-nums; line-height: 1.35; }
+.tw-prog-bar { position: relative; display: block; width: 100%; height: 5px; border-radius: 999px; background: #ebe3d6; overflow: hidden; }
+.tw-prog-bar > i { position: absolute; inset: 0 auto 0 0; border-radius: inherit; background: linear-gradient(90deg, #3b8f84, var(--teal)); }
+.tw-prog-bar.is-full > i { background: linear-gradient(90deg, #3aa070, #1f7a4d); }
+.tw-prog + .tw-sub { margin-top: 4px; }
+/* 状态一列放得下标签和时间以后，窄一点的窗口里表头“班级 / 小组”也不折成两行 */
+[data-checkin-head] th { white-space: nowrap; }
+
+/* ③ 各页开头的长说明：默认只显示一句话，右边“展开说明”，点开是分条的细节（同原来的浅金说明框） */
+.tw-panel > .tw-intro { margin: 0 0 14px; border: 1px solid rgba(168, 122, 42, .2); border-left: 4px solid var(--gold); border-radius: 10px;
+  background: linear-gradient(90deg, rgba(168, 122, 42, .09), rgba(168, 122, 42, .03)); color: #4a423b; }
+.tw-intro > summary { display: flex; flex-wrap: wrap; align-items: flex-start; gap: 6px 10px; padding: 9px 12px 9px 12px; cursor: pointer; list-style: none; font-size: 14px; line-height: 1.7; }
+.tw-intro > summary::-webkit-details-marker { display: none; }
+.tw-intro > summary::before { content: ""; flex: 0 0 auto; width: 18px; height: 18px; margin-top: 3px;
+  background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23a87a2a' stroke-width='2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5.5M12 7.6h.01'/%3E%3C/svg%3E") no-repeat center / 18px; }
+.tw-intro-lead { flex: 1 1 320px; min-width: 0; color: #3f3831; font-weight: 700; }
+.tw-intro > summary::after { content: "展开说明"; flex: 0 0 auto; margin-left: auto; padding: 1px 24px 1px 11px; border: 1px solid rgba(168, 122, 42, .28); border-radius: 999px;
+  background: rgba(255, 253, 248, .85) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 3.6 5 6.6 8 3.6' fill='none' stroke='%237a5a1c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 9px center / 10px;
+  color: #7a5a1c; font-size: 12.5px; font-weight: 800; line-height: 1.75; white-space: nowrap; transition: background-color .15s ease, border-color .15s ease; }
+.tw-intro[open] > summary::after { content: "收起";
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 10 10'%3E%3Cpath d='M2 6.4 5 3.4 8 6.4' fill='none' stroke='%237a5a1c' stroke-width='1.6' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E"); }
+.tw-intro > summary:hover::after { border-color: rgba(168, 122, 42, .5); background-color: #fff; }
+.tw-intro > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 8px; }
+.tw-intro > ul { margin: 0; padding: 0 18px 12px 48px; font-size: 14px; line-height: 1.75; }
+.tw-intro > ul li + li { margin-top: 5px; }
+.tw-intro > ul li::marker { color: var(--gold); }
+.tw-intro > ul b { color: #3f3831; }
+/* 弹窗里的说明（发布本周课堂、发布期中考查作业）：分条列出，不收起 */
+.tw-hint-list { margin: 8px 0 2px; padding-left: 1.25em; font-size: 13.5px; line-height: 1.7; }
+.tw-hint-list li + li { margin-top: 4px; }
+.tw-hint-list li::marker { color: var(--gold); }
+.tw-hint-list b { color: var(--ink); }
+
+@media (max-width: 760px) {
+  .tw-strip { grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 10px; }
+  .tw-strip.is-two { max-width: none; }
+  .tw-strip .tw-stat { padding: 11px 12px; column-gap: 10px; }
+  .tw-strip .tw-stat-ico { width: 34px; height: 34px; border-radius: 10px; }
+  .tw-strip .tw-stat b { font-size: 22px; }
+  .tw-intro > ul { padding-left: 34px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-strip .tw-stat.is-online:not(.is-quiet) .tw-stat-ico { animation: none; }
+}
+
+/* ---------- 第二档美化（2026-11-22 用户：“然后做第二档”）：修为表、更新说明、匿名建议、课堂网页、空表格 ---------- */
+/* ④ 修为表：签到·请假、作答完成·正确各并成一列（上下两行、小字标签）；格子紧凑一点；姓名一列往右拖时固定在左边 */
+.tw-realm-table th, .tw-realm-table td { padding: 8px 10px; }
+.tw-realm-table thead th { font-size: 14px; white-space: nowrap; }
+.tw-realm-table td.is-pair { min-width: 96px; }
+.tw-rm-kv { display: flex; justify-content: space-between; align-items: baseline; gap: 10px; line-height: 1.45; }
+.tw-rm-kv i { color: var(--muted); font-size: 11.5px; font-style: normal; font-weight: 700; }
+.tw-rm-kv.is-zero { color: #b8ada1; }
+/* 表格自己原来是 overflow:hidden（为了圆角），固定列、固定表头就只能固定在表格里面、等于没固定；圆角由外面的滑动框裁，这里放开 */
+.tw-rm-scroll > .tw-realm-table { overflow: visible; }
+.tw-realm-table tbody td:nth-child(3), .tw-realm-table thead th:nth-child(3) { position: sticky; left: 0; }
+.tw-realm-table tbody td:nth-child(3) { z-index: 1; background: var(--white); box-shadow: inset -1px 0 0 var(--line); }
+.tw-realm-table thead th:nth-child(3) { z-index: 3; }
+.tw-realm-table tbody tr:hover td:nth-child(3) { background: #f4f5f0; }
+
+/* ⑤ 更新说明：时间线；一天一个可收起的框（最近 3 天展开），每条先是标题和一行预览，点开看全文；全部更新记录默认只列最近 5 天 */
+.tw-up-h .tw-up-tools { display: inline-flex; gap: 6px; margin-left: auto; }
+.tw-up-tools .tw-secondary { margin: 0; padding: 5px 12px; font-size: 13px; }
+.tw-up-news { position: relative; grid-template-columns: minmax(0, 1fr); gap: 10px; padding-left: 24px; }   /* 网格默认按最长的一行定宽，预览不折行会撑出去 */
+.tw-up-news::before { content: ""; position: absolute; left: 7px; top: 16px; bottom: 16px; width: 2px; border-radius: 2px; background: linear-gradient(180deg, rgba(164, 73, 45, .45), rgba(70, 51, 34, .12)); }
+details.tw-up-sec { position: relative; padding: 0; border: 1px solid var(--line); border-radius: 12px; background: var(--white); }
+details.tw-up-sec::before { content: ""; position: absolute; left: -23px; top: 15px; width: 12px; height: 12px; border-radius: 50%; background: var(--rust); box-shadow: 0 0 0 3px var(--paper); }
+details.tw-up-sec.is-off::before { background: #b9afa4; }
+details.tw-up-sec > summary { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; padding: 9px 14px; cursor: pointer; list-style: none; font-size: 15px; }
+details.tw-up-sec > summary::-webkit-details-marker { display: none; }
+details.tw-up-sec > summary > span { padding: 2px 12px; border-radius: 999px; background: var(--rust); color: #fff; font-weight: 800; }
+details.tw-up-sec.is-off > summary > span { background: #a89e92; }
+details.tw-up-sec > summary > small { color: var(--muted); font-size: 12.5px; font-weight: 600; }
+details.tw-up-sec > summary > em { margin-left: auto; padding: 1px 8px; border-radius: 999px; background: #e6f2ee; color: #23655f; font-size: 12px; font-style: normal; font-weight: 700; white-space: nowrap; }
+details.tw-up-sec.is-off > summary > em { background: #f1ece4; color: #8a7f74; }
+details.tw-up-sec > summary::after { content: ""; width: 8px; height: 8px; margin: 0 2px 3px 4px; border-right: 2px solid var(--muted); border-bottom: 2px solid var(--muted); transform: rotate(45deg); transition: transform .15s ease; }
+details.tw-up-sec[open] > summary::after { margin-bottom: -3px; transform: rotate(-135deg); }
+details.tw-up-sec > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 2px; border-radius: 10px; }
+details.tw-up-sec > ul { display: grid; grid-template-columns: minmax(0, 1fr); gap: 0; margin: 0; padding: 0 8px 8px; border-top: 1px solid rgba(70, 51, 34, .08); list-style: none; }
+details.tw-up-sec > ul > li { min-width: 0; }
+.tw-up-item > summary { display: flex; align-items: baseline; gap: 10px; padding: 6px 8px; border-radius: 8px; cursor: pointer; list-style: none; font-size: 14px; line-height: 1.6; }
+.tw-up-item > summary::-webkit-details-marker { display: none; }
+.tw-up-item > summary::before { content: "▸"; flex: 0 0 auto; color: var(--gold); font-size: 12px; transition: transform .15s ease; }
+.tw-up-item[open] > summary::before { transform: rotate(90deg); }
+.tw-up-item > summary:hover { background: #faf5ec; }
+.tw-up-item > summary:focus-visible { outline: 2px solid var(--gold); outline-offset: 0; }
+.tw-up-item > summary b { flex: 0 1 auto; min-width: 0; margin: 0; color: var(--ink); }
+.tw-up-peek { flex: 1 1 40%; min-width: 0; overflow: hidden; color: var(--muted); text-overflow: ellipsis; white-space: nowrap; }
+.tw-up-item[open] .tw-up-peek { display: none; }
+.tw-up-item > p { max-width: 56em; margin: 0 0 6px; padding: 0 8px 4px 28px; color: #3f3831; font-size: 14px; line-height: 1.8; }
+.tw-up-sec.is-off .tw-up-item > summary b, .tw-up-sec.is-off .tw-up-item > p { color: var(--muted); }
+.tw-up-more { margin: 12px 0 0; text-align: center; }
+
+/* ⑥ 匿名建议：一条一张卡片；往来回复缩进排在建议下面；“这堂课感觉怎么样”每个课堂一条比例条 */
+.tw-fb-list { display: grid; gap: 10px; }
+.tw-fb-card { display: grid; grid-template-columns: 172px minmax(0, 1fr) auto; align-items: start; gap: 8px 18px; padding: 14px 16px;
+  border: 1px solid var(--line); border-radius: 14px; background: var(--white); box-shadow: 0 4px 14px rgba(53, 38, 24, .05); }
+.tw-fb-card.is-liked { border-color: rgba(168, 122, 42, .45); background: linear-gradient(180deg, #fffaf0, var(--white) 60%); }
+.tw-fb-card.is-waiting { box-shadow: inset 3px 0 0 var(--rust), 0 4px 14px rgba(53, 38, 24, .05); }
+.tw-fb-meta { display: grid; gap: 1px; color: var(--muted); font-size: 13px; line-height: 1.55; }
+.tw-fb-meta time { color: var(--ink); font-weight: 800; font-variant-numeric: tabular-nums; }
+.tw-fb-meta span { color: var(--ink); font-weight: 700; }
+.tw-fb-meta small { font-size: 12.5px; }
+.tw-fb-main { min-width: 0; }
+.tw-fb-card .tw-fb-text { margin: 0 0 0 -6px; padding: 2px 6px; border-radius: 8px; font-size: 15.5px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; cursor: zoom-in; transition: background .15s ease; }
+.tw-fb-card .tw-fb-text:hover { background: #fbf3df; }
+.tw-fb-card .tw-fb-text:focus-visible { outline: 2px solid #b8862b; outline-offset: 0; }
+.tw-fb-card .tw-fb-thread { margin: 8px 0 0 10px; padding: 2px 0 0 12px; border-top: 0; border-left: 2px solid rgba(35, 101, 95, .22); }
+.tw-fb-card .tw-fb-actions { display: flex; align-items: center; white-space: nowrap; }
+.tw-panel .tw-mood { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; padding: 12px 16px; }
+.tw-panel .tw-mood[hidden] { display: none; }
+.tw-mood-row { display: grid; grid-template-columns: minmax(90px, 220px) minmax(120px, 1fr) auto; align-items: center; gap: 12px; }
+.tw-mood-room { overflow: hidden; font-weight: 700; text-overflow: ellipsis; white-space: nowrap; }
+.tw-mood-bar { display: flex; height: 10px; border-radius: 999px; background: #ece4d8; overflow: hidden; }
+.tw-mood-bar i { display: block; height: 100%; }
+.tw-mood-bar i.is-up { background: linear-gradient(90deg, #3aa070, #1f7a4d); }
+.tw-mood-bar i.is-down { background: #c9bfb2; }
+.tw-mood-num { color: var(--muted); font-size: 13px; font-variant-numeric: tabular-nums; white-space: nowrap; }
+.tw-mood .tw-mood-num small { margin-left: 8px; color: #1f7a4d; font-size: 13px; font-weight: 800; }
+
+/* ⑦ 课堂网页：左边编号徽章（配色跟着课程走，上过的实心）；上过、开放中、当前课堂的状态写在章节名后面；当前课堂加边框 */
+.tw-pages .tw-page { --tone: var(--rust); --tone-ink: var(--rust); --tone-soft: var(--rust-soft);
+  display: grid; grid-template-columns: auto minmax(0, 1fr); align-items: start; gap: 14px; padding: 16px 18px; border: 1px solid var(--line); border-radius: 14px;
+  box-shadow: 0 4px 14px rgba(53, 38, 24, .06); transition: transform .15s ease, box-shadow .15s ease, border-color .15s ease; }
+/* 配色跟着课程走（写在默认赭红之后、选择器更具体，才盖得住） */
+.tw-pages .tw-page[data-tone="teal"] { --tone: var(--teal); --tone-ink: var(--teal); --tone-soft: var(--teal-soft); }
+.tw-pages .tw-page[data-tone="gold"] { --tone: var(--gold); --tone-ink: #84601f; --tone-soft: #f5ecd9; }
+.tw-pages .tw-page[data-tone="slate"] { --tone: #3f5f86; --tone-ink: #3a5779; --tone-soft: #e6edf4; }
+.tw-pages .tw-page:hover { outline: none; transform: translateY(-1px); border-color: var(--tone); border-color: color-mix(in srgb, var(--tone) 40%, transparent); box-shadow: 0 10px 22px rgba(53, 38, 24, .1); }
+.tw-pages .tw-page:focus-visible { outline: none; border-color: var(--tone); box-shadow: 0 0 0 3px var(--tone-soft); }
+.tw-page .tw-page-no { display: grid; place-items: center; width: 42px; height: 42px; border-radius: 12px; background: var(--tone-soft); color: var(--tone-ink);
+  font: 800 16px/1 Georgia, "Times New Roman", serif; font-variant-numeric: tabular-nums; }
+.tw-page.is-done .tw-page-no, .tw-page.is-live .tw-page-no, .tw-page.is-current .tw-page-no { background: var(--tone); color: #fff; }
+.tw-page .tw-page-body { display: grid; gap: 2px; min-width: 0; color: inherit; font-size: inherit; }
+.tw-page .tw-page-body small { display: flex; flex-wrap: wrap; align-items: center; gap: 2px 10px; color: var(--tone-ink); font-size: 12.5px; font-weight: 800; }
+.tw-page .tw-page-body strong { margin: 0; font-size: 17px; line-height: 1.4; }
+.tw-page .tw-page-body > span { color: var(--muted); font-size: 13.5px; line-height: 1.6; }
+.tw-page .tw-page-state { display: inline-flex; align-items: center; gap: 6px; color: var(--muted); font-size: 12px; font-style: normal; font-weight: 700; }
+.tw-page .tw-page-state i { width: 7px; height: 7px; border-radius: 50%; background: #b9afa4; }
+.tw-page.is-live .tw-page-state { color: #1f7a4d; }
+.tw-page.is-live .tw-page-state i { background: #2f9e6a; box-shadow: 0 0 0 3px rgba(47, 158, 106, .16); }
+.tw-pages .tw-page.is-current { border-color: var(--tone); background: linear-gradient(180deg, var(--tone-soft), var(--white) 72%); box-shadow: inset 0 0 0 1px var(--tone), 0 8px 20px rgba(53, 38, 24, .08); }
+.tw-page.is-current .tw-page-state { color: var(--tone-ink); }
+.tw-page.is-current .tw-page-state i { background: var(--tone); }
+.tw-pages .tw-page.is-notes { background: #f1f7f4; }
+.tw-page.is-notes .tw-page-no { background: #dcebe5; color: var(--teal); }
+
+/* ⑧ 空表格：没有记录时收起表头，只留一个带图标的提示（“没有……”） */
+.tw-table td.empty, .tw-panel p.empty { padding: 24px 16px 22px; background: #fbf8f2; color: #7d7268; font-size: 14px; line-height: 1.7; text-align: center; }
+.tw-table td.empty::before, .tw-panel p.empty::before { content: ""; display: block; width: 38px; height: 38px; margin: 0 auto 8px; border-radius: 50%;
+  background: #efe7da url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%238a7f74' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 13.5 6 6.2A2 2 0 0 1 7.9 5h8.2A2 2 0 0 1 18 6.2l2.5 7.3'/%3E%3Cpath d='M3.5 13.5V18a1.5 1.5 0 0 0 1.5 1.5h14a1.5 1.5 0 0 0 1.5-1.5v-4.5h-5l-1.5 2h-4l-1.5-2z'/%3E%3C/svg%3E") no-repeat center / 20px; }
+.tw-table:has(> tbody > tr:only-child > td.empty) > thead { display: none; }
+.tw-panel p.empty { margin: 0; border: 1px dashed rgba(70, 51, 34, .2); border-radius: 12px; }
+
+@media (max-width: 760px) {
+  .tw-fb-card { grid-template-columns: minmax(0, 1fr); gap: 6px; }
+  .tw-fb-meta { display: flex; flex-wrap: wrap; gap: 2px 10px; }
+  .tw-fb-card .tw-fb-actions { justify-content: flex-end; }
+  .tw-mood-row { grid-template-columns: minmax(0, 1fr) auto; gap: 6px 12px; }
+  .tw-mood-bar { grid-column: 1 / -1; grid-row: 2; }
+  .tw-up-news { padding-left: 18px; }
+  .tw-up-news::before { left: 4px; }
+  details.tw-up-sec::before { left: -19px; }
+  .tw-up-peek { display: none; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-pages .tw-page { transition: none; }
+  .tw-pages .tw-page:hover { transform: none; }
+}
+
+/* ---------- 第三档美化（2026-11-22 用户：“然后做第三档吧”） ---------- */
+/* ⑨ 加入名单工具条：筛选靠左，右边“上传点名册”和“导出考勤”菜单（两个导出合成一个），一行放得下 */
+.tw-bar-split > select[data-checkin-date] { min-width: 190px; }
+.tw-bar-split > select[data-roster-filter] { min-width: 120px; }
+.tw-bar-split > input[type=search] { flex: 1 1 220px; min-width: 200px; max-width: 340px; }
+.tw-bar-end { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-left: auto; }
+.tw-bar-end > .tw-secondary, .tw-menu > summary.tw-secondary { height: 42px; padding-top: 0; padding-bottom: 0; }
+.tw-menu { position: relative; }
+.tw-menu[hidden] { display: none; }
+.tw-menu > summary { list-style: none; cursor: pointer; user-select: none; }
+.tw-menu > summary::-webkit-details-marker { display: none; }
+.tw-menu > summary::after { content: ""; width: 7px; height: 7px; margin: 0 2px 4px 6px; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); transition: transform .15s ease; }
+.tw-menu[open] > summary::after { margin-bottom: -2px; transform: rotate(-135deg); }
+.tw-menu-list { position: absolute; top: calc(100% + 6px); right: 0; z-index: 30; display: grid; gap: 2px; min-width: 230px; padding: 6px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: 0 16px 34px rgba(53, 38, 24, .16); }
+.tw-menu-list button { display: grid; gap: 1px; padding: 9px 12px; border: 0; border-radius: 8px; background: transparent; color: var(--ink); font: 700 14.5px/1.35 var(--sans); text-align: left; cursor: pointer; }
+.tw-menu-list button small { color: var(--muted); font-size: 12.5px; font-weight: 500; }
+.tw-menu-list button:hover, .tw-menu-list button:focus-visible { background: var(--teal-soft); color: var(--teal); outline: none; }
+.tw-menu-list button[hidden] { display: none; }
+
+/* ⑩ 整列都空着的“班级”“小组”自动隐藏（学生作答、弹幕） */
+.tw-hide-class .tw-c-class, .tw-hide-group .tw-c-group { display: none; }
+
+/* ⑪ 作业情况的题目表按部分分组：每部分前一行组名和题数 */
+.tw-pe-overview tr.tw-part-row th { padding: 12px 14px 8px; border-top: 2px solid rgba(70, 51, 34, .12); background: #f4f8f6; color: var(--teal); font-size: 15px; font-weight: 800; text-align: left; }
+.tw-pe-overview tbody tr.tw-part-row:first-child th { border-top: 0; }
+.tw-pe-overview tr.tw-part-row th small { margin-left: 10px; color: var(--muted); font-size: 12.5px; font-weight: 600; }
+.tw-pe-overview tbody tr.tw-part-row:hover > th { background: #f4f8f6; }
+
+/* ⑫ 各页小标题统一成一种：17px 加粗、左边 4px 青色竖条（同登录安全）。“修为境界”顶上的楷体大标题和宗门卡片是修仙主题，保留 */
+.tw-up-h, .tw-rm-tablebar h4, .tw-lt-block > h3, .tw-panel .tw-card.wide > h2:not(.tw-step) {
+  padding-left: 10px; border-left: 4px solid var(--teal); color: var(--ink); font: 800 17px/1.35 var(--sans); letter-spacing: 0; }
+.tw-up-h small, .tw-rm-tablebar h4 small, .tw-lt-block > h3 small, .tw-panel .tw-card.wide > h2:not(.tw-step) small { margin-left: 6px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.tw-panel .ins-sec { font-size: 17px; }
+.tw-panel .ins-sec::before { width: 4px; height: 18px; margin-right: 10px; border-radius: 2px; background: var(--teal); vertical-align: -3px; }
+/* 标题前带图标的（导出与清理）：图标代替竖条 */
+.tw-panel .tw-card.wide > h2:has(> .tw-h-ico) { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 10px; margin-bottom: 10px; padding-left: 0; border-left: 0; }
+.tw-h-ico { display: inline-grid; flex: 0 0 auto; place-items: center; width: 34px; height: 34px; border-radius: 10px; background: var(--teal-soft); color: var(--teal); }
+
+/* ⑬ 宗门卡片排满一行（原来按 5 格排，4 张只占五分之四）。下面“宗主任期”横跨整行、占着每一格，auto-fit 收不掉空格，
+   所以按 4 个宗门直接排 4 列，窄屏 2 列、手机 1 列 */
+.tw-sects { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+@media (max-width: 1000px) { .tw-sects { grid-template-columns: repeat(2, minmax(0, 1fr)); } }
+@media (max-width: 560px) { .tw-sects { grid-template-columns: minmax(0, 1fr); } }
+
+/* ⑭ 习经“文字作答”：答案两栏排（一行三十几个字，读起来不累），窄屏一栏 */
+[data-answer-list] { column-count: 2; column-gap: 14px; }
+[data-answer-list] > .tw-answer { display: block; margin: 0 0 12px; break-inside: avoid; }
+[data-answer-list] > .tw-answer p { font-size: 16px; }
+[data-answer-list] > .empty { column-span: all; }
+
+/* ⑮ 导出与清理：两张导出卡片并排、按钮对齐在底部；班级通栏；删除本课堂是红色危险区 */
+.tw-data-grid { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 18px; margin-bottom: 20px; }
+.tw-data-grid > .tw-card.wide { margin: 0; }
+.tw-data-card { display: flex; flex-direction: column; }
+.tw-data-card > p { margin: 0 0 8px; line-height: 1.75; }
+.tw-data-grid .tw-data-card > .tw-actions { margin-top: auto; padding-top: 10px; }
+.tw-panel .tw-card.danger { border: 1px solid rgba(164, 73, 45, .28); border-top: 4px solid var(--rust); background: linear-gradient(180deg, #fbefe9, var(--white) 110px); }
+.tw-panel .tw-card.wide.danger > h2:not(.tw-step) { color: #8f3d25; }   /* 选择器要比上面统一小标题的那条具体 */
+.tw-panel .tw-card.wide.danger > h2:not(.tw-step) small { color: #a4492d; }
+.tw-card.danger .tw-h-ico { background: #f6dcd1; color: var(--rust); }
+
+@media (max-width: 900px) {
+  [data-answer-list] { column-count: 1; }
+}
+@media (max-width: 760px) {
+  .tw-data-grid { grid-template-columns: minmax(0, 1fr); }
+  .tw-bar-end { margin-left: 0; }
+  .tw-bar-split > input[type=search] { max-width: none; }
+  .tw-menu-list { right: auto; left: 0; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .tw-menu > summary::after { transition: none; }
 }

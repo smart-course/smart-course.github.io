@@ -285,7 +285,8 @@
           + `${state === 'is-now' && s.secs ? '<span class="dbf-bar"><span data-dbf-bar></span></span>' : ''}</button></li>`;
       }).join('');
       const title = step ? step.label : '还没开始';
-      const hint = !step ? `点“开始”：${FLOW[0].hint}（${duration(FLOW[0].secs)}）`
+      // 2026-11-22 起点“开始”以前，学生页的辩论赛各步都收起（只显示“等老师开始”），开始以后每一步到了才开放（live-student.js setupDebateClock）
+      const hint = !step ? `点“开始”以前，学生页的辩论赛各步都收起（只显示“等老师开始”），每一步到了才开放。开始：${FLOW[0].hint}（${duration(FLOW[0].secs)}）`
         : step.key === 'result' ? (verdict && verdict.side === 'none' ? '平局：只给点赞前三加了修为，见下面“辩后投票”里的结果'
           : verdict && verdict.side ? `${SIDE[verdict.side]}胜（${verdict.pro} : ${verdict.con}），见下面“辩后投票”里的结果`
             : verdict && verdict.tie ? '平票：请在下面“辩后投票”里裁定' : '辩后投票已停止递交，见下面“辩后投票”里的结果') : step.hint;

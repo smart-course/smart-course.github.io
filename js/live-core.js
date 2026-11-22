@@ -1411,6 +1411,21 @@
           read('homework').filter(mine).forEach((doc) => Object.keys(doc.payload || {}).forEach((key) => add(key, Number(doc.ts) || 0)));
           return { status: 'ok', items: Array.from(first.entries()).map(([key, ts]) => ({ key, ts })).sort((a, b) => a.ts - b.ts) };
         }
+        // 小游戏“老师开始”（2026-11-22，规则同 cloudbase-pg-20261122-小游戏老师开始.sql）：本机表 gamestarts（每课堂每个小游戏一行）
+        if (name === 'ck_game_started' || name === 'ck_game_start') {
+          let rows = read('gamestarts');
+          if (name === 'ck_game_start') {
+            teacherOnly();
+            if (!read('classrooms').some((r) => String(r.id) === String(params.p_classroom))) throw new Error('课堂不存在');
+            if (!/^(mech|disc|biz):\d{2}$/.test(params.p_game || '')) throw new Error('小游戏编号不对');
+            rows = rows.filter((r) => !(String(r.classroom) === String(params.p_classroom) && r.game === params.p_game));
+            if (params.p_on !== false) rows.push({ classroom: params.p_classroom, game: params.p_game, started_at: new Date().toISOString() });
+            write('gamestarts', rows);
+          }
+          const started = {};
+          rows.filter((r) => String(r.classroom) === String(params.p_classroom)).forEach((r) => { started[r.game] = r.started_at; });
+          return { status: 'ok', started };
+        }
         // 机制图闯关看板（2026-11-20，规则同 cloudbase-pg-20261120-抢答与闯关.sql 的 ck_mech_report / ck_mech_board）：本机表 mechruns（每课堂每案例每人一行）
         if (name === 'ck_mech_report' || name === 'ck_mech_board') {
           const runs = read('mechruns');
@@ -3108,6 +3123,13 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-22（晚上）：小游戏等老师点“开始”（用户：“辩论赛，机制图这类小游戏，要老师点击按钮后才可以游玩，参照pk对决的方式。”）；政经线索精简与重新编号
+        ...(config.course === 'xjp-economy' ? [
+          ['辩论赛、机制图闯关、分组讨论、经营沙盘：等老师开始', '课程网站上课时，这几项要等老师在大屏上点“开始”以后才出现；开始以前，这里只有一张“等老师开始”的卡片，辩题、讨论题、角色卡和上面的机制图可以先看一看。辩论赛开始以后，跟着老师的进度一步一步开放，还没到的步骤不能递交。请假补做时不用等。', '2026-11-22'],
+        ] : [
+          ['辩论赛：等老师开始', '课程网站上课时，辩论赛要等老师在大屏上点“开始”以后，才能投辩前票、选论据卡；后面的自由讨论、聊天室、辩后投票也跟着老师的进度一步一步开放，还没到的步骤不能递交。开始以前，这里只有一张“等老师开始”的卡片，辩题可以先想一想。请假补做时不用等。', '2026-11-22'],
+          ['线索按出现的先后重新编号', '案例里没有用到的延伸阅读线索去掉了；其余线索按在页面上出现的先后，重新编成线索 01、02、03……，题目、解析里提到的线索编号也一起改好了。', '2026-11-22'],
+        ]),
         // 2026-11-22：云间灵田小景夜里亮灯、摆放范围放宽；宗主每周推选、连任最多两周，宗门榜显示宗主的境界和修为
         ['云间灵田 · 夜灯和摆放', '洞天里的“暖玉石灯”和“藏书小阁”到了晚上会亮灯。布置洞天时能摆的地方变大了：除了灵田和水渠，草地上都能摆，一直到草地边上；小景之间可以挨着放；压住原有的松树、灵石时，它们会自动收起，把小景挪开又回来。已经摆好的布局不受影响。', '2026-11-22'],
         ['宗主每周推选，连任最多两周', '宗主改为每周一推选一次：本宗元婴以上的同门里修为最高的担任，一任一周；连任最多两周，做满两周就换下一名，本宗元婴以上的同门都轮过一遍以后再从头轮起。面板“宗门”里，每个宗门下面多了一行本周宗主的境界、修为和连任第几周；云间灵田的宗门页同样显示（灵田里写的是道号）。', '2026-11-22'],

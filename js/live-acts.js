@@ -16,7 +16,7 @@
  *
  * 机制图闯关看板（同日）。用户：“‘机制图 · 弹幕接龙’能否换一种方式，比如设置类似于闯关或者boss战的游戏，然后通过前面一个节点推出后面一个节点，
  *   形成一条链路或者闭环？让学生在闯关的过程中理解各节点之间的关系和联系？”
- *   闯关在学生页上进行（不用老师开局，不计修为）。投屏页机制图下面带 data-mech-board 的一块里放看板：在闯人数、推出链条的人数、通关人数，
+ *   闯关在学生页上进行（不计修为；2026-11-22 起老师在投屏页点“开始机制图闯关”以后学生页才显示，见 live-gates.js）。投屏页机制图下面带 data-mech-board 的一块里放看板：在闯人数、推出链条的人数、通关人数，
  *   每个箭头有多少人答错过（答错最多的先讲），最先通关的 12 位。只写箭头编号（①→②），不写节点名称——大屏上的机制图这时还遮着。
  *   看板上面有“打开闯关大屏”（同日，用户：“机制图闯关也一起改成大屏风格。”）：深色大屏上是一排节点卡片（先只亮第一步）和上面这些人数，
  *   点“揭晓下一步”（→ 或回车）一步一步亮出节点和这个箭头的参考说法；不影响页面上机制图自己的“逐步演示”。
@@ -201,7 +201,7 @@
     const opener = document.createElement('div');
     opener.className = 'act-ctl';
     opener.innerHTML = '<div class="act-ctl-row"><button type="button" class="is-main" data-ms-open>🖥 打开闯关大屏</button>'
-      + '<span class="act-state">学生在自己的页面上闯关（不用老师开局）。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
+      + '<span class="act-state">老师点上面的“开始机制图闯关”以后，学生在自己的页面上闯关。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
     ['click', 'keydown', 'keyup'].forEach((type) => opener.addEventListener(type, (event) => event.stopPropagation()));
     el.insertAdjacentElement('beforebegin', opener);
     const stage = document.createElement('div');

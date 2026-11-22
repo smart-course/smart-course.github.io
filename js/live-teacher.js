@@ -106,6 +106,13 @@
   const isExam = (id) => /^exam\d{2}$/.test(String(id || ''));
   const TRASH_ICON = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 6h18"/><path d="M8 6V4h8v2"/><path d="M19 6l-1 14H6L5 6"/><path d="M10 11v6M14 11v6"/></svg>';
   const ACTION_HEAD = '<th class="tw-col-action"><span class="sr-only">删除</span></th>';
+  // 表格里的状态小标签和细进度条（2026-11-22 用户：“第一档先做吧”）：ok 绿、bad 红、warn 黄、mute 灰；时间等补充写成后面的灰色小字
+  const statusTag = (text, tone = 'mute', title = '') => `<span class="tw-tag is-${tone}"${title ? ` title="${esc(title)}"` : ''}>${esc(text)}</span>`;
+  const whenSmall = (text) => (text ? `<small class="tw-when">${esc(text)}</small>` : '');
+  const progLine = (label, done, total) => {
+    const p = total ? Math.max(0, Math.min(100, Math.round((done * 100) / total))) : 0;
+    return `<span class="tw-prog"><span class="tw-prog-txt">${esc(label)}</span><span class="tw-prog-bar${p >= 100 ? ' is-full' : ''}" aria-hidden="true"><i style="width:${p}%"></i></span></span>`;
+  };
   // 班外同学（老师在“登录安全”允许后加进点名册的，标 extra）：删除时一并撤销允许、从本班点名册移除，名单里就不再显示
   const deleteCell = (row, extra) => `<td class="tw-col-action"><button type="button" class="tw-trash" data-student-delete="${esc(row.sid)}"${extra ? ' data-student-extra="1"' : ''} title="${extra ? '把这位班外同学从本班移除' : '删除该学生在本课堂的记录'}" aria-label="${extra ? `把 ${esc(Array.from(row.names).join('、'))} 从本班移除` : `删除 ${esc(Array.from(row.names).join('、'))} 在本课堂的记录`}">${TRASH_ICON}</button></td>`;
   const KINDS = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
@@ -612,6 +619,7 @@
           <span class="tw-room-card-meta"><code>${esc(room.code)}</code>${day ? `<span>${esc(day)}</span>` : ''}</span>
         </button><button type="button" class="tw-trash" data-room-delete="${esc(room.id)}" title="删除本堂课" aria-label="删除课堂 ${esc(room.name)}">${TRASH_ICON}</button></div>`;
     }).join('');
+    renderPages();   // “课堂网页”卡片上的“上过／开放中／当前课堂”跟着课堂列表走
   }
   const roomNotice = (text) => { $('[data-room-notice]').textContent = text || ''; };
   // 删除一堂课：该课堂及其加入记录、选择、作答、作业、弹幕；本班其他课堂和点名册不受影响
@@ -1153,9 +1161,14 @@
     });
     const order = rooms.map((room) => String(room.id)).filter((id) => total.has(id)).concat(Array.from(total.keys()).filter((id) => !rooms.some((room) => String(room.id) === id)));
     box.hidden = false;
+    // 2026-11-22 第二档美化：每个课堂一条比例条（绿色笑脸、灰色不高兴），后面写人次和笑脸占比
     box.innerHTML = '<b>这堂课感觉怎么样</b>' + (order.map((id) => {
       const { up, down } = total.get(id);
-      return `<span>${esc(roomName.get(id) || '这堂课')}：😊 ${up} 人次 · ☹️ ${down} 人次${up + down ? `<small>（笑脸 ${Math.round(up * 100 / (up + down))}%）</small>` : ''}</span>`;
+      const n = up + down;
+      const share = n ? Math.round((up * 100) / n) : 0;
+      return `<div class="tw-mood-row"><span class="tw-mood-room">${esc(roomName.get(id) || '这堂课')}</span>`
+        + `<span class="tw-mood-bar" role="img" aria-label="笑脸 ${up} 人次，不高兴 ${down} 人次"><i class="is-up" style="width:${share}%"></i><i class="is-down" style="width:${n ? 100 - share : 0}%"></i></span>`
+        + `<span class="tw-mood-num">😊 ${up} 人次 · ☹️ ${down} 人次${n ? `<small>笑脸 ${share}%</small>` : ''}</span></div>`;
     }).join('') || '<small>还没有同学选。学生在建议箱上方点笑脸或不高兴的脸，每人每天一票、可以改。</small>');
   }
   // 建议是针对一堂课的：习经一个案例（两课时）就是一次课，政经一个案例一次课，用案例标明是哪次课
@@ -1171,9 +1184,15 @@
     const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
     const waiting = feedbackRows.filter((doc) => awaitingReply(doc.id)).length;
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条${liked ? `（已点赞 ${liked} 条）` : ''}${query ? `，符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
-    $('[data-fb-rows]').innerHTML = rows.map((doc) => `<tr><td>${esc(doc.created_on || '')}</td><td>${esc(roomName.get(String(doc.classroom)) || '')}</td><td>${esc(sessionLabel(doc.case_no))}</td>
-      <td class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}${threadHtml(doc.id)}</td><td class="tw-col-action tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></td></tr>`).join('')
-      || `<tr><td colspan="5" class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</td></tr>`;
+    // 2026-11-22 第二档美化：一条建议一张卡片——左边日期、课堂、哪次课，中间建议（点击放大），往来回复缩进排在下面，右边回复、点赞、删除
+    $('[data-fb-rows]').innerHTML = rows.map((doc) => {
+      const room = roomName.get(String(doc.classroom)) || '';
+      return `<article class="tw-fb-card${Number(doc.adopted) > 0 ? ' is-liked' : ''}${awaitingReply(doc.id) ? ' is-waiting' : ''}">
+        <div class="tw-fb-meta"><time>${esc(doc.created_on || '')}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
+        <div class="tw-fb-main"><p class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}</p>${threadHtml(doc.id)}</div>
+        <div class="tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></div></article>`;
+    }).join('')
+      || `<p class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : '还没有收到建议。学生在每次课最后的“匿名建议箱”（政治经济学为“匿名建议和提问箱”）提意见、建议或问题后，会出现在这里。'}</p>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
   // 放大看一条建议（2026-11-05 用户：“‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”）：
@@ -1490,12 +1509,21 @@
       + `${info.case || ''} · ${info.title || ''}：${tally.roster ? `点名册 ${tally.roster} 人，` : ''}已递交 ${done.length} 人${tally.roster ? `，未递交 ${tally.missing} 人` : ''}，已打分 ${scored.length} 人，平均分 ${avg}。`
       + (exam.room.deadline ? `递交截止 ${deadlineText(exam.room.deadline)}${over ? '（已截止）' : ''}。` : '');
     // 2026-11-11 用户：“期中考查”里面要统计未递交的人数——统计卡片（未递交只算点名册里的同学，点一下只看未递交的），筛选菜单也带人数
-    const stat = (value, label, key, cls = '') => `<button type="button" class="tw-stat tw-exam-stat ${cls}" data-exam-stat="${key}" aria-pressed="${$('[data-exam-filter]').value === key}"><b>${value}</b><span>${label}</span></button>`;
-    $('[data-exam-stats]').innerHTML = (tally.roster ? stat(tally.roster, '点名册人数', 'all') : '')
-      + stat(done.length, tally.outside ? `已递交（含点名册外 ${tally.outside}）` : '已递交', 'submitted')
-      + (tally.roster ? stat(tally.missing, over ? '未递交（已截止）' : '未递交', 'none', tally.missing ? 'is-missing' : 'is-clear') : '')
-      + stat(done.length - scored.filter((person) => person.sub).length, '待批阅', 'todo')
-      + stat(scored.length, `已打分 · 平均 ${avg}`, 'done');
+    // 2026-11-22 第一档美化：统计卡片排成一条、各带图标（同“我的课堂”）；有人未递交时图标和数字变红，都交了显示绿色的勾；还有待批阅的图标是黄色
+    const EXAM_ICONS = {
+      all: '<path d="M9 4.5H7.2A2.2 2.2 0 0 0 5 6.7v12.1A2.2 2.2 0 0 0 7.2 21h9.6a2.2 2.2 0 0 0 2.2-2.2V6.7a2.2 2.2 0 0 0-2.2-2.2H15"/><rect x="9" y="3" width="6" height="3.2" rx="1"/><path d="M8.6 11h6.8M8.6 14.5h6.8M8.6 18h4"/>',
+      check: '<circle cx="12" cy="12" r="8.5"/><path d="m8.3 12.3 2.5 2.5 5-5.2"/>',
+      alert: '<circle cx="12" cy="12" r="8.5"/><path d="M12 7.6v5.2M12 16.3h.01"/>',
+      pen: '<path d="M4 20h4.2L19 9.2a2.1 2.1 0 0 0 0-3L17.8 5a2.1 2.1 0 0 0-3 0L4 15.8V20z"/><path d="m13.5 6.5 4 4"/>',
+      star: '<path d="m12 3.8 2.5 5.1 5.6.8-4 3.9.9 5.6-5-2.6-5 2.6.9-5.6-4-3.9 5.6-.8z"/>',
+    };
+    const stat = (value, label, key, cls, icon) => `<button type="button" class="tw-stat tw-exam-stat ${cls}" data-exam-stat="${key}" aria-pressed="${$('[data-exam-filter]').value === key}"><i class="tw-stat-ico" aria-hidden="true"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round">${EXAM_ICONS[icon]}</svg></i><b>${value}</b><span>${label}</span></button>`;
+    const todoCount = done.length - scored.filter((person) => person.sub).length;
+    $('[data-exam-stats]').innerHTML = (tally.roster ? stat(tally.roster, '点名册人数', 'all', '', 'all') : '')
+      + stat(done.length, tally.outside ? `已递交（含点名册外 ${tally.outside}）` : '已递交', 'submitted', 'is-good', 'check')
+      + (tally.roster ? stat(tally.missing, over ? '未递交（已截止）' : '未递交', 'none', tally.missing ? 'is-missing is-alert' : 'is-clear is-good', tally.missing ? 'alert' : 'check') : '')
+      + stat(todoCount, '待批阅', 'todo', todoCount ? 'is-wait' : 'is-quiet', 'pen')
+      + stat(scored.length, `已打分 · 平均 ${avg}`, 'done', '', 'star');
     const filterBox = $('[data-exam-filter]');
     const counts = { all: list.length, submitted: done.length, todo: done.length - scored.filter((person) => person.sub).length, done: scored.length, none: list.filter((person) => !person.sub).length };
     Array.from(filterBox.options).forEach((option) => {
@@ -1509,7 +1537,7 @@
     body.innerHTML = shown.map(({ person, index }) => {
       const score = examScore(person.mark);
       return `<tr class="${person.sub ? '' : 'tw-absent'}"><td>${person.no || '外'}</td><td>${esc(person.sid)}</td><td class="tw-nowrap">${esc(person.name)}</td><td>${esc(person.class_name)}</td>
-        <td class="${person.sub ? 'ok' : 'warn'}">${person.sub ? `已递交 ${esc(examAt(person.sub.at))}` : '未递交'}</td><td>${person.sub ? examWords(person.sub.text) : ''}</td>
+        <td class="tw-nowrap">${person.sub ? statusTag('已递交', 'ok') + whenSmall(examAt(person.sub.at)) : statusTag('未递交', over ? 'bad' : 'mute')}</td><td>${person.sub ? examWords(person.sub.text) : ''}</td>
         <td class="score">${score == null ? '' : score}</td><td class="tw-exam-comment">${esc(short((person.mark && person.mark.comment) || '', 30))}</td>
         <td class="tw-col-action">${person.sub ? `<button type="button" class="tw-secondary" data-exam-open="${index}">${score == null ? '批阅' : '改分'}</button>` : ''}</td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有符合条件的学生。</td></tr>';
@@ -2410,6 +2438,14 @@
   // 登录记录：选了日期只显示当天时间；全部日期时列出每一天第一次登录的时间
   const loginText = (row, day) => (day ? clock(row.days.get(day))
     : Array.from(row.days.entries()).map(([d, ts]) => `${shortDay(d)} ${clock(ts).slice(0, 5)}`).join('、'));
+  // 加入名单“本次课堂”一列（2026-11-22）：选了日期只写当天的时间；全部日期时写最早那天，另外几天收进“+N 天”（鼠标停上去看），一行放得下
+  const loginWhen = (row, day) => {
+    if (day) return whenSmall(clock(row.days.get(day)));
+    const list = Array.from(row.days.entries()).sort((a, b) => String(a[0]).localeCompare(String(b[0])))
+      .map(([d, ts]) => `${shortDay(d)} ${clock(ts).slice(0, 5)}`);
+    if (!list.length) return '';
+    return whenSmall(list[0]) + (list.length > 1 ? `<small class="tw-when-more" title="${esc(`也登录过：${list.slice(1).join('、')}`)}">+${list.length - 1} 天</small>` : '');
+  };
   // ---------------- 请假 ----------------
   // 学生在章节页面板或首页提交（ck_request_leave），不需要审批；本班全部记录在“加入名单”下方，老师可以撤销不实的请假
   async function loadLeaves() {
@@ -2518,22 +2554,24 @@
     const total = CONCEPT ? 0 : roomTotal();
     const progress = new Map(CONCEPT ? homeworkRows().map((doc) => [doc.sid, { done: doc.progress, total: doc.total }])
       : Array.from(caseProgress().entries()).map(([sid, row]) => [sid, { done: row.keys.size, total }]));
+    // 2026-11-22：全部递交是绿色小标签＋时间；做了一部分的写题数、下面一条细进度条；还没有递交是灰色小标签（原来一律红字）
     const workCell = (sid) => {
       const done = submitted.get(sid);
       const work = progress.get(sid);
-      return `<td class="${done ? 'ok' : 'warn'} tw-nowrap">${done ? `全部递交 ${clock(done)}` : work ? `已递交 ${work.done}/${work.total} 题` : '还没有递交'}</td>`;
+      return `<td class="tw-nowrap">${done ? statusTag('全部递交', 'ok') + whenSmall(clock(done)) : work ? progLine(`已递交 ${work.done}/${work.total} 题`, work.done, work.total) : statusTag('还没有递交')}</td>`;
     };
     const query = $('[data-checkin-search]').value.trim();
     const hit = (values) => !query || values.some((value) => String(value || '').includes(query));
     const roster = rosterOf();
     const hasRoster = roster.length > 0;
-    ['[data-roster-filter]', '[data-roster-export]', '[data-attendance-export]', '[data-roster-stats]'].forEach((selector) => { $(selector).hidden = !hasRoster; });
+    ['[data-roster-filter]', '[data-roster-export]', '[data-attendance-export]', '[data-roster-stats]', '[data-attend-menu]'].forEach((selector) => { $(selector).hidden = !hasRoster; });
     const day = checkinDay();
     const joinedList = students(day);
     // 现在在线：本课堂所有登录过的学号里，2 分钟内报到过的人数（与按日期查看无关）
     const onlineCount = students().filter((row) => isOnline(row.sid)).length;
     $('[data-online-count]').textContent = onlineCount;
     $('[data-roster-online]').textContent = onlineCount;
+    $('[data-roster-online]').closest('.tw-stat').classList.toggle('is-quiet', !onlineCount);
     if (!hasRoster) {
       $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>班级</th><th>小组</th><th>${day ? `登录时间（${shortDay(day)}）` : '登录记录'}</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
       const rows = joinedList.filter((row) => hit([row.sid, row.class_name, row.group_name, ...row.names]));
@@ -2558,6 +2596,11 @@
     $('[data-roster-leave]').textContent = onLeave;
     $('[data-roster-absent]').textContent = roster.length - present - onLeave;
     $('[data-roster-extra]').textContent = extra.length;
+    // 统计条的图标：有人请假、名单外登录时黄色，有人未登录时红色，是 0 时灰色
+    const tone = (selector, n, on) => { const box = $(selector).closest('.tw-stat'); box.classList.toggle(on, n > 0); box.classList.toggle('is-quiet', !n); };
+    tone('[data-roster-leave]', onLeave, 'is-wait');
+    tone('[data-roster-absent]', roster.length - present - onLeave, 'is-alert');
+    tone('[data-roster-extra]', extra.length, 'is-wait');
     const filter = $('[data-roster-filter]').value;
     $('[data-checkin-head]').innerHTML = `<tr><th>#</th><th>学号</th><th>姓名</th><th>${day ? `${shortDay(day)} 登录` : '本次课堂'}</th><th>班级 / 小组</th><th>递交情况</th><th>备注</th>${ACTION_HEAD}</tr>`;
     const rosterRows = filter === 'extra' ? [] : roster.map((person, index) => ({ person, index, row: joined.get(sidKey(person.sid)) }))
@@ -2571,11 +2614,11 @@
       const makeupText = row && row.makeup ? `请假补做（${Array.from(row.makeup).sort().map(shortDay).join('、')} 登录补交） ` : '';
       const remark = leaveText + makeupText + (person.extra ? '班外（老师已允许） ' : '') + (row && !names.includes(person.name) ? `登录时填写的姓名：${names.join('、')}` : names.length > 1 ? `同一学号填写了不同姓名：${names.join('、')}` : '');
       return `<tr class="${row ? '' : leave.length ? 'tw-leave' : 'tw-absent'}"><td>${index + 1}</td><td>${esc(person.sid)}</td><td class="tw-nowrap">${onlineDot(person.sid)}${esc(person.name)}</td>
-        <td class="${row ? 'ok' : leave.length ? 'leave' : 'warn'}">${row ? `已登录 ${esc(loginText(row, day))}` : leave.length ? '请假' : '未登录'}</td>
+        <td class="tw-nowrap">${row ? statusTag('已登录', 'ok') + loginWhen(row, day) : leave.length ? statusTag('请假', 'warn') : statusTag('未登录', 'bad')}</td>
         <td>${esc((row && row.class_name) || person.class || '')}${row && row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>
         ${row ? workCell(row.sid) : '<td></td>'}<td class="warn">${esc(remark)}</td>${person.extra ? deleteCell(row || { sid: person.sid, names: new Set([person.name]) }, true) : row ? deleteCell(row) : '<td></td>'}</tr>`;
     }).join('') + extraRows.map((row) => `<tr class="tw-extra"><td>外</td><td>${esc(row.sid)}</td><td class="tw-nowrap">${onlineDot(row.sid)}${esc(Array.from(row.names).join('、'))}</td>
-        <td class="warn">名单外登录 ${esc(loginText(row, day))}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
+        <td class="tw-nowrap">${statusTag('名单外登录', 'warn')}${loginWhen(row, day)}</td><td>${esc(row.class_name)}${row.group_name ? ` / ${esc(row.group_name)}` : ''}</td>${workCell(row.sid)}
         <td class="warn">学号不在点名册里（可能填错学号，或不是本班学生）</td>${deleteCell(row)}</tr>`).join('')
       || '<tr><td colspan="8" class="empty">没有符合条件的学生。</td></tr>';
   }
@@ -2802,6 +2845,11 @@
     }
   });
   // 导出考勤：本次课堂 / 本班全部课堂（点名册 × 课堂）
+  // “导出考勤”菜单（2026-11-22 第三档美化，原来是两个按钮）：点了其中一项、点菜单外面或按 Esc 就收起
+  const attendMenu = $('[data-attend-menu]');
+  attendMenu.addEventListener('click', (event) => { if (event.target.closest('.tw-menu-list button')) attendMenu.open = false; });
+  document.addEventListener('click', (event) => { if (attendMenu.open && !attendMenu.contains(event.target)) attendMenu.open = false; });
+  attendMenu.addEventListener('keydown', (event) => { if (event.key === 'Escape' && attendMenu.open) { attendMenu.open = false; attendMenu.querySelector('summary').focus(); } });
   $('[data-roster-export]').addEventListener('click', () => {
     if (!state.room) return;
     const day = $('[data-checkin-date]').value;
@@ -3047,6 +3095,9 @@
     const missing = students().filter((row) => !answered.has(row.sid));
     $('[data-answer-count]').textContent = docs.length;
     $('[data-answer-missing]').textContent = missing.length;
+    const missBox = $('[data-answer-missing]').closest('.tw-stat');
+    missBox.classList.toggle('is-wait', missing.length > 0);
+    missBox.classList.toggle('is-quiet', !missing.length);
     $('[data-missing-names]').textContent = missing.map((row) => `${Array.from(row.names)[0]}（${row.sid}）`).join('、') || '无';
     const shown = docs.filter((doc) => !query || doc.sid.includes(query) || doc.name.includes(query));
     $('[data-answer-list]').innerHTML = shown.map((doc) => `
@@ -3411,11 +3462,20 @@
       });
       const names = new Map(unitSections(unit).map((s) => [s.id, s.label]));
       const weakest = stats.filter((stat) => !stat.group && stat.answered >= 3).sort((a, b) => a.right / a.answered - b.right / b.answered).slice(0, 5);
+      // 2026-11-22 第三档美化：题目表按部分分组——每部分前一行组名（和题数），不再每行重复“概念 1 · 绝对剩余价值”
+      const partCount = new Map();
+      stats.forEach((stat) => { if (!stat.group) partCount.set(stat.item.section, (partCount.get(stat.item.section) || 0) + 1); });
+      let lastPart = null;
+      const tableRows = stats.map((stat) => {
+        const head = stat.item.section !== lastPart
+          ? `<tr class="tw-part-row"><th colspan="${showRef ? 3 : 2}" scope="colgroup">${esc(names.get(stat.item.section))}<small>${partCount.get(stat.item.section) || 0} 题</small></th></tr>` : '';
+        lastPart = stat.item.section;
+        return `${head}<tr class="${stat.group ? 'tw-group-row' : ''}"><td>${esc(stat.item.label)}<small class="tw-sub">${esc(short(stat.item.prompt, 46))}</small></td>
+          <td>${stat.answered} / ${rows.length}</td>${showRef ? `<td>${bar(stat.right, stat.answered)}</td>` : ''}</tr>`;
+      }).join('');
       view.innerHTML = `${showRef && weakest.length ? `<article class="tw-card wide"><h2>最值得讲评 <small>作答 3 人以上、正确率最低的 ${weakest.length} 题</small></h2>
           ${weakest.map((stat) => `<div class="tw-option single"><div class="tw-option-label"><span>${esc(names.get(stat.item.section))}</span>${esc(stat.item.label)}：${esc(short(stat.item.prompt, 40))}</div>${bar(stat.right, stat.answered)}</div>`).join('')}</article>` : ''}
-        <table class="tw-table"><thead><tr><th>部分</th><th>题目</th><th>作答人数</th>${showRef ? '<th>正确率</th>' : ''}</tr></thead><tbody>
-        ${stats.map((stat) => `<tr class="${stat.group ? 'tw-group-row' : ''}"><td>${esc(names.get(stat.item.section))}</td><td>${esc(stat.item.label)}<small class="tw-sub">${esc(short(stat.item.prompt, 46))}</small></td>
-          <td>${stat.answered} / ${rows.length}</td>${showRef ? `<td>${bar(stat.right, stat.answered)}</td>` : ''}</tr>`).join('')}</tbody></table>`;
+        <table class="tw-table tw-pe-overview"><thead><tr><th>题目</th><th>作答人数</th>${showRef ? '<th>正确率</th>' : ''}</tr></thead><tbody>${tableRows}</tbody></table>`;
       return;
     }
     const chosen = templates.filter((item) => item.section === section);
@@ -3473,23 +3533,28 @@
       .filter((person) => !query || [person.sid, person.name, person.class_name, person.group_name].some((value) => String(value || '').includes(query)))
       .sort((a, b) => String(a.sid).localeCompare(String(b.sid)));
     const names = new Map(unitSections(unit).map((s) => [s.id, s.label]));
+    // 2026-11-22 第三档美化：整列都空着的“班级”“小组”自动隐藏（有人填了就显示）
+    const table = body.closest('table');
+    table.classList.toggle('tw-hide-class', list.length > 0 && list.every((person) => !person.class_name));
+    table.classList.toggle('tw-hide-group', list.length > 0 && list.every((person) => !person.group_name));
     body.innerHTML = list.map((person) => {
       const row = rows.get(person.sid);
       const open = state.openStudents.has(person.sid);
       if (!row) {
-        return `<tr><td>${esc(person.sid)}</td><td>${esc(person.name)}</td><td>${esc(person.class_name)}</td><td>${esc(person.group_name)}</td>
-          <td colspan="4" class="warn">已加入，还没有递交</td></tr>`;
+        return `<tr><td>${esc(person.sid)}</td><td>${esc(person.name)}</td><td class="tw-c-class">${esc(person.class_name)}</td><td class="tw-c-group">${esc(person.group_name)}</td>
+          <td colspan="4">${statusTag('已加入，还没有递交')}</td></tr>`;
       }
       const doc = row.doc;
-      const exit = unit.plain ? (row.autoAnswered ? `答对 ${row.autoRight}/${row.autoAnswered}` : '还没做')
-        : row.exitAnswered ? `已递交 ${row.exitAnswered}/${row.exitTotal} · 答对 ${row.exitRight}` : '未递交';
+      // 2026-11-22：出门测、全部递交改成小标签——递交了是绿色，只做了一部分是黄色，还没做的是灰色（原来一屏红字“未递交”“否”，像出了错）
+      const exit = unit.plain ? (row.autoAnswered ? `答对 ${row.autoRight}/${row.autoAnswered}` : statusTag('还没做'))
+        : row.exitAnswered ? statusTag(`已递交 ${row.exitAnswered}/${row.exitTotal}`, row.exitSubmitted ? 'ok' : 'warn') + whenSmall(`答对 ${row.exitRight}`) : statusTag('未递交');
       const essay = unit.exam ? (row.items.find((item) => item.key === 'exam') || {}).value : null;
       const main = `<tr class="tw-pe-row${open ? ' is-open' : ''}" data-pe-sid="${esc(person.sid)}" tabindex="0" aria-expanded="${open}">
-        <td>${open ? '▾' : '▸'} ${esc(doc.sid)}</td><td>${esc(doc.name)}</td><td>${esc(doc.class_name || '')}</td><td>${esc(doc.group_name || '')}</td>
-        ${unit.exam ? `<td>${essay ? '已递交' : '未递交'}</td><td>${essay ? `${wordsOf(essay)} 字` : ''}</td>`
-          : `<td>${doc.progress}/${doc.total} 题<small class="tw-sub">自动判分小题答对 ${row.autoRight}/${row.autoTotal}${wholeText(unit, row)}</small></td>
-        <td class="${unit.plain ? '' : row.exitSubmitted ? 'ok' : 'warn'}">${exit}</td>`}
-        <td class="${doc.submitted ? 'ok' : 'warn'}">${doc.submitted ? `是 ${clock(millis(doc.submitted_at))}` : '否'}</td><td>${clock(doc.ts)}</td></tr>`;
+        <td>${open ? '▾' : '▸'} ${esc(doc.sid)}</td><td>${esc(doc.name)}</td><td class="tw-c-class">${esc(doc.class_name || '')}</td><td class="tw-c-group">${esc(doc.group_name || '')}</td>
+        ${unit.exam ? `<td>${essay ? statusTag('已递交', 'ok') : statusTag('未递交')}</td><td>${essay ? `${wordsOf(essay)} 字` : ''}</td>`
+          : `<td>${progLine(`${doc.progress}/${doc.total} 题`, doc.progress, doc.total)}<small class="tw-sub">自动判分小题答对 ${row.autoRight}/${row.autoTotal}${wholeText(unit, row)}</small></td>
+        <td class="tw-nowrap">${exit}</td>`}
+        <td class="tw-nowrap">${doc.submitted ? statusTag('是', 'ok') + whenSmall(clock(millis(doc.submitted_at))) : statusTag('否')}</td><td>${clock(doc.ts)}</td></tr>`;
       if (!open) return main;
       let detail = '';
       let lastSection = '';
@@ -3576,6 +3641,10 @@
     });
     const senders = new Set(rows.map((doc) => doc.sid)).size;
     $('[data-dm-summary]').textContent = `${chosen || '全部日期'}：共 ${rows.length} 条，发送人 ${senders} 人。`;
+    // 2026-11-22 第三档美化：整列都空着的“班级”“小组”自动隐藏
+    const dmTable = $('[data-danmaku-list]').closest('table');
+    dmTable.classList.toggle('tw-hide-class', rows.length > 0 && rows.every((doc) => !(who.get(doc.sid) || {}).class_name));
+    dmTable.classList.toggle('tw-hide-group', rows.length > 0 && rows.every((doc) => !(who.get(doc.sid) || {}).group_name));
     $('[data-danmaku-list]').innerHTML = rows.map((doc) => {
       const info = who.get(doc.sid) || {};
       const withdrawn = Boolean(doc.withdrawn_at);
@@ -3583,7 +3652,7 @@
       const canShow = !withdrawn && doc.status !== 'shown' && !(mode === 'direct' && doc.status === 'new');
       const shownClass = withdrawn ? 'hidden' : mode === 'direct' && doc.status === 'new' ? 'shown' : doc.status;
       return `<tr class="tw-dm is-${esc(shownClass)}"><td>${esc(isoDay(doc.ts))}</td><td>${clock(doc.ts)}</td><td>${esc(doc.name)}</td><td>${esc(doc.sid)}</td>
-        <td>${esc(info.class_name || '')}</td><td>${esc(info.group_name || '')}</td><td class="tw-dm-text">${doc.liked_at ? '<b class="tw-dm-liked" title="老师点赞">👍</b> ' : ''}${doc.gift ? `法宝 ${esc(((window.ClassLive.GIFTS || []).find((gift) => gift.id === doc.gift) || {}).icon || '')} ` : ''}${dmHtml(doc.text)}</td><td><em>${esc(status)}</em></td>
+        <td class="tw-c-class">${esc(info.class_name || '')}</td><td class="tw-c-group">${esc(info.group_name || '')}</td><td class="tw-dm-text">${doc.liked_at ? '<b class="tw-dm-liked" title="老师点赞">👍</b> ' : ''}${doc.gift ? `法宝 ${esc(((window.ClassLive.GIFTS || []).find((gift) => gift.id === doc.gift) || {}).icon || '')} ` : ''}${dmHtml(doc.text)}</td><td><em>${esc(status)}</em></td>
         <td class="tw-dm-actions">${canShow ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="shown">上屏</button>` : ''}${!withdrawn && doc.status !== 'hidden' ? `<button type="button" data-dm="${esc(doc.id)}" data-dm-status="hidden">隐藏</button>` : ''}<button type="button" class="tw-trash" data-dm-delete="${esc(doc.id)}" title="删除这条弹幕" aria-label="删除 ${esc(doc.name)} 的弹幕">${TRASH_ICON}</button></td></tr>`;
     }).join('') || '<tr><td colspan="9" class="empty">没有弹幕记录。</td></tr>';
   }
@@ -3642,16 +3711,38 @@
   });
 
   // ---------------- 课堂网页 ----------------
+  // 2026-11-22 第二档美化：左边编号徽章（配色跟着课程走）；本班发布过课堂的标“上过”和最近一次的日期，有开放中的标绿点，
+  // 现在选中的课堂那一张加边框、标“当前课堂”；教师工具、复习资料用图标徽章
   function renderPages() {
-    $('[data-pages]').innerHTML = course.chapters.map((chapter) => `
-      <a class="tw-page" href="/${chapter.file}${state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : ''}" target="_blank" rel="noopener"><small>${esc(chapter.cn)}</small><strong>${esc(chapter.title)}</strong>
-      <span>${PLAIN ? esc(chapter.chapter) : CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>')}</span></a>`).join('')
+    const tone = pickOf(course).tone;
+    const toneAttr = tone ? ` data-tone="${esc(tone)}"` : '';
+    const classQuery = state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : '';
+    const numberOf = (chapter) => {
+      const digits = String(chapter.cn || '').match(/\d+/);
+      const n = digits ? Number(digits[0]) : chapterNo(chapter.cn || '');
+      return n == null || Number.isNaN(n) ? '' : String(n).padStart(2, '0');
+    };
+    const stateOf = (chapter) => {
+      const rooms = (state.rooms || []).filter((room) => room.chapter === chapter.id);
+      if (!rooms.length) return null;
+      if (state.room && rooms.some((room) => String(room.id) === String(state.room.id))) return { cls: 'is-current', text: '当前课堂' };
+      if (rooms.some((room) => room.is_current)) return { cls: 'is-live', text: '开放中' };
+      const last = rooms.map((room) => isoDay(millis(room.created_at))).filter(Boolean).sort().pop();
+      return { cls: 'is-done', text: `上过${last ? ` · ${last.slice(5)}` : ''}` };
+    };
+    const card = ({ href, cls = '', badge, label, status, title, sub }) => `<a class="tw-page${cls}"${toneAttr} href="${href}" target="_blank" rel="noopener">
+      <span class="tw-page-no" aria-hidden="true">${badge}</span>
+      <span class="tw-page-body"><small>${esc(label)}${status ? `<em class="tw-page-state"><i aria-hidden="true"></i>${esc(status.text)}</em>` : ''}</small><strong>${esc(title)}</strong><span>${sub}</span></span></a>`;
+    $('[data-pages]').innerHTML = course.chapters.map((chapter) => {
+      const status = stateOf(chapter);
+      return card({ href: `/${chapter.file}${classQuery}`, cls: status ? ` ${status.cls}` : '', badge: esc(numberOf(chapter)), label: chapter.cn, status, title: chapter.title,
+        sub: PLAIN ? esc(chapter.chapter) : CONCEPT ? `教材：${esc(chapter.chapter)}` : chapter.cases.map((item) => `案例${item.number} ${esc(item.title)}`).join('<br>') });
+    }).join('')
       // 教师工具页（《金融机构与市场》：课堂模拟控制台、期中经营模拟成绩）
-      + (course.tools || []).map((tool) => `<a class="tw-page is-notes" href="/${tool.file}${state.klass ? `?class=${encodeURIComponent(state.klass.id)}` : ''}" target="_blank" rel="noopener"><small>教师工具</small><strong>${esc(tool.title)}</strong>
-      <span>${esc(tool.note)}</span></a>`).join('')
+      + (course.tools || []).map((tool) => card({ href: `/${tool.file}${classQuery}`, cls: ' is-notes', badge: pickSvg('users', 20), label: '教师工具', title: tool.title, sub: esc(tool.note) })).join('')
       // 复习资料（政经“理论知识点总结（前七章）”、习经“理论知识点总结”）：学生在每个案例页／章节页的“资料与延伸阅读”里也能打开
-      + (course.notes ? `<a class="tw-page is-notes" href="/${course.notes.file}" target="_blank" rel="noopener"><small>复习资料</small><strong>${esc(course.notes.title)}</strong>
-      <span>学生在每个${CONCEPT ? '案例' : '章节'}页最后的“资料与延伸阅读”里都能打开，可导出 PDF。</span></a>` : '');
+      + (course.notes ? card({ href: `/${course.notes.file}`, cls: ' is-notes', badge: pickSvg('book', 20), label: '复习资料', title: course.notes.title,
+        sub: `学生在每个${CONCEPT ? '案例' : '章节'}页最后的“资料与延伸阅读”里都能打开，可导出 PDF。` }) : '');
   }
 
   // ---------------- 导出 ----------------
@@ -4243,6 +4334,8 @@
   // 2026-11-11 重排：顶部境界阶梯（人数、门槛、占全班比例）、表格名次奖牌、修为进度条、提示标签
   const realmFlagHtml = (flag) => `<span class="tw-rm-flag${/^不在点名册|^请假/.test(flag) ? ' is-info' : ''}">${esc(flag)}</span>`;
   const numCell = (value) => `<td class="is-num${Number(value) ? '' : ' is-zero'}">${esc(String(value == null ? 0 : value))}</td>`;
+  // 2026-11-22 第二档美化：签到与请假、作答完成与作答正确各并成一列，上下两行各带小字标签（修为表少两列，宽屏上不用再左右拖；导出的修为表照旧分列）
+  const pairCell = (...pairs) => `<td class="is-num is-pair">${pairs.map(([label, value]) => `<span class="tw-rm-kv${Number(value) ? '' : ' is-zero'}"><i>${label}</i>${esc(String(value == null ? 0 : value))}</span>`).join('')}</td>`;
   function renderRealms() {
     const box = $('[data-realm-rows]');
     if (!box) return;
@@ -4282,10 +4375,10 @@
       return `<tr class="${row.inRoster ? '' : 'is-muted'}"><td><span class="tw-rm-no${rank && rank <= 3 && row.points > 0 ? ` is-${rank}` : ''}">${rank || '—'}</span></td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
       <td>${realmChip(row.realm, row.title)}</td><td class="tw-sect-cell">${sectCell(row.sid)}</td>
       <td><div class="tw-rm-pts"><span><b>${row.points}</b><small> / ${row.max}（${pct(row.points, row.max)}%）</small></span><span class="tw-rm-pbar"><i class="is-r${row.realm}" style="width:${ratio}%"></i></span></div></td>
-      ${numCell(row.detail.attend)}${numCell(row.detail.leave || 0)}${numCell(row.detail.done)}${numCell(row.detail.right)}${numCell(row.detail.danmaku)}${numCell(row.detail.like || 0)}${numCell(row.detail.game || 0)}${numCell(row.detail.practice || 0)}${numCell(row.detail.lingtian || 0)}
+      ${pairCell(['签到', row.detail.attend], ['请假', row.detail.leave || 0])}${pairCell(['完成', row.detail.done], ['正确', row.detail.right])}${numCell(row.detail.danmaku)}${numCell(row.detail.like || 0)}${numCell(row.detail.game || 0)}${numCell(row.detail.practice || 0)}${numCell(row.detail.lingtian || 0)}
       <td class="tw-realm-flags">${row.flags.map(realmFlagHtml).join('')}</td></tr>`;
     }).join('')
-      || '<tr><td colspan="15" class="empty">本班还没有学生记录。</td></tr>';
+      || '<tr><td colspan="14" class="empty">本班还没有学生记录。</td></tr>';
     renderSects();
   }
   async function refreshRealms(save, quiet) {
@@ -4499,7 +4592,7 @@
       const twin = byName.get(row.name);
       const note = twin && sidKey(twin.sid) !== sidKey(row.sid) ? `<span class="tw-sec-tag">点名册上有同名同学（学号 ${esc(twin.sid)}），可能填错了学号</span>` : '';
       // 2026-11-05：允许分两种——“允许旁听”（默认：只能看内容、做题，不进点名册、不计统计和修为）和“加进点名册”（重修等，计入统计）
-      const label = { pending: '<b class="tw-sec-bad">待处理</b>', approved: '已加进点名册', audit: '旁听中', rejected: '已拒绝' }[row.status] || esc(row.status);
+      const label = { pending: statusTag('待处理', 'warn'), approved: statusTag('已加进点名册', 'ok'), audit: statusTag('旁听中', 'info'), rejected: statusTag('已拒绝') }[row.status] || esc(row.status);
       const actions = row.status === 'pending'
         ? `<button type="button" class="tw-secondary" data-sec-audit="${esc(row.id)}">允许旁听</button><button type="button" class="tw-secondary" data-sec-allow="${esc(row.id)}">加进点名册</button><button type="button" class="tw-secondary" data-sec-reject="${esc(row.id)}">拒绝</button>`
         : row.status === 'audit'
@@ -4512,7 +4605,7 @@
     const asking = asks.filter((row) => row.status === 'pending').length;
     $('[data-sec-pinreq-count]').textContent = asks.length ? `待处理 ${asking}` : '';
     $('[data-sec-pinreqs]').innerHTML = asks.map((row) => {
-      const label = row.status === 'pending' ? '<b class="tw-sec-bad">待处理</b>' : `已同意（${esc(stamp(row.decided_at))}），等该生在申请的那台设备上设新口令`;
+      const label = row.status === 'pending' ? statusTag('待处理', 'warn') : `${statusTag('已同意', 'ok')}<small class="tw-sub">${esc(stamp(row.decided_at))}，等该生在申请的那台设备上设新口令</small>`;
       const actions = row.status === 'pending'
         ? `<button type="button" class="tw-secondary" data-sec-pin-allow="${esc(row.id)}">同意重设</button><button type="button" class="tw-secondary" data-sec-pin-deny="${esc(row.id)}">拒绝</button>`
         : '';
@@ -4534,9 +4627,9 @@
       });
     $('[data-sec-pins]').innerHTML = rows.map(({ person, index, pin }) => {
       const locked = pin && pin.locked_until && millis(pin.locked_until) > now;
-      const cond = locked && pin.locks >= 3 ? '<b class="tw-sec-bad">锁定（多次输错，须老师解锁）</b>'
-        : locked ? `<b class="tw-sec-bad">锁定到 ${esc(clock(millis(pin.locked_until)).slice(0, 5))}（第 ${pin.locks || 1} 次）</b>`
-        : pin && pin.fails > 0 ? `<span class="tw-sec-bad">已连续输错 ${pin.fails} 次</span>` : '正常';
+      const cond = locked && pin.locks >= 3 ? statusTag('锁定（多次输错，须老师解锁）', 'bad')
+        : locked ? statusTag(`锁定到 ${clock(millis(pin.locked_until)).slice(0, 5)}（第 ${pin.locks || 1} 次）`, 'bad')
+        : pin && pin.fails > 0 ? statusTag(`已连续输错 ${pin.fails} 次`, 'warn') : statusTag('正常', 'ok');
       const actions = [
         locked || (pin && pin.fails > 0) ? `<button type="button" class="tw-secondary" data-sec-unlock="${esc(person.sid)}">解锁</button>` : '',
         pin ? `<button type="button" class="tw-secondary" data-sec-reset="${esc(person.sid)}" data-sec-name="${esc(person.name)}">重置口令</button>` : '',
@@ -5388,10 +5481,23 @@
     }
   }
   if (PLAIN) {   // 这门课没有弹幕、修为、修炼场、灵田：工作台里几句通用的说明换成对得上的；匿名建议不设“点赞加修为”和回复
-    const introNote = $('[data-panel="insight"] .tw-note');
-    if (introNote) introNote.textContent = '按本班的登录与在线、签到、递交、课堂感受等记录，自动画出学习情况：每天在学人数、一周学习时段、各类行为、在线时长、每次课的到课和作答正确率，以及每位同学的明细。只统计点名册上的同学，不含旁听。每张图下面可以“查看数据表”，全部明细可以导出 Excel。';
-    const fbNote = $('[data-panel="feedback"] .tw-note');
-    if (fbNote) fbNote.textContent = '学生在每次课页面最后的“匿名建议和提问箱”里，对这堂课提的意见和建议，或者没想通的问题（可在下一次课统一解答）。这里和导出文件里只有内容和提交日期，看不到是谁写的。建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。';
+    // 2026-11-22：两页开头的说明改成“一句话＋展开说明”（.tw-intro），这里换成对得上这门课的一句话和几条
+    const setIntro = (panel, lead, items) => {
+      const box = $(`[data-panel="${panel}"] .tw-intro`);
+      if (!box) return;
+      box.querySelector('.tw-intro-lead').textContent = lead;
+      box.querySelector('ul').innerHTML = items.map(([label, text]) => `<li><b>${esc(label)}：</b>${esc(text)}</li>`).join('');
+    };
+    setIntro('insight', '按本班的学习记录自动画出学习情况；只统计点名册上的同学，不含旁听。', [
+      ['依据', '登录与在线、签到、递交、课堂感受等记录。'],
+      ['图表', '每天在学人数、一周学习时段、各类行为、在线时长、每次课的到课和作答正确率，以及每位同学的明细。'],
+      ['数据表与导出', '每张图下面可以“查看数据表”，全部明细可以导出 Excel。'],
+    ]);
+    setIntro('feedback', '学生在每次课页面最后的“匿名建议和提问箱”里写的意见、建议和问题；这里只有内容和提交日期，看不到是谁写的。', [
+      ['写些什么', '学生在每次课页面最后的“匿名建议和提问箱”里，对这堂课提的意见和建议，或者没想通的问题（可在下一次课统一解答）。'],
+      ['匿名', '这里和导出文件里只有内容和提交日期，看不到是谁写的。'],
+      ['这堂课感觉怎么样', '建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。'],
+    ]);
     const plainCss = document.createElement('style');
     plainCss.textContent = '.tw-fb-like, .tw-fb-reply { display: none !important; }';
     document.head.appendChild(plainCss);
@@ -5438,21 +5544,32 @@
     const shown = sections.reduce((n, section) => n + (section.day >= cutoff ? section.items.length : 0), 0);
     const total = sections.reduce((n, section) => n + section.items.length, 0);
     $('[data-up-news-note]').textContent = `${course.title}：共 ${total} 条，学生页现在显示最近 ${days} 天的 ${shown} 条；一天一组，最近的在最上面`;
-    $('[data-up-news]').innerHTML = sections.map((section) => {
+    // 2026-11-22 第二档美化：时间线——最近 3 天展开、更早的收起；每条先显示标题和一行预览，点开看全文（上面有“全部展开／全部收起”）
+    $('[data-up-news]').innerHTML = sections.map((section, index) => {
       const off = section.day < cutoff;
-      return `<section class="tw-up-sec${off ? ' is-off' : ''}"><h4><span>${esc(section.title)}</span><small>${section.items.length} 条</small><em>${off ? '学生页已不显示' : '学生页显示中'}</em></h4><ul>${section.items.map(([label, text, , topic]) => `<li><b>${esc(topic ? `${topic} · ${label}` : label)}</b>${esc(text)}</li>`).join('')}</ul></section>`;
+      return `<details class="tw-up-sec${off ? ' is-off' : ''}"${index < 3 ? ' open' : ''}><summary><span>${esc(section.title)}</span><small>${section.items.length} 条</small><em>${off ? '学生页已不显示' : '学生页显示中'}</em></summary>`
+        + `<ul>${section.items.map(([label, text, , topic]) => `<li><details class="tw-up-item"><summary><b>${esc(topic ? `${topic} · ${label}` : label)}</b><span class="tw-up-peek">${esc(text)}</span></summary><p>${esc(text)}</p></details></li>`).join('')}</ul></details>`;
     }).join('') || '<p class="tw-hint">（没有读到学生页的更新说明）</p>';
     paintUpdateRows();
   }
   // 全部更新记录：同样一天一组，每天前面一行日期（和这一天有几次更新），最近的一天在最上面
   const updateDay = (date) => `${String(date).slice(0, 4) === String(new Date().getFullYear()) ? '' : `${Number(String(date).slice(0, 4))} 年 `}${Number(String(date).slice(5, 7))} 月 ${Number(String(date).slice(8, 10))} 日`;
+  // 2026-11-22 第二档美化：默认只列最近 5 天，下面“显示更早的……”再全部列出；查找时列出全部符合的
+  const UP_RECENT_DAYS = 5;
+  let upShowAll = false;
   function paintUpdateRows() {
     const rows = (DATA.updates || []).slice().reverse();
     const query = $('[data-up-search]').value.trim();
-    const list = rows.filter((row) => !query || `${row.date} ${updateDay(row.date)} ${updateDay(row.date).replace(/\s/g, '')} ${row.no} ${row.title} ${row.commit}`.includes(query));
+    const matched = rows.filter((row) => !query || `${row.date} ${updateDay(row.date)} ${updateDay(row.date).replace(/\s/g, '')} ${row.no} ${row.title} ${row.commit}`.includes(query));
+    const matchedDays = Array.from(new Set(matched.map((row) => row.date)));
+    const keepDays = new Set(query || upShowAll ? matchedDays : matchedDays.slice(0, UP_RECENT_DAYS));
+    const list = matched.filter((row) => keepDays.has(row.date));
+    const moreDays = matchedDays.length - keepDays.size;
+    $('[data-up-more-box]').hidden = !moreDays;
+    $('[data-up-more]').textContent = moreDays ? `显示更早的 ${moreDays} 天（${matched.length - list.length} 次更新）` : '';
     const dayCount = new Set(rows.map((row) => row.date)).size;
     $('[data-up-summary]').textContent = rows.length
-      ? `共 ${rows.length} 次更新，分在 ${dayCount} 天（${updateDay(rows[rows.length - 1].date)}—${updateDay(rows[0].date)}）${query ? `，符合条件 ${list.length} 次` : ''}。“上线”是网站发布的提交号；空着的是和后面某次一起上线，或只改了本机文件（讲义、Word 等）。`
+      ? `共 ${rows.length} 次更新，分在 ${dayCount} 天（${updateDay(rows[rows.length - 1].date)}—${updateDay(rows[0].date)}）${query ? `，符合条件 ${matched.length} 次` : ''}。“上线”是网站发布的提交号；空着的是和后面某次一起上线，或只改了本机文件（讲义、Word 等）。`
       : '还没有整理出更新记录（网站构建时从对话记录整理）。';
     const perDay = list.reduce((map, row) => map.set(row.date, (map.get(row.date) || 0) + 1), new Map());
     let day = '';
@@ -5465,6 +5582,11 @@
   }
   $('[data-tab="updates"]').addEventListener('click', renderUpdates);
   $('[data-up-search]').addEventListener('input', paintUpdateRows);
+  $('[data-panel="updates"]').addEventListener('click', (event) => {
+    const all = event.target.closest('[data-up-open]');
+    if (all) { const open = all.dataset.upOpen === '1'; $$('[data-up-news] details').forEach((box) => { box.open = open; }); return; }
+    if (event.target.closest('[data-up-more]')) { upShowAll = true; paintUpdateRows(); }
+  });
   $('[data-ins-root]').addEventListener('click', (event) => {
     const who = event.target.closest('[data-ins-person]');
     if (who && insState.showPerson) insState.showPerson(who.dataset.insPerson, true);

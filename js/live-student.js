@@ -433,6 +433,14 @@
   .dbt.is-done { border-color: rgba(70,51,34,.2); background: #f6f1e7; }
   .dbt-chip { flex: 0 0 auto; padding: 4px 11px; border: 1px solid rgba(184,134,43,.55); border-radius: 999px; background: #fbf1da; color: #3b2a14; font-size: 14px; font-weight: 800; font-variant-numeric: tabular-nums; line-height: 1.3; white-space: nowrap; }
   .dbt-chip[hidden] { display: none; } .dbt-chip.is-low { border-color: rgba(164,73,45,.55); color: #a4492d; }
+  /* 小游戏“老师开始”（2026-11-22）：老师在大屏上点“开始”以前，辩论赛的各步、机制图闯关、分组讨论和经营沙盘的各步先收起，只放一张“等老师开始”的卡片 */
+  .dbt-wait .cl-debate-step, .dbt-wait .cl-after, .dbt-wait .debate-cards, .dbt-wait .debate-talk, .dbt-wait .debate-chat,
+  .dbt-wait [data-live-item="debate-pre"], .dbt-wait [data-live-item="debate-post"], .clp-gate-wait { display: none !important; }
+  .clp-gate-card { margin: 14px 0 4px; padding: 16px 18px; border: 2px dashed #c9a24a; border-radius: 14px; background: linear-gradient(135deg, #fffaf0, #fdf1d8); color: #4a3510;
+    font: 16px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
+  .clp-gate-card b { display: block; color: #7a4a00; font-size: 1.12em; }
+  .clp-gate-card p { margin: 4px 0 0; }
+  .clp-gate-card[hidden] { display: none; }
   .dbr-form.is-shut input { background: #f3eee4; color: #8a7f74; }
   .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 16px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; color: #6d6259; font-size: 13.5px; }
   .dbr-top[hidden] { display: none; }
@@ -2490,6 +2498,67 @@
   }
   // 限时抢答与闯关（setupActs 要用上面的 holdQuestion，所以放在这里调用）
   if (!worksheet && joined && !OFFLINE && !AUDIT && !MAKEUP && !viewing && backend && document.querySelector('[data-act]')) setupActs();
+  // 小游戏“老师开始”（2026-11-22 用户：“辩论赛，机制图这类小游戏，要老师点击按钮后才可以游玩，参照pk对决的方式。防止有的学生提前把题目都做了。”）：
+  //   习经的机制图闯关（[data-mech-quest]）、分组讨论（[data-discuss] 的各步 .rt-part）、经营沙盘（[data-biz] 的各步 .rt-part）：老师在投屏页这一块点“开始”
+  //   （ck_game_start，live-gates.js）以后才显示；之前收起，放一张“等老师开始”的卡片，隔几秒问后台（ck_game_started）。角色卡、讨论题等介绍照常显示，可以先读。
+  //   老师“收起，重新开始”以后又收起。辩论赛跟着老师的“辩论流程”走（setupDebateClock）。
+  //   请假补做、历史课堂只查看、学生版测试页、离线版不收起；后台还没有这组函数（未执行 SQL）或连续几次连不上时也不收起
+  function setupGameGates() {
+    const NAME = { mech: '机制图闯关', disc: '分组讨论', biz: '经营沙盘' };
+    const WHAT = { mech: '闯关：从第一步推出下一步，一关一关打通机制图', disc: '选角色、进本组聊天室讨论，再全班表决', biz: '选角色组、进本组聊天室商量，再由代表投票' };
+    const gates = [];
+    $$('[data-mech-quest]').forEach((box) => gates.push({ kind: 'mech', no: box.dataset.case, parts: [box] }));
+    $$('[data-discuss][data-practice]').forEach((section) => gates.push({ kind: 'disc', no: section.dataset.practice, parts: $$('.rt-part', section) }));
+    $$('[data-biz][data-practice]').forEach((section) => gates.push({ kind: 'biz', no: section.dataset.practice, parts: $$('.rt-part', section) }));
+    const list = gates.filter((g) => /^\d{2}$/.test(g.no || '') && g.parts.length && !g.parts[0].closest('[hidden]'));
+    if (!list.length) return;
+    list.forEach((g) => {
+      g.key = `${g.kind}:${g.no}`;
+      g.card = document.createElement('div');
+      g.card.className = 'clp-gate-card';
+      g.card.setAttribute('role', 'status');
+      g.card.innerHTML = `<b>${NAME[g.kind]} · 等老师开始</b><p>老师在大屏上点“开始”以后，这里才能${WHAT[g.kind]}。`
+        + (g.kind === 'mech' ? '先看看上面的机制图，想一想第一步之后会发生什么。' : '上面的讨论题和角色卡可以先读一读。') + '</p>';
+      shield(g.card);
+      g.parts[0].insertAdjacentElement('beforebegin', g.card);
+    });
+    const roomId = Number(identity.classroom) || identity.classroom;
+    let started = null;    // 已开始的小游戏 {key: 时间}；还没问到时为 null（先收起）
+    let off = false;       // 后台还没有这组函数或连不上：不收起
+    let failures = 0;
+    let lastPoll = 0;
+    const paint = () => list.forEach((g) => {
+      const open = off || Boolean(started && Object.prototype.hasOwnProperty.call(started, g.key));
+      g.parts.forEach((el) => el.classList.toggle('clp-gate-wait', !open));
+      g.card.hidden = open;
+    });
+    async function poll() {
+      lastPoll = Date.now();
+      try {
+        const value = await backend.rpc('ck_game_started', { p_classroom: roomId });
+        const res = (Array.isArray(value) ? value[0] : value) || {};
+        started = res.started && typeof res.started === 'object' ? res.started : {};
+        failures = 0;
+      } catch (problem) {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) off = true;
+        else if (++failures >= 3) off = true;
+        if (failures === 1) console.warn('[小游戏老师开始]', problem);
+      }
+      paint();
+    }
+    const near = () => list.some((g) => { const r = g.card.hidden ? g.parts[0].getBoundingClientRect() : g.card.getBoundingClientRect(); return r.bottom > -800 && r.top < window.innerHeight + 800; });
+    paint();
+    poll();
+    setInterval(() => {
+      if (document.hidden || off) return;
+      const waiting = list.some((g) => !g.card.hidden);
+      if (Date.now() - lastPoll < (waiting && near() ? 4000 : 30000) - 100) return;   // 等开始、卡片在眼前：每 4 秒问一次；其余 30 秒（老师收起时也能跟上）
+      poll();
+    }, 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && !off) poll(); });
+  }
+  if (!worksheet && joined && !OFFLINE && !PREVIEW && !MAKEUP && !viewing && backend
+      && document.querySelector('[data-mech-quest], [data-discuss][data-practice], [data-biz][data-practice]')) setupGameGates();
   // 机制图闯关（2026-11-20，习经）：闯关在页面自己的脚本里进行，每过一关发一个 xjp:mechquest 事件。
   // 进了本周课堂的同学把进度报给后台（ck_mech_report），供投屏页的看板用；不计修为。
   // 测试页、旁听、补做、历史课堂只查看的都不报；后台还没有这个功能时不再重试
@@ -3762,6 +3831,21 @@
       const rules = section.querySelector('.cl-debate-rules, .debate-rules');
       if (rules) rules.insertAdjacentElement('afterend', bar); else section.insertAdjacentElement('afterbegin', bar);
       shield(bar);
+      // 老师开始以前收起各步（2026-11-22 用户：“辩论赛，机制图这类小游戏，要老师点击按钮后才可以游玩，参照pk对决的方式。防止有的学生提前把题目都做了。”）：
+      // 老师在投屏页“辩论流程”图点“开始”以前（后台没有这场辩论），辩前票、论据卡、自由讨论、聊天室、辩后投票都收起，只放一张“等老师开始”的卡片；
+      // 开始以后每一步到了才开放（还没到的步骤不能递交）。学生版测试页、历史课堂只查看的不收起；后台连续几次连不上时也不收起
+      const gated = !PREVIEW && !viewing;
+      const wait = document.createElement('div');
+      wait.className = 'clp-gate-card';
+      wait.hidden = !gated;
+      wait.setAttribute('role', 'status');
+      wait.innerHTML = '<b>辩论赛 · 等老师开始</b><p>老师在大屏上点“开始”以后，这里才能投辩前票、选论据卡；后面的自由讨论、聊天室、辩后投票，也跟着老师的进度一步一步开放。'
+        + '辩题和两方的立场可以先想一想。</p>';
+      shield(wait);
+      bar.insertAdjacentElement('afterend', wait);
+      section.classList.toggle('dbt-wait', gated);
+      const WAIT = '辩论赛还没开始：等老师在大屏上点“开始”';
+      const EARLY = '这一步还没开始：等老师在大屏上进入这一步再递交';
       const KEYS = [[debateKey(no, 'pre'), debateKey(no, 'cards')], [], [], [debateKey(no, 'post')]];   // 各步要递交的题（自由讨论、聊天室两步没有）
       let live = null;      // { step, left, paused, ends（本机 performance 时钟上的结束时刻）}
       let failures = 0;
@@ -3785,8 +3869,12 @@
         const up = at >= 0 && at < END && !live.paused && left <= 0;
         const shut = (i) => at >= 0 && (at > i || (at === i && up));
         const why = (i) => (at > i ? (at >= END ? '辩论已结束，不能再递交' : '辩论已进入后面的步骤，这一步不能再递交；还没递交的同学可以请老师回到这一步') : '倒计时已结束，不能再递交；老师加时后可以继续递交');
+        const waiting = gated && at < 0 && failures < 3;   // 老师还没开始（连不上后台时不拦）
+        const early = (i) => gated && at >= 0 && i > at;    // 老师还没推进到这一步
+        section.classList.toggle('dbt-wait', waiting);
+        wait.hidden = !waiting;
         KEYS.forEach((keys, i) => keys.forEach((key) => {
-          holdQuestion(key, shut(i) ? why(i) : '');
+          holdQuestion(key, waiting ? WAIT : shut(i) ? why(i) : early(i) ? EARLY : '');
           const chip = chipOf(key);
           if (!chip) return;
           const show = at === i && !up;
@@ -3794,7 +3882,8 @@
           if (show) { chip.textContent = live.paused ? `暂停 ${clock(left)}` : `剩 ${clock(left)}`; chip.classList.toggle('is-low', !live.paused && left <= 10); }
         }));
         // 聊天室：流程开始以后，到“聊天室发言点赞”一步才开放（前面两步先选立场、当面讨论）；这一步时间到或进入后面的步骤就关上
-        const chatWhy = at >= 0 && at < CHAT ? '聊天室下一步开放：先选好立场，和同学讨论，想好自己要说的话。'
+        const chatWhy = waiting ? `${WAIT}。`
+          : at >= 0 && at < CHAT ? '聊天室下一步开放：先选好立场，和同学讨论，想好自己要说的话。'
           : shut(CHAT) ? (at > CHAT ? '聊天室发言已经结束（辩论进入后面的步骤）。' : '发言时间已结束；老师加时后可以继续发言。') : '';
         if (chatWhy) debateShut.set(no, chatWhy); else debateShut.delete(no);
         const form = room.querySelector('.dbr-form');
@@ -5724,7 +5813,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261122a-lingtian-pe' : '20261122a-lingtian-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261122b-start-pe' : '20261122b-start-xjp';   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
