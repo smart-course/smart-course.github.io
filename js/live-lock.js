@@ -64,8 +64,10 @@
   .tw-lock-pad button.is-small:hover { background: rgba(255, 255, 255, .12); }
   .tw-lock-pad button:disabled { opacity: .35; cursor: default; transform: none; }
   .tw-lock button:focus-visible { box-shadow: 0 0 0 3px rgba(246, 220, 152, .7); }
-  .tw-lock .tw-lock-forgot { margin-top: 22px; padding: 4px 8px; border-radius: 6px; color: rgba(255, 255, 255, .7); font-size: 14px; font-weight: 600; text-decoration: underline; text-underline-offset: 3px; }
-  .tw-lock .tw-lock-forgot:hover { color: #fff; }
+  /* 2026-11-23 晚：带下划线的文字按钮改成小胶囊（用户：“还有哪些带下划线的按钮，都美观一下”） */
+  .tw-lock .tw-lock-forgot { margin-top: 22px; padding: 7px 16px; border: 1px solid rgba(255, 255, 255, .3); border-radius: 999px; background: rgba(255, 255, 255, .08); color: rgba(255, 255, 255, .84);
+    font-size: 14px; font-weight: 600; text-decoration: none; transition: background-color .15s ease, border-color .15s ease, color .15s ease; }
+  .tw-lock .tw-lock-forgot:hover { color: #fff; background: rgba(255, 255, 255, .16); border-color: rgba(255, 255, 255, .56); }
   .tw-lock .tw-lock-forgot[hidden], .tw-lock-out[hidden] { display: none; }
   .tw-lock-out { margin-top: 18px; padding: 14px 16px; border-radius: 14px; background: rgba(255, 255, 255, .1); font-size: 14px; line-height: 1.6; }
   .tw-lock-out p { margin-bottom: 10px; text-wrap: balance; }

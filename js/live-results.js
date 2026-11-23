@@ -39,6 +39,9 @@
   .lv-tag { padding: 2px 9px; border-radius: 12px; color: #fff; background: var(--teal, #23655f); font-weight: 800; font-size: 13px; }
   .lv-count { color: var(--ink, #201c18); font-weight: 800; font-size: 16px; }
   .lv-note { color: var(--muted, #6d6259); font-size: 14px; }
+  /* “登录教师工作台”（2026-11-23 晚）：不画下划线，做成墨绿小胶囊 */
+  .lv-note a { display: inline-block; margin: 0 2px; padding: 0 9px; border: 1px solid rgba(35,101,95,.3); border-radius: 999px; background: rgba(35,101,95,.07); color: #23655f; font-weight: 700; text-decoration: none; }
+  .lv-note a:hover { background: rgba(35,101,95,.14); border-color: rgba(35,101,95,.55); }
   .lv-acts { display: flex; gap: 8px; margin-left: auto; }
   .lv-head button { padding: 5px 12px; border: 1px solid var(--teal, #23655f); border-radius: 6px; color: var(--teal, #23655f); background: #fff; font-family: inherit; font-weight: 700; font-size: 14px; line-height: 1.2; cursor: pointer; }
   .lv-head button[hidden] { display: none; }

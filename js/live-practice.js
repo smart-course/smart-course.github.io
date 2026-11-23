@@ -58,7 +58,10 @@
   .lp-due { margin-left: 6px; padding: 0 7px; border-radius: 999px; background: #fbe3da; color: #a4492d; font-size: 12px; }
   .lp-top { display: flex; align-items: center; flex-wrap: wrap; gap: 8px 14px; margin-bottom: 12px; font-size: 14px; color: #5d6964; }
   .lp-top b { color: #245e55; }
-  .lp-back { border: 0; background: none; padding: 4px 0; color: #245e55; font: inherit; text-decoration: underline; text-underline-offset: 4px; cursor: pointer; }
+  /* 2026-11-23 晚：带下划线的文字按钮改成小胶囊（用户：“还有哪些带下划线的按钮，都美观一下”） */
+  .lp-back { display: inline-flex; align-items: center; padding: 4px 14px 4px 11px; border: 1px solid rgba(36,94,85,.26); border-radius: 999px; background: rgba(36,94,85,.06);
+    color: #245e55; font: inherit; font-size: 13.5px; font-weight: 700; text-decoration: none; cursor: pointer; transition: background-color .15s ease, border-color .15s ease, transform .15s ease; }
+  .lp-back:hover { background: rgba(36,94,85,.13); border-color: rgba(36,94,85,.5); transform: translateY(-1px); }
   .lp-recall { margin-left: auto; display: inline-flex; align-items: center; gap: 6px; font-size: 13.5px; cursor: pointer; }
   .lp-recall input { width: 17px; height: 17px; accent-color: #245e55; }
   .lp-q { padding: 16px 18px; border: 1px solid #d8d1bf; border-radius: 14px; background: #fffdf8; }

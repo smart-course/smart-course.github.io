@@ -159,7 +159,9 @@
     transition: background .15s ease, border-color .15s ease; }
   .dm-bar button:hover { border-color: rgba(255,255,255,.5); background: rgba(255,255,255,.16); }
   .dm-bar button[aria-pressed="true"] { background: rgba(255,255,255,.22); }
-  .dm-bar a { color: #ffd98a; }
+  /* “登录教师工作台”等链接（2026-11-23 晚）：不画下划线，做成金色小胶囊，和控件条上的按钮一致 */
+  .dm-bar a { display: inline-block; padding: 1px 10px; border: 1px solid rgba(255,217,138,.45); border-radius: 999px; background: rgba(255,217,138,.12); color: #ffd98a; text-decoration: none; }
+  .dm-bar a:hover { background: rgba(255,217,138,.24); border-color: rgba(255,217,138,.75); }
   .dm-bar label { display: inline-flex; align-items: center; gap: 5px; }
   .dm-bar select { -webkit-appearance: none; appearance: none; padding: 3px 26px 3px 10px; border: 1px solid rgba(255,255,255,.26); border-radius: 999px; color: #fff; font: inherit; cursor: pointer;
     background: rgba(255,255,255,.12) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 12 8'%3E%3Cpath d='M1.5 1.75 6 6.25l4.5-4.5' fill='none' stroke='%23fff' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E") no-repeat right 8px center / 10px 7px; }

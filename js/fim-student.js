@@ -84,10 +84,14 @@
   .fimp-btn[hidden], .fimp-bar[hidden] { display: none; }
   .fimp-note { margin: 8px 0 0; padding: 7px 10px; border-radius: 8px; background: #f7e6da; color: #8a3f22; font-size: 13.5px; }
   .fimp-note a { color: #8a3f22; font-weight: 700; }
-  .fimp-links { display: flex; justify-content: space-between; margin-top: 8px; font-size: 13px; }
-  .fimp-links button { border: 0; background: none; color: #8a8478; font: inherit; text-decoration: underline; cursor: pointer; padding: 0; }
+  .fimp-links { display: flex; justify-content: space-between; align-items: center; gap: 8px; margin-top: 8px; font-size: 13px; }
+  /* 2026-11-23 晚：带下划线的文字按钮改成小胶囊（用户：“还有哪些带下划线的按钮，都美观一下”） */
+  .fimp-links button { flex: none; padding: 2px 11px; border: 1px solid rgba(138,132,120,.34); border-radius: 999px; background: rgba(138,132,120,.08); color: #7a7469; font: inherit; font-weight: 700;
+    text-decoration: none; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+  .fimp-links button:hover { background: rgba(138,132,120,.16); border-color: rgba(138,132,120,.58); color: #5f5a51; }
   .fim-banner { position: sticky; top: 0; z-index: 2147481000; padding: 9px 16px; background: #b65b34; color: #fff; font: 700 15px/1.5 "PingFang SC","Microsoft YaHei",sans-serif; text-align: center; }
-  .fim-banner a { color: #ffe9c4; }
+  .fim-banner a { display: inline-block; margin: 0 3px; padding: 0 10px; border: 1px solid rgba(255,233,196,.6); border-radius: 999px; background: rgba(255,255,255,.14); color: #fff; text-decoration: none; }   /* 2026-11-23 晚：不画下划线，做成小胶囊 */
+  .fim-banner a:hover { background: rgba(255,255,255,.26); }
   .fim-subm { padding: 18px 20px; border: 1px solid #e2d6c3; border-radius: 14px; background: #fffdf8; }
   .fim-subm h3 { margin: 0 0 6px; font-size: 19px; }
   .fim-subm ul { margin: 8px 0 0; padding: 0; list-style: none; }

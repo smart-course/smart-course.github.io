@@ -33,7 +33,9 @@
   .rm-bar button[aria-pressed="false"] { color: rgba(255,255,255,.7); }
   .rm-bar button.is-warn { border-color: #f0b49e; color: #ffd2c2; }
   .rm-bar button[disabled] { opacity: .5; cursor: default; }
-  .rm-bar a { color: #ffd98a; }
+  /* “登录教师工作台”等链接（2026-11-23 晚）：不画下划线，做成金色小胶囊 */
+  .rm-bar a { display: inline-block; padding: 1px 10px; border: 1px solid rgba(255,217,138,.45); border-radius: 999px; background: rgba(255,217,138,.12); color: #ffd98a; text-decoration: none; }
+  .rm-bar a:hover { background: rgba(255,217,138,.24); border-color: rgba(255,217,138,.75); }
   .rm-bar b { color: #ffd98a; letter-spacing: .06em; }
   .rm-bar .rm-open::before { content: ""; display: inline-block; width: 8px; height: 8px; margin: 0 5px 1px 0; border-radius: 50%; background: #f0b49e; vertical-align: middle; }
   .rm-bar .rm-open.is-on::before { background: #7fd3a3; box-shadow: 0 0 0 3px rgba(127,211,163,.22); }

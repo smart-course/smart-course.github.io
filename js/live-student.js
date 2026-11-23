@@ -302,7 +302,23 @@
   .clp-hint { margin: 6px 0 0; line-height: 1.5; }
   .clp-hint[data-state=ok] { color: #23655f; }
   .clp-hint[data-state=error] { color: #a4492d; font-weight: 700; }
-  .clp-link { padding: 0; border: 0; background: none; color: #a4492d; font: inherit; font-size: 12.5px; text-decoration: underline; cursor: pointer; white-space: nowrap; }
+  /* 小按钮（2026-11-23 晚，用户：“这几个小按钮也美观优化一下……还有哪些带下划线的按钮，都美观一下”）：原来是带下划线的文字，
+     改成小胶囊——浅色底、细边框，前面一个表示作用的小图标（字号、请假、收起／展开、更新说明、修为说明、注销登录）；颜色跟所在位置走（面板头部按境界配色，见下） */
+  .clp-link { display: inline-flex; align-items: center; gap: 4px; padding: 3px 10px 3px 8px; border: 1px solid var(--clp-chip-line, rgba(164,73,45,.26)); border-radius: 999px;
+    background: var(--clp-chip-bg, rgba(164,73,45,.07)); color: var(--clp-chip-ink, #a4492d); font: inherit; font-size: 12.5px; font-weight: 700; line-height: 1.35;
+    text-decoration: none; cursor: pointer; white-space: nowrap; transition: background-color .15s ease, border-color .15s ease, transform .15s ease, box-shadow .15s ease; }
+  .clp-link:hover { background: var(--clp-chip-bg-hover, rgba(164,73,45,.14)); border-color: var(--clp-chip-line-hover, rgba(164,73,45,.46)); transform: translateY(-1px); box-shadow: 0 3px 8px rgba(40,30,20,.1); }
+  .clp-link:active { transform: none; box-shadow: none; }
+  .clp-link:focus-visible { outline: 2px solid var(--clp-chip-ink, #a4492d); outline-offset: 2px; }
+  .clp-link[data-cl-font]::before, .clp-link[data-cl-leave]::before, .clp-link[data-cl-fold]::before, .clp-link[data-cl-news-open]::before, .clp-link[data-cl-realm-open]::before, .clp-link[data-cl-switch]::before {
+    content: ''; flex: none; width: 1.08em; height: 1.08em; background: currentColor; -webkit-mask: var(--clp-ico) center / contain no-repeat; mask: var(--clp-ico) center / contain no-repeat; transition: transform .2s ease; }
+  .clp-link[data-cl-font] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M3.5 19 8.5 6l5 13M5.3 14.5h6.4'/%3E%3Cpath d='m14.5 19 3.25-8 3.25 8M15.7 16h4.1'/%3E%3C/svg%3E"); }
+  .clp-link[data-cl-leave] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Crect x='3.5' y='5' width='17' height='15.5' rx='2.5'/%3E%3Cpath d='M3.5 10h17M8 3v4M16 3v4'/%3E%3C/svg%3E"); }
+  .clp-link[data-cl-fold] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E"); }
+  .clp-panel.is-folded .clp-link[data-cl-fold]::before { transform: rotate(180deg); }   /* 收起时是“展开”，箭头朝上 */
+  .clp-link[data-cl-news-open] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='1.9' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M12 3.5l1.9 5.1 5.1 1.9-5.1 1.9L12 17.5l-1.9-5.1L5 10.5l5.1-1.9z'/%3E%3Cpath d='M18.5 16.5v4M16.5 18.5h4'/%3E%3C/svg%3E"); }
+  .clp-link[data-cl-realm-open] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M9.6 9.3a2.5 2.5 0 1 1 3.4 2.4c-.6.3-1 .8-1 1.5v.6M12 17.2h.01'/%3E%3C/svg%3E"); }
+  .clp-link[data-cl-switch] { --clp-ico: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.1' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='M14 4h3.5A2.5 2.5 0 0 1 20 6.5v11a2.5 2.5 0 0 1-2.5 2.5H14'/%3E%3Cpath d='m10 16-4-4 4-4M6 12h10'/%3E%3C/svg%3E"); }
   .clp-progress { margin-top: 8px; padding-top: 8px; border-top: 1px dashed rgba(70,51,34,.2); }
   .clp-count { font-weight: 800; }
   .clp-state { display: block; color: #6d6259; font-size: 13px; }
@@ -438,7 +454,10 @@
   .clp-subm details { margin-top: 6px; }
   .clp-subm summary { cursor: pointer; color: #a4492d; font-weight: 700; }
   .clp-subm ol { margin: 6px 0 0; padding-left: 22px; }
-  .clp-subm li button { padding: 0; border: 0; background: none; color: #23655f; font: inherit; text-align: left; text-decoration: underline; cursor: pointer; }
+  .clp-subm li button { display: inline-flex; align-items: center; gap: 4px; margin: 2px 0; padding: 1px 11px; border: 1px solid rgba(35,101,95,.24); border-radius: 999px; background: rgba(35,101,95,.06);
+    color: #23655f; font: inherit; font-weight: 700; text-align: left; text-decoration: none; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+  .clp-subm li button::after { content: '›'; font-weight: 800; opacity: .65; }
+  .clp-subm li button:hover { background: rgba(35,101,95,.13); border-color: rgba(35,101,95,.46); }
   .clp-subm li small { color: #6d6259; margin-left: 6px; }
   .clp-sub-note { margin: 8px 0 0; color: #6d6259; font-size: 12.5px; }
   ${(Live.feedbackBox || {}).css || ''}
@@ -674,7 +693,8 @@
   .clp-lt-star.is-b { right: 8%; bottom: 16%; width: 7px; height: 7px; animation-delay: 1.2s; }
   .clp-lt-lock, .clp-lt-note { margin: 12px 0 0; font-size: 12.5px; line-height: 1.7; color: rgba(236,248,240,.8); }
   .clp-lt-lock { padding: 9px 12px; border: 1px dashed rgba(214,188,120,.5); border-radius: 12px; background: rgba(0,0,0,.18); }
-  .clp-lt-note a { color: inherit; font-weight: 700; text-decoration: underline; text-underline-offset: 3px; }
+  .clp-lt-note a { display: inline-block; padding: 0 8px; border: 1px solid rgba(255,232,168,.34); border-radius: 999px; background: rgba(255,232,168,.1); color: #ffe8a8; font-weight: 700; text-decoration: none; }
+  .clp-lt-note a:hover { background: rgba(255,232,168,.2); border-color: rgba(255,232,168,.6); }
   @keyframes clp-lt-mist { from { transform: translateX(-6%); } to { transform: translateX(6%); } }
   @keyframes clp-lt-spin { to { transform: rotate(1turn); } }
   @keyframes clp-lt-bob { 0%, 100% { transform: translateY(1.5px); } 50% { transform: translateY(-1.5px); } }
@@ -693,8 +713,15 @@
     .clp-lt::before, .clp-lt-head strong, .clp-lt-emb, .clp-lt-halo, .clp-lt-aura, .clp-lt-runes, .clp-lt-isle, .clp-lt-cloud, .clp-lt-bud, .clp-lt-fall, .clp-lt-go, .clp-lt-go::after { animation: none; }
     .clp-lt-qi, .clp-lt-star { display: none; }
   }
-  .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 10px; margin-left: auto; }
-  .clp-v2 .clp-head .clp-link { color: var(--clp-link); font-size: 13px; }
+  .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 5px; margin-left: auto; }
+  /* 头部的小胶囊：字色用各境界的 --clp-link；浅色头部（素石、青玉、金）用半透明白底，深色头部（紫霄、神光）用淡淡的亮色底 */
+  .clp-v2 .clp-head .clp-link { --clp-chip-ink: var(--clp-link); --clp-chip-bg: rgba(138,59,34,.08); --clp-chip-line: rgba(138,59,34,.28); --clp-chip-bg-hover: rgba(138,59,34,.15); --clp-chip-line-hover: rgba(138,59,34,.5);
+    padding: 2px 8px 2px 6px; gap: 3px; font-size: 12px; }
+  .clp-v2.is-r1 .clp-head .clp-link, .clp-v2.is-r2 .clp-head .clp-link { --clp-chip-bg: rgba(255,255,255,.55); --clp-chip-bg-hover: rgba(255,255,255,.85); }
+  .clp-v2.is-r1 .clp-head .clp-link { --clp-chip-line: rgba(31,100,85,.32); --clp-chip-line-hover: rgba(31,100,85,.56); }
+  .clp-v2.is-r2 .clp-head .clp-link { --clp-chip-line: rgba(107,66,0,.32); --clp-chip-line-hover: rgba(107,66,0,.56); }
+  .clp-v2.is-r3 .clp-head .clp-link { --clp-chip-bg: rgba(255,255,255,.12); --clp-chip-line: rgba(227,207,255,.42); --clp-chip-bg-hover: rgba(255,255,255,.22); --clp-chip-line-hover: rgba(227,207,255,.72); }
+  .clp-v2.is-r4 .clp-head .clp-link { --clp-chip-bg: rgba(255,231,163,.1); --clp-chip-line: rgba(255,231,163,.42); --clp-chip-bg-hover: rgba(255,231,163,.2); --clp-chip-line-hover: rgba(255,231,163,.72); }
   .clp-v2 .clp-sub { margin-top: 3px; color: var(--clp-head-sub); font-size: 12.5px; }
   .clp-v2 .clp-rise { display: flex; align-items: center; gap: 8px; margin-top: 4px; color: var(--clp-head-sub); font-size: 12px; }
   .clp-v2 .clp-rise[hidden] { display: none; }
@@ -902,12 +929,12 @@
   .clp-v2 [data-cl-export-state]:not([data-state]) { display: none; }
   .clp-v2 .clp-foot { position: relative; padding: 8px 14px; border-top: 1px solid rgba(70,51,34,.12); }
   .clp-v2 .clp-mydm { margin: 0; }
-  .clp-v2 .clp-mydm summary { padding-right: 132px; }
-  .clp-v2 .clp-foot-links { position: absolute; top: 8px; right: 14px; display: flex; gap: 10px; }
-  .clp-v2 .clp-foot-links .clp-link { font-size: 13px; }
+  .clp-v2 .clp-mydm summary { padding-right: 196px; }
+  .clp-v2 .clp-foot-links { position: absolute; top: 6px; right: 14px; display: flex; gap: 6px; }
+  .clp-v2 .clp-foot-links .clp-link { font-size: 12.5px; }
   /* 注销登录（原头部的“不是我”，2026-10-22 用户要求改名、放到面板最下面） */
   .clp-v2 .clp-out { display: flex; justify-content: flex-end; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(70,51,34,.16); }
-  .clp-v2 .clp-out .clp-link { color: #8a7d70; font-size: 13px; }
+  .clp-v2 .clp-out .clp-link { --clp-chip-ink: #7d7064; --clp-chip-bg: rgba(125,112,100,.07); --clp-chip-line: rgba(125,112,100,.26); --clp-chip-bg-hover: rgba(125,112,100,.14); --clp-chip-line-hover: rgba(125,112,100,.46); font-size: 12.5px; }
   /* 手机端收起时只留一个境界小图标（像“使用说明”的问号），点一下展开 */
   .clp-v2 .clp-mini { display: none; position: relative; place-items: center; width: 46px; height: 46px; padding: 0; border: 1px solid #b9b1a3; border-radius: 50%;
     color: #4a443c; background: radial-gradient(circle at 35% 30%, #f1ece2, #d9d4ca 60%, #b9b1a3); box-shadow: 0 6px 16px rgba(0,0,0,.22);

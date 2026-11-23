@@ -18,16 +18,21 @@
 
   const style = document.createElement('style');
   style.textContent = `
-  .pv-tool .pv-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 8px 0 6px; }
-  .pv-tool .pv-presets button { padding: 8px 4px; border: 1.5px solid rgba(35,101,95,.35); border-radius: 9px; background: #fff; color: #23655f; font: 700 14px/1.2 -apple-system, "PingFang SC", sans-serif; cursor: pointer; }
-  .pv-tool .pv-presets button[aria-pressed="true"] { color: #fff; background: #23655f; border-color: #23655f; box-shadow: inset 0 1px 0 rgba(255,255,255,.2); }
-  .pv-tool input { display: block; width: 100%; box-sizing: border-box; margin-top: 6px; padding: 8px 10px; border: 1.5px solid rgba(70,51,34,.2); border-radius: 9px; background: #fff; font: 15px/1.3 -apple-system, "PingFang SC", sans-serif; }
-  .pv-tool input:focus { outline: none; border-color: #23655f; box-shadow: 0 0 0 3px rgba(35,101,95,.18); }
-  .pv-tool .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; margin-top: 8px; }
-  .pv-tool .pv-row button { padding: 10px 6px; border: 1.5px solid #23655f; border-radius: 9px; background: #fff; color: #23655f; font: 800 15px/1.2 -apple-system, "PingFang SC", sans-serif; cursor: pointer; }
-  .pv-tool .pv-row button.is-main { color: #fff; background: linear-gradient(180deg, #2f7a72, #23655f 60%, #1d5650); }
+  /* 2026-11-23 晚“课堂工具的页面也优化美观一下”：照课堂工具新外观（#政治经济学/课堂工具样式/toolbox_skin.css）——白底细边圆角按钮，选中的一组和“发起投票”墨绿渐变，说明小字放进浅底小便签 */
+  .pv-tool .pv-presets { display: grid; grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; margin: 12px 0 6px; }
+  .pv-tool .pv-presets button, .pv-tool .pv-row button { border: 1px solid rgba(35,101,95,.22); border-radius: 10px; background: #fff; color: #23655f; box-shadow: 0 1px 2px rgba(24,38,32,.06); cursor: pointer;
+    transition: transform .12s ease, box-shadow .12s ease, border-color .12s ease, background-color .12s ease; }
+  .pv-tool .pv-presets button { padding: 8px 4px; font: 700 14px/1.2 -apple-system, "PingFang SC", sans-serif; }
+  .pv-tool .pv-presets button:hover, .pv-tool .pv-row button:hover:not(:disabled) { transform: translateY(-1px); border-color: rgba(35,101,95,.42); box-shadow: 0 5px 12px rgba(24,63,58,.14); }
+  .pv-tool .pv-presets button[aria-pressed="true"], .pv-tool .pv-row button.is-main { color: #fff; border-color: transparent; background: linear-gradient(180deg, #2f7d6f, #23655f 70%, #1f5d57);
+    box-shadow: 0 4px 12px rgba(35,101,95,.28), inset 0 1px 0 rgba(255,255,255,.18); }
+  .pv-tool input { display: block; width: 100%; box-sizing: border-box; margin-top: 8px; padding: 8px 11px; border: 1px solid rgba(35,101,95,.24); border-radius: 10px; background: #fff;
+    box-shadow: inset 0 1px 2px rgba(24,38,32,.05); font: 15px/1.3 -apple-system, "PingFang SC", sans-serif; }
+  .pv-tool input:focus { outline: none; border-color: #23655f; box-shadow: 0 0 0 3px rgba(35,101,95,.16); }
+  .pv-tool .pv-row { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-top: 10px; }
+  .pv-tool .pv-row button { min-height: 40px; padding: 10px 6px; font: 800 15px/1.2 -apple-system, "PingFang SC", sans-serif; }
   .pv-tool .pv-row button:disabled { opacity: .55; cursor: default; }
-  .pv-tool .pv-hint { margin: 8px 0 0; color: #6d6259; font-size: 13px; line-height: 1.6; }
+  .pv-tool .pv-hint { margin: 10px 0 0; padding: 8px 10px 8px 30px; border-radius: 10px; background: #f5f2ea url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%239a8f80' stroke-width='2.2' stroke-linecap='round'%3E%3Ccircle cx='12' cy='12' r='9'/%3E%3Cpath d='M12 11v5M12 7.6h.01'/%3E%3C/svg%3E") 9px 10px / 14px no-repeat; color: #6d6259; font-size: 12.5px; line-height: 1.6; }
   .pv-stage { position: fixed; inset: 0; z-index: 2147483000; display: flex; flex-direction: column; padding: 4vh 5vw; box-sizing: border-box; color: #fff;
     background: radial-gradient(circle at 20% 0%, rgba(232,196,106,.18), transparent 40%), linear-gradient(160deg, #173f3b, #0f2b28); font-family: -apple-system, "PingFang SC", sans-serif; }
   .pv-stage[hidden] { display: none; }

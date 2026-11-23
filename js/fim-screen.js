@@ -102,7 +102,9 @@
   .fim-live-bar { position: fixed; left: 14px; bottom: 14px; z-index: 300; max-width: min(520px, calc(100vw - 28px)); padding: 7px 14px; border-radius: 999px; background: rgba(29,93,88,.94); color: #fff;
     font: 700 14.5px/1.5 "PingFang SC","Microsoft YaHei",sans-serif; box-shadow: 0 8px 22px rgba(20,40,36,.25); }
   .fim-live-bar.is-bad { background: rgba(138,63,34,.95); }
-  .fim-live-bar a { color: #ffe9c4; }
+  .fim-live-bar a, .fql-line a { display: inline-block; margin: 0 3px; padding: 0 10px; border-radius: 999px; text-decoration: none; font-weight: 700; }   /* 2026-11-23 晚：“教师工作台”不画下划线，做成小胶囊 */
+  .fim-live-bar a { border: 1px solid rgba(255,233,196,.55); background: rgba(255,255,255,.12); color: #ffe9c4; }
+  .fql-line a { border: 1px solid rgba(29,93,88,.3); background: rgba(29,93,88,.07); color: #1d5d58; }
   @media print { .fim-live-bar, .fq-live { display: none !important; } }
   `;
   document.head.appendChild(style);

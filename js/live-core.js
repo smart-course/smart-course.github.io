@@ -270,7 +270,11 @@
   .clp-fbd-x { flex: 0 0 auto; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(35,101,95,.12); color: #23655f; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; }
   .clp-fbd-x:hover { background: rgba(35,101,95,.22); }
   .clp-fbd .clp-fb { margin: 4px 0 0; padding: 0; border: 0; background: transparent; }
-  .clp-fbd-more { display: block; margin: 10px auto 0; padding: 4px 8px; border: 0; background: none; color: #23655f; font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  /* 2026-11-23 晚：带下划线的文字按钮改成小胶囊（用户：“还有哪些带下划线的按钮，都美观一下”） */
+  .clp-fbd-more { display: flex; align-items: center; gap: 4px; width: fit-content; margin: 10px auto 0; padding: 4px 14px 4px 10px; border: 1px solid rgba(35,101,95,.25); border-radius: 999px;
+    background: rgba(35,101,95,.06); color: #23655f; font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: none; cursor: pointer; transition: background-color .15s ease, border-color .15s ease; }
+  .clp-fbd-more::before { content: ''; flex: none; width: 1em; height: 1em; background: currentColor; -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat; mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23000' stroke-width='2.4' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E") center / contain no-repeat; }
+  .clp-fbd-more:hover { background: rgba(35,101,95,.13); border-color: rgba(35,101,95,.48); }
   @media (max-width: 560px) { .clp-fbd-inner { padding: 14px 14px 12px; } .clp-fbd-head h3 { font-size: 16.5px; } }
   .clp-fbd-hist { margin: 14px 0 0; padding: 12px 0 0; border-top: 1px dashed rgba(35,101,95,.32); }
   .clp-fbd-hist-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
