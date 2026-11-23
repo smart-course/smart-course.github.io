@@ -27,13 +27,16 @@
   // 没登录这个课堂（比如学生版测试页的老师）后台不记；后台没有这个功能时不再重试
   // 2026-11-22（用户要在工作台看“灵田在线”）：报到时带 p_place = 'lingtian'，后台另记在 ck_presence.lt_seen；
   // 后台还没执行 cloudbase-pg-20261122-灵田在线.sql（不认这个参数）时，退回原来只带课堂的报到，在线时长照常累计
+  // 2026-11-23（用户：“这里再增加一个静修在线的显示卡片”）：开着静修（body[data-focus-open]）时报到带 p_place = 'focus'
+  // （后台另记 focus_seen，同时照旧记“灵田在线”）；打开、关上静修时马上补报一次（focus-host.js 发 lingtian:focus 事件），工作台不用等 30 秒
   if (backend && room) {
     let pingOff = false;
     let placeOk = true;
     const missing = (problem) => /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem));
+    const place = () => (document.body && document.body.dataset.focusOpen === '1' ? 'focus' : 'lingtian');
     const ping = (force) => {
       if (pingOff || (!force && document.hidden)) return;
-      Promise.resolve().then(() => backend.rpc('ck_ping', placeOk ? { p_classroom: room, p_place: 'lingtian' } : { p_classroom: room })).catch((problem) => {
+      Promise.resolve().then(() => backend.rpc('ck_ping', placeOk ? { p_classroom: room, p_place: place() } : { p_classroom: room })).catch((problem) => {
         if (!missing(problem)) return;
         if (placeOk) {
           placeOk = false;
@@ -45,6 +48,7 @@
     setInterval(ping, 30000);
     document.addEventListener('visibilitychange', () => ping(document.hidden));
     global.addEventListener('pagehide', () => ping(true));
+    global.addEventListener('lingtian:focus', () => ping(true));
   }
   const REASONS = {
     login: ['先回课堂登录', '请先回到课程页面，用本堂课的课堂码登录，再从左下角面板“宗门 → 云间灵田”进入。'],

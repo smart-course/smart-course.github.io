@@ -144,7 +144,7 @@
   if (PLAIN) {
     // 这门课的学生页不发弹幕；界面上提到修为的几句话换成中性的说法
     $$('[data-tab="danmaku"]').forEach((tab) => { tab.hidden = true; });
-    $$('[data-stat-lingtian]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });   // 这门课没有云间灵田
+    $$('[data-stat-lingtian], [data-stat-focus]').forEach((el) => { const box = el.closest('.tw-stat'); if (box) box.hidden = true; });   // 这门课没有云间灵田（也就没有静修）
     $$('[data-scope-note]').forEach((el) => { el.textContent = '默认全部；只上部分单元的，在这里选'; });   // 2026-11-22：原来改的是整个折叠标题，连“上课时间与教室”也被改成了“上课范围”
     $$('[data-leave-status]').forEach((el) => { el.textContent = '学生在首页点“请假”提交，不需要审批。'; });
     $$('.tw-enter').forEach((el) => { el.title = '打开：学生可以用这个课堂码进入、递交作答；关掉：成为历史课堂，学生用课堂码只能进来查看。'; });
@@ -280,6 +280,7 @@
     renderRealms();
     if (!$('[data-panel="insight"]').hidden) renderInsights(true);
     if (!$('[data-panel="updates"]').hidden) renderUpdates();
+    if (!$('[data-panel="lingtian"]').hidden) ltLoad();   // 2026-11-23：正开着“云间灵田”时按新班级重新读取（数据统计、种田行为分析、静修数据统计）
     sec.loaded = false;
     sec.requests = [];
     sec.pins = [];
@@ -1685,6 +1686,7 @@
   // “谁是谁”：道号与学生的对照、服丹折算的网站修为、偷菜次数；被敏感词挡下的道号，以及销号／恢复（lt_admin_ban）；
   // “数据统计”：灵石、开垦、收获、偷菜、灵田答题、丹炉、道藏卡牌、坊市、活跃天数（lt_stats），全班汇总＋可排序明细＋导出 Excel；
   // “种田行为分析”（2026-11-22）：灵石的来路和去向、累计获得、什么时候来、种什么卖什么（lt_behavior），经营得好的同学和个人种田分析卡
+  // “静修数据统计”（2026-11-23）：每天静修多久、什么时候静修、完成率与专注占比、立愿、雅室、悟玉与衣装（lt_focus_stats），个人静修卡＋导出 Excel
   const LT_REALMS = ['炼气', '筑基', '结丹', '元婴', '化神'];
   const lt = { loaded: false, players: [], catalog: null, plans: null, ticket: null, ticketAt: 0, stats: null, statsAt: 0, statsError: '', sort: { key: 'stones', dir: -1 } };
   const ltSectName = (key) => (((window.ClassLive && window.ClassLive.SECTS) || []).find((item) => item.key === key) || {}).name || (key || '—');
@@ -1734,6 +1736,7 @@
       $('[data-lt-status]').textContent = `${set.enabled ? '本课程已开放云间灵田。' : '本课程尚未开放：学生面板“宗门”里不显示入口。'}${lt.dirty ? '（上面的设置改了还没保存）' : ''}（${clock(Date.now())} 刷新）`;
       ltRender();
       ltStatsLoad();
+      ltFocusLoad();   // 静修数据统计（2026-11-23）：和数据统计各读各的
     } catch (error) {
       const missing = /PGRST202|42883|Could not find the function|lt_admin/.test(String((error && error.message) || error));
       $('[data-lt-status]').textContent = missing ? '云间灵田的后台还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261115-云间灵田.sql。' : `读取失败：${(error && error.message) || error}`;
@@ -2196,6 +2199,386 @@
     c6.appendChild(wrap);
     if (all.some((p) => p.gap)) { const foot = document.createElement('p'); foot.className = 'tw-hint'; foot.textContent = '带 * 的：账上有少量灵石对不上——个别操作在记录里成功了、存档里没有生效（云函数 11 月 22 日以前的一个并发问题，已修）。不影响这些同学现有的灵石。'; c6.appendChild(foot); }
   }
+  // ---------- 静修数据统计（2026-11-23 用户：“在工作台里加一个静修数据统计”） ----------
+  // 学生在云间灵田底栏“静修”里用番茄钟专注学习（2026-11-22 接入）。数据：lt_focus_stats，只读静修自己的账本——
+  //   每天专注了多久（北京时间；一天满 25 分钟算“打卡”，与静修修行录相同）、已经结束的每一段（到时完成的、中途结束的、立愿写了什么）、
+  //   悟玉进账（完成一段的悟玉、和道友同室专注的加成）、衣装坊置办的衣装、成就、道友、在哪间雅室、一周里各时段专注了多久。
+  // 时长只算服务器确认过的专注：暂停、切出页面、断线的时间都不算。静修不计入课程修为，这里只看学习习惯。
+  const LT_FOCUS_AVATAR = { jade: '玉衣书生', peach: '桃衣剑修', cloud: '云岚丹师', ink: '墨衣游侠' };
+  // 衣装（名字、悟玉价格）和成就，与静修模块的 focus-catalog.js 一致；价格为 0 的是成就送的限定衣装
+  const LT_FOCUS_ITEMS = { head_bamboo: ['青竹冠', 50], head_cloud: ['流云冠', 150], head_star: ['星河冠', 500], robe_bamboo: ['听雨衫', 80], robe_cloud: ['鹤纹袍', 200], robe_star: ['太清羽衣', 500],
+    bottom_bamboo: ['竹影下裳', 50], bottom_cloud: ['云纹下裳', 150], bottom_star: ['月华下裳', 300], accessory_bamboo: ['书卷佩', 50], accessory_cloud: ['青玉佩', 150], accessory_star: ['流萤灵灯', 300],
+    accessory_inkjade: ['凝墨玉佩', 0], robe_cloudink: ['云笺鹤袍', 0], head_stargaze: ['观星玉冠', 0], robe_eternal: ['太初玄衣', 0], head_dew: ['晨露竹冠', 0], bottom_dawn: ['望舒流霞裳', 0], accessory_everlight: ['长明琉璃灯', 0] };
+  const LT_FOCUS_ACH = { hours_10: ['初窥门径', '累计专注 10 小时'], hours_50: ['云笺有成', '累计专注 50 小时'], hours_100: ['百时观星', '累计专注 100 小时'], hours_500: ['太初问道', '累计专注 500 小时'],
+    streak_7: ['七日持心', '连续 7 天打卡'], streak_30: ['月满不辍', '连续 30 天打卡'], streak_100: ['百日长明', '连续 100 天打卡'] };
+  const LT_FOCUS_CHECKIN = 25 * 60000;   // 一天专注满 25 分钟算打卡
+  const ltFocus = { rows: null, rooms: [], at: 0, error: '', person: '', loading: false };
+  const ltMin = (ms) => Math.round(ltNum(ms) / 60000);
+  const ltDur = (ms) => {
+    const v = ltNum(ms);
+    if (v > 0 && v < 60000) return '不到 1 分钟';
+    const m = Math.round(v / 60000);
+    return m >= 60 ? `${Math.floor(m / 60)} 小时${m % 60 ? ` ${m % 60} 分钟` : ''}` : `${m} 分钟`;
+  };
+  const ltBjDay = (ms) => new Date(ms + 8 * 3600000).toISOString().slice(0, 10);
+  const ltPrevDay = (key) => new Date(Date.parse(`${key}T00:00:00Z`) - 86400000).toISOString().slice(0, 10);
+  const ltWhen = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit', hour12: false }) : '—');
+  const ltRate = (value) => (value >= 0 ? `${Math.round(value * 100)}%` : '—');
+  const ltItemName = (id) => (LT_FOCUS_ITEMS[id] || [id])[0];
+  // 一位同学（p：lt_focus_stats 的一行；at：统计时刻）
+  function ltFocusRow(p, at) {
+    const days = Object.entries(p.days && typeof p.days === 'object' ? p.days : {})
+      .map(([day, d]) => ({ day, ms: ltNum(d && d.focusMs), done: ltNum(d && d.completed) }))
+      .filter((d) => /^\d{4}-\d{2}-\d{2}$/.test(d.day)).sort((a, b) => a.day.localeCompare(b.day));
+    const today = ltBjDay(at);
+    const byDay = new Map(days.map((d) => [d.day, d]));
+    const checked = (key) => ((byDay.get(key) || {}).ms || 0) >= LT_FOCUS_CHECKIN;
+    let streak = 0;   // 现在连续打卡几天（今天还没满 25 分钟时从昨天往前数，与静修相同）
+    for (let key = checked(today) ? today : ltPrevDay(today); checked(key); key = ltPrevDay(key)) streak += 1;
+    let best = 0, run = 0, prev = '';
+    days.filter((d) => d.ms >= LT_FOCUS_CHECKIN).forEach((d) => { run = prev && ltPrevDay(d.day) === prev ? run + 1 : 1; best = Math.max(best, run); prev = d.day; });
+    const weekFrom = ltBjDay(at - 6 * 86400000);
+    const ended = ltNum(p.done) + ltNum(p.cancelled);
+    const purchases = Object.entries(p.purchases && typeof p.purchases === 'object' ? p.purchases : {})
+      .map(([id, v]) => ({ id, name: ltItemName(id), price: ltNum(v && v.price), at: ltNum(v && v.at) })).sort((a, b) => a.at - b.at);
+    const achievements = Object.entries(p.achievements && typeof p.achievements === 'object' ? p.achievements : {})
+      .map(([id, v]) => ({ id, name: (LT_FOCUS_ACH[id] || [id])[0], rule: (LT_FOCUS_ACH[id] || ['', ''])[1], at: ltNum(v && v.unlockedAt) })).sort((a, b) => a.at - b.at);
+    const a = p.active && typeof p.active === 'object' ? p.active : null;
+    const now = !p.seated ? '' : a && a.status === 'running' ? (a.kind === 'break' ? '小憩中' : '专注中') : a && a.status === 'paused' ? '暂停中' : '在雅室里';
+    const targets = Object.entries(p.targets && typeof p.targets === 'object' ? p.targets : {})
+      .map(([text, n]) => ({ text, n: ltNum(n) })).sort((x, y) => y.n - x.n || x.text.localeCompare(y.text, 'zh-CN'));
+    const alias = !ltDefaultAlias(p.alias) ? String(p.alias) : p.nickname && !ltDefaultAlias(p.nickname) ? String(p.nickname) : '（未起道号）';
+    return {
+      actor: p.actor_id, sid: String(p.sid || ''), name: String(p.name || p.sid || ''), classId: p.class_id, banned: !!p.banned, aliasText: alias,
+      avatar: LT_FOCUS_AVATAR[p.avatar] || '', created: ltNum(p.created_at), last: Math.max(ltNum(p.last_focus_at), ltNum(p.last_session_at)),
+      totalMs: ltNum(p.total_ms), days, activeDays: days.filter((d) => d.ms > 0).length, checkDays: days.filter((d) => d.ms >= LT_FOCUS_CHECKIN).length,
+      streak, best: Math.max(best, ltNum(p.best_streak)), weekMs: days.filter((d) => d.day >= weekFrom && d.day <= today).reduce((t, d) => t + d.ms, 0), todayMs: (byDay.get(today) || {}).ms || 0,
+      sessions: ltNum(p.sessions), done: ltNum(p.done), cancelled: ltNum(p.cancelled), ended, doneRate: ended ? ltNum(p.done) / ended : -1,
+      pomodoroSessions: ltNum(p.pomodoro_sessions), doneMs: ltNum(p.done_ms), cancelMs: ltNum(p.cancel_ms),
+      share: ltNum(p.wall_total_ms) > 0 ? Math.min(1, ltNum(p.wall_focus_ms) / ltNum(p.wall_total_ms)) : -1,   // 完成的段里，专注占从开始到结束的比例
+      avgMs: ltNum(p.sessions) ? (ltNum(p.done_ms) + ltNum(p.cancel_ms)) / ltNum(p.sessions) : 0,
+      jade: ltNum(p.jade), earned: ltNum(p.reward_base) + ltNum(p.reward_bonus), bonus: ltNum(p.reward_bonus), friendMs: ltNum(p.friend_ms),
+      spent: purchases.reduce((t, x) => t + x.price, 0), purchases, achievements,
+      friends: ltNum(p.friends), friendRequests: ltNum(p.friend_requests), roomsOwned: ltNum(p.rooms_owned),
+      now, active: a, roomTitle: p.room_title || '', plans: p.plans && typeof p.plans === 'object' ? p.plans : {}, targets, recent: Array.isArray(p.recent) ? p.recent : [],
+      roomMs: p.room_ms && typeof p.room_ms === 'object' ? p.room_ms : {}, heat: p.heat && typeof p.heat === 'object' ? p.heat : {},
+    };
+  }
+  async function ltFocusLoad() {
+    if (!backend || ltFocus.loading) return;
+    ltFocus.loading = true;
+    const status = $('[data-lt-focus-status]');
+    if (status) status.textContent = '正在读取……';
+    try {
+      const data = await backend.rpc('lt_focus_stats', { p_course: course.slug });
+      const row = (Array.isArray(data) ? data[0] : data) || {};
+      ltFocus.at = Number(row.at) || Date.now();
+      ltFocus.rows = (Array.isArray(row.players) ? row.players : []).map((p) => ltFocusRow(p, ltFocus.at));
+      ltFocus.rooms = Array.isArray(row.rooms) ? row.rooms : [];
+      ltFocus.error = '';
+    } catch (error) {
+      const missing = /PGRST202|42883|Could not find the function|lt_focus_stats|未知的后台函数/.test(String((error && error.message) || error));
+      ltFocus.error = missing ? '静修数据统计要先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261123-静修数据统计与在线.sql（可重复执行，不删不改任何数据）。' : `读取失败：${(error && error.message) || error}`;
+    } finally {
+      ltFocus.loading = false;
+    }
+    ltFocusRender();
+  }
+  // 当前班级的行（没选班级时是本课程全部）
+  const ltFocusRows = () => (ltFocus.rows || []).filter((p) => !state.klass || String(p.classId) === String(state.klass.id));
+  // 每天（全班加起来）：从最早有静修的那天到今天，一天不落
+  function ltFocusDays(live) {
+    const map = new Map();
+    live.forEach((p) => p.days.forEach((d) => {
+      if (!(d.ms > 0) && !d.done) return;
+      const x = map.get(d.day) || { ms: 0, people: 0, done: 0 };
+      x.ms += d.ms; if (d.ms > 0) x.people += 1; x.done += d.done;
+      map.set(d.day, x);
+    }));
+    const keys = Array.from(map.keys()).sort();
+    const today = ltBjDay(ltFocus.at || Date.now());
+    const list = [];
+    if (keys.length && keys[0] <= today) for (let key = today; key >= keys[0]; key = ltPrevDay(key)) list.unshift(key);
+    else list.push(...keys);
+    return list.map((day) => ({ day, ...(map.get(day) || { ms: 0, people: 0, done: 0 }) }));
+  }
+  const LT_WEEK = ['周日', '周一', '周二', '周三', '周四', '周五', '周六'];
+  const ltWeekOf = (key) => LT_WEEK[new Date(`${key}T12:00:00Z`).getUTCDay()];
+  function ltFocusTiles(rows) {
+    const live = rows.filter((p) => !p.banned);
+    const total = (key) => live.reduce((t, p) => t + ltNum(p[key]), 0);
+    const roster = rosterOf().length;
+    const focused = live.filter((p) => p.totalMs > 0).length;
+    const top = live.slice().sort((a, b) => b.totalMs - a.totalMs)[0];
+    const done = total('done'), cancelled = total('cancelled');
+    const seated = live.filter((p) => p.now);
+    const count = (word) => seated.filter((p) => p.now === word).length;
+    return [
+      { label: '用过静修', value: `${rows.length} 人`, note: `${roster ? `本班 ${roster} 人中的 ${Math.round(rows.length * 100 / roster)}%；` : ''}其中 ${focused} 人专注过${rows.length - live.length ? `；已销号 ${rows.length - live.length} 人` : ''}` },
+      { label: '累计专注', value: `${ltFmt(total('totalMs') / 3600000, 1)} 小时`, note: `人均 ${ltDur(live.length ? total('totalMs') / live.length : 0)}${top && top.totalMs ? `；最多 ${top.name} ${ltDur(top.totalMs)}` : ''}` },
+      { label: '近 7 天在静修', value: `${live.filter((p) => p.weekMs > 0).length} 人`, note: `共 ${ltDur(total('weekMs'))}；今天 ${live.filter((p) => p.todayMs > 0).length} 人` },
+      { label: '完成率', value: done + cancelled ? `${Math.round(done * 100 / (done + cancelled))}%` : '—', note: `到时完成 ${ltFmt(done)} 段、中途结束 ${ltFmt(cancelled)} 段` },
+      { label: '此刻在雅室', value: `${seated.length} 人`, note: seated.length ? [['专注中', count('专注中')], ['暂停中', count('暂停中')], ['小憩中', count('小憩中')], ['在雅室里', count('在雅室里')]].filter((x) => x[1]).map((x) => `${x[0]} ${x[1]}`).join('、') : `统计时刻 ${clock(ltFocus.at)}` },
+    ];
+  }
+  // 个人静修卡上的几句话：都从这位同学自己的记录和全班的对比里来，不下“好坏”的评语
+  function ltFocusInsight(p, ctx) {
+    const lines = [];
+    const rank = (key) => 1 + ctx.live.filter((q) => q[key] > p[key]).length;
+    lines.push(`累计专注 ${ltDur(p.totalMs)}（本班第 ${rank('totalMs')}），近 7 天 ${ltDur(p.weekMs)}；来了 ${p.activeDays} 天，其中 ${p.checkDays} 天满 25 分钟（打卡）${p.best ? `，最长连续打卡 ${p.best} 天` : ''}${p.streak ? `，现在已连续 ${p.streak} 天` : ''}。`);
+    if (p.ended) {
+      lines.push(`结束的 ${p.ended} 段里到时完成 ${p.done} 段，完成率 ${ltRate(p.doneRate)}（全班中位数 ${ltRate(ctx.medDone)}）${p.cancelled ? `；中途结束的 ${p.cancelled} 段里专注了 ${ltDur(p.cancelMs)}，也都记进了累计` : ''}。`);
+    }
+    if (p.share >= 0) lines.push(`到时完成的段里，专注时间占从开始到结束的 ${ltRate(p.share)}（全班中位数 ${ltRate(ctx.medShare)}），其余是暂停、切出页面或断线的时间。`);
+    if (p.sessions) {
+      const plan = Object.entries(p.plans).map(([m, n]) => [Number(m), ltNum(n)]).sort((x, y) => y[1] - x[1] || x[0] - y[0])[0];
+      lines.push(`${p.pomodoroSessions * 2 >= p.sessions ? `多用番茄静修（${p.pomodoroSessions}/${p.sessions} 段）` : `多用自由静修（${p.sessions - p.pomodoroSessions}/${p.sessions} 段）`}${plan ? `，最常定 ${plan[0]} 分钟一段` : ''}，平均每段专注 ${ltDur(p.avgMs)}。`);
+    }
+    if (p.targets.length) lines.push(`最常写的立愿：${p.targets.slice(0, 3).map((t) => `“${t.text}”${t.n > 1 ? `（${t.n} 次）` : ''}`).join('、')}。`);
+    const hours = Array(24).fill(0);
+    Object.entries(p.heat).forEach(([k, ms]) => { const n = Number(k); if (n >= 0 && n < 168) hours[n % 24] += ltNum(ms); });
+    const busy = hours.map((ms, h) => [h, ms]).filter((x) => x[1] > 0).sort((x, y) => y[1] - x[1]).slice(0, 3).map((x) => x[0]).sort((x, y) => x - y);
+    if (busy.length) lines.push(`常在 ${busy.map((h) => `${h} 点`).join('、')}前后静修。`);
+    lines.push(`得悟玉 ${ltFmt(p.earned)}${p.bonus ? `（其中道友同室加成 ${ltFmt(p.bonus)}）` : ''}${p.purchases.length ? `，在衣装坊置办 ${p.purchases.length} 件、花 ${ltFmt(p.spent)}` : '，还没有置办过衣装'}，现有 ${ltFmt(p.jade)}；${p.achievements.length ? `达成成就：${p.achievements.map((x) => `${x.name}（${x.rule}）`).join('、')}` : '还没有达成成就'}。`);
+    lines.push(`${p.friends ? `有 ${p.friends} 位道友${p.friendMs ? `，和道友同室专注 ${ltDur(p.friendMs)}` : ''}` : '还没有结为道友'}${p.friendRequests ? `，${p.friendRequests} 个道友邀请待回应` : ''}${p.roomsOwned ? `；自己建了 ${p.roomsOwned} 间静室` : ''}。`);
+    return lines;
+  }
+  function ltFocusRender() {
+    const box = $('[data-lt-focus-charts]'), status = $('[data-lt-focus-status]');
+    const I = window.ClassLiveInsights;
+    if (!box) return;
+    if (ltFocus.error) { box.textContent = ''; if (status) status.textContent = ltFocus.error; return; }
+    if (!ltFocus.rows) return;
+    box.textContent = '';
+    if (!I) { box.textContent = '图表脚本没有加载，请刷新页面再试。'; return; }
+    I.addStyle();
+    const rows = ltFocusRows();
+    const scope = state.klass ? `本班（${state.klass.name}）` : '本课程';
+    if (status) status.textContent = `${scope}：统计到 ${clock(ltFocus.at)}。时长只算服务器确认过的专注（暂停、切出页面、断线的时间不算）；悬停在图上看详细数字，点姓名看个人静修卡。`;
+    if (!rows.length) { I.empty(box, state.klass ? '本班还没有同学打开过静修。' : '还没有同学打开过静修。'); return; }
+    const T = I.tones, CAT = I.cat;
+    const live = rows.filter((p) => !p.banned);
+    const total = (key) => live.reduce((t, p) => t + ltNum(p[key]), 0);
+    const ctx = { live, medDone: ltMedian(live.filter((p) => p.doneRate >= 0).map((p) => p.doneRate)), medShare: ltMedian(live.filter((p) => p.share >= 0).map((p) => p.share)) };
+    if (!live.some((p) => p.doneRate >= 0)) ctx.medDone = -1;
+    if (!live.some((p) => p.share >= 0)) ctx.medShare = -1;
+    I.tiles(box, ltFocusTiles(rows));
+    const grid = document.createElement('div');
+    grid.className = 'ins-grid';
+    box.appendChild(grid);
+    const add = (title, sub, wide) => { const c = I.card(grid, title, sub, wide); const host = document.createElement('div'); c.appendChild(host); return [c, host]; };
+    // 1 每天静修了多少分钟（太长时左右滑着看）
+    const WIN = 31;
+    const dayData = ltFocusDays(live);
+    const dayRows = dayData.map((d) => ({ key: d.day, label: d.day.slice(5), value: ltMin(d.ms), lines: [`${ltDayText(d.day)} ${ltWeekOf(d.day)}`, `${d.people} 位同学在静修`, `到时完成 ${d.done} 段`] }));
+    const dayMax = dayRows.reduce((m, d) => Math.max(m, d.value), 0);
+    const [c1, h1] = add('每天静修了多少分钟', `全班每天专注的分钟数（北京时间）；悬停看当天几位同学在静修、完成了几段${dayRows.length > WIN ? '；拖动图下的滑块（或在图上左右滑）看更早的' : ''}。`, true);
+    I.windowed(h1, c1, dayRows, WIN, (b, slice, cardEl) => {
+      if (slice.length < 3) I.columns(b, cardEl, slice, { unit: ' 分钟', color: T.purple, aria: '每天静修分钟数柱状图', yMax: dayMax, empty: '还没有同学专注过。' });
+      else I.lines(b, cardEl, slice.map((d) => ({ label: d.label, values: [d.value], lines: d.lines })), [{ name: '静修分钟数', color: T.purple }], { unit: ' 分钟', area: true, dots: false, noLow: true, aria: '每天静修分钟数面积折线图', yMax: dayMax, empty: '还没有同学专注过。' });
+    }, { labelOf: (d) => d.key.slice(5), unitName: '天', aria: '左右拖动，看更早或更近的日子' });
+    I.tableView(c1, ['日期', '星期', '静修（分钟）', '在静修的同学', '到时完成的段'], dayData.map((d) => [d.day, ltWeekOf(d.day), ltMin(d.ms), d.people, d.done]));
+    // 2 一周里什么时候静修（星期 × 钟点）
+    const WEEKS = ['周一', '周二', '周三', '周四', '周五', '周六', '周日'];
+    const heat = WEEKS.map(() => Array(24).fill(0));
+    live.forEach((p) => Object.entries(p.heat).forEach(([k, ms]) => { const n = Number(k); if (n >= 0 && n < 168) heat[Math.floor(n / 24)][n % 24] += ltNum(ms) / 60000; }));
+    const heatMin = heat.map((row) => row.map((v) => Math.round(v)));
+    const [c2, h2] = add('一周里什么时候静修', '每格＝这一时段大家专注的分钟数（北京时间，各周加在一起；从浅橙到红越来越多，最浅的米白是 0）。', true);
+    I.heatmap(h2, c2, WEEKS, Array.from({ length: 24 }, (_, i) => i), heatMin, { unit: ' 分钟', ramp: I.ramps.heat, aria: '静修时段热力图', empty: '还没有同学专注过。' });
+    I.tableView(c2, ['星期', ...Array.from({ length: 24 }, (_, i) => `${i}时`)], heatMin.map((row, i) => [WEEKS[i], ...row]));
+    // 3 专注时长最多的同学
+    const topRows = live.filter((p) => p.totalMs > 0).sort((a, b) => b.totalMs - a.totalMs || a.sid.localeCompare(b.sid)).slice(0, 10);
+    const [c3, h3] = add('专注时长最多的同学', `前 ${topRows.length} 位（已销号的不计）；悬停看来的天数、打卡天数、完成的段和专注占比。`);
+    I.bars(h3, c3, topRows.map((p) => ({ label: p.name, value: ltMin(p.totalMs), text: ltDur(p.totalMs),
+      lines: [`${p.name}（${p.aliasText}）`, `来了 ${p.activeDays} 天 · 打卡 ${p.checkDays} 天`, `到时完成 ${p.done} 段${p.share >= 0 ? ` · 专注占比 ${ltRate(p.share)}` : ''}`] })),
+    { unit: ' 分钟', labelMax: 120, color: T.purple, aria: '专注时长最多的同学横条图', empty: '还没有同学专注过。' });
+    I.tableView(c3, ['姓名', '道号', '累计专注（分钟）', '来的天数', '打卡天数', '到时完成的段'], topRows.map((p) => [p.name, p.aliasText, ltMin(p.totalMs), p.activeDays, p.checkDays, p.done]));
+    // 4 每一段结束得怎么样
+    const done = total('done'), cancelled = total('cancelled'), pomo = total('pomodoroSessions'), sessions = total('sessions');
+    const [c4, h4] = add('每一段结束得怎么样', `已经结束的 ${ltFmt(done + cancelled)} 段：到时完成的得悟玉；中途点“结束本段”的不得悟玉，专注过的时间照样记进累计。番茄静修 ${ltFmt(pomo)} 段、自由静修 ${ltFmt(sessions - pomo)} 段。`);
+    I.donut(h4, c4, [{ label: '到时完成', value: done, color: T.green }, { label: '中途结束', value: cancelled, color: T.orange }],
+      { unit: ' 段', center: done + cancelled ? `${Math.round(done * 100 / (done + cancelled))}%` : '—', centerSub: '完成率', empty: '还没有结束的段。', aria: '静修完成率环形图' });
+    // 5 每段定多长
+    const planMap = new Map();
+    live.forEach((p) => Object.entries(p.plans).forEach(([m, n]) => planMap.set(Number(m), (planMap.get(Number(m)) || 0) + ltNum(n))));
+    let plans = Array.from(planMap.entries()).sort((a, b) => a[0] - b[0]).map(([m, n]) => ({ key: String(m), label: `${m} 分`, value: n, lines: [`定 ${m} 分钟`, `${n} 段`] }));
+    if (plans.length > 9) {   // 自定的时长五花八门：只留最多的 8 种，其余并成“其他”
+      const keep = new Set(plans.slice().sort((a, b) => b.value - a.value).slice(0, 8).map((d) => d.key));
+      const other = plans.filter((d) => !keep.has(d.key)).reduce((t, d) => t + d.value, 0);
+      plans = plans.filter((d) => keep.has(d.key)).concat([{ key: 'other', label: '其他', value: other, lines: ['其他时长', `${other} 段`] }]);
+    }
+    const [c5, h5] = add('每段定多长', '开始前选的专注时长（番茄静修默认 25 分钟；也可以选 40、50 分钟或自定 5—120 分钟）；柱子是段数。');
+    I.columns(h5, c5, plans, { unit: ' 段', color: T.blue, aria: '每段定的专注时长柱状图', empty: '还没有静修记录。' });
+    I.tableView(c5, ['定的时长', '段数'], plans.map((d) => [d.key === 'other' ? '其他' : `${d.key} 分钟`, d.value]));
+    // 6 打卡了几天
+    const bins = [['还没打卡', 0, 0], ['1—2 天', 1, 2], ['3—6 天', 3, 6], ['7—13 天', 7, 13], ['14 天以上', 14, Infinity]]
+      .map(([label, lo, hi], i) => ({ label, value: live.filter((p) => p.checkDays >= lo && p.checkDays <= hi).length, color: i === 0 ? T.neutral : (I.ramps.online || [])[i] || T.blue }));
+    const longest = live.slice().sort((a, b) => b.best - a.best || b.checkDays - a.checkDays)[0];
+    const [c6, h6] = add('打卡了几天', `一天专注满 25 分钟算一次打卡（与静修修行录相同），颜色越深打卡越多${longest && longest.best ? `；最长连续打卡是 ${longest.name} 的 ${longest.best} 天` : ''}。`);
+    I.segmented(h6, c6, bins.map((d) => ({ ...d, lines: [d.label, `${d.value} 人`] })), { unit: ' 人', aria: '打卡天数分段条' });
+    I.tableView(c6, ['打卡天数', '人数'], bins.map((d) => [d.label, d.value]));
+    // 7 在哪间雅室静修
+    const roomInfo = new Map((ltFocus.rooms || []).map((r) => [r.id, r]));
+    const roomTotals = new Map();
+    live.forEach((p) => Object.entries(p.roomMs).forEach(([id, ms]) => roomTotals.set(id, (roomTotals.get(id) || 0) + ltNum(ms))));
+    const own = Array.from(roomTotals.entries()).filter(([id]) => !/^public-/.test(id)).sort((a, b) => b[1] - a[1]);
+    const roomParts = [['public-library', '藏经阁'], ['public-rain', '听雨轩']].map(([id, label], k) => ({ label, value: ltMin(roomTotals.get(id) || 0), color: CAT[k] }))
+      .concat(own.length <= 3
+        ? own.map(([id, ms], k) => { const r = roomInfo.get(id) || {}; return { label: `${r.title || '自建静室'}${r.owner_name ? ` · ${r.owner_name}` : ''}`, value: ltMin(ms), color: CAT[2 + k] }; })
+        : [{ label: `自建静室（${own.length} 间）`, value: ltMin(own.reduce((t, x) => t + x[1], 0)), color: CAT[2] }]);
+    const sids = new Set(live.map((p) => p.sid));
+    const built = (ltFocus.rooms || []).filter((r) => r.owner_sid && sids.has(String(r.owner_sid)));
+    const [c7, h7] = add('在哪间雅室静修', `按专注的分钟数。藏经阁、听雨轩是两门课所有同学共用的公共雅室（各 8 个座位）；${built.length ? `本班同学自己建了 ${built.length} 间静室（公开 ${built.filter((r) => r.privacy === 'public').length} 间、凭邀请码进的私密 ${built.filter((r) => r.privacy !== 'public').length} 间）` : '本班同学还没有自己建静室'}。`);
+    I.donut(h7, c7, roomParts, { unit: ' 分钟', center: ltFmt(ltMin(Array.from(roomTotals.values()).reduce((t, v) => t + v, 0))), centerSub: '分钟', empty: '还没有同学在雅室里专注过。', aria: '各雅室静修分钟数环形图' });
+    I.tableView(c7, ['雅室', '分钟'], roomParts.map((d) => [d.label, d.value]).concat(own.length > 3 ? own.map(([id, ms]) => { const r = roomInfo.get(id) || {}; return [`· ${r.title || id}${r.owner_name ? `（${r.owner_name}建）` : ''}`, ltMin(ms)]; }) : []));
+    // 8 大家立的愿（开始前写的“本次修习什么”）
+    const tMap = new Map();
+    live.forEach((p) => p.targets.forEach((t) => { const x = tMap.get(t.text) || { n: 0, people: 0 }; x.n += t.n; x.people += 1; tMap.set(t.text, x); }));
+    const tAll = Array.from(tMap.entries()).sort((a, b) => b[1].n - a[1].n || b[1].people - a[1].people || a[0].localeCompare(b[0], 'zh-CN'));
+    const tTop = tAll.slice(0, 10);
+    const [c8, h8] = add('大家立的愿', `开始静修前写的“本次修习什么”，按写过的次数，前 ${tTop.length} 条（每人最多算 30 种）；悬停看有几位同学写过，全部在“查看数据表”里。`, true);
+    I.bars(h8, c8, tTop.map(([text, x]) => ({ label: text, value: x.n, lines: [text, `${x.people} 位同学写过`] })), { unit: ' 次', stacked: true, color: T.cyan, aria: '立愿出现次数横条图', empty: '还没有同学写过立愿。' });
+    I.tableView(c8, ['立愿', '次数', '写过的同学'], tAll.map(([text, x]) => [text, x.n, x.people]));
+    // 9 悟玉与衣装
+    const itemMap = new Map();
+    live.forEach((p) => p.purchases.forEach((x) => itemMap.set(x.id, (itemMap.get(x.id) || 0) + 1)));
+    const items = Array.from(itemMap.entries()).sort((a, b) => b[1] - a[1] || ltItemName(a[0]).localeCompare(ltItemName(b[0]), 'zh-CN'))
+      .map(([id, n]) => ({ id, label: ltItemName(id), value: n, price: (LT_FOCUS_ITEMS[id] || [id, 0])[1], lines: [`${ltItemName(id)}（${(LT_FOCUS_ITEMS[id] || [id, 0])[1]} 悟玉）`, `${n} 位同学置办了`] }));
+    const ach = new Map();
+    live.forEach((p) => p.achievements.forEach((x) => ach.set(x.id, (ach.get(x.id) || 0) + 1)));
+    const withFriends = live.filter((p) => p.friends > 0).length;
+    const [c9, h9] = add('悟玉与衣装', `到时完成一段得悟玉（25 分钟得 10，和道友同室专注每 5 分钟再加 1）：大家一共得了 ${ltFmt(total('earned'))} 悟玉（道友加成 ${ltFmt(total('bonus'))}），在衣装坊花了 ${ltFmt(total('spent'))}，现有 ${ltFmt(total('jade'))}。`
+      + `${withFriends ? `有道友的同学 ${withFriends} 位，和道友同室专注共 ${ltDur(total('friendMs'))}。` : '还没有同学结为道友。'}${ach.size ? `成就：${Array.from(ach.entries()).map(([id, n]) => `${(LT_FOCUS_ACH[id] || [id])[0]} ${n} 人`).join('、')}。` : ''}下面是置办得最多的衣装。`);
+    I.bars(h9, c9, items.slice(0, 10), { unit: ' 人', labelMax: 120, color: T.pink, aria: '衣装置办人数横条图', empty: '还没有同学在衣装坊置办过衣装。' });
+    I.tableView(c9, ['衣装', '价格（悟玉）', '置办的同学'], items.map((d) => [d.label, d.price, d.value]));
+    grid.insertBefore(c9, c8);   // 悟玉与衣装挪到“在哪间雅室”旁边并排，立愿占满下一行
+    // 10 最近的静修
+    const feed = [];
+    live.forEach((p) => p.recent.forEach((s) => feed.push({ p, s })));
+    feed.sort((a, b) => ltNum(b.s.finished) - ltNum(a.s.finished));
+    const c10 = I.card(grid, '最近的静修', `最近结束的 ${Math.min(12, feed.length)} 段；点姓名看个人静修卡（每人最近 40 段都在“导出 Excel”的“静修记录”里）。`, true);
+    const wrapF = document.createElement('div');
+    wrapF.className = 'tw-scroll';
+    wrapF.innerHTML = feed.length ? `<table class="tw-table compact tw-lt-beh-table"><thead><tr><th>结束时间</th><th>姓名</th><th>立愿</th><th>方式</th><th>定的时长</th><th>专注了</th><th>结果</th><th>悟玉</th></tr></thead><tbody>${feed.slice(0, 12).map(({ p, s }) => `<tr><td>${esc(ltWhen(ltNum(s.finished)))}</td>`
+      + `<td><button type="button" class="ins-name" data-lt-focus-person="${esc(p.actor)}" title="看个人静修卡">${esc(p.name)}</button></td><td class="tw-lt-focus-target">${esc(s.target || '')}</td>`
+      + `<td>${s.mode === 'pomodoro' ? '番茄' : '自由'}</td><td class="num">${ltNum(s.minutes)} 分钟</td><td class="num">${esc(ltDur(s.ms))}</td><td>${s.done ? '到时完成' : '中途结束'}</td><td class="num">${s.done ? ltFmt(s.reward) : '—'}</td></tr>`).join('')}</tbody></table>`
+      : '<p class="ins-empty">还没有结束的静修。</p>';
+    c10.appendChild(wrapF);
+    // 11 个人静修卡
+    const cK = I.card(grid, '个人静修卡', '点上面或下表里的姓名，看这位同学的静修：和全班平均的对比、每天静修多久、一天里什么时候静修、最近每一段的立愿和结果、置办的衣装和成就。', true);
+    const hostK = document.createElement('div');
+    cK.appendChild(hostK);
+    const metric = (fn, has) => { const list = live.filter((q) => !has || has(q)); return { avg: list.length ? Math.round(list.reduce((t, q) => t + fn(q), 0) / list.length * 10) / 10 : 0, max: Math.max(0, ...live.map(fn)) }; };
+    const METRICS = [['累计专注', (q) => ltMin(q.totalMs), null, ' 分钟', '累计'], ['近 7 天', (q) => ltMin(q.weekMs), null, ' 分钟', '近 7 天'], ['来的天数', (q) => q.activeDays, null, ' 天', '天数'],
+      ['打卡天数', (q) => q.checkDays, null, ' 天', '打卡'], ['最长连续打卡', (q) => q.best, null, ' 天', '连续'], ['到时完成的段', (q) => q.done, null, ' 段', '完成'],
+      ['完成率', (q) => (q.doneRate >= 0 ? Math.round(q.doneRate * 100) : 0), 100, '%', '完成率', (q) => q.doneRate >= 0],
+      ['专注占比', (q) => (q.share >= 0 ? Math.round(q.share * 100) : 0), 100, '%', '专注占比', (q) => q.share >= 0]];
+    const showPerson = (actor, scroll) => {
+      const p = rows.find((q) => q.actor === actor);
+      if (!p) return;
+      ltFocus.person = actor;
+      hostK.textContent = '';
+      const head = document.createElement('div');
+      head.className = 'ins-person';
+      const strong = document.createElement('strong');
+      strong.textContent = p.name;
+      const meta = document.createElement('span');
+      const doing = p.now ? ` · 此刻${p.roomTitle ? `在“${p.roomTitle}”` : ''}${p.now}${p.active && p.active.target && p.now !== '小憩中' ? `（立愿：${p.active.target}）` : ''}` : '';
+      meta.textContent = `${p.sid} · 道号 ${p.aliasText}${p.avatar ? ` · 化身 ${p.avatar}` : ''}${p.banned ? ' · 已销号' : ''} · 第一次打开静修 ${ltWhen(p.created)} · 最近专注 ${ltWhen(p.last)}${doing}`;
+      head.append(strong, meta);
+      hostK.appendChild(head);
+      const notes = document.createElement('ul');
+      notes.className = 'tw-lt-beh-notes';
+      notes.innerHTML = ltFocusInsight(p, ctx).map((line) => `<li>${esc(line)}</li>`).join('');
+      hostK.appendChild(notes);
+      const personRows = METRICS.map(([label, fn, max, unit, short, has]) => {
+        const m = metric(fn, has);
+        return { label, short, me: fn(p), avg: m.avg, max: max == null ? m.max : max, unit, note: max == null ? `全班最高 ${ltFmt(m.max)}${unit}` : has && has(p) ? '' : '还没有可算的段' };
+      });
+      I.keys(hostK, [{ name: '本人', color: T.pink }, { name: '全班平均', color: T.blue }]);
+      const pair = document.createElement('div');
+      pair.className = 'ins-person-grid';
+      const hostRadar = document.createElement('div'), hostBars = document.createElement('div');
+      pair.append(hostRadar, hostBars);
+      hostK.appendChild(pair);
+      I.radar(hostRadar, cK, personRows, { noKeys: true, aria: `${p.name} 和全班平均的雷达图` });
+      I.compare(hostBars, cK, personRows, { noKeys: true, aria: `${p.name} 的静修和全班平均` });
+      const block = (title, note) => {
+        const wrap = document.createElement('section'); wrap.className = 'tw-lt-beh-part';
+        const h = document.createElement('h5'); h.textContent = title; wrap.appendChild(h);
+        if (note) { const small = document.createElement('p'); small.className = 'tw-hint'; small.textContent = note; wrap.appendChild(small); }
+        const host = document.createElement('div'); wrap.appendChild(host);
+        return [wrap, host];
+      };
+      const two = document.createElement('div');
+      two.className = 'tw-lt-beh-two';
+      hostK.appendChild(two);
+      const own = ltFocusDays([p]).map((d) => ({ key: d.day, label: `${Number(d.day.slice(5, 7))}/${Number(d.day.slice(8, 10))}`, value: ltMin(d.ms), lines: [`${ltDayText(d.day)} ${ltWeekOf(d.day)}`, d.ms >= LT_FOCUS_CHECKIN ? '满 25 分钟（打卡）' : '不满 25 分钟', `到时完成 ${d.done} 段`] }));
+      const [wDay, hDay] = block('每天静修多少分钟', `来了 ${p.activeDays} 天、打卡 ${p.checkDays} 天${own.length > WIN ? '；拖动图下的滑块看更早的' : ''}`);
+      two.appendChild(wDay);
+      const ownMax = own.reduce((m, d) => Math.max(m, d.value), 0);
+      I.windowed(hDay, cK, own, WIN, (b, slice, cardEl) => I.columns(b, cardEl, slice, { unit: ' 分钟', height: 190, color: T.purple, yMax: ownMax, aria: `${p.name} 每天的静修分钟数柱状图`, empty: '还没有专注过。' }),
+        { labelOf: (d) => d.key.slice(5), unitName: '天', aria: '左右拖动，看更早或更近的日子' });
+      const hours = Array(24).fill(0);
+      Object.entries(p.heat).forEach(([k, ms]) => { const n = Number(k); if (n >= 0 && n < 168) hours[n % 24] += ltNum(ms); });
+      const [wHour, hHour] = block('一天里什么时候静修', '北京时间，各个钟点专注的分钟数（所有天加在一起）');
+      two.appendChild(wHour);
+      I.columns(hHour, cK, hours.map((ms, hour) => ({ key: String(hour), label: `${hour}`, value: ltMin(ms), lines: [`${hour} 点到 ${hour + 1} 点`] })), { unit: ' 分钟', height: 190, color: T.blue, aria: `${p.name} 各钟点的静修分钟数柱状图`, empty: '还没有专注过。' });
+      const [wRec, hRec] = block('最近的每一段', `最近 ${Math.min(15, p.recent.length)} 段（共结束 ${p.ended} 段）`);
+      hostK.appendChild(wRec);
+      hRec.innerHTML = p.recent.length ? `<div class="tw-scroll"><table class="tw-table compact tw-lt-beh-table"><thead><tr><th>结束时间</th><th>立愿</th><th>定的时长</th><th>专注了</th><th>结果</th></tr></thead><tbody>${p.recent.slice(0, 15).map((s) => `<tr><td>${esc(ltWhen(ltNum(s.finished)))}</td><td class="tw-lt-focus-target">${esc(s.target || '')}</td>`
+        + `<td class="num">${ltNum(s.minutes)} 分钟</td><td class="num">${esc(ltDur(s.ms))}</td><td>${s.done ? `到时完成 · ${ltFmt(s.reward)} 悟玉` : '中途结束'}</td></tr>`).join('')}</tbody></table></div>` : '<p class="ins-empty">还没有结束的静修。</p>';
+      const [wGear, hGear] = block('衣装与成就', `得悟玉 ${ltFmt(p.earned)}，现有 ${ltFmt(p.jade)}`);
+      hostK.appendChild(wGear);
+      const gear = p.purchases.map((x) => `<li><time>${esc(ltDayText(ltBjDay(x.at)))}</time><span>置办 ${esc(x.name)}</span><b>${ltFmt(x.price)}</b></li>`)
+        .concat(p.achievements.map((x) => `<li><time>${esc(ltDayText(ltBjDay(x.at)))}</time><span>达成成就 ${esc(x.name)}（${esc(x.rule)}）</span><b>成就</b></li>`));
+      hGear.innerHTML = gear.length ? `<ul class="tw-lt-beh-log">${gear.join('')}</ul>` : '<p class="ins-empty">还没有置办过衣装，也还没有达成成就。</p>';
+      if (scroll) cK.scrollIntoView({ block: 'nearest', behavior: 'smooth' });
+    };
+    ltFocus.show = showPerson;
+    const firstPerson = rows.find((q) => q.actor === ltFocus.person) || topRows[0] || rows[0];
+    if (firstPerson) showPerson(firstPerson.actor, false);
+    // 12 每位同学一行
+    const all = rows.slice().sort((a, b) => b.totalMs - a.totalMs || a.sid.localeCompare(b.sid));
+    const c12 = I.card(grid, '每位同学', `按累计专注从多到少，共 ${all.length} 位；点姓名看个人静修卡。`, true);
+    const wrap = document.createElement('div');
+    wrap.className = 'tw-scroll';
+    wrap.innerHTML = `<table class="tw-table compact ins-people tw-lt-beh-table"><thead><tr><th>学号</th><th>姓名</th><th>道号</th><th>累计专注</th><th>近 7 天</th><th title="专注过的天数">来的天数</th><th title="一天专注满 25 分钟">打卡天数</th><th>最长连续打卡</th>`
+      + `<th title="到时完成的段／中途结束的段">完成／中途结束</th><th title="到时完成的段 ÷ 已经结束的段">完成率</th><th title="到时完成的段里，专注时间占从开始到结束的比例；其余是暂停、切出页面或断线">专注占比</th>`
+      + `<th title="现有悟玉／累计得到的悟玉">悟玉</th><th>衣装</th><th>道友</th><th>此刻</th><th>最近专注</th></tr></thead><tbody>${all.map((p) => `<tr${p.banned ? ' class="is-banned"' : ''}><td>${esc(p.sid)}</td>`
+      + `<td><button type="button" class="ins-name" data-lt-focus-person="${esc(p.actor)}" title="看个人静修卡">${esc(p.name)}</button></td><td>${p.banned ? `<s>${esc(p.aliasText)}</s>` : esc(p.aliasText)}</td>`
+      + `<td class="num"><b>${esc(ltDur(p.totalMs))}</b></td><td class="num">${esc(ltDur(p.weekMs))}</td><td class="num">${p.activeDays}</td><td class="num">${p.checkDays}</td><td class="num">${p.best}</td>`
+      + `<td class="num">${p.done} / ${p.cancelled}</td><td class="num">${ltRate(p.doneRate)}</td><td class="num">${ltRate(p.share)}</td><td class="num">${ltFmt(p.jade)} / ${ltFmt(p.earned)}</td>`
+      + `<td class="num">${p.purchases.length}</td><td class="num">${p.friends}</td><td>${esc(p.now || '—')}</td><td>${esc(ltWhen(p.last))}</td></tr>`).join('')}</tbody></table>`;
+    c12.appendChild(wrap);
+  }
+  function ltFocusExport() {
+    if (!ltFocus.rows) return;
+    const O = window.ClassLive.office;
+    const rows = ltFocusRows().sort((a, b) => a.sid.localeCompare(b.sid));
+    const full = (ms) => (ms ? new Date(ms).toLocaleString('zh-CN', { timeZone: 'Asia/Shanghai', hour12: false }) : '');
+    const summary = [['项目', '数值', '说明']].concat(ltFocusTiles(rows).map((tile) => [tile.label, tile.value, tile.note]));
+    const detail = [['学号', '姓名', '道号', '已销号', '化身', '累计专注（分钟）', '近 7 天（分钟）', '今天（分钟）', '来的天数', '打卡天数', '最长连续打卡', '现在连续打卡',
+      '结束的段', '到时完成', '中途结束', '完成率', '番茄静修的段', '中途结束的段里专注（分钟）', '专注占比', '平均每段专注（分钟）',
+      '现有悟玉', '累计得到悟玉', '其中道友加成', '衣装坊花掉', '置办的衣装', '成就', '道友', '待回应的道友邀请', '和道友同室专注（分钟）', '自建静室',
+      '此刻', '常写的立愿', '第一次打开静修', '最近专注']]
+      .concat(rows.map((p) => [p.sid, p.name, p.aliasText, p.banned ? '是' : '', p.avatar, ltMin(p.totalMs), ltMin(p.weekMs), ltMin(p.todayMs), p.activeDays, p.checkDays, p.best, p.streak,
+        p.ended, p.done, p.cancelled, ltRate(p.doneRate), p.pomodoroSessions, ltMin(p.cancelMs), ltRate(p.share), Math.round(p.avgMs / 6000) / 10,
+        p.jade, p.earned, p.bonus, p.spent, p.purchases.map((x) => x.name).join('、'), p.achievements.map((x) => x.name).join('、'), p.friends, p.friendRequests, ltMin(p.friendMs), p.roomsOwned,
+        p.now ? `${p.roomTitle ? `${p.roomTitle} · ` : ''}${p.now}` : '', p.targets.slice(0, 5).map((t) => `${t.text}（${t.n}）`).join('；'), full(p.created), full(p.last)]));
+    const live = rows.filter((p) => !p.banned);
+    const daily = [['日期', '星期', '静修（分钟）', '在静修的同学', '到时完成的段']].concat(ltFocusDays(live).map((d) => [d.day, ltWeekOf(d.day), ltMin(d.ms), d.people, d.done]));
+    const records = [['学号', '姓名', '道号', '开始', '结束', '立愿', '方式', '定的时长（分钟）', '专注（分钟）', '结果', '悟玉', '其中道友加成', '和道友同室专注（分钟）']];
+    rows.forEach((p) => p.recent.slice().sort((a, b) => ltNum(a.finished) - ltNum(b.finished)).forEach((s) => records.push([p.sid, p.name, p.aliasText, full(ltNum(s.started)), full(ltNum(s.finished)), s.target || '',
+      s.mode === 'pomodoro' ? '番茄静修' : '自由静修', ltNum(s.minutes), Math.round(ltNum(s.ms) / 6000) / 10, s.done ? '到时完成' : '中途结束', s.done ? ltNum(s.reward) : 0, s.done ? ltNum(s.bonus) : 0, Math.round(ltNum(s.friend_ms) / 6000) / 10])));
+    const scope = state.klass ? safeName(state.klass.name) : '全部班级';
+    O.save(O.xlsxBook([
+      { name: '汇总', rows: summary, widths: [16, 16, 60] },
+      { name: '学生明细', rows: detail, widths: [14, 10, 16, 8, 10].concat(Array(26).fill(11), [30, 18, 18]) },
+      { name: '每天', rows: daily, widths: [12, 8, 14, 14, 14] },
+      { name: '静修记录', rows: records, widths: [14, 10, 16, 20, 20, 30, 10, 14, 12, 10, 8, 12, 18] },
+    ]), `${course.title}_${scope}_静修数据_${window.ClassLive.today()}.xlsx`);
+  }
   // 销号／恢复（2026-11-15 用户：“填写道号的时候也要提醒学生文明取名，否则会被销号”）
   async function ltBan(actor, on) {
     const p = lt.players.find((row) => row.actor_id === actor);
@@ -2309,6 +2692,12 @@
     if ($('[data-lt-beh-charts]')) $('[data-lt-beh-charts]').addEventListener('click', (event) => {
       const who = event.target.closest('[data-lt-beh-person]');
       if (who && ltBeh.show) ltBeh.show(who.dataset.ltBehPerson, true);
+    });
+    if ($('[data-lt-focus-reload]')) $('[data-lt-focus-reload]').addEventListener('click', ltFocusLoad);
+    if ($('[data-lt-focus-xlsx]')) $('[data-lt-focus-xlsx]').addEventListener('click', ltFocusExport);
+    if ($('[data-lt-focus-charts]')) $('[data-lt-focus-charts]').addEventListener('click', (event) => {
+      const who = event.target.closest('[data-lt-focus-person]');
+      if (who && ltFocus.show) ltFocus.show(who.dataset.ltFocusPerson, true);
     });
     $('[data-lt-stats-head]').addEventListener('click', (event) => {
       const button = event.target.closest('[data-lt-sort]');
@@ -2430,6 +2819,8 @@
   // “我的课堂”的四项统计（2026-11-22 用户：“这几个卡片换成‘已加入’‘现在在线’（加入名单中的‘现在在线’换成‘已全部递交’），
   // ‘灵田在线’‘今天在线’，不需要‘尚未全部递交’”）：现在在线＝课程页面或云间灵田 2 分钟内报到过；灵田在线＝2 分钟内从云间灵田报到过
   // （ck_presence.lt_seen，后台还没有这一列时显示“—”）；今天在线＝今天（北京时间零点起）报到过或登录过
+  // 2026-11-23 用户：“这里再增加一个静修在线的显示卡片”：静修在线＝2 分钟内从静修报到过（灵田页开着静修时报到带 p_place = 'focus'，
+  // 记在 ck_presence.focus_seen；回到灵田的田里时清空）；静修在灵田里，所以“灵田在线”也算上在静修的同学
   function renderStats() {
     const joined = students();
     const today = window.ClassLive.today();
@@ -2445,7 +2836,11 @@
     put('[data-stat-online]', joined.filter((row) => isOnline(row.sid)).length);
     if (state.presence.ltKnown) put('[data-stat-lingtian]', joined.filter((row) => inLingtian(row.sid)).length);
     else put('[data-stat-lingtian]', '—');
-    put('[data-stat-today]', joined.filter((row) => row.days.has(today) || seenAt(row.sid) >= dayStart).length);
+    if (state.presence.focusKnown) put('[data-stat-focus]', joined.filter((row) => inFocus(row.sid)).length);
+    else put('[data-stat-focus]', '—');
+    // 今天在线：本班全部课堂（与学情分析“今天在学”同一口径，见 loadToday）；还没读到时照旧按本课堂算
+    const todaySet = todayVisits.sids && state.klass && todayVisits.key === `${course.slug}:${state.klass.id}:${today}` ? todayVisits.sids : null;
+    put('[data-stat-today]', todaySet ? todaySet.size : joined.filter((row) => row.days.has(today) || seenAt(row.sid) >= dayStart).length);
   }
   // ---------------- 点名册（班级）与考勤核对 ----------------
   const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
@@ -2542,16 +2937,46 @@
       // lt：从云间灵田报到的时间（2026-11-22，ck_presence.lt_seen）；ltKnown：后台已经有这一列（还没执行 SQL 时没有，“灵田在线”显示“—”）
       state.presence = { room: String(room.id), map: new Map(rows.map((row) => [sidKey(row.sid), millis(row.last_seen)])),
         lt: new Map(rows.filter((row) => row.lt_seen).map((row) => [sidKey(row.sid), millis(row.lt_seen)])),
-        ltKnown: !rows.length || rows.some((row) => 'lt_seen' in row) };
+        ltKnown: !rows.length || rows.some((row) => 'lt_seen' in row),
+        // focus：从静修报到的时间（2026-11-23，ck_presence.focus_seen）；focusKnown：后台已经有这一列
+        focus: new Map(rows.filter((row) => row.focus_seen).map((row) => [sidKey(row.sid), millis(row.focus_seen)])),
+        focusKnown: !rows.length || rows.some((row) => 'focus_seen' in row) };
     } catch (error) {
       if (!missingTable(error)) console.warn('[在线状态]', error);
-      state.presence = { room: String(room.id), map: new Map(), lt: new Map(), ltKnown: false };
+      state.presence = { room: String(room.id), map: new Map(), lt: new Map(), ltKnown: false, focus: new Map(), focusKnown: false };
     }
+    await loadToday();
+  }
+  // 今天在线（2026-11-23 用户：“‘今天在线’和‘今天在学’的人数照理说应该一样的啊，为什么这里会差1人？”）：原来只看现在选的这个课堂——
+  //   本班几个课堂同时开着时，今天只在别的课堂页面上（比如在第四章复习）的同学不算，学情分析的“今天在学”却算（本班全部课堂）。
+  //   现在和“今天在学”同一口径：本班点名册上的同学（不含旁听；没上传点名册时按有记录的同学），今天（北京时间零点起）在本班任一课堂
+  //   登录、打开或回到页面、查看历史课堂、在云间灵田里（ck_visits 今天有活动）。一分钟最多读一次；后台没有这张表时照旧按本课堂算
+  const todayVisits = { key: '', at: 0, sids: null };
+  async function loadToday(force) {
+    if (!state.klass) return;
+    const day = window.ClassLive.today();
+    const key = `${course.slug}:${state.klass.id}:${day}`;
+    if (!force && todayVisits.key === key && Date.now() - todayVisits.at < 60000) return;
+    try {
+      const since = new Date(Date.parse(`${day}T00:00:00+08:00`)).toISOString();
+      const rows = await backend.fetchAll('visits', { class_id: Number(state.klass.id) || state.klass.id }, { since: ['last_at', since] });
+      const roster = new Set(rosterOf().map((person) => sidKey(person.sid)));
+      todayVisits.sids = new Set(rows.filter((row) => !row.auditor && (!roster.size || roster.has(sidKey(row.sid)))).map((row) => sidKey(row.sid)));
+    } catch (error) {
+      if (!missingTable(error)) console.warn('[今天在线]', error);
+      todayVisits.sids = null;
+    }
+    todayVisits.key = key;
+    todayVisits.at = Date.now();
   }
   const seenAt = (sid) => (state.room && state.presence.room === String(state.room.id) ? state.presence.map.get(sidKey(sid)) || 0 : 0);
   const isOnline = (sid) => { const at = seenAt(sid); return Boolean(at) && Date.now() - at < ONLINE_MS; };
   const inLingtian = (sid) => {
     const at = state.room && state.presence.room === String(state.room.id) && state.presence.lt ? state.presence.lt.get(sidKey(sid)) || 0 : 0;
+    return Boolean(at) && Date.now() - at < ONLINE_MS;
+  };
+  const inFocus = (sid) => {
+    const at = state.room && state.presence.room === String(state.room.id) && state.presence.focus ? state.presence.focus.get(sidKey(sid)) || 0 : 0;
     return Boolean(at) && Date.now() - at < ONLINE_MS;
   };
   const onlineDot = (sid) => {

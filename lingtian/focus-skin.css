@@ -1,0 +1,130 @@
+/* 云间灵田 · 静修界面的版式调整（2026-11-23 用户：“这个页面可以再设计得美观一些，注意空间利用，比如有些字体可以大一些，
+   不用这么多留白的地方。注意手机和ipad等其它设备的适配。”）。
+   只改外观，不改静修的计时、座位和规则：模块自己的 focus-1.0.0/frontend/focus/focus.css 不动，这份在它之后加载（focus-host.js 的 loadArt），
+   同样的选择器后写的生效。电脑（宽于 1060）、平板（721—1060，含 iPad 横竖屏）、手机（720 以下，含横屏）各调一遍：
+   字号不小于 12px，计时卡留白收紧、立愿和计时放大，浮窗底色不透明（不再透出后面的人物和座位牌）。 */
+
+/* ---------- 顶栏与场景标题 ---------- */
+.fx-brand p { font-size: 12px; letter-spacing: 1px; }
+.fx-world-heading .fx-eyebrow { font-size: 12px; letter-spacing: 2px; }
+.fx-world-heading p { font-size: 13px; }
+.fx-room-tag { font-size: 13px; }
+.fx-connection { font-size: 12px; }
+
+/* ---------- 座位条与底栏 ---------- */
+.fx-seat-label { font-size: 13px; }
+.fx-seats button span { font-size: 12px; }
+.fx-today > div > span { font-size: 12px; }
+.fx-today strong { font-size: 16px; }
+.fx-utilities button { font-size: 13px; }
+
+/* ---------- 计时卡（收起时） ---------- */
+.fx-console { background: linear-gradient(120deg, #fffdf6, #f1f4e2); box-shadow: 0 12px 36px #2f4a3a33, inset 0 1px 0 #fff; }
+.fx-console-caption > span { font-size: 13px; color: #556f53; }
+.fx-console-toggle { min-height: 32px; padding: 4px 8px; font-size: 13px !important; }
+.fx-console-toggle .fx-icon { width: 14px; height: 14px; }
+.fx-console[data-expanded="false"] .fx-clock-label { font-size: 12px; }
+.fx-console[data-expanded="false"] .fx-clock-face strong { font-size: 34px; }
+.fx-console[data-expanded="false"] .fx-primary-actions .fx-button-primary { min-height: 46px; font-size: 16px !important; }
+.fx-console[data-expanded="false"] .fx-primary-actions .fx-button-quiet { min-height: 28px; font-size: 13px !important; }
+
+/* ---------- 计时卡（展开时）：左边立愿，右边计时，下面一排轮次和按钮 ---------- */
+@media (min-width: 1061px) {
+  .fx-console[data-expanded="true"] { width: 620px; grid-template-columns: minmax(0, 1fr) 176px; gap: 10px 22px; padding: 14px 22px 18px; }
+}
+.fx-console[data-expanded="true"] .fx-session-copy { align-self: start; }
+.fx-console[data-expanded="true"] .fx-modes { margin-bottom: 12px; }
+.fx-console[data-expanded="true"] .fx-modes button { min-height: 40px; padding: 7px 16px; font-size: 15px; gap: 6px; }
+.fx-console[data-expanded="true"] .fx-modes .fx-icon { width: 18px; height: 18px; }
+.fx-console[data-expanded="true"] .fx-goal-label { display: flex; align-items: baseline; gap: 10px; margin: 0 0 4px; font-size: 21px; }
+.fx-console[data-expanded="true"] .fx-goal-label span { font-size: 13px; }
+.focus-root .fx-console[data-expanded="true"] .fx-goal-input { min-height: 46px; padding: 6px 2px 8px; font-size: 17px; }
+.focus-root .fx-console[data-expanded="true"] .fx-goal-input::placeholder { font-size: 15px; }
+.fx-console[data-expanded="true"] .fx-duration-options { gap: 6px; margin-top: 10px; }
+.fx-console[data-expanded="true"] .fx-duration-options button { min-height: 36px; padding: 5px 12px; font-size: 14px; }
+.fx-console[data-expanded="true"] .fx-mode-description { margin-top: 10px !important; font-size: 13px; line-height: 1.6; }
+.fx-console[data-expanded="true"] .fx-session-summary h3 { font-size: 21px; line-height: 1.45; }
+.fx-console[data-expanded="true"] .fx-session-summary > p { font-size: 13px; }
+.fx-console .fx-session-summary .fx-eyebrow { font-size: 12px; letter-spacing: 2px; }
+.fx-console[data-expanded="true"] .fx-clock-ring { width: 168px; }
+.fx-console[data-expanded="true"] .fx-clock-face strong { font-size: 42px; }
+.fx-console[data-expanded="true"] .fx-clock-label { font-size: 13px; }
+.fx-console[data-expanded="true"] .fx-clock-sub { font-size: 12px; }
+.fx-console[data-expanded="true"] .fx-session-actions { grid-template-columns: auto minmax(0, 1fr); gap: 4px 22px; }
+.fx-console[data-expanded="true"] .fx-cycle { gap: 8px; }
+.fx-console[data-expanded="true"] .fx-cycle-label { font-size: 13px; }
+.fx-console[data-expanded="true"] .fx-primary-actions .fx-button-primary { min-height: 52px; font-size: 17px !important; }
+.fx-console[data-expanded="true"] .fx-primary-actions .fx-button-quiet { min-height: 32px; font-size: 13px !important; }
+.fx-console[data-expanded="true"] .fx-action-note { margin-top: 6px !important; font-size: 12px; }
+
+/* 轮次小圆点放大一些（番茄静修第几轮） */
+.fx-console[data-expanded="true"] .fx-rounds { gap: 9px; }
+.fx-console[data-expanded="true"] .fx-rounds > span { width: 30px; height: 30px; font-size: 14px; }
+.fx-console[data-expanded="true"] .fx-rounds .fx-icon { width: 15px; height: 15px; }
+
+/* ---------- 平板（721—1060，含 iPad 横竖屏） ---------- */
+@media (min-width: 721px) and (max-width: 1060px) {
+  .fx-console[data-expanded="true"] { width: min(600px, calc(100vw - 32px)); grid-template-columns: minmax(0, 1fr) 156px; gap: 10px 20px; padding: 14px 20px 16px; }
+  .fx-console[data-expanded="true"] .fx-clock-ring { width: 150px; }
+  .fx-console[data-expanded="true"] .fx-clock-face strong { font-size: 38px; }
+  .fx-utilities button { font-size: 13px; }
+}
+/* 平板竖屏（iPad 竖着拿）：展开的计时卡占满一行，座位条先收起（场景里点书案也能换座） */
+@media (min-width: 721px) and (max-width: 1060px) and (min-height: 861px) {
+  .fx-console[data-expanded="true"] { left: 16px; right: 16px; width: auto; }
+  .focus-root:has(.fx-console[data-expanded="true"]) .fx-seat-line { display: none; }
+}
+
+/* ---------- 手机（720 以下） ---------- */
+@media (max-width: 720px) {
+  /* 顶栏：多了一个“？”（使用说明），各个按钮收窄一点，免得挤在一起 */
+  .fx-header .fx-icon-button { width: 36px; min-width: 36px; padding: 7px; }
+  .fx-select select { width: 84px; padding-left: 9px; padding-right: 24px; }
+  .fx-select::after { right: 10px; }
+  .fx-jade { width: 44px; min-width: 44px; max-width: 44px; }
+  .fx-world-heading h2 { font-size: 20px; }
+  .fx-room-tag { font-size: 12px; }
+  .fx-today > div > span { font-size: 11px; }
+  .fx-today strong { font-size: 14px; }
+  .fx-utilities button { font-size: 11px; }
+  .fx-console-caption > span { font-size: 13px; }
+  .fx-console[data-expanded="false"] .fx-clock-face strong { font-size: 32px; }
+  .fx-console[data-expanded="false"] .fx-primary-actions .fx-button-primary { min-height: 44px; font-size: 15px !important; }
+  /* 展开：立愿占满一行，下面左计时、右轮次和按钮 */
+  .fx-console[data-expanded="true"] { width: auto; grid-template-columns: 118px minmax(0, 1fr); gap: 10px 14px; padding: 12px 14px 14px; }
+  .fx-console[data-expanded="true"] .fx-modes { display: flex; width: 100%; margin-bottom: 10px; }
+  .fx-console[data-expanded="true"] .fx-modes button { flex: 1 1 0; min-height: 40px; font-size: 15px; }
+  .fx-console[data-expanded="true"] .fx-goal-label { display: flex; font-size: 18px; margin: 0 0 2px; }
+  .fx-console[data-expanded="true"] .fx-goal-label span { font-size: 12px; }
+  .focus-root .fx-console[data-expanded="true"] .fx-goal-input { min-height: 44px; font-size: 16px; }
+  .focus-root .fx-console[data-expanded="true"] .fx-goal-input::placeholder { font-size: 14px; }
+  .fx-console[data-expanded="true"] .fx-duration-options button { min-height: 34px; padding: 4px 10px; font-size: 13px; }
+  .fx-console[data-expanded="true"] .fx-mode-description { margin-top: 8px !important; font-size: 12px; }
+  .fx-console[data-expanded="true"] .fx-clock-ring { width: 118px; }
+  .fx-console[data-expanded="true"] .fx-clock-face strong { font-size: 30px; }
+  .fx-console[data-expanded="true"] .fx-clock-label, .fx-console[data-expanded="true"] .fx-clock-sub { font-size: 12px; }
+  .fx-console[data-expanded="true"] .fx-session-actions { display: flex; flex-direction: column; justify-content: center; gap: 0; }
+  .fx-console[data-expanded="true"] .fx-cycle { margin-bottom: 10px; }
+  .fx-console[data-expanded="true"] .fx-cycle-label { font-size: 12px; }
+  .fx-console[data-expanded="true"] .fx-rounds { gap: 7px; }
+  .fx-console[data-expanded="true"] .fx-rounds > span { width: 26px; height: 26px; font-size: 13px; }
+  .fx-console[data-expanded="true"] .fx-primary-actions { width: 100%; }
+  .fx-console[data-expanded="true"] .fx-primary-actions .fx-button-primary { width: 100%; min-height: 46px; font-size: 16px !important; }
+  .fx-console[data-expanded="true"] .fx-primary-actions .fx-button-quiet { min-height: 30px; font-size: 13px !important; }
+  .fx-console[data-expanded="true"] .fx-action-note { font-size: 11px; }
+  .fx-inline-notice { font-size: 13px; }
+}
+
+/* ---------- 手机横屏、矮屏（高度不到 560） ---------- */
+@media (min-width: 721px) and (max-height: 560px) {
+  .fx-console[data-expanded="true"] { width: min(580px, calc(100vw - 24px)); grid-template-columns: minmax(0, 1fr) 120px; gap: 6px 16px; padding: 9px 16px 12px; }
+  .fx-console[data-expanded="true"] .fx-modes { margin-bottom: 6px; }
+  .fx-console[data-expanded="true"] .fx-modes button { min-height: 34px; font-size: 14px; }
+  .fx-console[data-expanded="true"] .fx-goal-label { display: none; }
+  .focus-root .fx-console[data-expanded="true"] .fx-goal-input { min-height: 38px; font-size: 16px; }
+  .fx-console[data-expanded="true"] .fx-mode-description { margin-top: 6px !important; font-size: 12px; }
+  .fx-console[data-expanded="true"] .fx-clock-ring { width: 112px; }
+  .fx-console[data-expanded="true"] .fx-clock-face strong { font-size: 28px; }
+  .fx-console[data-expanded="true"] .fx-primary-actions .fx-button-primary { min-height: 42px; font-size: 15px !important; }
+  .fx-console[data-expanded="false"] .fx-clock-face strong { font-size: 28px; }
+}

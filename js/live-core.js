@@ -1702,12 +1702,17 @@
           const row = rows.find((item) => String(item.classroom) === String(params.p_classroom) && item.sid === sid);
           const now = new Date().toISOString();
           // 2026-11-22：云间灵田页报到时带 p_place = 'lingtian'，另记 lt_seen（工作台“灵田在线”）
-          const lt = params.p_place === 'lingtian';
-          if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now, lt_seen: lt ? now : null });
+          // 2026-11-23：开着静修时带 'focus'，另记 focus_seen（工作台“静修在线”），同时照旧记 lt_seen；回到田里（'lingtian'）清空 focus_seen
+          const focus = params.p_place === 'focus';
+          const lt = params.p_place === 'lingtian' || focus;
+          if (!row) rows.push({ classroom: Number(params.p_classroom), sid, name: me.name, owner: uid, last_seen: now, lt_seen: lt ? now : null, focus_seen: focus ? now : null });
           else {
             if (Date.now() - Date.parse(row.last_seen) > 20000) Object.assign(row, { name: me.name, owner: uid, last_seen: now });
             if (lt && (!row.lt_seen || Date.now() - Date.parse(row.lt_seen) > 20000)) row.lt_seen = now;
+            if (focus && (!row.focus_seen || Date.now() - Date.parse(row.focus_seen) > 20000)) row.focus_seen = now;
+            else if (lt && !focus) row.focus_seen = null;
             if (!('lt_seen' in row)) row.lt_seen = null;
+            if (!('focus_seen' in row)) row.focus_seen = null;
           }
           write('presence', rows);
           visitTouch(params.p_classroom, sid, me.name, uid, 'ping', false);
@@ -3131,6 +3136,9 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-23：静修第一次进入的引导、开始计时后的大屏、计时卡版式（用户：“学生第一次进入进修的时候做一段引导页面……”
+        //   “点击开始进修后，进入类似于情景猜谜小游戏那样的大屏……看你们谁最先完成静修。”“这个页面可以再设计得美观一些……”）
+        ['静修 · 引导、大屏和新版式', '第一次进静修会有三步引导：选性别和化身、选去藏经阁还是听雨轩、看怎么静修（右上角的“？”随时再看）。点“开始静修”就进入大屏：大圆环倒计时，旁边是同室每位同修坐在书案前的实时状态和还剩多久，按谁先完成排名次。退出大屏、切到别的页面都会暂停计时，同室的同学会看到你“切出暂停”，回来点“继续静修”。计时卡的字也放大了，手机、平板都重新排过。', '2026-11-23'],
         // 2026-11-22（深夜）：云间灵田接入进修（静修）模块（用户：“请把附件中的进修模块接入我现有的灵田游戏……完成后执行并发布吧”）
         ['云间灵田 · 新增“静修”', '灵田底栏多了“静修”：在藏经阁、听雨轩里入席（每间 8 个座位，也能自己建静室、凭邀请码约同学），番茄静修或定时自习；切出页面、离开静修会自动暂停，回来以后要自己点继续。修完一段得悟玉，可以置办衣装；“修行录”里能看每天实际静修了多久。头像（四位化身）在灵田和静修里通用，灵田左上角显示你在静修里的穿戴。同修看到的是道号；悟玉和灵石各算各的，静修不计入课程修为。', '2026-11-22'],
         // 2026-11-22（深夜）：弹幕配色（用户：“元婴独有的弹幕字体特效好像不是很明显，可以再改进一下这个紫色，显得高级一些。……思考配色如何既能突出不同宗门的特色，又能突出个人境界”）

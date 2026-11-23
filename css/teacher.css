@@ -1317,6 +1317,8 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-lt-beh-log li { display: grid; grid-template-columns: 5.6em minmax(0, 1fr) auto; gap: 10px; padding: 5px 0; border-bottom: 1px dashed rgba(70, 51, 34, .14); }
 .tw-lt-beh-log time { color: var(--muted); }
 .tw-lt-beh-log b { font-variant-numeric: tabular-nums; }
+/* 静修数据统计（2026-11-23）：立愿是学生写的一句话，可以折行 */
+.tw-lt-beh-table td.tw-lt-focus-target { min-width: 11em; max-width: 24em; white-space: normal; overflow-wrap: anywhere; line-height: 1.6; }
 
 /* ---------- 我的课堂（2026-11-22 改版，同“选择课程”“选择班级”）：标题旁的课程、班级标签；课堂小卡片；当前课堂大卡片；学生入口；四项统计 ---------- */
 .tw-head h1 small:has(.tw-course-chip) { font-size: inherit; }
@@ -1708,6 +1710,7 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-room-stats .tw-stat.is-online:not(.is-quiet) .tw-stat-ico { animation: tw-dot-pulse 2.4s ease-in-out infinite; }
 .tw-room-stats .tw-stat.is-lingtian .tw-stat-ico { background: #e7f1dc; color: #4f7a24; }
 .tw-room-stats .tw-stat.is-today .tw-stat-ico { background: #e6eef8; color: #2f5d8c; }
+.tw-room-stats .tw-stat.is-focus .tw-stat-ico { background: #eee8f7; color: #6a4c9c; }   /* 静修在线（2026-11-23） */
 .tw-room-stats .tw-stat.is-quiet .tw-stat-ico { background: #efeae3; color: #a3978b; animation: none; }
 .tw-room-stats .tw-stat.is-quiet b { color: #a3978b; }
 .tw-strip .tw-stat.is-done .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
