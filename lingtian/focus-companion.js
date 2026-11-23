@@ -1,12 +1,13 @@
 /* 云间灵田 · 静修陪修（2026-11-24）
  * 用户：“静修的每个房间，如果只有一个人的话，随机设置一个假人陪你一起静修，点开始静修后，这个假人还是一样陪你直到静修结束。
- *       如果房间里面有2个或以上的真人，这个假人就自动消失。”
- * 做法：只在这台设备的画面上多坐一位“陪修”，名字后面写着“（陪修）”，同学一看就知道不是班上的同学：
+ *       如果房间里面有2个或以上的真人，这个假人就自动消失。”随后又说：“不要显示陪修的字样”——画面上不写“陪修”，和同修一样显示道号。
+ * 做法：只在这台设备的画面上多坐一位同修（下面叫“陪修”，只是代码里的叫法）：
  *  · 雅室里的真人只有你一个时出现：随机一位化身、道号和立愿，坐在你旁边的空席上（旁边没有空席就随便一处）；
  *  · 你开始静修，陪修也跟着起一段，总比你多剩一点时间，所以一直陪到你这一段结束；你小憩，陪修也小憩；
  *    你还没开始、或这一段已经结束时，陪修照自己的节奏学（学完显示“已完成”一分钟、小憩五分钟、再起一段）；
  *  · 雅室里来了第二位真人，陪修马上不显示；又只剩你一人时，还是原来那一位（换了雅室才换人）；刷新页面也不换（本页 sessionStorage）；
- *  · 全在这台设备上算：不经过云端，不进雅室人数（“1 / 8”）、修行录、静修在线和工作台统计，也不能结为道友。
+ *  · 画面上的雅室人数（“2 / 8”）跟着算上陪修，和看到的人数一致；
+ *  · 全在这台设备上算：不经过云端，别的同学看不到，不进修行录、静修在线和工作台统计，也不能结为道友（同修名单里没有这个按钮）。
  * 接法：focus-host.js 创建静修以前调用 install()，把在线静修引擎（SpiritFocusOnline.create）包一层，
  *   getSnapshot / subscribe 拿到的快照里补上陪修；静修界面、场景、同修名单、静修大屏读的都是这份快照，所以处处一致。
  */
@@ -122,9 +123,12 @@
       const following = active && (active.status === 'running' || active.status === 'paused') && (active.kind === 'focus' || active.kind === 'break');
       const timing = following ? accompany(active, now) : ownView(now);
       if (changed || timing.changed) save();
-      const view = Object.assign({ id: mate.id, seatId: mate.seatId, nickname: mate.name + '（陪修）', avatarId: mate.avatarId || null, target: mate.target,
+      const view = Object.assign({ id: mate.id, seatId: mate.seatId, nickname: mate.name, avatarId: mate.avatarId || null, target: mate.target,
         equipped: {}, isFriend: false, isSelf: false, companion: true, pauseReason: '', timerStale: false }, timing.view);
-      return Object.assign({}, snapshot, { participants: snapshot.participants.concat(view), companionId: mate.id });
+      // 雅室人数跟着加上陪修（自己这台设备上看到几个人就写几人；雅室列表里同一间也一样）
+      const plusOne = room => Object.assign({}, room, { onlineCount: Math.min(SEATS, Math.max(1, Number(room.onlineCount) || 1) + 1) });
+      const rooms = Array.isArray(snapshot.rooms) ? snapshot.rooms.map(item => (item && String(item.id) === room ? plusOne(item) : item)) : snapshot.rooms;
+      return Object.assign({}, snapshot, { participants: snapshot.participants.concat(view), room: plusOne(snapshot.room), rooms, companionId: mate.id });
     } catch (_) {
       return snapshot;   // 陪修出了问题也不影响静修本身
     }
@@ -134,7 +138,7 @@
     const getSnapshot = () => decorate(engine.getSnapshot());
     const subscribe = listener => engine.subscribe(snapshot => listener(decorate(snapshot)));
     const requestFriend = input => (input && typeof input === 'object' && String(input.participantId || '').startsWith(PREFIX)
-      ? Promise.resolve({ ok: false, code: 'focus_companion', message: '陪修是陪你静修的小道友，不能结为道友。' })
+      ? Promise.resolve({ ok: false, code: 'focus_companion', message: '对方暂时不能结为道友。' })
       : engine.requestFriend(input));
     return new Proxy(engine, {
       get(target, key) {

@@ -13,7 +13,7 @@
  *    最后直接在选好的公共雅室入席。静修右上角的“？”随时再看“怎么静修”。见下面“第一次进静修的引导”一段。
  * 7. 静修在线（2026-11-23）：打开、关上静修时发 lingtian:focus 事件，lingtian-bridge.js 马上补报一次在线（开着静修时报 'focus'）。
  * 8. 立愿输入框（2026-11-24）：套一层“笺”、四个常用立愿一点就填，见下面“立愿输入框”一段。
- * 9. 陪修（2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位“陪修”，见 focus-companion.js。
+ * 9. 陪修（2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位同修（画面上不写“陪修”），见 focus-companion.js。
  */
 (function (global) {
   'use strict';
@@ -563,8 +563,7 @@
       li.querySelector('[data-fh-desk-time]').textContent = x.status === 'completed' ? '' : x.kind && Number(x.durationMs) > 0 && x.status !== 'idle' && x.status !== 'ended' ? `还剩 ${clockText(x.kind === 'focus' ? lt : Math.max(0, x.durationMs - (x.elapsedMs || 0)))}` : '';
       li.querySelector('[data-fh-desk-bar]').style.width = `${Number(x.durationMs) > 0 ? Math.min(100, Math.round((Number(x.elapsedMs) || 0) * 100 / Number(x.durationMs))) : 0}%`;
     });
-    // 陪修（focus-companion.js）不算人数：只有你和陪修时写“你和陪修”
-    $s('[data-fh-stage-count]').textContent = !list.length ? '' : list.some(x => x.companion) ? '你和陪修 · 按谁先完成排' : `${list.length} 人 · 按谁先完成排`;
+    $s('[data-fh-stage-count]').textContent = list.length ? `${list.length} 人 · 按谁先完成排` : '';
     // 领先或第一个完成的
     const racers = list.filter(x => rank.has(x.id));
     const first = racers[0];
@@ -654,7 +653,7 @@
       if (!lt || !lt.engine) throw new Error('灵田还在入境，请稍候再进静修。');
       const engine = lt.engine;
       await loadArt();
-      // 静修陪修（focus-companion.js，2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位“陪修”
+      // 静修陪修（focus-companion.js，2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位同修（画面上不写“陪修”）
       if (global.LingtianFocusCompanion) global.LingtianFocusCompanion.install();
       let container = document.getElementById('focus-host');
       if (!container) { container = document.createElement('div'); container.id = 'focus-host'; document.body.appendChild(container); }
