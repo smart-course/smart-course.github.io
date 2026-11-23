@@ -497,6 +497,7 @@
           : '<span>预计冻结 <strong>' + F(order.quantity) + ' ' + item.unit + '</strong> ' + E(item.name) + '</span><small>按限价一次全部成交：成交额 ' + F(amount) + '，手续费 ' + F(fee) + '（' + feeRules.feePercent + '%），预计到账 ' + F(Math.max(0, amount - fee)) + ' 灵石。</small><small>分批成交逐笔计费；实际成交价与到账以交易记录为准。</small>';
       const review = host.querySelector('[data-econ-action="review-order"]');
       review.disabled = !!actionBusy || !marketData;
+      review.dataset.side = draft.side;   // 2026-11-23：买入按钮红、卖出按钮绿（economy.css）
       review.textContent = actionBusy === 'order' ? '正在提交…' : '核对' + (draft.side === 'buy' ? '买入' : '卖出') + '委托';
       const confirmHost = host.querySelector('[data-econ-confirmation]');
       if (marketConfirmation && !actionBusy && JSON.stringify(orderReview(order)) !== JSON.stringify(marketConfirmation)) marketConfirmation = null;
@@ -508,7 +509,7 @@
         '</h4><dl><div><dt>限价 / 数量</dt><dd>' + F(order.price) + ' 灵石 × ' + F(order.quantity) + ' ' + item.unit + '</dd></div><div><dt>立即冻结</dt><dd>' +
         (order.side === 'buy' ? F(amount) + ' 灵石' : F(order.quantity) + ' ' + item.unit + E(item.name)) + '</dd></div><div><dt>有效期</dt><dd>24 小时；可撤未成交部分</dd></div></dl>' +
         '<p>' + (order.side === 'buy' ? '实际成交价不会高于此限价。' : '实际成交价不会低于此限价，卖方逐笔支付 ' + feeRules.feePercent + '% 手续费（向上取整，最低 ' + F(feeRules.minimumFee) + ' 灵石）。') +
-        '提交后可能立即成交。</p><div class="econ-actions">' + button('confirm-order', actionBusy === 'order' ? '正在提交…' : '确认并提交委托', '', !!actionBusy) +
+        '提交后可能立即成交。</p><div class="econ-actions">' + button('confirm-order', actionBusy === 'order' ? '正在提交…' : '确认并提交委托', attr('side', order.side), !!actionBusy) +
         button('dismiss-order', '修改', '', !!actionBusy, true) + '</div></div>';
     }
 

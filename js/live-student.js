@@ -4603,7 +4603,7 @@
     backend.rpc('ck_my_notices', { p_classroom: Number(identity.classroom) || identity.classroom }).then((got) => {
       const row = Array.isArray(got) ? got[0] : got;
       const points = Number(row && row.adopt) || 0;
-      // 2026-11-23：课程共建被采纳（建议箱里写明了“被老师采纳，直接加 20 修为”）单独说；其余的照旧是彩蛋
+      // 2026-11-23：课程共建被点赞采纳（建议箱里写着“被老师采纳，可以加修为”）单独说；其余的照旧是彩蛋
       const build = Math.min(points, Number(row && row.build) || 0);
       if (build > 0) egg(`你在“课程共建”里写的建议被老师采纳了！修为值 +${build}。虽然老师不知道你是谁，但谢谢你和老师一起把课上好 ^_^`, true);
       if (points - build > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points - build}点，勇敢的人先享受世界^_^`, true);
@@ -5449,7 +5449,7 @@
         ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
         <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方获胜，获胜方不加修为（按自己的判断投，不用看哪一方人多）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
-        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）；“课程共建”被老师采纳，再加 ${(Live.feedbackBox || {}).adopt || 20} 修为。</li>
+        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）；“课程共建”被老师采纳，还可以再加修为。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -6271,7 +6271,7 @@
   }
 
   // 匿名建议箱：只把建议内容和标签交给后台函数，不带姓名、学号（函数按本人这次登录核对进过本课堂；建议行里没有提交者，提交者另记、老师读不到）。
-  // 2026-11-23 起递交前必须选标签：课程共建（被老师采纳直接加 20 修为）或课程疑问（live-core.js 的 feedbackBox，页面最后的建议箱和面板弹出的表单共用）
+  // 2026-11-23 起递交前必须选标签：课程共建（被老师采纳可以加修为）或课程疑问（live-core.js 的 feedbackBox，页面最后的建议箱和面板弹出的表单共用）
   // 注意：没进课堂、只查看历史课堂时，面板那一段会先调用 setupFeedback（比这里早），所以这里不用 const／let 记东西，开放条件记在 fbCards 上
   function setupFeedback(enabled, note) {
     setupMood(enabled);
@@ -6308,7 +6308,7 @@
         const earned = (Array.isArray(got) ? got[0] : got) === true;
         save(key, (Number(load(key, 0)) || 0) + 1);
         return `已匿名提交到“${name}”（${time()}）${earned ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
-          + `${kind === 'build' ? `被老师采纳，再加 ${Live.feedbackBox.adopt} 修为。` : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
+          + `${kind === 'build' ? '被老师采纳，还可以加修为。' : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
       },
     });
   }

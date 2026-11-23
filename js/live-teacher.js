@@ -1125,8 +1125,8 @@
   let feedbackProblem = '';
   let adoptNote = '';   // 刚点赞（或取消）的结果，跟在条数后面，直到下一次点赞
   // 建议的标签（2026-11-23 用户：“把现有的匿名建议箱分成两个标签，一个是课程共建，另外一个是课程疑问，学生在递交的时候要求选择其中一个标签”）：
-  // build 课程共建（被采纳直接加 FB_ADOPT 修为，右边是“采纳”）、ask 课程疑问（照旧“赞”5／10／20）、''＝11 月 23 日以前提交的（未分类，照旧“赞”）
-  const FB_ADOPT = ((window.ClassLive || {}).feedbackBox || {}).adopt || 20;
+  // build 课程共建、ask 课程疑问、''＝11 月 23 日以前提交的（未分类）。三类右边都是“赞”（5／10／20，同一位同学 7 天内靠点赞最多得 20）：
+  // 11-23 上午课程共建曾是“采纳 +20”、不受 7 天上限，下午用户：“这个还是改为原来的点赞模式吧，分三档，然后‘同一人 7 天内靠点赞最多 20’”
   const FB_KINDS = { build: '课程共建', ask: '课程疑问', '': '未分类' };
   const fbKindOf = (doc) => (doc && (doc.kind === 'build' || doc.kind === 'ask') ? doc.kind : '');
   let fbKind = 'all';   // 上面的标签筛选：all／build／ask／none
@@ -1199,15 +1199,13 @@
     const nBuild = count('build'), nAsk = count('ask'), nOld = count('');
     if (fbKind === 'none' && !nOld) fbKind = 'all';
     const rows = fbShown();
-    const adopted = feedbackRows.filter((doc) => fbKindOf(doc) === 'build' && Number(doc.adopted) > 0).length;
-    const liked = feedbackRows.filter((doc) => fbKindOf(doc) !== 'build' && Number(doc.adopted) > 0).length;
+    const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
     const waiting = feedbackRows.filter((doc) => awaitingReply(doc.id)).length;
     // 标签筛选（2026-11-23）：全部／课程共建／课程疑问（／未分类），带条数
     const chips = [['all', '全部', feedbackRows.length], ['build', '课程共建', nBuild], ['ask', '课程疑问', nAsk]].concat(nOld ? [['none', '未分类', nOld]] : []);
     $('[data-fb-kinds]').innerHTML = feedbackRows.length ? chips.map(([key, label, n]) => `<button type="button" class="tw-fb-kindbtn is-${key}" data-fb-kind="${key}" aria-pressed="${fbKind === key}">${label}<b>${n}</b></button>`).join('') : '';
     const kinds = [`课程共建 ${nBuild} 条`, `课程疑问 ${nAsk} 条`].concat(nOld ? [`未分类 ${nOld} 条（11 月 23 日以前提交的）`] : []);
-    const done = [adopted ? `已采纳课程共建 ${adopted} 条` : '', liked ? `已点赞 ${liked} 条` : ''].filter(Boolean).join('、');
-    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条：${kinds.join('、')}${done ? `；${done}` : ''}${query || fbKind !== 'all' ? `；符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
+    $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条：${kinds.join('、')}${liked ? `；已点赞 ${liked} 条` : ''}${query || fbKind !== 'all' ? `；符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
     // 2026-11-22 第二档美化：一条建议一张卡片——左边日期、课堂、哪次课，中间建议（点击放大），往来回复缩进排在下面，右边回复、点赞、删除
     $('[data-fb-rows]').innerHTML = rows.map((doc) => {
       const room = roomName.get(String(doc.classroom)) || '';
@@ -1351,13 +1349,8 @@
   });
   replyDialog.querySelector('[data-reply-input]').addEventListener('keydown', (event) => { if (event.key === 'Enter' && (event.metaKey || event.ctrlKey)) { event.preventDefault(); sendReply(); } });
   const LIKE_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M7 10v11H4a1 1 0 0 1-1-1v-9a1 1 0 0 1 1-1h3z"/><path d="M7 10l4-7a2.5 2.5 0 0 1 3 3l-1 4h5.5a2 2 0 0 1 2 2.3l-1.3 7A2 2 0 0 1 17.2 21H7"/></svg>';
-  const ADOPT_ICON = '<svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 6 9 17l-5-5"/></svg>';
   function likeButton(doc) {
     const points = Number(doc.adopted) || 0;
-    if (fbKindOf(doc) === 'build') {   // 课程共建（2026-11-23）：采纳直接加 FB_ADOPT 修为，不受“7 天内靠点赞最多 20”的限制
-      return `<button type="button" class="tw-fb-like tw-fb-adopt${points ? ' is-on' : ''}" data-fb-like="${esc(doc.id)}" aria-pressed="${points ? 'true' : 'false'}"
-      title="${points ? `已采纳：给写这条课程共建的同学加了 ${points} 修为（点一下可以取消采纳）` : `采纳这条课程共建：直接给作者加 ${FB_ADOPT} 修为`}">${ADOPT_ICON}<span>${points ? `已采纳 +${points}` : `采纳 +${FB_ADOPT}`}</span></button>`;
-    }
     return `<button type="button" class="tw-fb-like${points ? ' is-on' : ''}" data-fb-like="${esc(doc.id)}" aria-pressed="${points ? 'true' : 'false'}"
       title="${points ? `已点赞采纳，选的是 +${points} 修为（同一位同学 7 天内靠点赞最多得 20；点一下可改分或取消）` : '点赞采纳：给写这条建议的同学加修为'}">${LIKE_ICON}<span>${points ? `+${points}` : '赞'}</span></button>`;
   }
@@ -1370,12 +1363,7 @@
     adoptId = String(id);
     const points = Number(doc.adopted) || 0;
     adoptDialog.querySelector('[data-adopt-text]').textContent = String(doc.text || '').slice(0, 140) + (String(doc.text || '').length > 140 ? '…' : '');
-    // 课程共建只有“采纳 · 加 20 修为”一个按钮；课程疑问和未分类的照旧 5／10／20
-    const build = fbKindOf(doc) === 'build';
-    adoptDialog.querySelector('[data-adopt-title]').textContent = build ? '采纳这条课程共建' : '点赞采纳这条建议';
-    adoptDialog.querySelector('[data-adopt-ask]').hidden = build;
-    adoptDialog.querySelector('[data-adopt-build]').hidden = !build;
-    adoptDialog.querySelector('[data-adopt-unlike]').textContent = build ? '取消采纳' : '取消点赞';
+    adoptDialog.querySelector('[data-adopt-title]').textContent = fbKindOf(doc) ? `点赞这条“${FB_KINDS[fbKindOf(doc)]}”` : '点赞采纳这条建议';
     adoptDialog.querySelectorAll('[data-adopt-points]').forEach((button) => {
       button.setAttribute('aria-pressed', String(Number(button.dataset.adoptPoints) === points));
       button.disabled = false;
@@ -1398,11 +1386,7 @@
       const doc = feedbackRows.find((item) => String(item.id) === adoptId);
       if (doc) doc.adopted = points;
       // 2026-11-20 起同一位同学 7 天内靠点赞最多得 20 修为：后台只告诉这里“已记下”，不说实际加了多少（否则能看出几条建议出自同一个人）
-      // 课程共建（2026-11-23）：采纳直接加 20，不受这个限制
-      if (doc && fbKindOf(doc) === 'build') adoptNote = points
-        ? `刚才已采纳这条课程共建：给写它的同学加 ${points} 修为（“修为境界”重新结算后计入），作者下次打开页面时会看到“课程共建被采纳”的提示。`
-        : '刚才已取消采纳，作者的这份修为已撤回。';
-      else adoptNote = points
+      adoptNote = points
         ? `刚才的点赞已记下：按 +${points} 修为加给写这条建议的同学（“修为境界”重新结算后计入），作者下次打开页面时会看到提示。同一位同学 7 天内靠点赞最多得 20 修为，超出的部分后台自动不计。`
         : '刚才已取消点赞，作者的这份修为已撤回。';
       adoptDialog.close();
@@ -1410,7 +1394,7 @@
     } catch (error) {
       console.error(error);
       adoptSay(missingFunction(error) ? '后台还没有点赞功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261105-建议采纳.sql。'
-        : /课程共建只能采纳/.test(String(error && error.message)) ? '课程共建只能采纳（加 20 修为）或取消采纳。' : `没有成功：${error.message || error}`);
+        : /课程共建只能采纳/.test(String(error && error.message)) ? '后台还是上午“课程共建只能采纳 +20”的规则：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261123-建议点赞复原.sql。' : `没有成功：${error.message || error}`);
     } finally {
       buttons.forEach((button) => { button.disabled = false; });
     }
@@ -1459,7 +1443,7 @@
         repliesOf(doc.id).map((r) => `${r.by_teacher ? '老师' : '作者'}（${replyTime(r.created_at)}）：${r.text}`).join('\n')]);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
-      csv([['序号', '日期', '课堂', '哪次课', '标签', '建议', '采纳／点赞加修为', '往来回复'], ...rows]));
+      csv([['序号', '日期', '课堂', '哪次课', '标签', '建议', '点赞加修为', '往来回复'], ...rows]));
   });
 
   // ---------------- 期中考查：批阅与导出（2026-10-28 用户：“期中考查作业要可以一键导出为word文档，导出的文档中包含学生的学号、姓名等信息。

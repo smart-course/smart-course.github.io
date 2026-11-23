@@ -140,7 +140,13 @@
 .econ-side-switch { display:grid; grid-template-columns:1fr 1fr; gap:5px; padding:4px; background:#e9eddd; border-radius:10px; margin:14px 0; }
 .econ-side-switch button { appearance:none; min-height:42px; border:1px solid transparent; border-radius:7px; color:#8a957b; background:transparent; font:500 13px var(--sans); cursor:pointer; }
 .econ-side-switch button[aria-pressed="true"] { color:#446c4d; border-color:#c0d0ac; background:#fffef5; box-shadow:0 2px 5px #4d673f09; }
-.econ-side-switch button[data-side="sell"][aria-pressed="true"] { color:#967649; border-color:#dccba5; background:#fffaf0; }
+/* 2026-11-23 用户：“买是红色，卖是绿色”。与 K 线同一组红绿（--mc-up #b86543、--mc-down #3d8776）：买入、买方出价用红，卖出、卖方要价用绿 */
+.econ-side-switch button[data-side="buy"][aria-pressed="true"] { color:#a4502f; border-color:#e5bfa9; background:#fff7f1; }
+.econ-side-switch button[data-side="sell"][aria-pressed="true"] { color:#2f7464; border-color:#a9cfbf; background:#f2f9f4; }
+.econ-shell .button-primary[data-side="buy"] { background:linear-gradient(135deg,#c47c5c,#a4502f); border-color:#a85a3a; box-shadow:0 3px 10px #a4502f24,inset 0 1px 0 #f0c3ab70; }
+.econ-shell .button-primary[data-side="buy"]:hover:not(:disabled) { background:linear-gradient(135deg,#b66c4c,#92452a); border-color:#92452a; }
+.econ-shell .button-primary[data-side="sell"] { background:linear-gradient(135deg,#5f9c8a,#2f7464); border-color:#3a7c6b; box-shadow:0 3px 10px #2f746424,inset 0 1px 0 #b5dccd70; }
+.econ-shell .button-primary[data-side="sell"]:hover:not(:disabled) { background:linear-gradient(135deg,#4f8c7a,#256556); border-color:#256556; }
 .econ-field-grid { display:grid; grid-template-columns:1.2fr 1fr; gap:12px; }
 .econ-field-grid label { display:block; color:#7a896a; font-size:11px; }
 .econ-field-grid input { display:block; margin-top:6px; }
@@ -156,8 +162,10 @@
 .econ-book-level { display:grid; grid-template-columns:44px 1fr 1fr; width:100%; border:0; background:transparent; min-height:44px; align-items:center; padding:7px 10px; text-align:right; color:#728565; font:12px var(--sans); cursor:pointer; border-radius:6px; font-variant-numeric:tabular-nums; }
 .econ-book-level > span:first-child { text-align:left; font-size:10px; }
 .econ-book-level > strong { font-weight:500; }
-.is-ask .econ-book-level { color:#a38358; background:linear-gradient(90deg,transparent,#efdfbf20); }
-.is-bid .econ-book-level { color:#638363; background:linear-gradient(90deg,transparent,#dce8cf28); }
+.is-ask .econ-book-level { color:#2f7a68; background:linear-gradient(90deg,transparent,#d3e9df38); }
+.is-bid .econ-book-level { color:#ad5436; background:linear-gradient(90deg,transparent,#f2d8ca38); }
+.is-ask .econ-book-heading strong { color:#2f7a68; }
+.is-bid .econ-book-heading strong { color:#ad5436; }
 .econ-book-level:hover { background:#e9efdc; }
 .econ-book-spread { padding:9px; font-size:10px; text-align:center; border-top:1px dashed #d6ddc7; border-bottom:1px dashed #d6ddc7; color:#969b83; margin:5px 0; }
 .econ-book-spread strong { font-size:13px; color:#6c805e; margin:0 4px; }
@@ -171,8 +179,8 @@
 .econ-order-row-heading { display:flex; flex-wrap:wrap; gap:8px; align-items:center; padding-bottom:10px; margin-bottom:10px; border-bottom:1px dashed #dce2ce; }
 .econ-order-row-heading > strong { font:600 14px var(--serif); }
 .econ-order-row-heading > span:last-child { margin-left:auto; color:#929b82; font-size:10px; }
-.econ-side-badge { font-size:10px; border-radius:5px; border:1px solid #c7d5ba; background:#edf2e3; color:#6c885a; padding:2px 5px; }
-.econ-side-badge.is-sell { color:#a38454; background:#f4ecd6; border-color:#ddcfaa; }
+.econ-side-badge { font-size:10px; border-radius:5px; border:1px solid #e5c2b0; background:#fbede5; color:#a4502f; padding:2px 5px; }
+.econ-side-badge.is-sell { color:#2f7464; background:#e5f1eb; border-color:#b3d4c6; }
 .econ-order-row-body { display:flex; gap:10px; align-items:center; justify-content:space-between; }
 .econ-order-row-body strong { font-size:17px; font-variant-numeric:tabular-nums; color:#6d805d; font-weight:500; }
 .econ-order-row-body strong small { font-size:10px; color:#99a08a; }

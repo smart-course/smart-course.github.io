@@ -1742,7 +1742,7 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-tabs button { padding: 8px 9px; }
 .tw-tabbar .tw-tabs { gap: 5px; }
 
-/* ---------- 匿名建议分“课程共建”“课程疑问”（2026-11-23）：标签筛选、卡片左上角的标签、课程共建的“采纳 +20” ---------- */
+/* ---------- 匿名建议分“课程共建”“课程疑问”（2026-11-23）：标签筛选、卡片左上角的标签（两类右边都是“赞”） ---------- */
 .tw-fb-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
 .tw-fb-kinds:empty { display: none; }
 .tw-fb-kindbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff;
@@ -1758,7 +1758,4 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-fb-meta .tw-fb-kind.is-ask { background: #e9f1fc; color: #24589f; box-shadow: inset 0 0 0 1px rgba(43, 98, 173, .28); }
 .tw-fb-card.is-k-build { border-left: 4px solid #d48a3c; }
 .tw-fb-card.is-k-ask { border-left: 4px solid #6f9bd8; }
-.tw-fb-adopt { border-color: rgba(176, 96, 26, .45); color: #9a5214; }
-.tw-fb-adopt:hover, .tw-fb-adopt:focus-visible { border-color: #b0601a; color: #b0601a; }
-.tw-fb-adopt.is-on { border-color: #b0601a; background: #b0601a; color: #fff; }
 @media (max-width: 760px) { .tw-fb-meta .tw-fb-kind { margin-bottom: 0; } }

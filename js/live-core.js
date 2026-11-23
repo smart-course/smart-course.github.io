@@ -8,7 +8,7 @@
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
  *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为；
  *         2026-11-23 起带标签 p_kind：build 课程共建、ask 课程疑问）、
- *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为；课程共建只能采纳，直接加 20）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
+ *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为，同一位同学 7 天内最多 20）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
  *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
@@ -177,15 +177,14 @@
   // 2026-11-23 分成两个标签（用户：“把现有的匿名建议箱分成两个标签，一个是课程共建，另外一个是课程疑问，学生在递交的时候要求选择其中一个标签。
   //   同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交……如果被采纳直接加20修为值……
   //   把这两个标签的不同点在课程最下方的匿名建议箱中解释清楚，要简单易懂。”）：两门课都叫“匿名建议箱”，递交前必须选 build（课程共建）或 ask（课程疑问），
-  //   即后台 ck_submit_feedback 的 p_kind；课程共建被老师采纳直接加 FB_ADOPT 修为（后台 ck_adopt_feedback 写死同样的数）。
+  //   即后台 ck_submit_feedback 的 p_kind。课程共建被老师采纳（点赞 5／10／20，同一位同学 7 天内最多 20）可以加修为：
+  //   上午曾写“被采纳直接加 20”，下午用户：“这个还是改为原来的点赞模式吧，分三档，然后‘同一人 7 天内靠点赞最多 20’”，学生页只说“可以加修为”。
   //   texts(worksheet, plain)：plain＝没有修为的课程（《金融机构与市场》等），不写修为；
   //   html(FB, teacher, opts)：teacher＝投屏页（一律不能用）；opts.head、opts.mood 为 false 时不要标题、笑脸那一行（弹出的对话框）；
   //   bind(root, { FB, enabled, note, idle, send })：接上选标签、数字数、提交（send(kind, text) 返回成功的说明，出错时抛出带 userMessage 的错误）；
   //   dialog(FB, opts)：学生面板“建议箱”按钮弹出的对话框（同样的表单，没有笑脸那一行）
-  const FB_ADOPT = 20;
   let fbSeq = 0;   // 同一页上几份表单（页面最后一份、对话框一份）的单选按钮各用各的 name
   const FEEDBACK_BOX = {
-    adopt: FB_ADOPT,
     texts(worksheet, plain) {
       return {
         tag: '匿名建议箱',
@@ -196,7 +195,7 @@
         kinds: [
           { key: 'build', name: '课程共建', lead: '和老师一起把课上好',
             desc: '对这堂课提建议：节奏快了还是慢了，更重要的是课程内容——哪里没讲清楚、案例可以换什么、还想加什么；也可以自己设计上课用的内容、题目或问题，发给老师。',
-            gain: plain ? '' : `被老师采纳，直接加 ${FB_ADOPT} 修为`,
+            gain: plain ? '' : '被老师采纳，可以加修为',
             placeholder: '写下你的建议，或你设计的内容、题目、问题（500 字内）' },
           { key: 'ask', name: '课程疑问', lead: '哪里不懂就问',
             desc: '这堂课哪里没听懂、没想通；或者网页、平台不会操作（比如怎么递交、在哪里看结果），都可以问。',
@@ -2708,9 +2707,7 @@
           const rows = read('feedback');
           const doc = rows.find((row) => String(row.id) === String(params.p_id));
           if (!doc) throw new Error('这条建议已经删除');
-          // 2026-11-23：课程共建只能采纳（FB_ADOPT）或取消（0），直接加、不按 7 天额度算；课程疑问和没分类的照旧
-          const build = doc.kind === 'build';
-          if (build ? ![0, FB_ADOPT].includes(points) : ![0, ...EGG.adopt].includes(points)) throw new Error(build ? '课程共建只能采纳（加 20 修为）或取消采纳' : '修为只能选 5、10 或 20');
+          if (![0, ...EGG.adopt].includes(points)) throw new Error('修为只能选 5、10 或 20');
           const authors = read('fbauthors');
           const author = authors.find((row) => String(row.feedback_id) === String(params.p_id));
           if (!author) return { status: 'no_author', adopted: Number(doc.adopted) || 0 };
@@ -2724,15 +2721,14 @@
             const old = rows.find((item) => String(item.id) === String(row.feedback_id));
             Object.assign(row, { asked: row.points, capped: false, liked_at: (old && old.adopted_at) || `${row.created_on}T00:00:00+08:00` });
           });
-          if (build) Object.assign(author, points > 0 ? { asked: points, points, liked_at: now, capped: false } : { asked: 0, points: 0, notified: 0, liked_at: null, capped: false });
-          else if (points > 0) Object.assign(author, { asked: points, liked_at: now, capped: true });
+          if (points > 0) Object.assign(author, { asked: points, liked_at: now, capped: true });
           else Object.assign(author, { asked: 0, liked_at: null, capped: true, points: 0, notified: 0 });
           const at = (row) => Date.parse(row.liked_at);
           const span = EGG.adoptDays * 86400000;
           authors.filter((row) => mine(row) && row.capped !== false && (Number(row.asked) || 0) > 0 && row.liked_at)
             .sort((x, y) => at(x) - at(y) || Number(x.feedback_id) - Number(y.feedback_id))
             .forEach((row) => {
-              const used = authors.filter((other) => mine(other) && other !== row && other.kind !== 'build' && (Number(other.points) || 0) > 0 && other.liked_at && at(other) > at(row) - span
+              const used = authors.filter((other) => mine(other) && other !== row && (Number(other.points) || 0) > 0 && other.liked_at && at(other) > at(row) - span
                 && (at(other) < at(row) || (at(other) === at(row) && Number(other.feedback_id) < Number(row.feedback_id))))
                 .reduce((total, other) => total + Number(other.points), 0);
               const give = Math.min(Number(row.asked), Math.max(0, EGG.adoptCap - used));
@@ -3280,7 +3276,7 @@
       { title: '最新', items: [
         // 2026-11-23：匿名建议箱分“课程共建”“课程疑问”两个标签，面板上多了“建议箱”按钮（用户：“把现有的匿名建议箱分成两个标签……
         //   同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交……如果被采纳直接加20修为值”）
-        ['匿名建议箱分成两个标签', `写之前先选一个标签：“课程共建”——对课堂节奏、课程内容提建议，或者自己设计上课用的内容、题目发给老师，被老师采纳直接加 ${FB_ADOPT} 修为；“课程疑问”——这堂课哪里没听懂、平台哪里不会操作，老师会在下一堂课统一解答。左下角面板多了“建议箱”按钮，点开就能写，不用再翻到页面最下面。`, '2026-11-23'],
+        ['匿名建议箱分成两个标签', `写之前先选一个标签：“课程共建”——对课堂节奏、课程内容提建议，或者自己设计上课用的内容、题目发给老师，被老师采纳可以加修为；“课程疑问”——这堂课哪里没听懂、平台哪里不会操作，老师会在下一堂课统一解答。左下角面板多了“建议箱”按钮，点开就能写，不用再翻到页面最下面。`, '2026-11-23'],
         // 2026-11-23：静修第一次进入的引导、开始计时后的大屏、计时卡版式（用户：“学生第一次进入进修的时候做一段引导页面……”
         //   “点击开始进修后，进入类似于情景猜谜小游戏那样的大屏……看你们谁最先完成静修。”“这个页面可以再设计得美观一些……”）
         ['静修 · 引导、大屏和新版式', '第一次进静修会有三步引导：选性别和化身、选去藏经阁还是听雨轩、看怎么静修（右上角的“？”随时再看）。点“开始静修”就进入大屏：大圆环倒计时，旁边是同室每位同修坐在书案前的实时状态和还剩多久，按谁先完成排名次。退出大屏、切到别的页面都会暂停计时，同室的同学会看到你“切出暂停”，回来点“继续静修”。计时卡的字也放大了，手机、平板都重新排过。', '2026-11-23'],
