@@ -217,6 +217,8 @@
   .clp-fb textarea:focus { outline: none; border-color: #23655f; }
   .clp-fb-row { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-top: 8px; }
   .clp-fb-count { color: #6d6259; font-size: 13px; }
+  .clp-fb-left { display: inline-flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; min-width: 0; }
+  .clp-fb-stk:empty { display: none; }
   .clp-fb-row button { padding: 9px 16px; border: 0; border-radius: 8px; color: #fff; background: #23655f; font-family: inherit; font-weight: 800; font-size: 14px; line-height: 1; cursor: pointer; }
   .clp-fb-row button[disabled], .clp-fb textarea[disabled] { opacity: .55; cursor: default; }
   .clp-fb-state { margin: 6px 0 0; color: #6d6259; font-size: 13px; }
@@ -299,6 +301,10 @@
   .clp-fbh-form button[disabled] { opacity: .55; cursor: default; }
   .clp-fbh-status { grid-column: 1 / -1; min-height: 1em; margin: 0; color: #23655f; font-size: 12.5px; }
   .clp-fbh-status.is-error { color: #a4492d; }
+  .clp-fbh-tools { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .clp-fbh-tools:empty { display: none; }
+  .clp-fbh-form .stk-tray, .clp-fbh-form .stk-preview { grid-column: 1 / -1; margin-top: 0; }
+  .clp-fb .stk-tray { margin-top: 8px; }
   `,
     html(FB, teacher, opts = {}) {
       fbSeq += 1;
@@ -317,7 +323,7 @@
         <div class="clp-fb-kinds" role="radiogroup" aria-label="选择标签：课程共建或课程疑问">${kinds}</div>
         <p class="clp-fb-step">② 再写内容，点“匿名提交”</p>
         <textarea maxlength="500" rows="4" placeholder="先在上面选一个标签，再写内容" aria-label="${FB.aria}" disabled></textarea>
-        <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
+        <div class="clp-fb-row"><span class="clp-fb-left"><span class="clp-fb-stk"></span><span class="clp-fb-count">0/500</span></span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
         <p class="clp-fb-anon"><b>匿名</b>：老师只看到内容和提交日期，看不到是谁写的。</p>
         <p class="clp-fb-state" role="status"></p>`;
     },
@@ -335,6 +341,9 @@
       const picked = () => { const r = radios.find((item) => item.checked); return r ? r.value : ''; };
       let sending = false;
       form.addEventListener('submit', (event) => event.preventDefault());
+      // 表情（2026-11-23）：输入框下面插表情、看预览；没加载表情脚本的页面（离线版等）没有这个按钮
+      const SK = window.ClassLive && window.ClassLive.stickers;
+      const stk = SK && SK.attach ? SK.attach(area, { host: form.querySelector('.clp-fb-stk') }) : null;
       if (!enabled) { say(note || ''); return { say }; }
       const paint = () => {
         const key = picked();
@@ -374,6 +383,7 @@
         try {
           const message = await send(key, text);
           area.value = '';
+          if (stk) { stk.refresh(); stk.close(); }
           radios.forEach((r) => { r.checked = false; });   // 每一条都要重新选标签
           say(message, 'ok');
         } catch (problem) {
@@ -3319,6 +3329,8 @@
         // 2026-11-23 晚：静修环境音（用户：“你帮我把静修里面的环境音也优化升级一下吧，现在的感觉不太逼真，而且有杂音。或者可以加入一些类似于讲解视频中的比较舒缓的背景音。”）
         ['静修 · 环境音换新', '静修里的环境声换成了更真实、更柔和的声音：檐下雨声和屋檐滴水、山涧溪水、松间风声、竹叶和竹竿轻碰、炉火噼啪、翻书声、低沉的云海声，不再有“沙沙”的杂音。新增“清音雅乐”：舒缓的五声拨弦和柔和铺底，旋律随机生成、不会重复。退出大屏暂停时，计时会记到退出的那一刻，不再少算几秒。', '2026-11-23'],
         // 2026-11-23 晚：面板建议箱挪位置、能看以前的建议和老师回复（用户：“把学生控制台中的‘匿名建议箱’放在‘导出PDF’的下面，然后学生之前提过的建议和老师的回复，在里面也还能看到。”）
+        // 2026-11-23 晚：建议和回复里能插表情（用户：“匿名建议和老师回复都可以使用修仙小道士的表情包”）
+        ['匿名建议箱也能用表情', '写匿名建议、回复老师时，输入框下面多了“表情”按钮：点开选一个，就插到光标处，下面能预览。老师的回复里也可能带表情。', '2026-11-23'],
         ['匿名建议箱：老师回复有红点', '老师回复了你的匿名建议，面板上“匿名建议箱”的信封右上角会出现红色数字（几条新回复），按钮上写着“老师回复了你”。点开看过、关掉以后红点就消失。', '2026-11-23'],
         ['匿名建议箱挪到“导出 PDF”下面', '面板上的“匿名建议箱”挪到了“导出 PDF”下面。点开以后，下面的“我提过的建议”能看到自己在本班写过的建议、老师的回复和点赞，也可以接着回复老师；这些只有你自己能看到，老师仍然不知道是谁写的。', '2026-11-23'],
         // 2026-11-23：匿名建议箱分“课程共建”“课程疑问”两个标签，面板上多了“建议箱”按钮（用户：“把现有的匿名建议箱分成两个标签……

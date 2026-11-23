@@ -7,7 +7,8 @@
  *   所以表情弹幕自然不计修为，网页和后台两边的规则不用改、也不会对不上。
  * 显示：投屏上飞过的弹幕、正文里的弹幕墙、工作台的弹幕记录、学生“我发过的弹幕”，都用这里的 fill／html 把记号换成图。
  *   没有加载这个脚本的旧页面上，看到的是 〖☯〗 这样的符号，不影响别的内容。
- * 对外：window.ClassLive.stickers = { list, token, only, parts, uri, img, fill, html, plain }
+ * 对外：window.ClassLive.stickers = { list, token, only, parts, uri, img, fill, html, plain, attach }
+ * 2026-11-23 晚：匿名建议、老师回复、学生回复老师也能插表情（attach：输入框旁的“表情”按钮和预览）
  */
 (function () {
   'use strict';
@@ -290,5 +291,125 @@
   // 纯文字的地方（导出表格、提示里的引用、搜索）：记号换成 [表情·悟了]
   const plain = (text) => parts(text).map((p) => (p.sticker ? `[表情·${p.sticker.name}]` : p.text)).join('');
 
-  Live.stickers = { list: LIST, token, parts, has, only, svg, uri, img, fill, html, plain };
+  // 往输入框里插表情（2026-11-23 用户：“匿名建议和老师回复都可以使用修仙小道士的表情包”）：
+  // 输入框旁一个“表情”按钮，点开一排表情，点哪个就把记号插到光标处（可以连插几个，再点“表情”收起）；
+  // 写了表情时输入框下面出现“预览”，把记号画成图。存的仍是记号〖符号〗，后台不用改。
+  // attach(输入框, { host: 放按钮的元素, after: 表情盘和预览插在它后面（默认输入框） }) → { button, tray, preview, refresh }
+  // 程序清空输入框以后调一下 refresh()，预览跟着收起。输入框 disabled／readonly 时按钮也不能点
+  // 选择器前面加 body、写明 button：放在别人的表单里（如回复框的 .clp-fbr-form button 深绿按钮样式）也不被盖掉
+  const PICK_CSS = `
+  body button.stk-pick { display: inline-flex; align-items: center; gap: 4px; flex: 0 0 auto; width: auto; min-width: 0; height: auto; min-height: 0; margin: 0;
+    padding: 2px 11px 2px 3px; border: 1.5px solid rgba(184,134,43,.6); border-radius: 999px; background: #fffaf0; color: #8a5a10; box-shadow: none; text-shadow: none;
+    font: 700 13px/1.25 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
+  body button.stk-pick img { width: 26px; height: 26px; }
+  body button.stk-pick:hover:not([disabled]) { border-color: #b8801a; background: #fff3d6; }
+  body button.stk-pick[aria-expanded="true"] { background: #f2c64f; border-color: #b8801a; color: #3e2400; }
+  body button.stk-pick[disabled] { opacity: .5; cursor: default; }
+  body .stk-tray { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 2px; margin: 6px 0 0; padding: 6px; border: 1.5px solid rgba(184,134,43,.45);
+    border-radius: 12px; background: #fffaf0; max-height: 216px; overflow: auto; }
+  body .stk-tray[hidden] { display: none; }
+  body .stk-tray .stk-tray-head { grid-column: 1 / -1; margin: 0 4px 2px; color: #8a7f74; font: 12.5px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  body .stk-tray button.stk-cell { display: grid; justify-items: center; width: auto; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 3px 2px 2px; border: 0; border-radius: 10px;
+    background: transparent; color: inherit; box-shadow: none; text-shadow: none; cursor: pointer; font: inherit; }
+  body .stk-tray button.stk-cell:hover, body .stk-tray button.stk-cell:focus-visible { background: rgba(242,198,79,.28); outline: none; }
+  body .stk-tray button.stk-cell img { width: 44px; height: 44px; }
+  body .stk-tray button.stk-cell small { display: block; color: #6d5a3a; font: 11.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; }
+  body .stk-preview { margin: 6px 0 0; padding: 6px 10px; border: 1px dashed rgba(184,134,43,.55); border-radius: 10px; background: #fff; color: #2a2118;
+    font: 14px/1.9 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+  body .stk-preview[hidden] { display: none; }
+  body .stk-preview > b { margin-right: 6px; color: #8a5a10; font-size: 12px; }
+  .stk-inline { width: 2em; height: 2em; margin: -.4em 1px; vertical-align: middle; }`;
+  function ensureCss() {
+    if (document.getElementById('stk-pick-css') || !document.head) return;
+    const style = document.createElement('style');
+    style.id = 'stk-pick-css';
+    style.textContent = PICK_CSS;
+    document.head.appendChild(style);
+  }
+  function attach(area, opts = {}) {
+    if (!area || area.dataset.stk) return null;
+    area.dataset.stk = '1';
+    ensureCss();
+    const button = document.createElement('button');
+    button.type = 'button';
+    button.className = 'stk-pick';
+    button.title = '插入表情';
+    button.setAttribute('aria-expanded', 'false');
+    button.appendChild(img('wule', 26, ''));
+    button.appendChild(document.createTextNode('表情'));
+    const tray = document.createElement('div');
+    tray.className = 'stk-tray';
+    tray.hidden = true;
+    tray.setAttribute('role', 'group');
+    tray.setAttribute('aria-label', '选一个表情插入');
+    const preview = document.createElement('div');
+    preview.className = 'stk-preview';
+    preview.hidden = true;
+    preview.setAttribute('aria-hidden', 'true');
+    (opts.host || area.parentNode).appendChild(button);
+    const after = opts.after || area;
+    after.insertAdjacentElement('afterend', preview);
+    after.insertAdjacentElement('afterend', tray);
+    const refresh = () => {
+      const value = area.value || '';
+      if (!has(value)) { preview.hidden = true; preview.replaceChildren(); return; }
+      preview.replaceChildren();
+      const label = document.createElement('b');
+      label.textContent = '预览';
+      preview.appendChild(label);
+      fill(preview, value, 'stk-inline');
+      preview.hidden = false;
+    };
+    const insert = (key) => {
+      const tok = token(key);
+      const max = area.maxLength > 0 ? area.maxLength : Infinity;
+      if (!tok || area.value.length + tok.length > max) return;
+      const start = typeof area.selectionStart === 'number' ? area.selectionStart : area.value.length;
+      const end = typeof area.selectionEnd === 'number' ? area.selectionEnd : start;
+      area.focus();
+      area.setRangeText(tok, start, end, 'end');
+      area.dispatchEvent(new Event('input', { bubbles: true }));
+    };
+    const build = () => {
+      const head = document.createElement('p');
+      head.className = 'stk-tray-head';
+      head.textContent = '点一个就插到光标处，可以连插几个；再点“表情”收起';
+      tray.appendChild(head);
+      LIST.forEach((s) => {
+        const cell = document.createElement('button');
+        cell.type = 'button';
+        cell.className = 'stk-cell';
+        cell.title = `${s.name}：${s.tip}`;
+        cell.setAttribute('aria-label', `插入表情：${s.name}`);
+        cell.appendChild(img(s.key, 44, ''));
+        const cap = document.createElement('small');
+        cap.textContent = s.name;
+        cell.appendChild(cap);
+        cell.addEventListener('mousedown', (event) => event.preventDefault());   // 不让输入框失去光标位置
+        cell.addEventListener('click', () => insert(s.key));
+        tray.appendChild(cell);
+      });
+    };
+    const setOpen = (open) => {
+      if (open && !tray.childElementCount) build();
+      tray.hidden = !open;
+      button.setAttribute('aria-expanded', String(open));
+    };
+    button.addEventListener('mousedown', (event) => event.preventDefault());
+    button.addEventListener('click', () => setOpen(tray.hidden));
+    area.addEventListener('input', refresh);
+    const sync = () => {
+      button.disabled = area.disabled || area.readOnly;
+      if (button.disabled) setOpen(false);
+    };
+    new MutationObserver(sync).observe(area, { attributes: true, attributeFilter: ['disabled', 'readonly'] });
+    sync();
+    refresh();
+    const handle = { button, tray, preview, refresh, close: () => setOpen(false) };
+    area.stkPicker = handle;
+    return handle;
+  }
+
+  ensureCss();   // 正文里画成图的表情（.stk-inline）也用这份样式
+  Live.stickers = { list: LIST, token, parts, has, only, svg, uri, img, fill, html, plain, attach };
 })();

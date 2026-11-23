@@ -242,6 +242,10 @@
   .clp-fbr-form button, .clp-fbr-close { min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; background: #23655f; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
   .clp-fbr-form button[disabled] { opacity: .55; cursor: default; }
   .clp-fbr-status { grid-column: 1 / -1; min-height: 1em; margin: 0; color: #23655f; font-size: 13px; }
+  .clp-fbr-tools { grid-column: 1 / -1; display: flex; align-items: center; gap: 8px; }
+  .clp-fbr-tools:empty { display: none; }
+  .clp-fbr-form .stk-tray, .clp-fbr-form .stk-preview { grid-column: 1 / -1; margin-top: 0; }
+  .clp-fbr-item blockquote .stk-inline, .clp-fbr-bubble .stk-inline { width: 2.1em; height: 2.1em; }
   .clp-fbr-status.is-error { color: #a4492d; }
   .clp-fbr-close { justify-self: end; min-width: 120px; background: #6d6259; }
   .clp-ltn { box-sizing: border-box; width: min(480px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 18px; background: #fffdf6; color: #2a2118; box-shadow: 0 24px 60px rgba(40, 24, 8, .32); }
@@ -4693,9 +4697,20 @@
     document.body.appendChild(dialog);
     dialog.showModal();
   }
+  // 匿名建议、老师回复里的表情（2026-11-23 用户：“匿名建议和老师回复都可以使用修仙小道士的表情包”）：
+  // 记号〖符号〗画成图（live-stickers.js 的 html，文字照样转义）；回复框下面加“表情”按钮（attach）
+  const fbStk = (text) => (Live.stickers ? Live.stickers.html(text, null, 'stk-inline') : esc(text));
+  function fbStkAttach(root, formSel, toolsSel) {
+    if (!Live.stickers || !Live.stickers.attach) return;
+    root.querySelectorAll(formSel).forEach((form) => {
+      const tools = form.querySelector(toolsSel);
+      const area = form.querySelector('textarea');
+      if (tools && area) Live.stickers.attach(area, { host: tools, after: tools });
+    });
+  }
   function showFeedbackReplies(threads, room) {
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
-    const bubble = (r) => `<div class="clp-fbr-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
+    const bubble = (r) => `<div class="clp-fbr-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${fbStk(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
     const dialog = document.createElement('dialog');
     dialog.className = 'clp-fbr';
     dialog.setAttribute('aria-label', '老师回复了你的匿名建议');
@@ -4703,9 +4718,9 @@
       <p class="clp-fbr-note">这段往来只有你能看到，老师仍然不知道建议是谁写的。想说什么可以直接回复老师；看完点最下面的“关闭”。</p>
       ${threads.map((t) => `<section class="clp-fbr-item" data-fbr="${esc(t.id)}">
         <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : '建议'}<small>${esc(String(t.created_on || ''))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
-        <blockquote>${esc(t.text)}</blockquote>
+        <blockquote>${fbStk(t.text)}</blockquote>
         <div class="clp-fbr-chat">${(t.replies || []).map(bubble).join('')}</div>
-        <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><p class="clp-fbr-status" role="status"></p></form>
+        <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><div class="clp-fbr-tools"></div><p class="clp-fbr-status" role="status"></p></form>
       </section>`).join('')}
       <button type="button" class="clp-fbr-close" data-fbr-close>关闭</button></div>`;
     dialog.addEventListener('cancel', (event) => event.preventDefault());   // 只有点“关闭”才关
@@ -4727,6 +4742,7 @@
         if (!res || res.status !== 'ok') throw new Error(res && res.status === 'login' ? '登录已过期，请刷新页面重新进入课堂' : '没有发出去');
         item.querySelector('.clp-fbr-chat').insertAdjacentHTML('beforeend', bubble(res.reply || { by_teacher: false, text, created_at: new Date().toISOString() }));
         box.value = '';
+        if (box.stkPicker) { box.stkPicker.refresh(); box.stkPicker.close(); }
         say.textContent = '已发给老师。';
       } catch (problem) {
         say.classList.add('is-error');
@@ -4743,6 +4759,7 @@
       if (fbBadge) { fbBadge.set(0); Promise.resolve(seen).then(() => fbBadge.refresh()); }
     });
     document.body.appendChild(dialog);
+    fbStkAttach(dialog, '.clp-fbr-form', '.clp-fbr-tools');
     dialog.showModal();
   }
 
@@ -6439,16 +6456,16 @@
     }
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : '建议';
-    const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
+    const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${fbStk(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
     const item = (f) => {
       const replies = Array.isArray(f.replies) ? f.replies : [];
       const fresh = replies.some((r) => r.by_teacher && !r.seen);
       return `<article class="clp-fbh-item" data-fbh="${esc(f.id)}">
         <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' ? ' is-ask' : ''}">${kindName(f.kind)}</span><span>${esc(String(f.created_on || ''))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
-        <blockquote>${esc(f.text)}</blockquote>
+        <blockquote>${fbStk(f.text)}</blockquote>
         <div class="clp-fbh-chat">${replies.map(bubble).join('')}</div>
         ${replies.some((r) => r.by_teacher) ? '' : '<p class="clp-fbh-none">老师还没有回复。课程疑问老师一般在下一堂课统一解答。</p>'}
-        <form class="clp-fbh-form"><textarea maxlength="500" placeholder="${replies.some((r) => r.by_teacher) ? '回复老师（选填，1—500 字）' : '补充几句（选填，1—500 字）'}" aria-label="回复老师"></textarea><button type="submit">发送</button><p class="clp-fbh-status" role="status"></p></form>
+        <form class="clp-fbh-form"><textarea maxlength="500" placeholder="${replies.some((r) => r.by_teacher) ? '回复老师（选填，1—500 字）' : '补充几句（选填，1—500 字）'}" aria-label="回复老师"></textarea><button type="submit">发送</button><div class="clp-fbh-tools"></div><p class="clp-fbh-status" role="status"></p></form>
       </article>`;
     };
     async function loadHistory() {
@@ -6463,6 +6480,7 @@
         const items = Array.isArray(row.items) ? row.items : [];
         state.textContent = items.length ? '' : '你在本班还没有提过建议。在上面写好、选标签、点“提交”以后，这里就能看到；老师回复了也会出现在这里。';
         list.innerHTML = items.map(item).join('');
+        fbStkAttach(list, '.clp-fbh-form', '.clp-fbh-tools');
         unseen = items.filter((f) => (f.replies || []).some((r) => r.by_teacher && !r.seen)).map((f) => Number(f.id) || f.id);
         setUnread(countUnread(items));
       } catch (problem) {
@@ -6492,7 +6510,7 @@
             const res = Array.isArray(got) ? got[0] : got;
             if (!res || res.status !== 'ok') throw new Error(res && res.status === 'login' ? '登录已过期，请回首页重新登录' : '没有发出去');
             article.querySelector('.clp-fbh-chat').insertAdjacentHTML('beforeend', bubble(res.reply || { by_teacher: false, text, created_at: new Date().toISOString() }));
-            box.value = ''; say.textContent = '已发给老师（老师仍然不知道是谁写的）。';
+            box.value = ''; if (box.stkPicker) { box.stkPicker.refresh(); box.stkPicker.close(); } say.textContent = '已发给老师（老师仍然不知道是谁写的）。';
           } catch (problem) {
             say.classList.add('is-error'); say.textContent = `没有发出去：${(problem && problem.message) || problem}`;
           } finally { button.disabled = false; }

@@ -1765,3 +1765,10 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-fb-card.is-k-build { border-left: 4px solid #d48a3c; }
 .tw-fb-card.is-k-ask { border-left: 4px solid #6f9bd8; }
 @media (max-width: 760px) { .tw-fb-meta .tw-fb-kind { margin-bottom: 0; } }
+
+/* 匿名建议、往来回复里的表情（2026-11-23，live-stickers.js 的 attach 和 html） */
+.tw-reply-tools { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }
+.tw-reply-tools:empty { display: none; }
+.tw-reply-dialog .stk-tray { margin-top: 6px; }
+.tw-fb-text .stk-inline, .tw-fb-thread .stk-inline, .tw-adopt-text .stk-inline { width: 2em; height: 2em; margin: -.4em 1px; vertical-align: middle; }
+.tw-fb-zoom-text .stk-inline { width: 1.5em; height: 1.5em; margin: -.25em 2px; }

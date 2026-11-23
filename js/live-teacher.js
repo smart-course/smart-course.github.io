@@ -1128,6 +1128,9 @@
   // build 课程共建、ask 课程疑问、''＝11 月 23 日以前提交的（未分类）。三类右边都是“赞”（5／10／20，同一位同学 7 天内靠点赞最多得 20）：
   // 11-23 上午课程共建曾是“采纳 +20”、不受 7 天上限，下午用户：“这个还是改为原来的点赞模式吧，分三档，然后‘同一人 7 天内靠点赞最多 20’”
   const FB_KINDS = { build: '课程共建', ask: '课程疑问', '': '未分类' };
+  // 表情（2026-11-23 用户：“匿名建议和老师回复都可以使用修仙小道士的表情包”）：建议、往来回复里的记号〖符号〗画成图，导出表格写成“[表情·悟了]”
+  const fbHtml = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.html(text, null, 'stk-inline') : esc(text));
+  const fbPlain = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.plain(text) : String(text == null ? '' : text));
   const fbKindOf = (doc) => (doc && (doc.kind === 'build' || doc.kind === 'ask') ? doc.kind : '');
   let fbKind = 'all';   // 上面的标签筛选：all／build／ask／none
   // 现在显示的几条：按内容查找＋标签筛选，新的在前（列表、放大看、上一条下一条都用这一份）
@@ -1213,7 +1216,7 @@
       const kind = fbKindOf(doc);
       return `<article class="tw-fb-card is-k-${kind || 'none'}${Number(doc.adopted) > 0 ? ' is-liked' : ''}${awaitingReply(doc.id) ? ' is-waiting' : ''}">
         <div class="tw-fb-meta"><b class="tw-fb-kind is-${kind || 'none'}">${FB_KINDS[kind]}</b><time>${esc(doc.created_on || '')}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
-        <div class="tw-fb-main"><p class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${esc(doc.text)}</p>${threadHtml(doc.id)}</div>
+        <div class="tw-fb-main"><p class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${fbHtml(doc.text)}</p>${threadHtml(doc.id)}</div>
         <div class="tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></div></article>`;
     }).join('')
       || `<p class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : fbKind !== 'all' && feedbackRows.length ? '这个标签下还没有建议。'
@@ -1235,7 +1238,7 @@
     const paint = () => {
       const doc = list[at];
       panel.innerHTML = `<div class="tw-fb-zoom-meta"><span>${fbKindOf(doc) ? FB_KINDS[fbKindOf(doc)] : '匿名建议'}</span>${esc(doc.created_on || '')}${roomName.get(String(doc.classroom)) ? ` · ${esc(roomName.get(String(doc.classroom)))}` : ''} · ${esc(sessionLabel(doc.case_no))}<b>${at + 1} / ${list.length}</b></div>
-        <p class="tw-fb-zoom-text" style="--fz:${size(doc.text)}px">${esc(doc.text)}</p>
+        <p class="tw-fb-zoom-text" style="--fz:${size(doc.text)}px">${fbHtml(doc.text)}</p>
         <div class="tw-fb-zoom-nav"><button type="button" data-fbz="-1"${at === 0 ? ' disabled' : ''} aria-label="上一条">‹ 上一条</button><button type="button" data-fbz="1"${at === list.length - 1 ? ' disabled' : ''} aria-label="下一条">下一条 ›</button></div>`;
     };
     const step = (d) => { const next = at + d; if (next < 0 || next >= list.length) return; at = next; paint(); };
@@ -1282,7 +1285,7 @@
     ? `<em class="tw-fb-seen is-seen" title="作者 ${esc(replyTime(r.seen_at))} 看到了这条回复"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2.5 12.5 4.2 4.2 8.6-9.4"/><path d="m11.2 15.9.8.8 9.5-10"/></svg>作者已看到</em>`
     : '<em class="tw-fb-seen is-unseen" title="作者还没看到：作者下次打开课程页面时会弹出这条回复"><i aria-hidden="true"></i>作者还没看到</em>');
   function threadLine(r, removable) {
-    return `<p class="${r.by_teacher ? 'is-teacher' : 'is-student'}"><b>${r.by_teacher ? '我' : '作者'}</b><span>${esc(r.text)}</span>`
+    return `<p class="${r.by_teacher ? 'is-teacher' : 'is-student'}"><b>${r.by_teacher ? '我' : '作者'}</b><span>${fbHtml(r.text)}</span>`
       + `<small>${esc(replyTime(r.created_at))}</small>${r.by_teacher ? seenTag(r) : ''}`
       + (removable && r.by_teacher ? `<button type="button" class="tw-link" data-reply-remove="${esc(r.id)}">撤回</button>` : '') + '</p>';
   }
@@ -1298,6 +1301,10 @@
   }
   const replyDialog = $('[data-reply-dialog]');
   let replyId = '';
+  // 回复框下面的“表情”按钮（live-stickers.js 的 attach）
+  const replyTools = replyDialog.querySelector('[data-reply-tools]');
+  const replyStk = window.ClassLive.stickers && window.ClassLive.stickers.attach && replyTools
+    ? window.ClassLive.stickers.attach(replyDialog.querySelector('[data-reply-input]'), { host: replyTools, after: replyTools }) : null;
   const replySay = (text) => { replyDialog.querySelector('[data-reply-error]').textContent = text || ''; };
   function paintReplyThread() {
     const list = repliesOf(replyId);
@@ -1307,8 +1314,9 @@
     const doc = feedbackRows.find((item) => String(item.id) === String(id));
     if (!doc) return;
     replyId = String(id);
-    replyDialog.querySelector('[data-reply-text]').textContent = String(doc.text || '');
+    replyDialog.querySelector('[data-reply-text]').innerHTML = fbHtml(doc.text || '');
     replyDialog.querySelector('[data-reply-input]').value = '';
+    if (replyStk) { replyStk.refresh(); replyStk.close(); }
     paintReplyThread();
     replySay(repliesMissing ? '后台还没有回复功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261119-建议回复.sql。' : '');
     if (typeof replyDialog.showModal === 'function') replyDialog.showModal(); else replyDialog.setAttribute('open', '');
@@ -1326,6 +1334,7 @@
       const row = Array.isArray(result) ? result[0] : result;
       if (row && row.status === 'no_author') { replySay('这条是 11 月 5 日之前提交的建议，后台没有记作者，回复送不到写建议的同学那里。'); return; }
       input.value = '';
+      if (replyStk) { replyStk.refresh(); replyStk.close(); }
       await loadReplies();
       paintReplyThread();
       renderFeedback();
@@ -1445,8 +1454,8 @@
   $('[data-fb-export]').addEventListener('click', () => {
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
-      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), FB_KINDS[fbKindOf(doc)], doc.text, Number(doc.adopted) || '',
-        repliesOf(doc.id).map((r) => `${r.by_teacher ? '老师' : '作者'}（${replyTime(r.created_at)}）：${r.text}`).join('\n')]);
+      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), FB_KINDS[fbKindOf(doc)], fbPlain(doc.text), Number(doc.adopted) || '',
+        repliesOf(doc.id).map((r) => `${r.by_teacher ? '老师' : '作者'}（${replyTime(r.created_at)}）：${fbPlain(r.text)}`).join('\n')]);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
       csv([['序号', '日期', '课堂', '哪次课', '标签', '建议', '点赞加修为', '往来回复'], ...rows]));
