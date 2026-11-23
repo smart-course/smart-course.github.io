@@ -729,6 +729,8 @@
     };
     const sidKey = (sid) => String(sid == null ? '' : sid).replace(/\s+/g, '').toUpperCase();
     const plain = (value) => String(value == null ? '' : value).replace(/\s+/g, '');
+    // 姓名核对不看空白和标点（2026-11-24，同后台 ck_name_key；用户：“针对池娜尔·丽达这类名字稍微放宽一下登录的门槛，中间的标点符号输错也没关系，只要登录密码正确即可”）
+    const nameKey = (value) => String(value == null ? '' : value).replace(/[\s\u00a0\u3000·‧・･•∙⋅᛫⸱·.。．,，、_\-‐‑‒–—―−－~～/／\\'"“”‘’`()（）[\]【】{}｛｝<>《》〈〉:：;；!！?？|｜*＊+＋=＝&＆#＃@＠%％^＾]/g, '');
     const nextId = (rows) => Math.max(Date.now(), ...rows.map((row) => Number(row.id) + 1 || 0));
     const sha256 = async (text) => Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256', new TextEncoder().encode(text))))
       .map((b) => b.toString(16).padStart(2, '0')).join('');
@@ -763,7 +765,7 @@
     };
     const memberOk = (uid, classroom, sid, name) => {
       const me = myCheckin(uid, classroom);
-      return Boolean(me) && sidKey(me.sid) === sidKey(sid) && plain(me.name) === plain(name);
+      return Boolean(me) && sidKey(me.sid) === sidKey(sid) && nameKey(me.name) === nameKey(name);
     };
     // 请假补做（规则同 cloudbase-pg.sql 的 ck_leave_makeup / ck_makeup_open，2026-11-19）：这个学号在本班有请假，请假的日子里这个课堂上过课（别的同学正式登录过）；
     // 课堂停止或结束提交以后，本设备正式登录过这个课堂的请假同学可以补交
@@ -902,7 +904,7 @@
               return { status: 'not_listed', rejected: Boolean(req && req.status === 'rejected') };
             }
           }
-          if (plain(person.name) !== nm) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
+          if (nameKey(person.name) !== nameKey(nm)) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
           const devices = read('devices');
           const bound = devices.find((d) => String(d.class_id) === String(room.class_id) && d.sid === sid && d.owner === uid);
           if (bound) {
@@ -994,7 +996,7 @@
             return { status: 'pending' };
           }
           if (!person) return { status: 'not_listed' };
-          if (plain(person.name) !== nm) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
+          if (nameKey(person.name) !== nameKey(nm)) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
           if (read('devices').some((d) => sameClass(d) && d.sid === sid && d.owner === uid)) return { status: 'no_need' };
           const pin = read('pins').find((row) => sameClass(row) && row.sid === sid);
           if (!pin || (!pin.pin_hash && (!pin.reset_owner || pin.reset_owner === uid))) return { status: 'no_pin' };
@@ -3339,6 +3341,8 @@
         ['修炼场 · 新增“思考辨析”', '修炼场每个单元多了 4 道“思考辨析”：先读情境和问题，再看“先想一想”的提示，自己想清楚了，再点“想好了，看选项”。四个选项都是“判断＋理由”的完整说法，只认关键词选不对，要把道理想明白。分值和情境辨析一样，每天的上限不变。', '2026-11-24'],
         // 2026-11-24：灵田文件存在本机、按实际下载报进度（同学反映“每次卡到87%就会停”）
         ['云间灵田 · 进入更快', '云间灵田的文件下载一次以后会存在你自己的设备上，以后再进来不用重新下载，快很多（灵田更新以后，只下载变了的那几个文件）。网络不好时会自动重下；开场画面上写着正在下载第几个文件、正在连接云端，等太久会提示“重新连接”，不会再一直停在 87%。', '2026-11-24'],
+        // 2026-11-24：登录时姓名里的标点放宽（后台 ck_name_key）
+        ['登录 · 姓名里的“·”写错也能登录', '名字中间有间隔号“·”的同学，登录时写成“.”“•”、空格，或者干脆不写，都能登录，登录后照样按点名册上的写法显示；个人口令还是要输对。', '2026-11-24'],
         // 2026-11-24：静修立愿框改版、日文字体换成中文字体（雅室只有一人时的那一项按用户要求不写进更新说明）
         ['静修 · 立愿更好写', '静修的“立愿”框换了新样子，字体也统一成中文字体；框下面有“复习本章”“读懂一个概念”“考试复习”“整理笔记”四个常用立愿，点一下就填进去，再点一下去掉，也可以自己写。', '2026-11-24'],
         // 2026-11-24：面板头部放不下时换行（同学反映“弹幕栏右上角的退出按键在弹幕栏外面点不到了”）
