@@ -71,7 +71,217 @@
   </div>
   <div class="game-boot-verse"><small>今日语录</small><p id="game-boot-quote">山中无甲子，草木有灵时。</p></div>
 </div>
-<script src="boot-ui.js"></script>
+<script>window.LT_ASSETS = [["boot-ui.js","b92139afbe69",11523],["vendor/three.min.js","ccabb6c3b0fe",669884],["sect-catalog.js","ff1e48c8c5fe",11229],["sect-governance-catalog.js","87d99e941194",4017],["homestead-catalog.js","32ba3f88f05f",7191],["cards-catalog.js","76e5751f8e4d",651540],["study-bank-pe.js","cec58ae58ffb",299333],["study-bank-xj.js","72f1e3fbbf9d",196383],["study-core.js","f7f3b049c268",24308],["game.js","531c50ef9139",122709],["/js/cloudbase-js-sdk-3.10.1.js","157251ba8b88",969837],["/js/live-core.js","badaf135a0da",343103],["lingtian-bridge.js","88f52296a141",25804],["online-client.js","07680fe5a27b",28300],["plant-art.js","4fac3c64948c",21183],["pill-art.js","d2ff8b7ea468",215376],["harvest-models.js","5a39f73ae2eb",3161678],["garden-art.js","a6d098848565",16064],["farm-tools-art.js","1c9db486fc06",19410],["tool-portraits.js","96fa2527174c",146346],["farm-tool-animation.js","cf4ec3780743",18611],["mature-effects.js","b35c47033379",38604],["mature-wind.js","bf3a4582dd46",16642],["environment.js","db1f45f126d9",12489],["weather-effects.js","a2ae64649ecb",17216],["sect-models.js","b8be3ee69861",21374],["sect-grand-models.js","37a1a5e1a56e",1285435],["sect-scenery-models.js","ef53b9fcaaae",23711],["homestead-models.js","63d1ac6afb11",56080],["sect-nature-models.js","16a7ccc63b65",195929],["decor-scene.js","df7f582b9c0d",19501],["study-scene.js","53a3f84177f6",18692],["scene.js","b2033b1cc604",150615],["sect-effects.js","eef228370565",35911],["sect-lake-effects.js","eff948bb1049",36541],["sect-visit-scene.js","6c59241056f7",125874],["environment-ui.js","730540bc7587",15884],["market-chart.js","55bc236a0804",10100],["economy-ui.js","73a6fb4a41b2",58109],["farm-ui.js","c702cdef6639",22540],["sect-art.js","3e47e43ea3bc",15376],["homestead-art.js","1b1fe9f16cc3",34864],["journey-ui.js","73ce5ca7d1c1",112481],["decor-editor.js","e1f560e2e7d8",19522],["fullscreen-ui.js","ddb9e8769432",11160],["card-art.js","578108de25d1",57009],["cards-offline.js","269d63714080",11340],["study-offline.js","b508f01a4802",6807],["study-ui.js","ef84cab7e2b3",50867],["cards-ui.js","82213e3cc900",95023],["app.js","b8e94fa09bdf",134540],["focus-companion.js","d1c7ac1afc70",11292],["focus-host.js","f4a6d410b217",55924]];</script>
+<script>
+/* 云间灵田 · 文件加载器（2026-11-24，由 tools/lingtian_site.py 内联进 /lingtian/index.html，放在开场画面之后）。
+ * 用户：“有同学反映云间灵田每次登录都好慢好卡，每次卡到87%就会停，我登了几天了很少能登进去。”
+ * 原因：灵田页面要先下载 49 个脚本（压缩后约 2.6 MB，原始约 10 MB），全是按顺序同步加载；网站放在 GitHub Pages（境外），
+ * 文件只缓存 10 分钟、每次发布网站后全部作废，几乎每次进灵田都要重新下载一遍；手机网络慢时要十几秒到几十秒，
+ * 哪个文件卡住不动，整页就一直停着。开场画面的进度条只按时间走，最多走到 87% 就等着，看起来像“卡在 87%”。
+ * 这里改成：
+ *   1. 文件按内容摘要存进本机（IndexedDB），下次进来直接用，不再下载；网站发布后只下载内容变了的文件；
+ *   2. 要下载的文件一起下载，每个文件 20 秒没下完就重下（最多 4 次），都不行时说明原因并给“重新加载”按钮，不再一直停着；
+ *   3. 按实际下载的字节数报进度（window.LingtianLoad，boot-ui.js 读它显示“正在下载灵田文件 12/49”）；
+ *   4. 下载完按原来的顺序执行（boot-ui.js 先执行，好让开场画面先动起来）。
+ * 本机打开（file:）、浏览器太旧、或者本机存储用不了时，退回原来的 <script src> 逐个加载。
+ * 名单 window.LT_ASSETS：[路径, 内容摘要, 字节数]，由 lingtian_site.py 在生成网页时算好。 */
+(function () {
+  'use strict';
+  var LIST = window.LT_ASSETS || [];
+  var FIRST = 'boot-ui.js';
+  var DB_NAME = 'lingtian-files', STORE = 'files';
+  var now = function () { return window.performance && performance.now ? performance.now() : Date.now(); };
+  var state = window.LingtianLoad = { total: LIST.length, done: 0, cached: 0, bytesTotal: 0, bytesDone: 0, phase: 'download', slow: false, error: '', doneAt: 0, startedAt: now() };
+  LIST.forEach(function (a) { state.bytesTotal += a[2] || 0; });
+
+  var domReady = new Promise(function (resolve) {
+    if (document.readyState !== 'loading') resolve();
+    else document.addEventListener('DOMContentLoaded', function () { resolve(); });
+  });
+
+  function legacy() {
+    // 退回原来的做法：按顺序插 <script src>（async=false 的外链脚本按插入顺序执行）
+    state.phase = 'run';
+    var add = function (a) { var s = document.createElement('script'); s.src = a[0]; s.async = false; document.body.appendChild(s); };
+    var first = LIST.filter(function (a) { return a[0] === FIRST; });
+    first.forEach(add);
+    domReady.then(function () {
+      LIST.filter(function (a) { return a[0] !== FIRST; }).forEach(add);
+      state.phase = 'done'; state.doneAt = now();
+    });
+  }
+  if (!LIST.length || location.protocol === 'file:' || typeof fetch !== 'function' || typeof Promise !== 'function') { legacy(); return; }
+
+  function openDb() {
+    return new Promise(function (resolve) {
+      var settled = false;
+      var finish = function (db) { if (settled) { if (db) try { db.close(); } catch (e) { /* 忽略 */ } return; } settled = true; resolve(db); };
+      setTimeout(function () { finish(null); }, 2500);   // 有的浏览器（隐私模式等）打开本机存储会一直没有回应
+      try {
+        var req = indexedDB.open(DB_NAME, 1);
+        req.onupgradeneeded = function () { try { req.result.createObjectStore(STORE, { keyPath: 'path' }); } catch (e) { /* 已有 */ } };
+        req.onsuccess = function () { finish(req.result); };
+        req.onerror = function () { finish(null); };
+        req.onblocked = function () { finish(null); };
+      } catch (e) { finish(null); }
+    });
+  }
+  function readAll(db) {
+    return new Promise(function (resolve) {
+      if (!db) { resolve({}); return; }
+      try {
+        var out = {};
+        var store = db.transaction(STORE, 'readonly').objectStore(STORE);
+        if (typeof store.getAll === 'function') {
+          // 一次全部读出（比逐条游标快得多）
+          var all = store.getAll();
+          all.onsuccess = function () { (all.result || []).forEach(function (row) { out[row.path] = row; }); resolve(out); };
+          all.onerror = function () { resolve({}); };
+          return;
+        }
+        var req = store.openCursor();
+        req.onsuccess = function () {
+          var cursor = req.result;
+          if (!cursor) { resolve(out); return; }
+          out[cursor.value.path] = cursor.value;
+          cursor.continue();
+        };
+        req.onerror = function () { resolve({}); };
+      } catch (e) { resolve({}); }
+    });
+  }
+  function save(db, row) {
+    if (!db) return;
+    try { db.transaction(STORE, 'readwrite').objectStore(STORE).put(row); } catch (e) { /* 存不下就下次再下载 */ }
+  }
+  function prune(db, keep) {
+    // 删掉已经不用的旧版本（路径不在名单里，或内容摘要不同）
+    if (!db) return;
+    try {
+      var req = db.transaction(STORE, 'readwrite').objectStore(STORE).openCursor();
+      req.onsuccess = function () {
+        var cursor = req.result;
+        if (!cursor) return;
+        if (keep[cursor.value.path] !== cursor.value.hash) cursor.delete();
+        cursor.continue();
+      };
+    } catch (e) { /* 忽略 */ }
+  }
+
+  function readBody(res, onBytes) {
+    if (!res.body || typeof res.body.getReader !== 'function' || typeof TextDecoder !== 'function') {
+      return res.text().then(function (text) { onBytes(text.length); return text; });
+    }
+    var reader = res.body.getReader(), decoder = new TextDecoder('utf-8'), parts = [];
+    var pump = function () {
+      return reader.read().then(function (r) {
+        if (r.done) { parts.push(decoder.decode()); return parts.join(''); }
+        onBytes(r.value.length);
+        parts.push(decoder.decode(r.value, { stream: true }));
+        return pump();
+      });
+    };
+    return pump();
+  }
+  function download(asset) {
+    var path = asset[0], hash = asset[1], size = asset[2] || 0;
+    var url = path + (path.indexOf('?') < 0 ? '?' : '&') + 'v=' + hash;
+    var attempt = 0;
+    return new Promise(function (resolve, reject) {
+      var go = function () {
+        attempt += 1;
+        var counted = 0, began = now(), lastByte = began;
+        var ctl = typeof AbortController === 'function' ? new AbortController() : null;
+        // 20 秒内一个字节都没收到、或者整个文件 60 秒还没下完：放弃这一次，重下
+        var watch = setInterval(function () {
+          var idle = now() - lastByte;
+          if (idle > 8000) state.slow = true;
+          if (idle > 20000 || now() - began > 60000 + size / 50) { clearInterval(watch); if (ctl) ctl.abort(); }
+        }, 1000);
+        fetch(attempt > 1 ? url + '&retry=' + attempt : url, { credentials: 'same-origin', signal: ctl ? ctl.signal : undefined })
+          .then(function (res) {
+            if (!res.ok) throw new Error('HTTP ' + res.status);
+            return readBody(res, function (n) { lastByte = now(); counted += n; state.bytesDone += Math.min(n, Math.max(0, size - (counted - n))); });
+          })
+          .then(function (text) {
+            clearInterval(watch);
+            state.bytesDone += Math.max(0, size - counted);   // 实际字节数和名单不一致（换行等）时补齐
+            resolve(text);
+          })
+          .catch(function (error) {
+            clearInterval(watch);
+            state.bytesDone -= Math.min(counted, size);       // 这一次没下完，进度退回去
+            if (attempt < 4) { state.slow = true; setTimeout(go, 800 * attempt); }
+            else reject(error);
+          });
+      };
+      go();
+    });
+  }
+
+  function run(path, text) {
+    var s = document.createElement('script');
+    s.setAttribute('data-src', path);
+    // sourceURL：浏览器开发者工具里照旧显示原文件名、行号
+    s.text = text + '\n//# sourceURL=' + new URL(path, location.href).href;
+    document.body.appendChild(s);   // 内联脚本插进页面时立即执行
+  }
+
+  function showError(error) {
+    state.error = '网络不太稳，有文件没下载下来';
+    state.phase = 'error';
+    try { console.warn('[云间灵田] 文件没下载下来', error); } catch (e) { /* 忽略 */ }
+    var paint = function () {
+      var stage = document.getElementById('game-boot-stage');
+      if (stage) stage.textContent = '网络不太稳，有文件没下载下来。请换个网络（比如关掉 Wi-Fi 用流量，或反过来）后点“重新加载”。';
+      var splash = document.getElementById('game-boot-splash');
+      if (splash && !splash.querySelector('[data-lt-reload]')) {
+        var button = document.createElement('button');
+        button.type = 'button';
+        button.className = 'button button-primary';
+        button.setAttribute('data-lt-reload', '');
+        button.textContent = '重新加载';
+        button.style.marginTop = '14px';
+        button.addEventListener('click', function () { location.reload(); });
+        (splash.querySelector('.game-boot-panel') || splash).appendChild(button);
+      }
+    };
+    domReady.then(paint);
+  }
+
+  openDb().then(function (db) {
+    return readAll(db).then(function (stored) {
+      var texts = {}, keep = {};
+      var jobs = LIST.map(function (asset) {
+        var path = asset[0], hash = asset[1];
+        keep[path] = hash;
+        var hit = stored[path];
+        if (hit && hit.hash === hash && typeof hit.text === 'string') {
+          texts[path] = hit.text;
+          state.cached += 1; state.done += 1; state.bytesDone += asset[2] || 0;
+          return Promise.resolve();
+        }
+        return download(asset).then(function (text) {
+          texts[path] = text;
+          state.done += 1;
+          save(db, { path: path, hash: hash, text: text, at: Date.now() });
+        });
+      });
+      // boot-ui.js 一到就先执行（开场画面的诗句、进度条）
+      var bootAsset = LIST.filter(function (a) { return a[0] === FIRST; })[0];
+      var bootRun = bootAsset ? jobs[LIST.indexOf(bootAsset)].then(function () { run(FIRST, texts[FIRST]); texts[FIRST] = null; }) : Promise.resolve();
+      return Promise.all(jobs).then(function () {
+        return Promise.all([bootRun, domReady]);
+      }).then(function () {
+        state.phase = 'run';
+        LIST.forEach(function (asset) { if (asset[0] !== FIRST) { run(asset[0], texts[asset[0]]); texts[asset[0]] = null; } });
+        state.phase = 'done'; state.doneAt = now();
+        prune(db, keep);
+      });
+    });
+  }).catch(showError);
+})();
+</script>
 <header id="fullscreen-bar" class="fullscreen-bar game-hud" tabindex="-1" aria-label="洞天操作">
   <button type="button" class="game-profile" data-fullscreen-panel="cultivation" aria-label="查看修为与五境修行" aria-expanded="false" aria-controls="cultivation-panel">
     <span class="game-avatar"><span id="hud-realm-glyph">气</span></span><span class="game-profile-copy"><strong id="player-name">云间散修</strong><span><b id="fullscreen-realm">炼气</b><em id="hud-qi">35 / 120</em></span><span class="hud-progress"><i id="hud-qi-progress"></i></span></span>
@@ -96,7 +306,7 @@
   <button type="button" data-fullscreen-command="bag" aria-label="打开乾坤袋"><span class="dock-icon"><svg class="icon" aria-hidden="true"><use href="#i-bag"/></svg></span><span>乾坤袋</span><b class="badge" id="bag-count" hidden></b></button>
   <button type="button" data-fullscreen-command="journey" aria-label="打开仙途长卷"><span class="dock-icon"><svg class="icon" aria-hidden="true"><use href="#i-book"/></svg></span><span>长卷</span><b class="badge" id="journey-entry-badge" hidden></b></button>
 </nav>
-<button type="button" id="game-quest-peek" class="game-quest-peek" data-fullscreen-panel="quests" aria-label="查看今日修行、任务奖励与守田往来" aria-expanded="false" aria-controls="quests-panel"><small>今日修行</small><strong id="hud-quest-title">初入仙途</strong><span id="hud-quest-note">一草一丹，日有所获</span><span class="game-quest-activity-hint"><svg class="icon" aria-hidden="true"><use href="#i-formation"/></svg>修行任务 · 守田往来</span><b class="badge" id="hud-quest-badge" hidden></b></button>
+<button type="button" id="game-quest-peek" class="game-quest-peek" data-fullscreen-panel="quests" aria-label="查看今日修行、任务奖励与守田往来" aria-expanded="false" aria-controls="quests-panel"><small>今日修行</small><strong id="hud-quest-title">初入仙途</strong><span id="hud-quest-note">一草一丹，日有所获</span><em id="hud-quest-verse" class="game-quest-verse" hidden></em><span class="game-quest-activity-hint"><svg class="icon" aria-hidden="true"><use href="#i-formation"/></svg>修行任务 · 守田往来</span><b class="badge" id="hud-quest-badge" hidden></b></button>
 <button type="button" id="game-guard-resume" class="game-guard-resume" data-fullscreen-command="guard" hidden><svg class="icon" aria-hidden="true"><use href="#i-formation"/></svg><strong>继续破阵</strong><span id="hud-guard-time">阵法待解</span></button>
 <div class="app-layout">
   <main class="workspace">
@@ -136,6 +346,7 @@
 <section class="cultivation-card"><div class="section-overline"><svg class="icon"><use href="#i-spark"/></svg>仙途漫漫<span>循序而进</span></div><div class="realm-main"><div class="realm-symbol"><span id="realm-glyph">气</span><svg viewBox="0 0 80 80"><circle cx="40" cy="40" r="35"/><circle id="qi-ring" cx="40" cy="40" r="35"/></svg></div><div><small>当前境界</small><h2 id="realm-name">炼气</h2><p id="realm-next">下一境 · 筑基</p></div></div><div class="qi-label"><span>修为</span><strong><span id="qi-value">35</span><em id="qi-needed"> / 120</em></strong></div><div class="progress-track"><span id="qi-progress"></span></div><button class="button breakthrough-button" id="breakthrough"><svg class="icon"><use href="#i-spark"/></svg><span>尝试突破</span><small id="breakthrough-cost"></small></button><p class="cultivation-tip">灵草炼丹，服丹修行 · 每日最多 +30 修为</p><ol id="realm-ladder" class="realm-ladder" aria-label="五境修行进度"></ol><p id="realm-unlock-hint" class="realm-unlock-hint"></p></section></section>
 <section id="quests-panel" class="game-sheet" hidden aria-label="今日修行与守田往来">
  <div class="fullscreen-panel-heading"><div><strong>今日修行</strong><small>修行有所得，往来有回响</small></div><button type="button" class="fullscreen-panel-close" data-fullscreen-closepanel aria-label="收起今日修行"><svg class="icon" aria-hidden="true"><use href="#i-close"/></svg></button></div>
+ <p id="quest-verse" class="quest-verse" hidden><small>今日语录</small><span></span></p>
  <div class="activity-tabs" role="tablist" aria-label="今日修行内容"><button type="button" role="tab" id="activity-tab-quests" data-activity-tab="quests" aria-controls="activity-quests" aria-selected="true"><svg class="icon" aria-hidden="true"><use href="#i-spark"/></svg>修行任务</button><button type="button" role="tab" id="activity-tab-guard" data-activity-tab="guard" aria-controls="activity-guard" aria-selected="false" tabindex="-1"><svg class="icon" aria-hidden="true"><use href="#i-formation"/></svg>守田往来</button></div>
  <div id="activity-quests" class="activity-pane" role="tabpanel" aria-labelledby="activity-tab-quests"><section class="quest-card"><div class="section-heading"><h2>初入仙途</h2><span id="quest-total">0 / 4</span></div><div id="quest-list" class="quest-list"></div></section><section class="journey-entry-card"><div class="section-heading"><h2>山中有期</h2><span id="journey-entry-status">今日委托</span></div><p id="journey-entry-note">日有所获，慢慢积成一段仙途。</p><div class="journey-entry-actions"><button class="button button-primary" data-journey-open="commissions"><svg class="icon"><use href="#i-book"/></svg>仙途长卷</button></div><button class="arrival-entry" data-open="arrival"><span><strong>洞天近况</strong><small id="arrival-entry-note">查看丹炉、田块与最近往来</small></span><svg class="icon"><use href="#i-arrow"/></svg></button></section></div>
  <div id="activity-guard" class="activity-pane" role="tabpanel" aria-labelledby="activity-tab-guard" hidden><section id="farm-guard-panel" class="farm-guard-panel" aria-label="守田阵法与来访" hidden></section><div id="activity-history" aria-label="最近守田往来"></div></div>
@@ -152,58 +363,7 @@
 <section id="cards-host" class="cards-host" hidden></section>
 <dialog id="game-dialog" class="game-dialog" aria-labelledby="dialog-title"><div class="dialog-header"><button id="dialog-back" type="button" class="dialog-back" hidden aria-label="返回上一层"><svg class="icon" viewBox="0 0 24 24" aria-hidden="true"><path d="m14 6-6 6 6 6M8 12h12"/></svg><span id="dialog-back-label">返回</span></button><div class="dialog-heading"><span id="dialog-emblem" class="dialog-emblem" aria-hidden="true"><svg class="icon"><use href="#i-leaf"/></svg></span><div><span id="dialog-overline" class="eyebrow">云 间 灵 田</span><h2 id="dialog-title"></h2></div></div><button id="dialog-close" class="icon-button" aria-label="关闭窗口"><svg class="icon"><use href="#i-close"/></svg></button></div><div id="dialog-content"></div></dialog>
 <input type="file" id="save-file-input" accept="application/json,.json" hidden>
-<script src="vendor/three.min.js"></script>
-<script src="sect-catalog.js"></script>
-<script src="sect-governance-catalog.js"></script>
-<script src="homestead-catalog.js"></script>
-<script src="cards-catalog.js"></script>
-<script src="study-bank-pe.js"></script>
-<script src="study-bank-xj.js"></script>
-<script src="study-core.js"></script>
-<script src="game.js"></script>
-<link rel="stylesheet" href="lingtian-bridge.css?v=71cb052156">
+<link rel="stylesheet" href="lingtian-bridge.css?v=caaf7c0408">
 <script>window.CLASS_LIVE_CONFIG = {"provider": "cloudbase", "env": "courselearning-d4gmetucqc52de2d4", "region": "ap-shanghai", "course": "lingtian", "unit": "lingtian"};</script>
-<script src="/js/cloudbase-js-sdk-3.10.1.js"></script>
-<script src="/js/live-core.js?v=71cb052156"></script>
-<script src="lingtian-bridge.js?v=71cb052156"></script>
-<script src="online-client.js"></script>
-<script src="plant-art.js"></script>
-<script src="pill-art.js"></script>
-<script src="harvest-models.js"></script>
-<script src="garden-art.js"></script>
-<script src="farm-tools-art.js"></script>
-<script src="tool-portraits.js"></script>
-<script src="farm-tool-animation.js"></script>
-<script src="mature-effects.js"></script>
-<script src="mature-wind.js"></script>
-<script src="environment.js"></script>
-<script src="weather-effects.js"></script>
-<script src="sect-models.js"></script>
-<script src="sect-grand-models.js"></script>
-<script src="sect-scenery-models.js"></script>
-<script src="homestead-models.js"></script>
-<script src="sect-nature-models.js"></script>
-<script src="decor-scene.js"></script>
-<script src="study-scene.js"></script>
-<script src="scene.js"></script>
-<script src="sect-effects.js"></script>
-<script src="sect-lake-effects.js"></script>
-<script src="sect-visit-scene.js"></script>
-<script src="environment-ui.js"></script>
-<script src="market-chart.js"></script>
-<script src="economy-ui.js"></script>
-<script src="farm-ui.js"></script>
-<script src="sect-art.js"></script>
-<script src="homestead-art.js"></script>
-<script src="journey-ui.js"></script>
-<script src="decor-editor.js"></script>
-<script src="fullscreen-ui.js"></script>
-<script src="card-art.js"></script>
-<script src="cards-offline.js"></script>
-<script src="study-offline.js"></script>
-<script src="study-ui.js"></script>
-<script src="cards-ui.js"></script>
-<script src="app.js"></script>
-<script src="focus-host.js"></script>
 </body>
 </html>

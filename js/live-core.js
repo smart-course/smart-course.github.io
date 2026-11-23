@@ -166,8 +166,10 @@
   // 每组点赞最多的一位（本组发言人）加 leader，本方提案被全班表决采纳的角色组里发过言的同学各加 win（同一人相加；后台 ck_set_disc_awards 发放）；学生页每 poll 毫秒刷新
   const DISCUSS = { leader: 5, win: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
   // 投票器（2026-10-29）：课堂工具的几组常用选项；学生页每 4 秒问一次有没有投票，投屏页每 2 秒刷新票数；结束后学生页显示 3 分钟
-  // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）
-  const FEEDBACK = { points: 5, min: 10 };
+  // 匿名建议加修为（2026-10-29）：每个课堂第一次提交 min 字以上的建议加 points（后台 ck_submit_feedback 写死同样的数）。
+  // 2026-11-24 起只递交不再加修为（用户：“匿名建议箱只递交的话不再增加修为值了，只有老师点赞才增加”），points 改为 0；以前加过的照旧计入。
+  // 课程共建被老师点赞采纳仍加修为（EGG.adopt，ck_adopt_feedback）
+  const FEEDBACK = { points: 0, min: 10 };
   // 隐藏彩蛋（2026-11-05，学生页“更新说明”里不写，让学生自己发现）：老师点赞采纳匿名建议可选的修为 adopt、点笑脸 mood（每人每天一次）、
   // 一周（周一至周日）登录满 days 天 week（每周一次）。后台 ck_adopt_feedback / ck_set_mood / ck_checkin_today 写死同样的数
   // 2026-11-20 点赞上限（用户：“同一位同学，上一次被点赞后，一个礼拜的时间内，最多获得20修为值……因为老师不知道是谁评论，又要防止刷分”）：
@@ -427,12 +429,15 @@
   // 天天练的同学能更早到化神（课堂得分最好的同学练满：政经约第 9 次课、习经约第 8 次课），不练到不了或要到最后，临时突击补不回来。
   const PRACTICE = {
     delay: 0, essayMin: 200, gap: 3, most: 2,
-    courses: { 'political-economy': { cap: 30, judge: 2, scene: 4, feynman: 5 }, 'xjp-economy': { cap: 10, judge: 1, scene: 1, feynman: 3 } },
-    of(course) { return this.courses[course] || { cap: 10, judge: 1, scene: 1, feynman: 3 }; },
-    // “易错判断 +2、情境辨析 +4、讲给别人听 +5”（两种相同时合并）
+    // 2026-11-24 加思考辨析 think（先判断再说出道理，选项先遮住），分值同情境辨析
+    courses: { 'political-economy': { cap: 30, judge: 2, scene: 4, think: 4, feynman: 5 }, 'xjp-economy': { cap: 10, judge: 1, scene: 1, think: 1, feynman: 3 } },
+    of(course) { return this.courses[course] || { cap: 10, judge: 1, scene: 1, think: 1, feynman: 3 }; },
+    // “易错判断 +2、情境辨析和思考辨析 +4、讲给别人听 +5”（分值相同的合并）
     text(course) {
       const r = this.of(course);
-      return r.judge === r.scene ? `易错判断、情境辨析每题 +${r.judge}，讲给别人听每题 +${r.feynman}` : `易错判断 +${r.judge}、情境辨析 +${r.scene}、讲给别人听 +${r.feynman}`;
+      const think = r.think == null ? r.scene : r.think;
+      if (r.judge === r.scene && think === r.scene) return `易错判断、情境辨析、思考辨析每题 +${r.judge}，讲给别人听每题 +${r.feynman}`;
+      return `易错判断 +${r.judge}、情境辨析${think === r.scene ? '和思考辨析' : ''} +${r.scene}${think === r.scene ? '' : `、思考辨析 +${think}`}、讲给别人听 +${r.feynman}`;
     },
   };
   // 请假：请假的那次课计基础修为（相当于签到）；没登录也没请假的课不得修为（教师工作台结算，见 live-teacher.js）
@@ -2398,6 +2403,7 @@
           if (name === 'ck_practice_home') {
             const units = [...new Set(bank.map((b) => b.unit))].map((unit) => {
               const rows = bank.filter((b) => b.unit === unit && !SELF.includes(b.kind));
+              if (!rows.length) return null;   // 只有课后自修题的单元不进修炼场列表（2026-11-24 修：以前本机模拟后台遇到这种单元首页出错）
               const tried = rows.map((b) => ({ b, s: stat(unit, b.item) })).filter((x) => x.s.tried);
               const opens = opensOf(unit);
               const plain = rows.filter((b) => !isFeyn(b));
@@ -2405,7 +2411,7 @@
                 earned: tried.filter((x) => x.s.earned && !isFeyn(x.b)).length, firm: tried.filter((x) => x.s.times >= most && !isFeyn(x.b)).length,
                 fe: tried.filter((x) => x.s.earned && isFeyn(x.b)).length, ffirm: tried.filter((x) => x.s.times >= most && isFeyn(x.b)).length,
                 tried: tried.filter((x) => !isFeyn(x.b)).length, due: tried.filter((x) => x.b.kind !== 'essay' && ((!x.s.earned && x.s.last < day) || x.s.again)).length };
-            }).sort((a, b) => a.order - b.order);
+            }).filter(Boolean).sort((a, b) => a.order - b.order);
             return { status: 'ok', course: room.course, cap: PRACTICE.of(room.course).cap, delay: PRACTICE.delay, gap, most, date: day, today: have, total: log.reduce((sum, l) => sum + l.points, 0), units };
           }
           if (name === 'ck_practice_items') {
@@ -2542,7 +2548,7 @@
           write('fbauthors', authors);
           // 每个课堂第一次提交 10 字以上加修为（只记提交过，不记是哪一条）
           const bonus = read('bonus');
-          if (text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;
+          if (!FEEDBACK.points || text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;   // 2026-11-24 起递交不再加修为（同后台）
           bonus.push({ id: `${Date.now()}-fb`, course: room.course, classroom: room.id, day: today(), kind: 'feedback', sid: sidKey(me.sid), name: me.name, points: FEEDBACK.points, created_at: new Date().toISOString() });
           write('bonus', bonus);
           return true;
@@ -3327,6 +3333,16 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-24：匿名建议只递交不再加修为（用户：“匿名建议箱只递交的话不再增加修为值了，只有老师点赞才增加”）
+        ['匿名建议箱 · 老师点赞才加修为', '从今天起，写匿名建议、提疑问不再直接加修为；“课程共建”的建议被老师点赞采纳，才会加修为。以前已经加上的修为不变。', '2026-11-24'],
+        // 2026-11-24：修炼场每单元加 4 道思考辨析（用户：“修炼场的题目能不能增加一些数量，然后增加难度，要能够让学生在做题的过程中有自己的思考过程，思考后做出选择”）
+        ['修炼场 · 新增“思考辨析”', '修炼场每个单元多了 4 道“思考辨析”：先读情境和问题，再看“先想一想”的提示，自己想清楚了，再点“想好了，看选项”。四个选项都是“判断＋理由”的完整说法，只认关键词选不对，要把道理想明白。分值和情境辨析一样，每天的上限不变。', '2026-11-24'],
+        // 2026-11-24：灵田文件存在本机、按实际下载报进度（同学反映“每次卡到87%就会停”）
+        ['云间灵田 · 进入更快', '云间灵田的文件下载一次以后会存在你自己的设备上，以后再进来不用重新下载，快很多（灵田更新以后，只下载变了的那几个文件）。网络不好时会自动重下；开场画面上写着正在下载第几个文件、正在连接云端，等太久会提示“重新连接”，不会再一直停在 87%。', '2026-11-24'],
+        // 2026-11-24：静修立愿框改版、日文字体换成中文字体；雅室里只有自己一人时有“陪修”（用户：“随机设置一个假人陪你一起静修……房间里面有2个或以上的真人，这个假人就自动消失”）
+        ['静修 · 立愿更好写，一个人也有陪修', '静修的“立愿”框换了新样子，字体也统一成中文字体；框下面有“复习本章”“读懂一个概念”等常用立愿，点一下就填进去，再点一下去掉。雅室里只有你一个人时，旁边会坐一位名字带“（陪修）”的小道友陪你静修：你开始它也开始，一直陪到你这一段结束；有同学进来它就离开。陪修只在你自己的屏幕上，不算人数、不能结为道友。', '2026-11-24'],
+        // 2026-11-24：面板头部放不下时换行（同学反映“弹幕栏右上角的退出按键在弹幕栏外面点不到了”）
+        ['面板右上角的“收起”不再被挤出去', '手机或微信把字调大、页面字号选“大”“特大”时，面板右上角的“字号 请假 收起”放不下，“收起”会被挤到面板外面、点不到。现在放不下就整排换到第二行，“收起”一直点得到。', '2026-11-24'],
         // 2026-11-23 晚：不起道号不能进灵田、没起道号的先用道友码、道号半年改一次、登录后提醒（用户：“现在没起道号进入灵田的同学，用静修中的道友码代替名字，
         //   道友码相当于每个人的身份证。之后不取名字不给进入灵田。然后每位同学6个月给一次修改道号的机会。”“没起道号的同学，下次登陆的时候提醒他起道号”）
         ['云间灵田 · 先起道号再进入', '云间灵田要先起一个自己的道号才能进入（2—12 个汉字、字母或数字，请文明取名）。以前没起道号就进了灵田的同学，道友们现在看到的是你的道友码（静修“同修”里的“我的道友码”，相当于每个人的身份证），登录课程网站时会提醒你，下次进灵田先起一个道号。第一次起道号不受限制，之后每 6 个月可以改一次（灵田设置里“改道号”写着下次可以改的日子）。', '2026-11-23'],

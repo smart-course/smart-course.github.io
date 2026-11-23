@@ -70,6 +70,8 @@
   .lp-tags span.is-part { background: #e3eee8; color: #245e55; font-weight: 700; }
   .lp-lead, .lp-scene { margin: 0 0 10px; padding: 10px 14px; border-radius: 10px; background: #f3efe3; font-size: 16px; }
   .lp-prompt { margin: 0 0 12px; font-size: 18px; font-weight: 600; line-height: 1.7; }
+  .lp-think { margin: -2px 0 14px; padding: 10px 14px; border-left: 4px solid #c9a24a; border-radius: 8px; background: #fff8e6; color: #5a4310; font-size: 16px; line-height: 1.75; }
+  .lp-think b { display: block; margin-bottom: 2px; color: #8a5a1a; font-size: 13.5px; letter-spacing: .12em; }
   .lp-opts { display: grid; gap: 8px; position: relative; }
   .lp-opts.is-veiled .lp-opt { filter: blur(6px); pointer-events: none; user-select: none; }
   .lp-unveil { justify-self: start; margin-bottom: 8px; padding: 6px 14px; border: 1px dashed #245e55; border-radius: 999px; background: #e3eee8; color: #245e55; font: inherit; font-size: 14px; cursor: pointer; }
@@ -188,7 +190,7 @@
         <b>${esc(u.title)}</b><em>${status}</em><span class="lp-bar"><i style="width:${pct}%"></i></span></button></li>`;
     }).join('');
     body.innerHTML = `<p class="lp-note">这是《${esc(COURSE[home.course] || '')}》自己的修炼场。老师开过的每一次课，对应的题都在这里，课上课后都能练，以前的课也能拿来复习；提前发布、还没开课的只能先看页面，题目开课后才开放。
-      这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析和易错判断，讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；<b>隔 ${gap} 天以上再答对，还能再得一次</b>（复习巩固，每题最多两次）；${pe ? '案例页里的“课后自修”也计修为（只算一次），和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>。
+      这里的题都是另写的新题，和课堂上的题不重复：专攻一块、混合乱炼做情境辨析、思考辨析和易错判断（思考辨析要先判断、再说出道理，选项先遮住，自己想好了再看），讲给别人听另有专门的题。<b>每题第一次答对得修为：${esc(PRACTICE.text(ctx.config.course))}</b>（当天先答错的，隔天再答对也算）；<b>隔 ${gap} 天以上再答对，还能再得一次</b>（复习巩固，每题最多两次）；${pe ? '案例页里的“课后自修”也计修为（只算一次），和这里共用每日上限；' : ''}<b>每天最多 ${home.cap} 修为</b>。
       修为天天攒：平时练得早、练得勤的同学，能更早冲上「化神」；临时突击受每日上限所限，补不回来。</p>
       <div class="lp-methods">
         ${card('simon', { name: '西蒙学习法', title: '专攻一块', text: '选下面一个单元，一口气攻下来：答错的题排到这一轮最后再来一遍，直到全部答对。', disabled: !open.length })}
@@ -238,7 +240,9 @@
     const it = session.queue[0];
     if (!it) { showDone(session); return; }
     const b = it.body || {};
-    const veil = load(recallKey, false);
+    // 思考辨析（2026-11-24）：题目带“先想一想”（body.think），选项先遮住，想好了再点开（用户：“要能够让学生在做题的过程中有自己的思考过程，思考后做出选择”）
+    const think = b.think ? String(b.think) : '';
+    const veil = Boolean(think) || load(recallKey, false);
     const tags = [`<span class="is-part">${esc(b.part || '')}</span>`, b.case || b.concept ? `<span>${esc(b.case || b.concept)}</span>` : '',
       session.mode !== it.unit && it.title !== (b.case || b.concept) ? `<span>${esc(it.title)}</span>` : '', session.again.has(key(it)) ? '<span>再来一遍</span>' : '',
       stake(it)].join('');
@@ -255,7 +259,7 @@
         ${it.kind === 'judge' ? '' : `<label class="lp-recall" title="主动回忆：选项先遮住，心里想好答案再看"><input type="checkbox" data-lp-recall${veil ? ' checked' : ''}>先想后看</label>`}</div>
       <article class="lp-q"><div class="lp-tags">${tags}</div>
         ${b.lead ? `<p class="lp-lead">${esc(b.lead)}</p>` : ''}${b.scene ? `<p class="lp-scene">${esc(b.scene)}</p>` : ''}
-        <p class="lp-prompt">${esc(it.kind === 'judge' ? `判断：${b.prompt}` : b.prompt)}</p>${opts}<div data-lp-fb></div></article>`;
+        <p class="lp-prompt">${esc(it.kind === 'judge' ? `判断：${b.prompt}` : b.prompt)}</p>${think ? `<p class="lp-think"><b>先想一想</b>${esc(think)}</p>` : ''}${opts}<div data-lp-fb></div></article>`;
     bindHome();
     const box = body.querySelector('[data-lp-opts]');
     const unveil = body.querySelector('[data-lp-unveil]');

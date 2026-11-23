@@ -39,8 +39,22 @@
   if (index === last) index = (index + 1 + Math.floor(value * (verses.length - 1))) % verses.length;
   node.textContent = verses[index];
   try { sessionStorage.setItem('spirit-boot-verse', String(index)); } catch (_) {}
+  // 智慧课堂 2026-11-24（用户：“灵田登陆时候的那句诗句，登陆后也显示在今日修行那个板块中”）：同一句也放进“今日修行”卡片（#hud-quest-verse，
+  // 横屏手机放不下时由 fullscreen.css 收起）和点开后的“今日修行”面板（#quest-verse，任何设备都显示）
+  const verse = verses[index];
+  global.SpiritBootVerse = verse;
+  function showVerse() {
+    const hud = document.getElementById('hud-quest-verse');
+    if (hud) { hud.textContent = `「${verse}」`; hud.hidden = false; }
+    const panel = document.getElementById('quest-verse');
+    const line = panel && panel.querySelector('span');
+    if (line) { line.textContent = verse; panel.hidden = false; }
+  }
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVerse); else showVerse();
 
-  const READ_TIME = 3200, PREPARE_LIMIT = 4800, FILL_TIME = 220;
+  // 智慧课堂 2026-11-24（用户：“灵田登陆的时候就不要设置延迟了，之前为了让学生看清这行字专门设置了延迟”）：去掉读诗句的 3.2 秒和等道藏卡的最多 4.8 秒，
+  // 云端进度一到就进灵田（只留进度条填满的 0.22 秒）；诗句进灵田后在“今日修行”里看
+  const FILL_TIME = 220;
   const started = global.performance?.now?.() ?? Date.now();
   const clock = () => global.performance?.now?.() ?? Date.now();
   const delay = ms => new Promise(resolve => global.setTimeout(resolve, Math.max(0, ms)));
@@ -66,6 +80,24 @@
   function tick() {
     if (aborted || ready) return;
     const age = clock() - started;
+    // 智慧课堂（2026-11-24，同学反映“每次卡到87%就会停”）：网站版由加载器（tools/lingtian_loader.js）下载文件，
+    // window.LingtianLoad 里有实际下载的字节数。下载时进度按字节走（5%—70%），写明下到第几个文件；文件到齐、正在连接云端时
+    // 按时间走到 87% 为止，并写明在连云端（等久了说明“云端回应较慢”）。以前只按时间走，几秒就到 87% 停住，看不出在等什么
+    const load = global.LingtianLoad;
+    if (load && !preparation && load.phase !== 'done') {
+      if (load.phase === 'error') { global.clearTimeout(progressTimer); return; }
+      const share = load.bytesTotal > 0 ? Math.min(1, load.bytesDone / load.bytesTotal) : 0;
+      const text = load.slow ? `网络较慢，还在下载灵田文件（${load.done}/${load.total}）…` : `正在下载灵田文件（${load.done}/${load.total}）…`;
+      paintProgress(Math.round(5 + 65 * share), text, 0);
+      progressTimer = global.setTimeout(tick, 120);
+      return;
+    }
+    if (load && !preparation) {
+      const waited = clock() - (load.doneAt || started);
+      paintProgress(Math.round(70 + 17 * (1 - Math.exp(-waited / 2500))), waited > 12000 ? '云端回应较慢，再稍等一下…' : '正在连接云端，唤醒灵田…', 1);
+      progressTimer = global.setTimeout(tick, 120);
+      return;
+    }
     const progressValue = Math.min(cardsPrepared && artPrepared ? 94 : 87, Math.round(5 + 89 * (1 - Math.exp(-age / 1650))));
     // This is the complete arrival sequence (including reading time), not a
     // measurement of downloaded bytes or a promise about network completion.
@@ -149,15 +181,9 @@
     invitation = options;
     finishPromise = (async () => {
       const work = prepareCards(options.engine);
-      const age = clock() - started;
-      let completed = false, limitTimer;
-      // Slow or failed card requests must not trap students behind a splash.
-      const limited = new Promise(resolve => { limitTimer = global.setTimeout(resolve, Math.max(0, PREPARE_LIMIT - age)); });
-      await Promise.all([
-        delay(READ_TIME - age),
-        Promise.race([work.then(() => { completed = true; }), limited]),
-      ]);
-      global.clearTimeout(limitTimer);
+      let completed = false;
+      work.then(() => { completed = true; });
+      await delay(0);   // 道藏卡已经备好的话（多数时候是），这一拍里 completed 就是 true
       if (aborted) return;
       global.clearTimeout(progressTimer);
       paintProgress(100, options.engine.cards?.available && completed ? '灵田已备，道藏静候启封' : '云雾已散，即将进入灵田', 2);
@@ -167,6 +193,8 @@
       promptArmed = completed;
       options.reveal();
       tryDaily();
+      // 道藏卡这时还没备好：备好以后再看要不要弹今日邀请（页面空闲、今天还没弹过才弹，规则同 tryDaily）
+      if (!completed) work.then(() => { if (aborted) return; promptArmed = true; tryDaily(); });
     })();
     return finishPromise;
   }

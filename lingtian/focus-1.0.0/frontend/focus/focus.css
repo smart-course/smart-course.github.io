@@ -12,7 +12,9 @@
   --fx-lavender: #e9e3f4;
   --fx-sky: #e2eff6;
   --fx-serif: var(--serif, "Noto Serif SC", "Songti SC", "STSong", serif);
-  --fx-sans: "Hiragino Maru Gothic ProN", "PingFang SC", "Microsoft YaHei", sans-serif;
+  /* 智慧课堂 2026-11-24（用户：“这里面的字体有点奇怪”“其它地方还有日文字体吗？都换成中文字体”）：原来排第一的是苹果的日文圆体，
+     简体字它没有的（习、读、个……）又落到苹方，一行字两种字体。改成只用中文字体 */
+  --fx-sans: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", "Noto Sans SC", "Source Han Sans SC", sans-serif;
   position: fixed;
   inset: 0;
   z-index: 6000;

@@ -12,11 +12,14 @@
  * 6. 第一次进静修的引导（2026-11-23）：还没选过化身的同学点“静修”时，先看三步——选性别和化身、选去哪间雅室、怎么静修；
  *    最后直接在选好的公共雅室入席。静修右上角的“？”随时再看“怎么静修”。见下面“第一次进静修的引导”一段。
  * 7. 静修在线（2026-11-23）：打开、关上静修时发 lingtian:focus 事件，lingtian-bridge.js 马上补报一次在线（开着静修时报 'focus'）。
+ * 8. 立愿输入框（2026-11-24）：套一层“笺”、四个常用立愿一点就填，见下面“立愿输入框”一段。
+ * 9. 陪修（2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位“陪修”，见 focus-companion.js。
  */
 (function (global) {
   'use strict';
   const document = global.document;
-  const BASE = new URL('focus-1.0.0/', document.currentScript ? document.currentScript.src : global.location.href).href;
+  // 网站版由加载器以内联脚本执行（tools/lingtian_loader.js，2026-11-24），那时 currentScript.src 是空的：退回本页地址（本文件和 index.html 在同一个文件夹）
+  const BASE = new URL('focus-1.0.0/', (document.currentScript && document.currentScript.src) || global.location.href).href;
   const ADAPTER = BASE + 'adapters/browser/focus-module.js';
   const ASSETS = BASE + 'frontend/';
   const EMPTY = { gender: null, avatarId: null, profileChosen: false };
@@ -41,7 +44,7 @@
     return adapterLoading;
   }
   // 静修界面的版式调整（focus-skin.css，2026-11-23）：要排在模块自己的 focus.css 后面，所以等模块的样式加载完再加
-  const SKIN = new URL('focus-skin.css', document.currentScript ? document.currentScript.src : global.location.href).href;
+  const SKIN = new URL('focus-skin.css', (document.currentScript && document.currentScript.src) || global.location.href).href;   // 同上，加载器执行时退回本页地址
   function addSkin() {
     if (document.querySelector('link[data-fh-skin]')) return;
     const link = document.createElement('link');
@@ -361,6 +364,53 @@
     });
     tools.insertBefore(button, tools.querySelector('[data-fx-action="settings"]'));
   }
+  // ---------- 立愿输入框（2026-11-24 用户：“这里面的字体有点奇怪，包括这个框能不能修改得更美观一些，让学生看到有填写的欲望”） ----------
+  // 模块自己的输入框外面套一层“笺”（左边一支笔、右边字数），下面四个常用立愿一点就填进去（再点一下去掉），提示语改成邀请的口气。
+  // 输入框还是模块原来那个（refs.goal），所以开始静修、回车开始、记住上次立愿都照旧；样式在 focus-skin.css。
+  const GOAL_PICKS = ['复习本章', '读懂一个概念', '做修炼场', '整理笔记'];
+  const GOAL_PEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4l-7.7 7.7"/><path d="M11.6 12.3c-2.1-.4-4 1.1-4.4 3.2-.3 1.7-1 2.8-2.6 3.8 3.4.7 6.4-.2 7.7-2.4.9-1.5.6-3.4-.7-4.6z"/></svg>';
+  function enhanceGoal(container) {
+    const input = container && container.querySelector('.fx-goal-input');
+    if (!input || input.closest('.fh-goal-field')) return;
+    const hint = container.querySelector('.fx-goal-label span');
+    if (hint) hint.textContent = '写下来，更容易专注';
+    input.placeholder = '写下这一段想完成的一件小事';
+    const max = input.maxLength > 0 ? input.maxLength : 60;
+    const field = document.createElement('div');
+    field.className = 'fh-goal-field';
+    field.innerHTML = `<span class="fh-goal-pen" aria-hidden="true">${GOAL_PEN}</span><small class="fh-goal-count" aria-hidden="true"></small>`;
+    input.parentNode.insertBefore(field, input);
+    field.insertBefore(input, field.lastChild);
+    const picks = document.createElement('div');
+    picks.className = 'fh-goal-picks';
+    picks.setAttribute('role', 'group');
+    picks.setAttribute('aria-label', '常用立愿，点一下填进去');
+    picks.innerHTML = GOAL_PICKS.map(text => `<button type="button" class="fh-goal-pick" data-fh-pick="${esc(text)}" aria-pressed="false">${esc(text)}</button>`).join('');
+    field.after(picks);
+    const count = field.querySelector('.fh-goal-count');
+    const parts = value => String(value || '').split(/[、，,；;\s]+/).map(s => s.trim()).filter(Boolean);
+    const sync = () => {
+      const value = input.value || '';
+      field.classList.toggle('is-filled', value.trim() !== '');
+      count.textContent = `${Array.from(value).length}/${max}`;
+      const chosen = new Set(parts(value));
+      picks.querySelectorAll('[data-fh-pick]').forEach(b => b.setAttribute('aria-pressed', String(chosen.has(b.dataset.fhPick))));
+    };
+    picks.addEventListener('click', event => {
+      const button = event.target.closest('[data-fh-pick]');
+      if (!button) return;
+      const word = button.dataset.fhPick, list = parts(input.value);
+      const text = (list.includes(word) ? list.filter(x => x !== word) : list.concat(word)).join('、');
+      if (Array.from(text).length > max) { toast(`立愿最多 ${max} 个字。`); return; }
+      input.value = text;
+      input.dispatchEvent(new Event('input', { bubbles: true }));   // 模块在 input 事件里记下立愿（draft.target）
+    });
+    input.addEventListener('input', sync);
+    // 模块自己换立愿（上一段结束、恢复存档、记住的上次立愿）时不发 input 事件：计时卡展开、换段时再对一次
+    const consoleNode = container.querySelector('.fx-console');
+    if (consoleNode) new MutationObserver(sync).observe(consoleNode, { attributes: true, attributeFilter: ['data-expanded', 'data-phase'] });
+    sync();
+  }
   // ---------- 静修大屏（2026-11-23 用户：“点击开始进修后，进入类似于情景猜谜小游戏那样的大屏，上面有静修倒计时以及你和朋友坐在桌子上的
   //   实时状态图。如果切出大屏，就暂停静修，你朋友的页面也会同步显示你已经暂停。看你们谁最先完成静修。”） ----------
   // 一开始计时（开始静修、继续静修、开始小憩）就铺满整个页面：大圆环倒计时、立愿，旁边是同室每一位同修坐在书案前的实时状态
@@ -513,7 +563,8 @@
       li.querySelector('[data-fh-desk-time]').textContent = x.status === 'completed' ? '' : x.kind && Number(x.durationMs) > 0 && x.status !== 'idle' && x.status !== 'ended' ? `还剩 ${clockText(x.kind === 'focus' ? lt : Math.max(0, x.durationMs - (x.elapsedMs || 0)))}` : '';
       li.querySelector('[data-fh-desk-bar]').style.width = `${Number(x.durationMs) > 0 ? Math.min(100, Math.round((Number(x.elapsedMs) || 0) * 100 / Number(x.durationMs))) : 0}%`;
     });
-    $s('[data-fh-stage-count]').textContent = list.length ? `${list.length} 人 · 按谁先完成排` : '';
+    // 陪修（focus-companion.js）不算人数：只有你和陪修时写“你和陪修”
+    $s('[data-fh-stage-count]').textContent = !list.length ? '' : list.some(x => x.companion) ? '你和陪修 · 按谁先完成排' : `${list.length} 人 · 按谁先完成排`;
     // 领先或第一个完成的
     const racers = list.filter(x => rank.has(x.id));
     const first = racers[0];
@@ -603,6 +654,8 @@
       if (!lt || !lt.engine) throw new Error('灵田还在入境，请稍候再进静修。');
       const engine = lt.engine;
       await loadArt();
+      // 静修陪修（focus-companion.js，2026-11-24）：雅室里的真人只有自己一个时，这台设备的画面上多坐一位“陪修”
+      if (global.LingtianFocusCompanion) global.LingtianFocusCompanion.install();
       let container = document.getElementById('focus-host');
       if (!container) { container = document.createElement('div'); container.id = 'focus-host'; document.body.appendChild(container); }
       const isOnline = !!engine.online;
@@ -638,6 +691,7 @@
         onToast: (message, type) => toast(message, type),
       });
       addHelpButton(container);
+      enhanceGoal(container);
       watchStage(state.module);
       return state.module;
     })().finally(() => { state.creating = null; });

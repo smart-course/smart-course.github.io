@@ -103,7 +103,7 @@
   style.dataset.readable = 'panel';   // 面板宽度固定：字号按温和倍数调整（live-readable.js）
   style.textContent = `
   .clp-panel { position: fixed; z-index: 90; left: 16px; bottom: 80px; width: min(360px, calc(100vw - 32px)); padding: 12px 14px; border: 1px solid rgba(35,101,95,.28); border-radius: 10px; background: rgba(255,253,248,.97); color: #201c18; box-shadow: 0 12px 30px rgba(0,0,0,.14); font: 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
-  .clp-who { display: flex; justify-content: space-between; gap: 10px; align-items: baseline; }
+  .clp-who { display: flex; flex-wrap: wrap; justify-content: space-between; gap: 4px 10px; align-items: baseline; }
   .clp-who strong { font-size: 15px; }
   .clp-no { display: inline-block; margin-right: 6px; padding: 1px 8px; border-radius: 999px; color: #fff; background: #a4492d; font-size: 13px; font-weight: 800; vertical-align: 1px; }
   .clp-no[hidden] { display: none; }
@@ -502,6 +502,8 @@
     font: 16px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-gate-card b { display: block; color: #7a4a00; font-size: 1.12em; }
   .clp-gate-card p { margin: 4px 0 0; }
+  .clp-gate-card .clp-gate-net { margin-top: 6px; color: #9a5a12; font-size: .92em; font-weight: 700; }
+  .clp-gate-card .clp-gate-net[hidden] { display: none; }
   .clp-gate-card[hidden] { display: none; }
   .dbr-form.is-shut input { background: #f3eee4; color: #8a7f74; }
   .dbr-top { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 8px; padding: 8px 16px; border-bottom: 1px solid rgba(70,51,34,.08); background: #fffaf0; color: #6d6259; font-size: 13.5px; }
@@ -618,9 +620,14 @@
     border: 2px solid transparent; background: linear-gradient(#fffaf3, #fffaf3) padding-box, linear-gradient(90deg, #ffd36b, #ff8fc4, #b98cff, #7fd8ff, #ffd36b) border-box;
     background-size: 100% 100%, 300% 100%; animation: clp-flow 5s linear infinite; }
   .clp-v2 .clp-head { position: relative; flex: 0 0 auto; padding: 10px 14px 8px; background: var(--clp-head-bg); color: var(--clp-head-ink); }
-  .clp-v2 .clp-who { display: flex; align-items: center; gap: 7px; }
+  /* 2026-11-24（同学反映“弹幕栏右上角的退出按键在弹幕栏外面点不到了”）：面板外框 overflow:hidden，头部这一行以前不换行、
+     右边“字号／请假／收起”又不许缩小，字号调大（面板“字号”大、特大，或手机、微信把系统字体调大）、名字长、有宗主标志时，
+     “收起”被挤出面板右边裁掉，点不到、关不上面板。现在放不下就整组换到第二行靠右，按钮之间也可以再换行 */
+  .clp-v2 .clp-who { display: flex; flex-wrap: wrap; justify-content: flex-start; align-items: center; gap: 6px 7px; }
   .clp-v2 .clp-no { margin: 0; flex: 0 0 auto; }
   .clp-v2 .clp-name { min-width: 0; overflow: hidden; font-size: 17px; font-weight: 800; white-space: nowrap; text-overflow: ellipsis; }
+  /* 换不换行先按名字只占一个字算（名字长就先缩成“欧阳…”，同原来），空间够时照常显示全名；名字缩到一个字还放不下，右边的按钮才换到第二行 */
+  .clp-v2 .clp-who > .clp-name { flex: 1 1 1.2em; max-width: max-content; }
   .clp-v2 .clp-realm { flex: 0 0 auto; margin: 0; padding: 1px 9px; border-radius: 5px; font: 700 14px/1.5 "Kaiti SC", STKaiti, KaiTi, serif; }
   /* 宗主（2026-11-15 用户：“被选为宗主的人，在境界标志右边再设置一个‘宗主’的标志，要能体现出尊贵感”）：鎏金印章、细金边、外发光，一道流光扫过 */
   .clp-lord { position: relative; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 3px; margin: 0 0 0 4px; padding: 1px 9px 1px 7px; overflow: hidden;
@@ -713,7 +720,8 @@
     .clp-lt::before, .clp-lt-head strong, .clp-lt-emb, .clp-lt-halo, .clp-lt-aura, .clp-lt-runes, .clp-lt-isle, .clp-lt-cloud, .clp-lt-bud, .clp-lt-fall, .clp-lt-go, .clp-lt-go::after { animation: none; }
     .clp-lt-qi, .clp-lt-star { display: none; }
   }
-  .clp-v2 .clp-links { display: flex; flex: 0 0 auto; gap: 5px; margin-left: auto; }
+  .clp-v2 .clp-links { display: flex; flex: 0 1 auto; flex-wrap: wrap; justify-content: flex-end; gap: 5px; min-width: 0; max-width: 100%; margin-left: auto; }
+  .clp-v2 .clp-head .clp-links .clp-link { white-space: nowrap; }
   /* 头部的小胶囊：字色用各境界的 --clp-link；浅色头部（素石、青玉、金）用半透明白底，深色头部（紫霄、神光）用淡淡的亮色底 */
   .clp-v2 .clp-head .clp-link { --clp-chip-ink: var(--clp-link); --clp-chip-bg: rgba(138,59,34,.08); --clp-chip-line: rgba(138,59,34,.28); --clp-chip-bg-hover: rgba(138,59,34,.15); --clp-chip-line-hover: rgba(138,59,34,.5);
     padding: 2px 8px 2px 6px; gap: 3px; font-size: 12px; }
@@ -929,8 +937,11 @@
   .clp-v2 [data-cl-export-state]:not([data-state]) { display: none; }
   .clp-v2 .clp-foot { position: relative; padding: 8px 14px; border-top: 1px solid rgba(70,51,34,.12); }
   .clp-v2 .clp-mydm { margin: 0; }
-  .clp-v2 .clp-mydm summary { padding-right: 196px; }
-  .clp-v2 .clp-foot-links { position: absolute; top: 6px; right: 14px; display: flex; gap: 6px; }
+  /* 右边“更新说明／修为说明”是绝对定位的：让位的宽度、高度按它实际的大小（脚本量出来写进 --clp-foot-w／--clp-foot-h），
+     字放大以后它变宽、换成两行，也不会盖住“我发过的弹幕”（2026-11-24） */
+  .clp-v2 .clp-mydm summary { padding-right: calc(var(--clp-foot-w, 188px) + 8px); min-height: var(--clp-foot-h, 0px); }
+  .clp-v2 .clp-foot-links { position: absolute; top: 6px; right: 14px; display: flex; flex-wrap: wrap; justify-content: flex-end; gap: 6px; max-width: calc(100% - 28px - 8.5em); }
+  .clp-v2 .clp-foot-links .clp-link { white-space: nowrap; }
   .clp-v2 .clp-foot-links .clp-link { font-size: 12.5px; }
   /* 注销登录（原头部的“不是我”，2026-10-22 用户要求改名、放到面板最下面） */
   .clp-v2 .clp-out { display: flex; justify-content: flex-end; margin-top: 7px; padding-top: 7px; border-top: 1px dashed rgba(70,51,34,.16); }
@@ -2715,7 +2726,9 @@
   //   习经的机制图闯关（[data-mech-quest]）、分组讨论（[data-discuss] 的各步 .rt-part）、经营沙盘（[data-biz] 的各步 .rt-part）：老师在投屏页这一块点“开始”
   //   （ck_game_start，live-gates.js）以后才显示；之前收起，放一张“等老师开始”的卡片，隔几秒问后台（ck_game_started）。角色卡、讨论题等介绍照常显示，可以先读。
   //   老师“收起，重新开始”以后又收起。辩论赛跟着老师的“辩论流程”走（setupDebateClock）。
-  //   请假补做、历史课堂只查看、学生版测试页、离线版不收起；后台还没有这组函数（未执行 SQL）或连续几次连不上时也不收起
+  //   请假补做、历史课堂只查看、离线版不收起；后台还没有这组函数（未执行 SQL）时也不收起。
+  //   2026-11-24（用户：“除了聊天室外，辩论赛和经营沙盘中的题目，比如选择正反方和角色等。也要等老师点击后才能开始作答。”）：
+  //   学生版测试页也收起（同学生）；网络不稳、连续几次连不上后台时不再放开，卡片上说明“正在重新连接”，已经开始的保持开着
   function setupGameGates() {
     const NAME = { mech: '机制图闯关', disc: '分组讨论', biz: '经营沙盘' };
     const WHAT = { mech: '闯关：从第一步推出下一步，一关一关打通机制图', disc: '选角色、进本组聊天室讨论，再全班表决', biz: '选角色组、进本组聊天室商量，再由代表投票' };
@@ -2731,7 +2744,8 @@
       g.card.className = 'clp-gate-card';
       g.card.setAttribute('role', 'status');
       g.card.innerHTML = `<b>${NAME[g.kind]} · 等老师开始</b><p>老师在大屏上点“开始”以后，这里才能${WHAT[g.kind]}。`
-        + (g.kind === 'mech' ? '先看看上面的机制图，想一想第一步之后会发生什么。' : '上面的讨论题和角色卡可以先读一读。') + '</p>';
+        + (g.kind === 'mech' ? '先看看上面的机制图，想一想第一步之后会发生什么。' : '上面的讨论题和角色卡可以先读一读。') + '</p>'
+        + '<p class="clp-gate-net" data-gate-net hidden>网络不太稳，正在重新连接……</p>';
       shield(g.card);
       g.parts[0].insertAdjacentElement('beforebegin', g.card);
     });
@@ -2744,6 +2758,8 @@
       const open = off || Boolean(started && Object.prototype.hasOwnProperty.call(started, g.key));
       g.parts.forEach((el) => el.classList.toggle('clp-gate-wait', !open));
       g.card.hidden = open;
+      const net = g.card.querySelector('[data-gate-net]');
+      if (net) net.hidden = open || failures < 3;
     });
     async function poll() {
       lastPoll = Date.now();
@@ -2754,7 +2770,7 @@
         failures = 0;
       } catch (problem) {
         if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) off = true;
-        else if (++failures >= 3) off = true;
+        else failures += 1;   // 连不上：保持上一次的样子（没开始的收着、开始了的开着），接着再问
         if (failures === 1) console.warn('[小游戏老师开始]', problem);
       }
       paint();
@@ -2770,7 +2786,7 @@
     }, 1000);
     document.addEventListener('visibilitychange', () => { if (!document.hidden && !off) poll(); });
   }
-  if (!worksheet && joined && !OFFLINE && !PREVIEW && !MAKEUP && !viewing && backend
+  if (!worksheet && joined && !OFFLINE && !MAKEUP && !viewing && backend
       && document.querySelector('[data-mech-quest], [data-discuss][data-practice], [data-biz][data-practice]')) setupGameGates();
   // 机制图闯关（2026-11-20，习经）：闯关在页面自己的脚本里进行，每过一关发一个 xjp:mechquest 事件。
   // 进了本周课堂的同学把进度报给后台（ck_mech_report），供投屏页的看板用；不计修为。
@@ -3638,6 +3654,17 @@
     });
   }
 
+  // 面板底部右边的“更新说明／修为说明”：量出实际宽高给“我发过的弹幕”让位（字放大、换行以后也不重叠；2026-11-24）
+  const footLinks = panel.querySelector('.clp-foot-links');
+  if (footLinks && footLinks.parentElement && 'ResizeObserver' in window) {
+    const foot = footLinks.parentElement;
+    new ResizeObserver(() => {
+      if (!footLinks.offsetWidth) return;   // 面板收起时不量
+      foot.style.setProperty('--clp-foot-w', `${Math.ceil(footLinks.offsetWidth)}px`);
+      foot.style.setProperty('--clp-foot-h', `${Math.ceil(footLinks.offsetHeight)}px`);
+    }).observe(footLinks);
+  }
+
   // ---------- 我发过的弹幕：查看、删除（后台函数只认本人这次登录发的；删除＝撤回：投屏不再显示，老师的记录里仍保留） ----------
   const mydm = panel.querySelector('[data-cl-mydm]');
   const mydmList = mydm.querySelector('[data-cl-mydm-list]');
@@ -4050,14 +4077,17 @@
       shield(bar);
       // 老师开始以前收起各步（2026-11-22 用户：“辩论赛，机制图这类小游戏，要老师点击按钮后才可以游玩，参照pk对决的方式。防止有的学生提前把题目都做了。”）：
       // 老师在投屏页“辩论流程”图点“开始”以前（后台没有这场辩论），辩前票、论据卡、自由讨论、聊天室、辩后投票都收起，只放一张“等老师开始”的卡片；
-      // 开始以后每一步到了才开放（还没到的步骤不能递交）。学生版测试页、历史课堂只查看的不收起；后台连续几次连不上时也不收起
-      const gated = !PREVIEW && !viewing;
+      // 开始以后每一步到了才开放（还没到的步骤不能递交）。历史课堂只查看的不收起。
+      // 2026-11-24（用户：“除了聊天室外，辩论赛和经营沙盘中的题目，比如选择正反方和角色等。也要等老师点击后才能开始作答。”）：
+      //   学生版测试页也和学生一样收起（以前测试页不收起，老师在测试页上看到辩前票能先投）；网络不稳、连续几次连不上后台时也不再放开，
+      //   卡片上说明“正在重新连接”，接着每几秒再问（以前连续 3 次连不上就放开，网络差的同学能提前作答）。只有后台没有这个函数时才不收起
+      const gated = !viewing;
       const wait = document.createElement('div');
       wait.className = 'clp-gate-card';
       wait.hidden = !gated;
       wait.setAttribute('role', 'status');
       wait.innerHTML = '<b>辩论赛 · 等老师开始</b><p>老师在大屏上点“开始”以后，这里才能投辩前票、选论据卡；后面的自由讨论、聊天室、辩后投票，也跟着老师的进度一步一步开放。'
-        + '辩题和两方的立场可以先想一想。</p>';
+        + '辩题和两方的立场可以先想一想。</p><p class="clp-gate-net" data-gate-net hidden>网络不太稳，正在重新连接……</p>';
       shield(wait);
       bar.insertAdjacentElement('afterend', wait);
       section.classList.toggle('dbt-wait', gated);
@@ -4066,6 +4096,8 @@
       const KEYS = [[debateKey(no, 'pre'), debateKey(no, 'cards')], [], [], [debateKey(no, 'post')]];   // 各步要递交的题（自由讨论、聊天室两步没有）
       let live = null;      // { step, left, paused, ends（本机 performance 时钟上的结束时刻）}
       let failures = 0;
+      let missing = false;  // 后台没有 ck_debate_live（没执行 SQL）：不收起
+      let seenStart = false;  // 这一页上已经看到老师开始过：之后网络断了不再收起（同原来，各步不再按倒计时拦）
       let lastPoll = 0;
       const leftNow = () => (!live ? 0 : live.paused ? live.left : Math.max(0, Math.ceil((live.ends - performance.now()) / 1000)));
       const chipOf = (key) => {
@@ -4086,7 +4118,10 @@
         const up = at >= 0 && at < END && !live.paused && left <= 0;
         const shut = (i) => at >= 0 && (at > i || (at === i && up));
         const why = (i) => (at > i ? (at >= END ? '辩论已结束，不能再递交' : '辩论已进入后面的步骤，这一步不能再递交；还没递交的同学可以请老师回到这一步') : '倒计时已结束，不能再递交；老师加时后可以继续递交');
-        const waiting = gated && at < 0 && failures < 3;   // 老师还没开始（连不上后台时不拦）
+        const lost = failures >= 3;
+        const waiting = gated && at < 0 && !missing && !(lost && seenStart);   // 老师还没开始（开始以前连不上后台也收着，见上）
+        const net = wait.querySelector('[data-gate-net]');
+        if (net) net.hidden = !(waiting && lost);
         const early = (i) => gated && at >= 0 && i > at;    // 老师还没推进到这一步
         section.classList.toggle('dbt-wait', waiting);
         wait.hidden = !waiting;
@@ -4131,6 +4166,7 @@
           const state = (Array.isArray(value) ? value[0] : value) || {};
           failures = 0;
           const step = state.status === 'ok' ? KEY_OF[state.stage] : '';
+          if (step) seenStart = true;
           if (!step) live = null;
           else {
             const left = Math.max(0, Number(state.left) || 0);
@@ -4139,7 +4175,9 @@
         } catch (problem) {
           failures += 1;
           if (failures === 1) console.warn('[辩论赛倒计时]', problem);
-          if (failures >= 3) live = null;   // 连不上后台：不拦递交
+          if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) missing = true;
+          // 连续连不上：倒计时不再显示（live 清空）；老师还没开始的照样收着，开始以后各步不再按倒计时拦递交（同原来）
+          if (failures >= 3 && live) live = null;
         }
         paint();
       }
@@ -5567,7 +5605,7 @@
         ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
         <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方获胜，获胜方不加修为（按自己的判断投，不用看哪一方人多）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
-        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）；“课程共建”被老师采纳，还可以再加修为。</li>
+        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，匿名提建议、提疑问（老师看不到是谁写的），递交本身不加修为；“课程共建”被老师点赞采纳，可以加修为。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -6079,7 +6117,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261123c-lingtian-pe' : '20261123c-lingtian-xjp';   // 2026-11-23 晚 先起道号、环境音、建议箱历史（两门课都有）   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261124-practice-pe' : '20261124-practice-xjp';   // 2026-11-24 修炼场思考辨析、灵田进入更快、面板收起（两门课都有）   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6403,8 +6441,9 @@
     const FBP = Live.FEEDBACK || { points: 5, min: 10 };
     const key = `classlive-feedback:${identity.classroom}:${caseNo}`;   // 只在这台设备上记个数，提醒自己提交过几条
     const sent = Number(load(key, 0)) || 0;
-    // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）
-    const reward = `本堂课第一次写满 ${FBP.min} 字，加 ${FBP.points} 修为。`;
+    // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）。
+    // 2026-11-24 起只递交不再加修为（用户：“匿名建议箱只递交的话不再增加修为值了，只有老师点赞才增加”）：课程共建被老师点赞采纳才加
+    const reward = FBP.points ? `本堂课第一次写满 ${FBP.min} 字，加 ${FBP.points} 修为。` : '“课程共建”被老师点赞采纳，可以加修为。';
     Live.feedbackBox.bind(root, {
       FB, enabled, note,
       idle: sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : `可以提交多条。${reward}`,
@@ -6426,7 +6465,7 @@
         const earned = (Array.isArray(got) ? got[0] : got) === true;
         save(key, (Number(load(key, 0)) || 0) + 1);
         if (typeof onSent === 'function') setTimeout(onSent, 300);
-        return `已匿名提交到“${name}”（${time()}）${earned ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
+        return `已匿名提交到“${name}”（${time()}）${earned && FBP.points ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
           + `${kind === 'build' ? '被老师采纳，还可以加修为。' : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
       },
     });

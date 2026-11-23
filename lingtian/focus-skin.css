@@ -128,3 +128,47 @@
   .fx-console[data-expanded="true"] .fx-primary-actions .fx-button-primary { min-height: 42px; font-size: 15px !important; }
   .fx-console[data-expanded="false"] .fx-clock-face strong { font-size: 28px; }
 }
+
+/* ---------- 立愿输入框（2026-11-24 用户：“这里面的字体有点奇怪，包括这个框能不能修改得更美观一些，让学生看到有填写的欲望”） ----------
+   字体：模块的 --fx-sans 原来排第一的是日文圆体，已在 focus.css 改成中文字体。
+   focus-host.js 的 enhanceGoal 给输入框套一层“笺”（.fh-goal-field：左边一支笔、右边字数），下面一排常用立愿（.fh-goal-picks，点一下填进去）。
+   聚焦时不用原来方方正正的金色描边，换成玉色边框加一圈淡光；写了字以后笔和边框都变成玉色。 */
+.focus-root .fh-goal-field { position: relative; display: flex; align-items: center; gap: 2px; min-width: 0; margin-top: 2px;
+  border: 1px solid #d3dbc0; border-radius: 14px; background: linear-gradient(180deg, #fffffb, #fbf9ef);
+  box-shadow: inset 0 1px 2px #5f7a4c12, 0 1px 0 #fff; transition: border-color .2s, box-shadow .2s, background-color .2s; }
+.focus-root .fh-goal-field:hover { border-color: #bfcca8; }
+.focus-root .fh-goal-field:focus-within { border-color: #86a98e; background: #fffffc; box-shadow: 0 0 0 4px #9fc2a640, inset 0 1px 2px #5f7a4c0d; }
+.focus-root .fh-goal-field.is-filled { border-color: #aec4a0; background: linear-gradient(180deg, #fdfef9, #f4f8ec); }
+.focus-root .fh-goal-pen { flex: 0 0 auto; display: grid; place-items: center; width: 32px; height: 32px; margin-left: 8px; border-radius: 50%;
+  background: #f4ecda; color: #a3824a; transition: background-color .2s, color .2s; }
+.focus-root .fh-goal-pen svg { transition: transform .25s ease; }
+.focus-root .fh-goal-field:focus-within .fh-goal-pen, .focus-root .fh-goal-field.is-filled .fh-goal-pen { background: #e2eedd; color: #4e7a5c; }
+.focus-root .fh-goal-field:focus-within .fh-goal-pen svg { transform: rotate(-10deg) translateY(-1px); }
+.focus-root .fx-console .fh-goal-field .fx-goal-input { flex: 1 1 auto; width: auto; min-width: 0; min-height: 46px; padding: 8px;
+  border: 0; border-radius: 0; background: transparent; box-shadow: none; outline: none; color: #2f5745; letter-spacing: .2px; }
+.focus-root .fx-console .fh-goal-field .fx-goal-input::placeholder { color: #9aa48c; opacity: 1; }
+.focus-root .fh-goal-count { flex: 0 0 auto; margin-right: 12px; font-size: 12px; color: #a6ad97; font-variant-numeric: tabular-nums; opacity: 0; transition: opacity .2s; }
+.focus-root .fh-goal-field:focus-within .fh-goal-count, .focus-root .fh-goal-field.is-filled .fh-goal-count { opacity: 1; }
+/* 常用立愿：点一下填进去，再点一下去掉；选中的是玉色 */
+.focus-root .fh-goal-picks { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 8px; }
+.focus-root .fh-goal-pick { display: inline-flex; align-items: center; min-height: 30px; padding: 3px 12px; border: 1px solid #d8e0c6; border-radius: 999px;
+  background: #f5f6ea; color: #5c7552; font-size: 13px; line-height: 1.2; cursor: pointer; box-shadow: inset 0 1px 0 #fff;
+  transition: background-color .15s, border-color .15s, color .15s, transform .15s; }
+.focus-root .fh-goal-pick:hover { background: #ebf2de; border-color: #c2d1ab; color: #42664a; }
+.focus-root .fh-goal-pick:active { transform: translateY(1px); }
+.focus-root .fh-goal-pick[aria-pressed="true"] { background: #5f866a; border-color: #5f866a; color: #fffdf5; box-shadow: 0 2px 6px #4e795a33; }
+.focus-root .fh-goal-pick:focus-visible { outline: 2px solid #86a98e; outline-offset: 2px; }
+@media (max-width: 720px) {
+  .focus-root .fx-console .fh-goal-field .fx-goal-input { min-height: 44px; }
+  .focus-root .fh-goal-pen { width: 28px; height: 28px; margin-left: 7px; }
+  .focus-root .fh-goal-picks { gap: 5px; margin-top: 7px; }
+  .focus-root .fh-goal-pick { padding: 3px 10px; font-size: 12px; }
+}
+/* 手机横屏、矮屏：放不下就先收起常用立愿 */
+@media (min-width: 721px) and (max-height: 560px) {
+  .focus-root .fx-console .fh-goal-field .fx-goal-input { min-height: 38px; }
+  .focus-root .fh-goal-picks { display: none; }
+}
+
+/* ---------- 陪修（focus-companion.js，2026-11-24）：只在这台设备上陪你，不能结为道友，同修名单里不显示这个按钮 ---------- */
+.focus-root [data-fx-action="friend-person"][data-person^="companion:"] { display: none !important; }

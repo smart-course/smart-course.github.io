@@ -20,6 +20,12 @@
 
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const fail = (status, code, message) => Object.assign(new Error(message), { status, code });
+  // 等云端回应的上限（2026-11-24，同学反映进灵田“卡到87%就会停”）：领凭证、调用云函数以前没有时限，网络断在半路时页面会一直等着。
+  // 超过时限按“连不上”处理：进入时显示“洞天暂未连接”和“重新连接”按钮；游戏里的操作照原来的规则留作“待确认”（同一请求只结算一次）
+  const within = (promise, ms) => new Promise((resolve, reject) => {
+    const timer = setTimeout(() => reject(fail(503, 'network', '云端超过 ' + Math.round(ms / 1000) + ' 秒没有回应，请检查网络后重试；已有灵田进度保存在服务器。')), ms);
+    Promise.resolve(promise).then((value) => { clearTimeout(timer); resolve(value); }, (error) => { clearTimeout(timer); reject(error); });
+  });
 
   // 在线时长（2026-11-20 用户：“统计学生的在线时长好像不是很准，有的同学总是显示‘-’……尤其是加入云间灵田以后”）：
   // 灵田是另开的标签页，课程页面切到后台以后就不再报在线，在灵田里的时间以前不算。这里和课程页面一样：页面在前台时每 30 秒报一次
@@ -71,7 +77,7 @@
         if (saved && saved.ticket && saved.role && saved.expiresAt > Date.now() + 60_000) { ticketValue = saved.ticket; role = saved.role; ticketCourse = saved.course || null; return ticketValue; }
       } catch (error) { /* 浏览器禁用存储时每次重新领凭证 */ }
     }
-    const raw = await backend.rpc('lt_ticket', { p_classroom: room });
+    const raw = await within(backend.rpc('lt_ticket', { p_classroom: room }), 20_000);
     const res = (Array.isArray(raw) ? raw[0] : raw) || {};
     if (res.status !== 'ok' || !res.ticket) {
       const status = res.status || 'login';
@@ -107,8 +113,8 @@
       const ticket = ticketValue || await fetchTicket(attempt > 0);
       let out;
       try {
-        out = await backend.callFunction('lingtian', { ticket, path: pathname, query, body: body === undefined ? null : body,
-          ...(role === 'preview' ? { previewSect: previewSect() } : {}) });
+        out = await within(backend.callFunction('lingtian', { ticket, path: pathname, query, body: body === undefined ? null : body,
+          ...(role === 'preview' ? { previewSect: previewSect() } : {}) }), 30_000);
       } catch (error) {
         throw fail(503, 'network', '云端暂时没有回应，请检查网络后重试；已有灵田进度保存在服务器。');
       }
