@@ -367,7 +367,7 @@
   // ---------- 立愿输入框（2026-11-24 用户：“这里面的字体有点奇怪，包括这个框能不能修改得更美观一些，让学生看到有填写的欲望”） ----------
   // 模块自己的输入框外面套一层“笺”（左边一支笔、右边字数），下面四个常用立愿一点就填进去（再点一下去掉），提示语改成邀请的口气。
   // 输入框还是模块原来那个（refs.goal），所以开始静修、回车开始、记住上次立愿都照旧；样式在 focus-skin.css。
-  const GOAL_PICKS = ['复习本章', '读懂一个概念', '做修炼场', '整理笔记'];
+  const GOAL_PICKS = ['复习本章', '读懂一个概念', '考试复习', '整理笔记'];   // 用户 11-24：“‘做修炼场’改为‘考试复习’”
   const GOAL_PEN = '<svg viewBox="0 0 24 24" width="18" height="18" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M20 4l-7.7 7.7"/><path d="M11.6 12.3c-2.1-.4-4 1.1-4.4 3.2-.3 1.7-1 2.8-2.6 3.8 3.4.7 6.4-.2 7.7-2.4.9-1.5.6-3.4-.7-4.6z"/></svg>';
   function enhanceGoal(container) {
     const input = container && container.querySelector('.fx-goal-input');
