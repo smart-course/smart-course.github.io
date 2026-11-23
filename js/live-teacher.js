@@ -2958,10 +2958,12 @@
     const key = `${course.slug}:${state.klass.id}:${day}`;
     if (!force && todayVisits.key === key && Date.now() - todayVisits.at < 60000) return;
     try {
-      const since = new Date(Date.parse(`${day}T00:00:00+08:00`)).toISOString();
-      const rows = await backend.fetchAll('visits', { class_id: Number(state.klass.id) || state.klass.id }, { since: ['last_at', since] });
-      const roster = new Set(rosterOf().map((person) => sidKey(person.sid)));
-      todayVisits.sids = new Set(rows.filter((row) => !row.auditor && (!roster.size || roster.has(sidKey(row.sid)))).map((row) => sidKey(row.sid)));
+      const dayStart = Date.parse(`${day}T00:00:00+08:00`);
+      const rows = await backend.fetchAll('visits', { class_id: Number(state.klass.id) || state.klass.id }, { since: ['last_at', new Date(dayStart).toISOString()] });
+      // 与学情分析一字不差（2026-11-23 发布后线上 2648 班又差 1 人：有一段在线是前一天夜里开始、过了零点才结束的）：
+      //   一段在线按开始的时间算在哪一天；点名册上标“班外”（老师允许加入）的同学不算
+      const roster = new Set(rosterOf().filter((person) => !person.extra).map((person) => sidKey(person.sid)));
+      todayVisits.sids = new Set(rows.filter((row) => !row.auditor && millis(row.started_at) >= dayStart && (!roster.size || roster.has(sidKey(row.sid)))).map((row) => sidKey(row.sid)));
     } catch (error) {
       if (!missingTable(error)) console.warn('[今天在线]', error);
       todayVisits.sids = null;
