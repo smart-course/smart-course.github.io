@@ -915,6 +915,15 @@
     background-size: 100% 100%, 300% 100%; box-shadow: 0 6px 16px rgba(0,0,0,.25), 0 0 12px rgba(255,214,110,.6); animation: clp-flow 3s linear infinite; }
   .clp-mini-dot { position: absolute; top: -2px; right: -2px; width: 12px; height: 12px; border: 2px solid #fff; border-radius: 50%; background: #c8452d; }
   .clp-mini-dot[hidden] { display: none; }
+  /* 收起时的未读提醒（2026-11-23 晚）：圆钮右上角红色数字；宽屏收起只剩头部时，名字旁边一个红色“信封＋数字”，点它展开面板并打开建议箱 */
+  .clp-mini-fb { position: absolute; top: -6px; right: -8px; box-sizing: border-box; min-width: 18px; height: 18px; padding: 0 4px; border-radius: 999px; background: #e0352b; color: #fff;
+    font: 800 11px/18px -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; font-style: normal; text-align: center; text-shadow: none; box-shadow: 0 0 0 2px #fff; }
+  .clp-mini-fb[hidden] { display: none; }
+  .clp-head-fb { display: inline-flex; align-items: center; gap: 3px; margin: 0 2px 0 6px; padding: 1px 8px 1px 6px; border: 0; border-radius: 999px; background: #e0352b; color: #fff;
+    font: inherit; font-size: 12px; font-weight: 800; line-height: 1.6; cursor: pointer; box-shadow: 0 1px 4px rgba(224, 53, 43, .35); vertical-align: middle; }
+  .clp-head-fb b { font-weight: 800; }
+  .clp-head-fb svg { width: 13px; height: 13px; fill: none; stroke: currentColor; stroke-width: 2.2; stroke-linecap: round; stroke-linejoin: round; }
+  .clp-head-fb[hidden], .clp-panel:not(.is-folded) .clp-head-fb { display: none; }
   /* 字号：面板头部“字号”按钮弹出三档（live-readable.js 改写页面字号）；未进入课堂的面板直接显示三档 */
   .clp-font-pop { position: absolute; z-index: 6; top: 46px; right: 10px; display: flex; align-items: center; gap: 6px; padding: 8px 10px;
     border: 1px solid rgba(70,51,34,.2); border-radius: 12px; background: #fffdf8; color: #463322; box-shadow: 0 10px 28px rgba(0,0,0,.2); font-size: 13.5px; font-weight: 800; }
@@ -963,6 +972,18 @@
   .clp-fbbtn:hover, .clp-fbbtn:focus-visible { border-color: #3f7cd2; background: linear-gradient(180deg, #eaf2ff, #d2e2f8); outline: none; }
   .clp-fbbtn[hidden] { display: none; }
   .clp-fbbtn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
+  /* 未读红点（2026-11-23 晚）：老师有新回复时，信封右上角红底白字显示条数 */
+  .clp-fbbtn-ico { position: relative; display: inline-flex; flex: 0 0 auto; }
+  .clp-fbbtn-dot { position: absolute; top: -8px; right: -10px; box-sizing: border-box; min-width: 17px; height: 17px; padding: 0 4px; border-radius: 999px; background: #e0352b;
+    color: #fff; font-style: normal; font-size: 11px; font-weight: 800; line-height: 17px; text-align: center; box-shadow: 0 0 0 2px #fff, 0 2px 6px rgba(224, 53, 43, .4); }
+  .clp-fbbtn-dot[hidden] { display: none; }
+  .clp-fbbtn.has-unread { border-color: #e3a29b; }
+  .clp-fbbtn.has-unread .clp-fbbtn-ico { margin-right: 5px; }
+  .clp-fbbtn.has-unread small { color: #c2322a; }
+  @media (prefers-reduced-motion: no-preference) {
+    .clp-fbbtn-dot:not([hidden]) { animation: clp-fbdot 2.4s ease-in-out infinite; }
+    @keyframes clp-fbdot { 0%, 100% { transform: scale(1); } 50% { transform: scale(1.14); } }
+  }
   .clp-lgbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border: 1px solid #8f1d47; border-radius: 999px;
     color: #fff; background: linear-gradient(180deg, #ffb3cf, #e8467f 55%, #a61c4e); box-shadow: 0 0 8px rgba(255,15,107,.42), inset 0 1px 0 rgba(255,255,255,.6);
     text-shadow: 0 1px 1px rgba(80,0,30,.35);
@@ -3407,9 +3428,9 @@
   const LINGEN_ICON = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 2.5 18.7 5.3 21.5 12 18.7 18.7 12 21.5 5.3 18.7 2.5 12 5.3 5.3Z"/><path d="M12 6.5 15.5 9.5 17 12.5 13.5 16 9.5 15.5 7.5 11.5Z" class="is-in"/></svg>';
   const DM_HINT = '投屏可见 · 老师能看到发送人 · 请文明发言';
   panel.innerHTML = `
-    <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i></button>
+    <button type="button" class="clp-mini" data-cl-mini aria-label="展开课堂面板"><span data-cl-mini-ch>炼</span><i class="clp-mini-dot" data-cl-mini-dot hidden></i><i class="clp-mini-fb" data-cl-mini-fb hidden></i></button>
     <div class="clp-head">${STAR}${STAR}${STAR}
-      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：每周一推选，本宗元婴以上、修为最高；连任最多两周" hidden><i aria-hidden="true"></i>宗主</b>'}
+      <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><button type="button" class="clp-head-fb" data-cl-head-fb hidden title="老师回复了你的匿名建议，点开看看"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><b data-cl-head-fb-n>1</b></button><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：每周一推选，本宗元婴以上、修为最高；连任最多两周" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span>${MAKEUP ? '<b class="clp-makeup" title="这次课你请过假：可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补">请假补做</b>' : ''}</div>
       ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
@@ -3435,7 +3456,7 @@
         <div class="clp-prog"><i data-cl-prog></i></div>
         <span class="clp-state" data-cl-state>每题做完点题目下方的“递交”</span>${tools}
       </section>
-      ${AUDIT || OFFLINE || !Live.feedbackBox ? '' : `<div class="clp-fbrow"><button type="button" class="clp-fbbtn" data-cl-fb-open title="匿名建议箱：写建议、提疑问，也能看到以前写过的和老师的回复"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><b>匿名建议箱</b><small>写建议 · 提疑问 · 看回复</small></button></div>`}
+      ${AUDIT || OFFLINE || !Live.feedbackBox ? '' : `<div class="clp-fbrow"><button type="button" class="clp-fbbtn" data-cl-fb-open title="匿名建议箱：写建议、提疑问，也能看到以前写过的和老师的回复"><span class="clp-fbbtn-ico"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><i class="clp-fbbtn-dot" data-fb-unread hidden></i></span><b>匿名建议箱</b><small data-fb-sub>写建议 · 提疑问 · 看回复</small></button></div>`}
       <div class="clp-foot">
         <details class="clp-mydm" data-cl-mydm${AUDIT ? ' hidden' : ''}>
           <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
@@ -3752,6 +3773,8 @@
       dmState.textContent = dmProblem(problem);
     }
   });
+  // 建议箱按钮上的未读红点：setupFeedbackDialog 里设好，登录核对以后、登录时弹出的回复关掉以后用到
+  let fbBadge = null;
   if (AUDIT) {
     // 旁听（2026-11-05）：弹幕接龙、匿名建议（含笑脸投票）、辩论聊天室、经营会都不参加，页面里显示说明
     setupMechDanmaku(false, '旁听同学不能发弹幕，可以看看大家怎么说。');
@@ -4638,6 +4661,7 @@
       const threads = row && Array.isArray(row.threads) ? row.threads : [];
       if (threads.length) showFeedbackReplies(threads, room);
     }).catch(() => {});   // 后台还没有这组函数（未执行 SQL）时安静跳过
+    if (fbBadge) fbBadge.refresh();
   });
   // 云间灵田起道号提醒（2026-11-23 用户：“没起道号的同学，下次登陆的时候提醒他起道号”；同日起不起道号进不了灵田，
   // 没起道号的同学道号先换成静修的道友码）：进过云间灵田、还没有自己起的道号的同学，每次登录后打开页面提醒一次（这个浏览器会话里只提醒一次）。
@@ -4712,9 +4736,11 @@
       }
     });
     dialog.querySelector('[data-fbr-close]').addEventListener('click', () => {
-      backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: threads.map((t) => Number(t.id) || t.id) }).catch(() => {});
+      const seen = backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: threads.map((t) => Number(t.id) || t.id) }).catch(() => {});
       dialog.close();
       dialog.remove();
+      // 看过了：建议箱上的红点清零，记好以后再按后台核对一次
+      if (fbBadge) { fbBadge.set(0); Promise.resolve(seen).then(() => fbBadge.refresh()); }
     });
     document.body.appendChild(dialog);
     dialog.showModal();
@@ -6373,6 +6399,44 @@
     if (!Live.feedbackBox || !/^\d{2}$/.test(caseNo || '')) { open.hidden = true; return; }
     const room = Number(identity.classroom) || identity.classroom;
     let dialog = null, unseen = [];
+    // 未读红点（2026-11-23 晚 用户：“学生控制台中的匿名建议箱，如果老师有回复的话，最好那个邮箱可以显示红色的未读提醒1”）：
+    // 数老师回复里本人还没看过的条数（ck_my_feedback_history 每条回复的 seen），显示在信封右上角；
+    // 登录核对后读一次，回到这一页时（隔一分钟以上）、页面开着每 3 分钟再读一次；关掉建议箱、关掉登录时弹出的回复就清零（记为已看）
+    const dot = open.querySelector('[data-fb-unread]'), sub = open.querySelector('[data-fb-sub]');
+    const SUB = sub ? sub.textContent : '';
+    const setUnread = (n) => {
+      n = Math.max(0, Number(n) || 0);
+      if (dot) { dot.textContent = n > 99 ? '99+' : String(n); dot.hidden = n <= 0; }
+      if (sub) sub.textContent = n > 0 ? '老师回复了你 · 点开看看' : SUB;
+      open.classList.toggle('has-unread', n > 0);
+      const mini = panel.querySelector('[data-cl-mini-fb]'), head = panel.querySelector('[data-cl-head-fb]');
+      if (mini) { mini.textContent = n > 99 ? '99+' : String(n); mini.hidden = n <= 0; }
+      if (head) { head.querySelector('[data-cl-head-fb-n]').textContent = n > 99 ? '99+' : String(n); head.hidden = n <= 0; }
+      open.title = n > 0 ? `匿名建议箱：老师有 ${n} 条新回复，点开看看` : '匿名建议箱：写建议、提疑问，也能看到以前写过的和老师的回复';
+    };
+    const countUnread = (items) => items.reduce((sum, f) => sum + (Array.isArray(f.replies) ? f.replies.filter((r) => r.by_teacher && !r.seen).length : 0), 0);
+    let unreadAt = 0;
+    async function refreshUnread() {
+      if (PREVIEW || LOCAL_ONLY || OFFLINE) return;
+      unreadAt = Date.now();
+      try {
+        const got = await backend.rpc('ck_my_feedback_history', { p_classroom: room });
+        const row = Array.isArray(got) ? got[0] : got;
+        if (row && row.status === 'ok') setUnread(countUnread(Array.isArray(row.items) ? row.items : []));
+      } catch (problem) { /* 后台还没有这个函数（未执行 SQL）或网络不好时不显示红点 */ }
+    }
+    fbBadge = { set: setUnread, refresh: refreshUnread };
+    const headFb = panel.querySelector('[data-cl-head-fb]');
+    if (headFb) headFb.addEventListener('click', (event) => {
+      event.stopPropagation();
+      const fold = panel.querySelector('[data-cl-fold]');
+      if (panel.classList.contains('is-folded') && fold) fold.click();
+      setTimeout(() => open.click(), 60);
+    });
+    if (!PREVIEW && !LOCAL_ONLY && !OFFLINE) {
+      document.addEventListener('visibilitychange', () => { if (!document.hidden && Date.now() - unreadAt > 60000) void refreshUnread(); });
+      setInterval(() => { if (!document.hidden && !(dialog && dialog.open)) void refreshUnread(); }, 180000);
+    }
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : '建议';
     const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
@@ -6400,6 +6464,7 @@
         state.textContent = items.length ? '' : '你在本班还没有提过建议。在上面写好、选标签、点“提交”以后，这里就能看到；老师回复了也会出现在这里。';
         list.innerHTML = items.map(item).join('');
         unseen = items.filter((f) => (f.replies || []).some((r) => r.by_teacher && !r.seen)).map((f) => Number(f.id) || f.id);
+        setUnread(countUnread(items));
       } catch (problem) {
         console.error(problem);
         state.textContent = notReady(problem) ? '“我提过的建议”还没有开通，过一阵再来看。' : '暂时读不到，请检查网络后再试。';
@@ -6434,8 +6499,10 @@
         });
         dialog.addEventListener('close', () => {
           if (!unseen.length) return;
-          backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: unseen }).catch(() => {});
+          const seen = backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: unseen }).catch(() => {});
           unseen = [];
+          setUnread(0);   // 看过了，红点清零；记好以后再按后台核对一次
+          Promise.resolve(seen).then(() => refreshUnread());
         });
       }
       if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');

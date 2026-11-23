@@ -1276,9 +1276,14 @@
   const replyTime = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}-${d.getDate()} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
   const repliesOf = (id) => feedbackReplies.get(String(id)) || [];
   const awaitingReply = (id) => { const list = repliesOf(id); return list.length > 0 && !list[list.length - 1].by_teacher; };
+  // 作者看没看到（2026-11-23 晚 用户：“匿名建议中的作者未看到和作者已看到最好能做下区分，让老师一眼就知道学生看到回复没有”）：
+  // 已看到＝绿色标签带双勾（悬停显示看到的时间），还没看到＝橙色标签带圆点
+  const seenTag = (r) => (r.seen_at
+    ? `<em class="tw-fb-seen is-seen" title="作者 ${esc(replyTime(r.seen_at))} 看到了这条回复"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="m2.5 12.5 4.2 4.2 8.6-9.4"/><path d="m11.2 15.9.8.8 9.5-10"/></svg>作者已看到</em>`
+    : '<em class="tw-fb-seen is-unseen" title="作者还没看到：作者下次打开课程页面时会弹出这条回复"><i aria-hidden="true"></i>作者还没看到</em>');
   function threadLine(r, removable) {
     return `<p class="${r.by_teacher ? 'is-teacher' : 'is-student'}"><b>${r.by_teacher ? '我' : '作者'}</b><span>${esc(r.text)}</span>`
-      + `<small>${esc(replyTime(r.created_at))}${r.by_teacher ? (r.seen_at ? ' · 作者已看到' : ' · 作者还没看到') : ''}</small>`
+      + `<small>${esc(replyTime(r.created_at))}</small>${r.by_teacher ? seenTag(r) : ''}`
       + (removable && r.by_teacher ? `<button type="button" class="tw-link" data-reply-remove="${esc(r.id)}">撤回</button>` : '') + '</p>';
   }
   function threadHtml(id) {

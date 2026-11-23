@@ -1260,6 +1260,12 @@ body :is(.pl-ed-pair, .pl-ed-slot, .sc-row, .pl-import-row) select:not([multiple
 .tw-fb-thread p.is-student b { background: #f5e7df; color: var(--rust); }
 .tw-fb-thread p span { flex: 1 1 12em; min-width: 0; white-space: pre-wrap; }
 .tw-fb-thread p small { color: var(--muted); font-size: 12px; white-space: nowrap; }
+/* 作者看没看到（2026-11-23 晚）：绿色＝已看到（双勾），橙色＝还没看到（圆点），一眼能分 */
+.tw-fb-seen { display: inline-flex; align-items: center; gap: 4px; align-self: center; padding: 0 9px; border: 1px solid transparent; border-radius: 999px; font-style: normal; font-size: 12px; font-weight: 700; line-height: 1.75; white-space: nowrap; }
+.tw-fb-seen.is-seen { border-color: rgba(35, 112, 79, .3); background: #e3f2e9; color: #1f6b4b; }
+.tw-fb-seen.is-seen svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2.4; stroke-linecap: round; stroke-linejoin: round; }
+.tw-fb-seen.is-unseen { border-color: rgba(201, 120, 36, .38); background: #fff1dc; color: #9a5310; }
+.tw-fb-seen.is-unseen i { width: 7px; height: 7px; border-radius: 50%; background: #e0862a; box-shadow: 0 0 0 3px rgba(224, 134, 42, .2); }
 .tw-fb-thread.is-dialog { max-height: 260px; overflow: auto; margin: 0 0 12px; padding: 8px 10px; border: 1px solid rgba(70, 51, 34, .14); border-radius: 10px; background: #fffdf8; }
 .tw-fb-thread .tw-link { padding: 0; border: 0; background: none; color: var(--rust); font-size: 12px; cursor: pointer; }
 .tw-fb-reply { position: relative; display: inline-flex; align-items: center; gap: 4px; min-height: 32px; margin-right: 6px; padding: 4px 10px; border: 1px solid rgba(35, 101, 95, .35); border-radius: 999px; background: #fff; color: var(--teal); font: inherit; font-size: 13px; font-weight: 700; cursor: pointer; white-space: nowrap; }
