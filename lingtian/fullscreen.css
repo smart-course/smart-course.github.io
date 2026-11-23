@@ -130,7 +130,7 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app #hud-qi { color: #8a896a; font-size: 10px; font-style: normal; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .game-app .hud-progress { display: block; width: 100%; height: 4px; overflow: hidden; border-radius: 5px; background: #dce3cc; box-shadow: inset 0 1px 1px #6c835820; }
 .game-app #hud-qi-progress { display: block; height: 100%; border-radius: inherit; background: linear-gradient(90deg, #729864, #b4ba73); }
-.game-app .game-center-title { position: absolute; top: var(--hud-top); left: 50%; display: grid; align-content: center; gap: 3px; width: 264px; max-width: none; min-height: 68px; padding: 6px 11px; transform: translateX(-50%); border: 1px solid #c9caa5; border-radius: 15px; background: linear-gradient(125deg, #fffdf1f5, #f3f5e4ed); color: #506c4c; box-shadow: inset 0 0 0 1px #fffdf0b0, var(--hud-shadow); text-shadow: none; text-align: left; backdrop-filter: blur(12px); }
+.game-app .game-center-title { position: absolute; top: var(--hud-top); left: 50%; display: grid; align-content: center; gap: 3px; width: 300px; max-width: none; min-height: 68px; padding: 6px 11px; transform: translateX(-50%); border: 1px solid #c9caa5; border-radius: 15px; background: linear-gradient(125deg, #fffdf1f5, #f3f5e4ed); color: #506c4c; box-shadow: inset 0 0 0 1px #fffdf0b0, var(--hud-shadow); text-shadow: none; text-align: left; backdrop-filter: blur(12px); }
 /* Equal side tracks keep each page title on the card's actual centre, even
    when the brand and weather link have different widths. */
 .game-app .game-sky-heading { display: grid; grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr); align-items: center; column-gap: 5px; width: 100%; min-width: 0; padding-bottom: 3px; border-bottom: 1px solid #d7d6b98a; }
@@ -149,6 +149,10 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app #environment-chip-clock { font: 500 26px/1 var(--sans, sans-serif); letter-spacing: 0; font-variant-numeric: tabular-nums; }
 .game-app #environment-chip-phase { max-width: 30px; color: #889477; font-size: 10px; line-height: 1.2; white-space: normal; word-break: keep-all; }
 .game-app .game-sky-note { min-height: 26px; align-content: center; font-size: 13px; line-height: 1.5; color: #718163; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
+/* 智慧课堂 2026-11-24：开场那句诗放在天时卡的时间下面（boot-ui.js 填入 #environment-verse，不写“今日语录”）。用户：“你把这句诗句还是放到
+   我的灵田这块卡片里面，放在时间下方，卡牌稍微再宽一些，注意手机和ipad的适配。”卡片各档宽度加宽 20—36px；一行放不下时省略号收尾 */
+.game-app .game-sky-verse { display: block; width: 100%; min-width: 0; padding-top: 3px; border-top: 1px solid #d7d6b98a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; color: #8a774a; font: 500 12px/1.4 var(--serif, serif); letter-spacing: 1.5px; }
+.game-app .game-sky-verse[hidden] { display: none; }
 .game-app .game-sky-summary[aria-disabled="true"] { cursor: default; }
 .game-app .game-sky-summary[aria-disabled="true"] .game-sky-hint { display: none; }
 .game-app .game-sky-summary[data-scope="sect"] .game-sky-hint { display: inline-flex; }
@@ -174,12 +178,6 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app .game-quest-peek > small { font-size: 9px; letter-spacing: 1.5px; color: #9b8c5f; }
 .game-app .game-quest-peek > strong { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; font: 600 14px/1.3 var(--serif, serif); letter-spacing: .5px; }
 .game-app .game-quest-peek > span { display: -webkit-box; -webkit-line-clamp: 2; -webkit-box-orient: vertical; overflow: hidden; font-size: 11px; line-height: 1.55; color: #82916d; }
-/* 智慧课堂 2026-11-24：开场的“今日语录”诗句进灵田后也显示在“今日修行”卡片上（boot-ui.js 填入）；横屏手机放不下，收起，点开面板里照样有 */
-.game-app .game-quest-peek > .game-quest-verse { display: block; max-width: 100%; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; color: #8d7a4c; font: italic 500 11px/1.45 var(--serif, serif); letter-spacing: .4px; }
-.game-app .game-quest-peek > .game-quest-verse[hidden] { display: none; }
-.game-app .quest-verse { margin: 0 0 10px; padding: 8px 12px; border-left: 3px solid #c9a24a; border-radius: 8px; background: rgba(255, 248, 230, .72); color: #6b5a32; font: italic 500 14px/1.6 var(--serif, serif); letter-spacing: .5px; }
-.game-app .quest-verse[hidden] { display: none; }
-.game-app .quest-verse small { display: block; margin-bottom: 1px; color: #9b8c5f; font: normal 600 10px/1.4 var(--sans, sans-serif); letter-spacing: 2px; }
 
 .game-app .badge { position: absolute; display: grid; place-items: center; min-width: 18px; height: 18px; padding: 0 4px; border: 1px solid #fff5cc; border-radius: 11px; background: #b89755; color: #fffdf1; font: 600 9px/1 var(--sans, sans-serif); box-shadow: 0 2px 5px #67582a24; font-variant-numeric: tabular-nums; }
 .game-app .game-quest-peek .badge { top: 9px; right: 9px; }
@@ -915,14 +913,14 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app #activity-history .farm-empty { padding: 27px 12px; }
 
 @media (max-width: 1100px) {
-  .game-app .game-center-title { width: 260px; }
+  .game-app .game-center-title { width: 292px; }
   .game-app .game-sky-heading small { font-size: 8px; letter-spacing: .8px; }
   .game-app #fullscreen-title { font-size: 17px; }
   .game-app .game-sky-summary #environment-chip-title { font-size: 15px; }
   .game-app .game-sky-hint { font-size: 9px; }
 }
 @media (max-width: 930px) {
-  .game-app .game-center-title { width: 246px; padding-inline: 10px; }
+  .game-app .game-center-title { width: 276px; padding-inline: 10px; }
   .game-app .game-wallet,
   .game-app[data-game-view="sect"] .game-wallet { top: calc(var(--hud-top) + 58px); left: auto; right: var(--hud-right); }
   .game-app .game-sky-hint { font-size: 0; }
@@ -946,7 +944,7 @@ body.game-app.game-booting .garden-topline { display: none; }
   .game-app .field-quickbar { width: clamp(150px, calc((100vw - 387px) / 2 - var(--hud-left) - 8px), 200px); }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  .game-app .game-center-title { width: 234px; min-height: 62px; gap: 3px; padding: 5px 9px; border-radius: 12px; }
+  .game-app .game-center-title { width: 258px; min-height: 62px; gap: 3px; padding: 5px 9px; border-radius: 12px; }
   .game-app .game-sky-heading { padding-bottom: 2px; }
   .game-app #fullscreen-title { font-size: 16px; }
   .game-app .game-sky-heading small { font-size: 8px; letter-spacing: .6px; }
@@ -976,7 +974,7 @@ body.game-app.game-booting .garden-topline { display: none; }
 }
 @media (max-width: 760px) and (orientation: landscape) {
   body.game-app { --hud-profile-width: 151px; }
-  .game-app .game-center-title { width: 220px; }
+  .game-app .game-center-title { width: 242px; }
   .game-app .game-sky-heading small { font-size: 8px; }
   .game-app #fullscreen-title { font-size: 16px; letter-spacing: .5px; }
   .game-app .game-sky-summary #environment-chip-title { font-size: 13px; }
@@ -990,7 +988,7 @@ body.game-app.game-booting .garden-topline { display: none; }
   .game-app #hud-qi { font-size: 8px; }
   .game-app .game-profile { gap: 5px; }
   .game-app .game-profile-copy { gap: 2px; }
-  .game-app .game-center-title { width: 214px; padding-inline: 8px; }
+  .game-app .game-center-title { width: 234px; padding-inline: 8px; }
   .game-app #environment-chip-clock { font-size: 24px; }
   .game-app .game-quest-peek { top: calc(var(--hud-top) + 48px); min-height: 44px; padding-block: 5px; gap: 2px; }
   .game-app .game-quest-peek > small { display: none; }
@@ -1061,7 +1059,8 @@ body.game-app.game-booting .garden-topline { display: none; }
    “我的灵田”和时间的天时卡放在最上面一整行（用户：“我的灵田和显示时间的那个卡片放在最上面”），头像、按钮、灵石、今日修行整体下移一行（改 --hud-top）；
    地点标签原来同时有 top 和 bottom，被拉成一长条挡住半块灵田；收获按钮压在工具栏上；底栏九个入口放不下。 */
 @media (max-width: 600px) and (orientation: portrait) {
-  body.game-app { --hud-title-top: max(10px, env(safe-area-inset-top, 0px)); --hud-title-height: 62px; --hud-top: calc(var(--hud-title-top) + var(--hud-title-height) + 8px); }
+  /* 2026-11-24：天时卡多了一行诗句（卡高约 89px），整排往下让出位置（原 62px） */
+  body.game-app { --hud-title-top: max(10px, env(safe-area-inset-top, 0px)); --hud-title-height: 90px; --hud-top: calc(var(--hud-title-top) + var(--hud-title-height) + 8px); }
   .game-app .game-center-title { top: var(--hud-title-top); left: var(--hud-left); right: var(--hud-right); width: auto; min-height: var(--hud-title-height); padding: 5px 14px; transform: none; }
   .game-app .game-sky-heading small { font-size: 9px; }
   .game-app #environment-chip-clock { font-size: 24px; }
@@ -1088,7 +1087,21 @@ body.game-app.game-booting .garden-topline { display: none; }
 /* 智慧课堂 2026-11-19：拜访道友时道友名单这一横条的空白处不挡画面——田主的“藏真书案”正好在这一带，卡框要点得到；名单按钮照常可点 */
 .game-app .garden-card .neighbor-strip { pointer-events: none; }
 .game-app .garden-card .neighbor-strip > * { pointer-events: auto; }
-/* 智慧课堂 2026-11-24：横屏手机上“今日修行”卡片很挤（第二行都已收起），诗句也收起 */
-@media (max-height: 520px) and (orientation: landscape), (max-width: 760px) and (orientation: landscape) {
-  .game-app .game-quest-peek > .game-quest-verse { display: none; }
+/* 智慧课堂 2026-11-24：天时卡多了一行诗句，变高了（电脑、iPad 约 92px，横屏手机约 85px）。右上角弹出的提示条、同步提示、
+   视角面板原来贴着卡片下沿出来，窄一点的屏幕（iPad、横屏手机）会盖住诗句那一行：一律从卡片下面开始（--hud-sky-clear）。
+   宽屏上它们在卡片右边，不受影响；竖屏手机的天时卡单独占最上面一整行，照旧（下面重新写回原来的位置）。 */
+body.game-app { --hud-sky-clear: calc(var(--hud-top) + 98px); }
+.game-app #toast-stack { top: max(calc(var(--hud-clear-top) + 6px), var(--hud-sky-clear)); }
+.game-app .workspace > .session-banner { top: max(var(--hud-clear-top), var(--hud-sky-clear)); }
+@media (max-width: 930px) {
+  .game-app[data-fullscreen-panel="camera"] .camera-controls { top: max(calc(var(--hud-top) + 61px), var(--hud-sky-clear)); }
+}
+@media (max-height: 520px) and (orientation: landscape) {
+  body.game-app { --hud-sky-clear: calc(var(--hud-top) + 91px); }
+  .game-app #toast-stack { top: var(--hud-sky-clear); }
+  .game-app[data-fullscreen-panel="camera"] .camera-controls { top: var(--hud-sky-clear); }
+}
+@media (max-width: 600px) and (orientation: portrait) {
+  body.game-app { --hud-sky-clear: 0px; }
+  .game-app #toast-stack { top: var(--hud-title-top); }
 }

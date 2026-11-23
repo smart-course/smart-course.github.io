@@ -39,16 +39,14 @@
   if (index === last) index = (index + 1 + Math.floor(value * (verses.length - 1))) % verses.length;
   node.textContent = verses[index];
   try { sessionStorage.setItem('spirit-boot-verse', String(index)); } catch (_) {}
-  // 智慧课堂 2026-11-24（用户：“灵田登陆时候的那句诗句，登陆后也显示在今日修行那个板块中”）：同一句也放进“今日修行”卡片（#hud-quest-verse，
-  // 横屏手机放不下时由 fullscreen.css 收起）和点开后的“今日修行”面板（#quest-verse，任何设备都显示）
+  // 智慧课堂 2026-11-24：开场这句诗进灵田以后也留着——放在“我的灵田”天时卡的时间下面（#environment-verse），
+  // 点开的“四时天象”里也有（environment-ui.js 读 SpiritBootVerse）。用户：“你把这句诗句还是放到我的灵田这块卡片里面，放在时间下方……
+  // 打开的四时天象也要有这句话，不要出现‘今日语录’。”（之前放在“今日修行”卡片和面板里，已去掉）
   const verse = verses[index];
   global.SpiritBootVerse = verse;
   function showVerse() {
-    const hud = document.getElementById('hud-quest-verse');
-    if (hud) { hud.textContent = `「${verse}」`; hud.hidden = false; }
-    const panel = document.getElementById('quest-verse');
-    const line = panel && panel.querySelector('span');
-    if (line) { line.textContent = verse; panel.hidden = false; }
+    const line = document.getElementById('environment-verse');
+    if (line) { line.textContent = verse; line.title = verse; line.hidden = false; }
   }
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', showVerse); else showVerse();
 
