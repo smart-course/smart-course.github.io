@@ -1,20 +1,61 @@
-/* 静修环境音：本机合成清雨、溪流、风叶与书卷，首次启用由用户操作解锁。 */
+/* 静修环境音（智慧课堂 2026-11-23 改版）：真实感的环境声＋随机生成的疏弦清音；首次启用由用户操作解锁。
+ * 用户：“你帮我把静修里面的环境音也优化升级一下吧，现在的感觉不太逼真，而且有杂音。或者可以加入一些类似于讲解视频中的比较舒缓的背景音。”
+ * 原来是在浏览器里把白噪声、粉红噪声滤一滤，听起来像“沙沙”的杂音。现在的声音文件在 assets/audio/，由 lingtian/tools/focus-sounds/render.py
+ * 用 numpy 一颗一颗合成（雨点、屋檐滴水、溪水气泡、松风、竹叶、炉火、翻书；没有外部录音素材）：
+ *   amb-*.m4a  环境声循环。文件前后各包了 WRAP 秒“回卷”，用 loopStart = WRAP、loopEnd = WRAP + 周期 无缝循环，不怕解码器在头尾补静音；
+ *   fx-*.m4a   零星声音（屋檐滴水、翻书、竹竿轻碰、木柴爆响），随机间隔、随机挑一声、随机音量和左右位置，听不出循环；
+ *   mus-pad    和弦铺底循环；mus-notes 五声音阶拨弦（一格一个音），按讲解视频配乐的写法在这里随机排旋律，不会重复。
+ * 文件读不到（网络不好）时退回本机合成的轻柔底声（只有低频，不再用白噪声）。对外接口不变：setScene、setSoundscape、setEnabled、setVolume、setActive、play、destroy。 */
 (function (global) {
   'use strict';
   const clamp = (n, min, max) => Math.max(min, Math.min(max, n));
-  const TONES = [196, 220, 261.626, 293.665, 329.628];
-  const SOUNDSCAPES = Object.freeze(['scene', 'rain', 'stream', 'wind', 'bamboo', 'fire', 'pages', 'brown']);
-  const FADE_SECONDS = .36;
+  const rand = (a, b) => a + Math.random() * (b - a);
+  // 'music'（清音雅乐）为 2026-11-23 新增：只有疏弦清音，不随雅室变化
+  const SOUNDSCAPES = Object.freeze(['scene', 'music', 'rain', 'stream', 'wind', 'bamboo', 'fire', 'pages', 'brown']);
+  const FADE_SECONDS = 1.1;
+  const WRAP = 0.5;
+  const script = global.document?.currentScript;
+  const BASE = script?.src && typeof URL !== 'undefined' ? new URL('assets/audio/', script.src).href : './focus/assets/audio/';
+  // 文件与循环周期（与 render.py 的 manifest-v1.json 一致）
+  const FILES = Object.freeze({
+    rain: { file: 'amb-rain-v1.m4a', period: 30 },
+    stream: { file: 'amb-stream-v1.m4a', period: 30 },
+    wind: { file: 'amb-wind-v1.m4a', period: 48 },
+    bamboo: { file: 'amb-bamboo-v1.m4a', period: 40 },
+    fire: { file: 'amb-fire-v1.m4a', period: 30 },
+    room: { file: 'amb-room-v1.m4a', period: 20 },
+    brown: { file: 'amb-brown-v1.m4a', period: 24 },
+    pad: { file: 'mus-pad-v1.m4a', period: 32 },
+    drips: { file: 'fx-drips-v1.m4a', slot: 1.6, count: 8 },
+    knocks: { file: 'fx-bamboo-v1.m4a', slot: 1.4, count: 6 },
+    pops: { file: 'fx-fire-v1.m4a', slot: 1.2, count: 6 },
+    pages: { file: 'fx-pages-v1.m4a', slot: 2.0, count: 6 },
+    notes: { file: 'mus-notes-v1.m4a', slot: 4.2, count: 11 },
+  });
+  // 拨弦音在 mus-notes 里的位置：D3 A3 D4 E4 F#4 A4 B4 D5 E5 F#5 A5
+  const LOW = [0, 1], MELODY = [2, 3, 4, 5, 6, 7, 8, 9, 10], CHIME = [7, 9, 10];
+  // 每种环境声由哪些循环（名称、音量）、零星声音（间隔秒、音量、左右宽度、音高起伏）、清音（音量）组成
+  const RECIPES = Object.freeze({
+    'scene-library': { beds: [['room', 1.0], ['pad', 0.55]], music: 0.95, events: [{ id: 'pages', gap: [26, 64], gain: 0.42, width: 0.5, pitch: 0.04 }] },
+    'scene-rain': { beds: [['rain', 0.5], ['pad', 0.42]], music: 0.78, events: [{ id: 'drips', gap: [1.4, 5.0], gain: 0.34, width: 0.75, pitch: 0.08 }] },
+    music: { beds: [['pad', 0.62], ['room', 0.8]], music: 1.0 },
+    rain: { beds: [['rain', 0.95]], events: [{ id: 'drips', gap: [0.9, 3.6], gain: 0.42, width: 0.8, pitch: 0.08 }] },
+    stream: { beds: [['stream', 1.0]] },
+    wind: { beds: [['wind', 1.0]] },
+    bamboo: { beds: [['bamboo', 1.0]], events: [{ id: 'knocks', gap: [6, 17], gain: 0.4, width: 0.75, pitch: 0.06 }] },
+    fire: { beds: [['fire', 0.95]], events: [{ id: 'pops', gap: [3.5, 12], gain: 0.4, width: 0.45, pitch: 0.06 }] },
+    pages: { beds: [['room', 1.2]], events: [{ id: 'pages', gap: [7, 18], gain: 0.62, width: 0.5, pitch: 0.04 }] },
+    brown: { beds: [['brown', 0.7]] },
+  });
 
   function create() {
     let context = null, master = null, ambience = null, retiring = null;
     let enabled = false, active = false, disposed = false, volume = .3, scene = 'library', soundscape = 'scene';
-    let ambienceTimer = null, fadeTimer = null, generation = 0, phrase = 0, starting = null;
-    const voices = new Set(), buffers = new Map();
+    let fadeTimer = null, generation = 0, starting = null;
+    const voices = new Set(), buffers = new Map(), noiseBuffers = new Map();
     const documentVisible = () => !global.document || global.document.visibilityState !== 'hidden';
     const canPlay = () => !disposed && enabled && active && documentVisible();
     const currentSound = () => soundscape === 'scene' ? 'scene-' + scene : soundscape;
-    function clearTimer() { if (ambienceTimer !== null) global.clearTimeout(ambienceTimer); ambienceTimer = null; }
     function clearFade() { if (fadeTimer !== null) global.clearTimeout(fadeTimer); fadeTimer = null; }
     function disconnect(node) { try { node?.disconnect?.(); } catch (_) {} }
     function releaseVoice(record) {
@@ -25,9 +66,14 @@
       releaseVoice(record);
     }
     function stopVoices() { Array.from(voices).forEach(stopVoice); }
+    function clearGroupTimers(group) { if (!group) return; group.timers.forEach((id) => global.clearTimeout(id)); group.timers.clear(); }
+    function later(group, fn, ms) {
+      const id = global.setTimeout(() => { group.timers.delete(id); fn(); }, ms);
+      group.timers.add(id); return id;
+    }
     function disposeGroup(group) {
       if (!group || group.disposed) return;
-      group.disposed = true; Array.from(group.voices).forEach(stopVoice); group.nodes.forEach(disconnect);
+      group.disposed = true; clearGroupTimers(group); Array.from(group.voices).forEach(stopVoice); group.nodes.forEach(disconnect);
       if (ambience === group) ambience = null;
       if (retiring === group) retiring = null;
     }
@@ -35,20 +81,20 @@
       try { context?.suspend?.()?.catch?.(() => {}); } catch (_) {}
     }
     function stopAmbient(fade = false) {
-      generation++; clearTimer(); clearFade(); disposeGroup(retiring);
+      generation++; clearFade(); disposeGroup(retiring);
       if (fade && ambience && context?.state === 'running' && canPlay()) {
-        const group = ambience; ambience = null; retiring = group;
+        const group = ambience; ambience = null; retiring = group; clearGroupTimers(group);
         const now = context.currentTime;
-        // 只保留一层短尾音；快速切换会清理更早的声音，不叠出多组循环。
+        // 换环境声时旧的慢慢淡出（约一秒），新的同时淡入；只留一层尾音，快速切换不会叠出多组循环
         if (group.bus.gain.cancelAndHoldAtTime) group.bus.gain.cancelAndHoldAtTime(now);
         else {
           const held = group.bus.gain.value;
           group.bus.gain.cancelScheduledValues?.(now);
           group.bus.gain.setValueAtTime(Math.max(.0001, Number.isFinite(held) ? held : .0001), now);
         }
-        group.bus.gain.setTargetAtTime(.0001, now, .065);
+        group.bus.gain.setTargetAtTime(.0001, now, FADE_SECONDS / 4);
         for (const record of group.voices) { try { record.source.stop(now + FADE_SECONDS); } catch (_) {} }
-        fadeTimer = global.setTimeout(() => { fadeTimer = null; disposeGroup(group); }, Math.ceil(FADE_SECONDS * 1000) + 20);
+        fadeTimer = global.setTimeout(() => { fadeTimer = null; disposeGroup(group); }, Math.ceil(FADE_SECONDS * 1000) + 40);
       } else { disposeGroup(ambience); stopVoices(); }
     }
     function makeContext() {
@@ -64,7 +110,7 @@
         return context;
       } catch (_) {
         try { context?.close?.(); } catch (_) {}
-        context = master = null; buffers.clear(); return null;
+        context = master = null; buffers.clear(); noiseBuffers.clear(); return null;
       }
     }
     function resumeContext() {
@@ -79,40 +125,145 @@
         return starting;
       } catch (_) { return Promise.resolve(false); }
     }
-    function noiseBuffer(color = 'pink') {
-      if (!context) return null;
-      if (buffers.has(color)) return buffers.get(color);
-      const count = Math.max(32, Math.floor(context.sampleRate * 4));
-      const overlap = Math.min(Math.floor(count / 4), Math.max(8, Math.floor(context.sampleRate * .08)));
-      const raw = new Float32Array(count + overlap);
-      let last = 0, b0 = 0, b1 = 0, b2 = 0, b3 = 0, b4 = 0, b5 = 0, b6 = 0;
-      for (let i = 0; i < raw.length; i++) {
-        const white = Math.random() * 2 - 1;
-        if (color === 'brown') { last = (last + white * .025) / 1.015; raw[i] = last * 3.4; }
-        else if (color === 'pink') {
-          b0 = .99886 * b0 + white * .0555179; b1 = .99332 * b1 + white * .0750759;
-          b2 = .969 * b2 + white * .153852; b3 = .8665 * b3 + white * .3104856;
-          b4 = .55 * b4 + white * .5329522; b5 = -.7616 * b5 - white * .016898;
-          raw[i] = (b0 + b1 + b2 + b3 + b4 + b5 + b6 + white * .5362) * .11; b6 = white * .115926;
-        } else raw[i] = white;
-      }
-      const buffer = context.createBuffer(1, count, context.sampleRate), data = buffer.getChannelData(0);
-      let mean = 0;
-      for (let i = 0; i < count; i++) {
-        // 将尾部的连续延伸接回开头，消除短循环的接缝，避免周期性咔嗒声。
-        const mix = Math.min(1, i / Math.max(1, overlap - 1));
-        data[i] = i < overlap ? raw[count + i] * (1 - mix) + raw[i] * mix : raw[i]; mean += data[i];
-      }
-      mean /= count;
-      let energy = 0, peak = 0;
-      for (let i = 0; i < count; i++) { data[i] -= mean; energy += data[i] * data[i]; peak = Math.max(peak, Math.abs(data[i])); }
-      const scale = Math.min(.2 / Math.max(.001, Math.sqrt(energy / count)), .8 / Math.max(.001, peak));
-      for (let i = 0; i < count; i++) data[i] *= scale;
-      buffers.set(color, buffer); return buffer;
+    // ---------- 读声音文件（同一个文件只读一次；换环境声时把用不着的释放掉，省手机内存） ----------
+    function decode(data) {
+      return new Promise((resolve, reject) => {
+        try {
+          const promise = context.decodeAudioData(data, resolve, reject);
+          if (promise && typeof promise.then === 'function') promise.then(resolve, reject);
+        } catch (error) { reject(error); }
+      });
+    }
+    function load(id) {
+      if (!context || !FILES[id]) return Promise.resolve(null);
+      if (buffers.has(id)) return buffers.get(id);
+      const job = (typeof fetch === 'function' ? fetch(BASE + FILES[id].file, { credentials: 'same-origin' }) : Promise.reject(new Error('no fetch')))
+        .then((res) => { if (!res.ok) throw new Error('HTTP ' + res.status); return res.arrayBuffer(); })
+        .then(decode)
+        .catch(() => { buffers.delete(id); return null; });
+      buffers.set(id, job);
+      return job;
+    }
+    function keepOnly(ids) {
+      for (const id of Array.from(buffers.keys())) if (!ids.has(id) && id !== 'notes') buffers.delete(id);
+    }
+    function idsOf(recipe) {
+      const ids = new Set(recipe.beds.map(([id]) => id));
+      (recipe.events || []).forEach((event) => ids.add(event.id));
+      if (recipe.music) ids.add('notes');
+      return ids;
     }
     function recordVoice(source, nodes, group) {
       const record = { source, nodes, group }; voices.add(record); group?.voices.add(record);
       source.onended = () => releaseVoice(record); return record;
+    }
+    function panner(value) {
+      if (!context.createStereoPanner) return null;
+      const node = context.createStereoPanner(); node.pan.value = clamp(value, -1, 1); return node;
+    }
+    // 一格一个声音（零星声音、拨弦）：随机音量、左右位置、略微的音高起伏
+    function playSlot(group, bus, id, index, when, gain, pan = 0, pitch = 0) {
+      const buffer = group.buffers.get(id), spec = FILES[id];
+      if (!buffer || !spec || !canPlay() || group.disposed) return;
+      const source = context.createBufferSource(), level = context.createGain(), place = panner(pan);
+      source.buffer = buffer;
+      if (pitch) source.playbackRate.value = 1 + pitch;
+      level.gain.value = gain;
+      source.connect(level);
+      if (place) { level.connect(place); place.connect(bus); } else level.connect(bus);
+      recordVoice(source, place ? [source, level, place] : [source, level], group);
+      const offset = Math.min(index, spec.count - 1) * spec.slot;
+      source.start(Math.max(context.currentTime, when), offset, spec.slot - .02);
+    }
+    function startBed(group, id, gain) {
+      const buffer = group.buffers.get(id), spec = FILES[id];
+      if (!buffer || !spec) return false;
+      const source = context.createBufferSource(), level = context.createGain();
+      source.buffer = buffer; source.loop = true;
+      source.loopStart = WRAP; source.loopEnd = Math.min(buffer.duration, WRAP + spec.period);
+      level.gain.value = gain;
+      source.connect(level); level.connect(group.bus);
+      recordVoice(source, [source, level], group);
+      // 每次从循环里随机的地方开始，听起来不会总是同一个开头
+      source.start(context.currentTime + .02, WRAP + Math.random() * spec.period * .95);
+      return true;
+    }
+    function scheduleEvents(group, event) {
+      const spec = FILES[event.id];
+      if (!spec || !group.buffers.get(event.id)) return;
+      const next = (first) => {
+        if (group.disposed || group !== ambience) return;
+        later(group, () => {
+          if (group.disposed || group !== ambience || !canPlay() || context.state !== 'running') { next(false); return; }
+          playSlot(group, group.bus, event.id, Math.floor(Math.random() * spec.count), context.currentTime + .03,
+            event.gain * rand(.55, 1), rand(-1, 1) * (event.width ?? .6), rand(-.5, .5) * (event.pitch || 0));
+          next(false);
+        }, 1000 * (first ? rand(.6, Math.min(event.gap[1], 6)) : rand(event.gap[0], event.gap[1])));
+      };
+      next(true);
+    }
+    // 疏弦清音（讲解视频配乐的写法）：每分钟 60 拍、半拍一格，重拍三成、弱拍一成的机会弹一个音，旋律在五声音阶里小步游走；
+    // 每四小节空一小节留白；小节开头偶尔垫一个低音。页面里随机生成，不会重复
+    function startMusic(group, gain) {
+      if (!group.buffers.get('notes')) return;
+      const bus = context.createGain(); bus.gain.value = gain; bus.connect(group.bus); group.nodes.push(bus);
+      const STEP = .5, origin = context.currentTime + .4;
+      let slot = 0, pos = 3 + Math.floor(Math.random() * 3);
+      const tick = () => {
+        if (group.disposed || group !== ambience || !canPlay()) return;
+        const horizon = context.currentTime + 1.6;
+        // 页面曾被浏览器暂停（计时器停了）：跳过已经过去的格子，不一下子补弹一串
+        const behind = Math.floor((context.currentTime - origin) / STEP);
+        if (behind > slot) slot = behind;
+        while (origin + slot * STEP < horizon) {
+          const when = origin + slot * STEP, beat = slot % 8, bar = Math.floor(slot / 8);
+          if (bar % 4 !== 3) {
+            if (Math.random() < (beat % 2 === 0 ? .30 : .10)) {
+              pos = clamp(pos + [-2, -1, -1, 1, 1, 2, 0][Math.floor(Math.random() * 7)], 0, MELODY.length - 1);
+              playSlot(group, bus, 'notes', MELODY[pos], when + rand(-.01, .01), rand(.5, .85), rand(-.35, .35));
+            }
+            if (beat === 0 && Math.random() < .22) playSlot(group, bus, 'notes', LOW[Math.floor(Math.random() * LOW.length)], when, rand(.35, .55), rand(-.15, .15));
+          }
+          slot++;
+        }
+        later(group, tick, 400);
+      };
+      tick();
+    }
+    // ---------- 读不到文件时的退路：本机合成的轻柔底声（只有低频，不再用白噪声） ----------
+    function noiseBuffer(color = 'brown') {
+      if (!context) return null;
+      if (noiseBuffers.has(color)) return noiseBuffers.get(color);
+      const count = Math.max(32, Math.floor(context.sampleRate * 6));
+      const overlap = Math.min(Math.floor(count / 4), Math.max(8, Math.floor(context.sampleRate * .2)));
+      const raw = new Float32Array(count + overlap);
+      let last = 0, b0 = 0, b1 = 0, b2 = 0;
+      for (let i = 0; i < raw.length; i++) {
+        const white = Math.random() * 2 - 1;
+        if (color === 'brown') { last = (last + white * .02) / 1.012; raw[i] = last * 3.2; }
+        else { b0 = .99765 * b0 + white * .099046; b1 = .963 * b1 + white * .2965164; b2 = .57 * b2 + white * 1.0526913; raw[i] = (b0 + b1 + b2 + white * .1848) * .05; }
+      }
+      const buffer = context.createBuffer(1, count, context.sampleRate), data = buffer.getChannelData(0);
+      let energy = 0;
+      for (let i = 0; i < count; i++) {
+        // 尾部接回开头，消除循环接缝的咔哒声
+        const mix = Math.min(1, i / Math.max(1, overlap - 1));
+        data[i] = i < overlap ? raw[count + i] * Math.sqrt(1 - mix) + raw[i] * Math.sqrt(mix) : raw[i]; energy += data[i] * data[i];
+      }
+      const scale = .2 / Math.max(.001, Math.sqrt(energy / count));
+      for (let i = 0; i < count; i++) data[i] *= scale;
+      noiseBuffers.set(color, buffer); return buffer;
+    }
+    function fallbackBed(group) {
+      const key = group.key;
+      const source = context.createBufferSource(), low = context.createBiquadFilter(), high = context.createBiquadFilter(), level = context.createGain();
+      const warm = ['rain', 'scene-rain', 'stream', 'bamboo', 'wind'].includes(key);
+      source.buffer = noiseBuffer(warm ? 'pink' : 'brown'); source.loop = true;
+      low.type = 'lowpass'; low.frequency.value = warm ? 1800 : 700; low.Q.value = .5;
+      high.type = 'highpass'; high.frequency.value = 60; high.Q.value = .5;
+      level.gain.value = key === 'music' || key === 'scene-library' || key === 'pages' ? 0 : (warm ? .12 : .2);
+      source.connect(low); low.connect(high); high.connect(level); level.connect(group.bus);
+      recordVoice(source, [source, low, high, level], group); source.start();
     }
     function oscillator(frequency, when, duration, gain, type = 'sine', finishFrequency, group = null, attack = .012) {
       if (!context || !master || !canPlay() || group?.disposed) return;
@@ -125,94 +276,50 @@
       source.connect(envelope); envelope.connect(group?.bus || master);
       recordVoice(source, [source, envelope], group); source.start(when); source.stop(when + duration + .025);
     }
-    function pluck(frequency, when, gain, group = null) {
+    function pluckOsc(frequency, when, gain, group = null) {
       oscillator(frequency, when, 1.7, gain, 'sine', undefined, group);
       oscillator(frequency * 2, when, .8, gain * .19, 'sine', undefined, group);
       oscillator(frequency * 3.006, when, .4, gain * .07, 'sine', undefined, group);
     }
-    function texture(when, duration, gain, frequency, group, attack = .09, color = 'pink') {
-      if (!context || !master || !canPlay() || group?.disposed) return;
-      const source = context.createBufferSource(), filter = context.createBiquadFilter(), envelope = context.createGain();
-      source.buffer = noiseBuffer(color); filter.type = 'bandpass'; filter.frequency.value = frequency; filter.Q.value = .5;
-      envelope.gain.setValueAtTime(.0001, when);
-      envelope.gain.exponentialRampToValueAtTime(Math.max(.0002, gain), when + Math.min(attack, duration * .4));
-      envelope.gain.exponentialRampToValueAtTime(.0001, when + duration);
-      source.connect(filter); filter.connect(envelope); envelope.connect(group?.bus || master);
-      recordVoice(source, [source, filter, envelope], group);
-      source.start(when, Math.random() * 2); source.stop(when + duration + .025);
-    }
-    function rustle(when, group) { texture(when, .65, .07, 1750, group, .16); }
-    function noiseLayer(group, color, gain, filters, modulation) {
-      const source = context.createBufferSource(), envelope = context.createGain(), nodes = [source];
-      source.buffer = noiseBuffer(color); source.loop = true;
-      let tail = source;
-      for (const [type, frequency, q] of filters) {
-        const filter = context.createBiquadFilter(); filter.type = type; filter.frequency.value = frequency; filter.Q.value = q ?? .5;
-        tail.connect(filter); tail = filter; nodes.push(filter);
-      }
-      envelope.gain.value = gain; tail.connect(envelope); envelope.connect(group.bus); nodes.push(envelope);
-      recordVoice(source, nodes, group); source.start();
-      if (modulation) {
-        // 慢幅度变化由音频线程处理，不依赖高频 JavaScript 计时器。
-        const lfo = context.createOscillator(), depth = context.createGain(); lfo.type = 'sine'; lfo.frequency.value = modulation[0]; depth.gain.value = Math.min(gain * .75, modulation[1]);
-        lfo.connect(depth); depth.connect(envelope.gain); recordVoice(lfo, [lfo, depth], group); lfo.start();
-      }
-    }
-    function startAmbient() {
+    async function startAmbient() {
       if (!context || !master || ambience || !canPlay()) return;
-      const key = currentSound(), bus = context.createGain();
-      bus.gain.setValueAtTime(.0001, context.currentTime); bus.gain.setTargetAtTime(1, context.currentTime, .18); bus.connect(master);
-      const group = { key, bus, voices: new Set(), nodes: [bus], disposed: false }; ambience = group;
-      if (key === 'rain' || key === 'scene-rain') {
-        noiseLayer(group, 'pink', .24, [['highpass', 210], ['lowpass', 3800]]);
-        noiseLayer(group, 'white', .025, [['highpass', 1500], ['lowpass', 5800]]);
-      } else if (key === 'stream') {
-        noiseLayer(group, 'brown', .3, [['highpass', 90], ['lowpass', 1700]], [.16, .045]);
-        noiseLayer(group, 'pink', .075, [['bandpass', 1800, .55], ['lowpass', 3200]], [.23, .025]);
-      } else if (key === 'wind') {
-        noiseLayer(group, 'brown', .34, [['highpass', 45], ['lowpass', 1050]], [.055, .16]);
-        noiseLayer(group, 'pink', .035, [['lowpass', 1400]], [.08, .02]);
-      } else if (key === 'bamboo') {
-        noiseLayer(group, 'pink', .075, [['highpass', 550], ['lowpass', 2500]], [.11, .035]);
-      } else if (key === 'fire') {
-        noiseLayer(group, 'brown', .3, [['highpass', 40], ['lowpass', 550]], [.09, .045]);
-        noiseLayer(group, 'pink', .035, [['lowpass', 1600]]);
-      } else if (key === 'brown') noiseLayer(group, 'brown', .35, [['highpass', 35], ['lowpass', 900]]);
-      if (['scene-library', 'scene-rain', 'stream', 'bamboo', 'fire', 'pages'].includes(key)) schedulePhrase(generation, group);
-    }
-    function schedulePhrase(token, group) {
-      if (token !== generation || !canPlay() || !context || context.state !== 'running' || group !== ambience || group.disposed) return;
-      const t = context.currentTime + .04, key = group.key;
-      let delay = 10500;
-      if (key.startsWith('scene-')) {
-        const index = phrase % TONES.length;
-        pluck(TONES[index], t, key === 'scene-rain' ? .023 : .032, group);
-        pluck(TONES[(index + 2) % TONES.length], t + 1.8, .018, group);
-        if (key === 'scene-library' && phrase % 3 === 2) rustle(t + 3.5, group);
-      } else if (key === 'stream') {
-        // 极轻的水泡下滑音，避开固定音阶和重复旋律。
-        for (let i = 0; i < 3; i++) {
-          const hz = 420 + Math.random() * 260;
-          oscillator(hz, t + i * .8 + Math.random() * .4, .22 + Math.random() * .1, .0055, 'sine', hz * .6, group, .045);
-        }
-        delay = 5500 + Math.random() * 2500;
-      } else if (key === 'bamboo') {
-        texture(t, 1.8, .04, 1250 + Math.random() * 500, group, .5);
-        texture(t + .8, 1.5, .018, 2300, group, .4); delay = 5500 + Math.random() * 4000;
-      } else if (key === 'fire') {
-        for (let i = 0; i < 3; i++) texture(t + i * .45 + Math.random() * .25, .12 + Math.random() * .08, .018, 750 + Math.random() * 800, group, .035);
-        delay = 2200 + Math.random() * 1700;
-      } else if (key === 'pages') {
-        rustle(t, group); texture(t + .4, .7, .032, 2600, group, .17); delay = 12500 + Math.random() * 6000;
+      const key = currentSound(), recipe = RECIPES[key] || RECIPES.brown, bus = context.createGain();
+      bus.gain.setValueAtTime(.0001, context.currentTime); bus.connect(master);
+      const group = { key, bus, voices: new Set(), nodes: [bus], timers: new Set(), buffers: new Map(), disposed: false };
+      ambience = group;
+      const ids = idsOf(recipe);
+      keepOnly(ids);
+      const loaded = await Promise.all(Array.from(ids).map((id) => load(id).then((buffer) => [id, buffer])));
+      if (group.disposed || group !== ambience || !canPlay() || !context) return;
+      loaded.forEach(([id, buffer]) => { if (buffer) group.buffers.set(id, buffer); });
+      let beds = 0;
+      recipe.beds.forEach(([id, gain]) => { if (startBed(group, id, gain)) beds++; });
+      if (!beds) fallbackBed(group);
+      (recipe.events || []).forEach((event) => scheduleEvents(group, event));
+      if (recipe.music) {
+        if (group.buffers.get('notes')) startMusic(group, recipe.music);
+        else fallbackMusic(group);
       }
-      phrase++;
-      ambienceTimer = global.setTimeout(() => { ambienceTimer = null; schedulePhrase(token, group); }, delay);
+      const now = context.currentTime;
+      bus.gain.cancelScheduledValues?.(now); bus.gain.setValueAtTime(.0001, now); bus.gain.setTargetAtTime(1, now, .45);
+    }
+    // 拨弦文件读不到时：原来的本机正弦拨弦，十来秒一句
+    const TONES = [196, 220, 261.626, 293.665, 329.628];
+    function fallbackMusic(group) {
+      let phrase = 0;
+      const tick = () => {
+        if (group.disposed || group !== ambience || !canPlay() || context.state !== 'running') return;
+        const t = context.currentTime + .04, index = phrase % TONES.length;
+        pluckOsc(TONES[index], t, .03, group); pluckOsc(TONES[(index + 2) % TONES.length], t + 1.8, .018, group);
+        phrase++; later(group, tick, 10500);
+      };
+      tick();
     }
     async function ensureAmbient() {
       if (!canPlay()) return false;
       const token = generation, ready = await resumeContext();
       if (!ready || token !== generation || !canPlay()) return false;
-      startAmbient(); return true;
+      void startAmbient(); return true;
     }
     function setEnabled(value) {
       if (disposed) return false;
@@ -228,7 +335,7 @@
       if (active === next) { if (next && enabled && documentVisible() && !ambience) void ensureAmbient(); return; }
       active = next; if (!next) { stopAmbient(); suspendContext(); } else if (enabled) void ensureAmbient();
     }
-    function changeAmbient() { stopAmbient(true); phrase = 0; if (canPlay()) void ensureAmbient(); }
+    function changeAmbient() { stopAmbient(true); if (canPlay()) void ensureAmbient(); }
     function setScene(value) {
       if (disposed) return;
       const next = value === 'rain' ? 'rain' : 'library';
@@ -250,7 +357,14 @@
       const token = generation, ready = await resumeContext();
       if (!ready || !canPlay() || token !== generation) return false;
       const t = context.currentTime + .01;
-      if (kind === 'complete') [523.251, 659.255, 783.991].forEach((note, i) => pluck(note, t + i * .16, .10 - i * .014));
+      if (kind === 'complete') {
+        // 完成一段：三声拨弦（D5、F#5、A5）；拨弦文件还没读到时用原来的正弦拨弦
+        const notes = await load('notes');
+        if (notes && canPlay()) {
+          const group = { voices: new Set(), nodes: [], timers: new Set(), buffers: new Map([['notes', notes]]), disposed: false };
+          CHIME.forEach((index, i) => playSlot(group, master, 'notes', index, context.currentTime + .02 + i * .17, .9 - i * .12, (i - 1) * .25));
+        } else [523.251, 659.255, 783.991].forEach((note, i) => pluckOsc(note, t + i * .16, .10 - i * .014));
+      }
       else if (kind === 'purchase') { oscillator(1108.7, t, .14, .065); oscillator(1661.2, t + .075, .28, .04); }
       else if (kind === 'seat') { oscillator(165, t, .19, .1, 'sine', 90); oscillator(330, t, .075, .015); }
       else oscillator(587.33, t, .08, .035);
@@ -266,7 +380,7 @@
         if (disposed) return Promise.resolve();
         disposed = true; enabled = active = false; stopAmbient();
         global.document?.removeEventListener('visibilitychange', visibility);
-        const ctx = context; context = null; buffers.clear(); disconnect(master); master = null;
+        const ctx = context; context = null; buffers.clear(); noiseBuffers.clear(); disconnect(master); master = null;
         try { return Promise.resolve(ctx?.close?.()).catch(() => {}); } catch (_) { return Promise.resolve(); }
       }
     };

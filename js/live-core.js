@@ -9,7 +9,7 @@
  *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为；
  *         2026-11-23 起带标签 p_kind：build 课程共建、ask 课程疑问）、
  *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为，同一位同学 7 天内最多 20）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
- *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_roster_no（本人在点名册里的编号）、
+ *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_feedback_history（建议箱里“我提过的建议”，2026-11-23）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
  *       ck_save_realms（教师结算修为境界）/ ck_my_realm（本人的境界）/ ck_realm_top（学生面板“修为榜”：本班前十与本人名次，带修为）/ ck_my_lingen（学生面板“灵根八相”：本人八项与全班平均）/ ck_send_gift（按境界祭出弹幕法宝，每件一次）/ ck_my_gifts（本人已祭出的法宝）、
@@ -182,7 +182,8 @@
   //   texts(worksheet, plain)：plain＝没有修为的课程（《金融机构与市场》等），不写修为；
   //   html(FB, teacher, opts)：teacher＝投屏页（一律不能用）；opts.head、opts.mood 为 false 时不要标题、笑脸那一行（弹出的对话框）；
   //   bind(root, { FB, enabled, note, idle, send })：接上选标签、数字数、提交（send(kind, text) 返回成功的说明，出错时抛出带 userMessage 的错误）；
-  //   dialog(FB, opts)：学生面板“建议箱”按钮弹出的对话框（同样的表单，没有笑脸那一行）
+  //   dialog(FB, opts)：学生面板“建议箱”按钮弹出的对话框（同样的表单，没有笑脸那一行）；opts.history 时下面再加“我提过的建议”
+  //     （2026-11-23 晚 用户：“学生之前提过的建议和老师的回复，在里面也还能看到”；内容由学生页读 ck_my_feedback_history 填进 [data-fbd-hist-list]）
   let fbSeq = 0;   // 同一页上几份表单（页面最后一份、对话框一份）的单选按钮各用各的 name
   const FEEDBACK_BOX = {
     texts(worksheet, plain) {
@@ -269,6 +270,35 @@
   .clp-fbd .clp-fb { margin: 4px 0 0; padding: 0; border: 0; background: transparent; }
   .clp-fbd-more { display: block; margin: 10px auto 0; padding: 4px 8px; border: 0; background: none; color: #23655f; font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
   @media (max-width: 560px) { .clp-fbd-inner { padding: 14px 14px 12px; } .clp-fbd-head h3 { font-size: 16.5px; } }
+  .clp-fbd-hist { margin: 14px 0 0; padding: 12px 0 0; border-top: 1px dashed rgba(35,101,95,.32); }
+  .clp-fbd-hist-head { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 10px; }
+  .clp-fbd-hist-head b { color: #23655f; font-size: 15.5px; }
+  .clp-fbd-hist-head small { color: #7a6f63; font-size: 12.5px; }
+  .clp-fbd-hist-state { margin: 6px 0 0; color: #7a6f63; font-size: 13px; line-height: 1.6; }
+  .clp-fbd-hist-state:empty { display: none; }
+  .clp-fbd-hist-list { display: grid; gap: 10px; margin-top: 8px; }
+  .clp-fbh-item { padding: 10px 12px; border: 1px solid rgba(35,101,95,.18); border-radius: 12px; background: #fff; }
+  .clp-fbh-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: #7a6f63; font-size: 12.5px; }
+  .clp-fbh-kind { padding: 1px 8px; border-radius: 999px; background: #e6f1ed; color: #23655f; font-weight: 800; }
+  .clp-fbh-kind.is-ask { background: #eaf0fb; color: #2f5b9a; }
+  .clp-fbh-like { color: #9a5b0c; font-weight: 800; }
+  .clp-fbh-new { color: #b8481f; font-weight: 800; }
+  .clp-fbh-item blockquote { margin: 6px 0 0; padding: 0 0 0 10px; border-left: 3px solid rgba(35,101,95,.35); color: #2a2118; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .clp-fbh-chat { display: grid; gap: 6px; margin-top: 8px; }
+  .clp-fbh-chat:empty { display: none; }
+  .clp-fbh-bubble { max-width: 92%; padding: 6px 10px; border-radius: 10px; font-size: 13.5px; line-height: 1.6; white-space: pre-wrap; overflow-wrap: anywhere; }
+  .clp-fbh-bubble b { margin-right: 6px; }
+  .clp-fbh-bubble small { display: block; color: #8a7f74; font-size: 11.5px; }
+  .clp-fbh-bubble.is-teacher { justify-self: start; background: #e6f1ed; }
+  .clp-fbh-bubble.is-me { justify-self: end; background: #f3efe6; }
+  .clp-fbh-bubble.is-new { box-shadow: 0 0 0 2px rgba(184,72,31,.32); }
+  .clp-fbh-none { margin: 6px 0 0; color: #8a7f74; font-size: 12.5px; }
+  .clp-fbh-form { display: grid; grid-template-columns: 1fr auto; gap: 6px; align-items: end; margin-top: 8px; }
+  .clp-fbh-form textarea { box-sizing: border-box; width: 100%; min-height: 44px; padding: 6px 9px; border: 1px solid rgba(70,51,34,.25); border-radius: 9px; font: inherit; font-size: 14px; resize: vertical; }
+  .clp-fbh-form button { min-height: 40px; padding: 0 14px; border: 0; border-radius: 10px; background: #23655f; color: #fff; font: inherit; font-weight: 800; cursor: pointer; }
+  .clp-fbh-form button[disabled] { opacity: .55; cursor: default; }
+  .clp-fbh-status { grid-column: 1 / -1; min-height: 1em; margin: 0; color: #23655f; font-size: 12.5px; }
+  .clp-fbh-status.is-error { color: #a4492d; }
   `,
     html(FB, teacher, opts = {}) {
       fbSeq += 1;
@@ -362,6 +392,8 @@
       dialog.innerHTML = `<div class="clp-fbd-inner"><div class="clp-fbd-head"><div><div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
         <h3>${FB.title}</h3></div><button type="button" class="clp-fbd-x" data-fbd-close aria-label="关闭">×</button></div>
         <section class="clp-fb">${FEEDBACK_BOX.html(FB, false, { head: false, mood: false })}</section>
+        ${opts.history ? `<section class="clp-fbd-hist" data-fbd-hist><div class="clp-fbd-hist-head"><b>我提过的建议</b><small>只有你自己能看到，老师仍然不知道是谁写的</small></div>
+          <p class="clp-fbd-hist-state" data-fbd-hist-state></p><div class="clp-fbd-hist-list" data-fbd-hist-list></div></section>` : ''}
         ${opts.more ? `<button type="button" class="clp-fbd-more" data-fbd-more>${opts.more}</button>` : ''}</div>`;
       // 对话框里打字、点击不传到页面（页面有翻页快捷键）；点灰色背景或 × 关闭（写了一半的字留着，下次打开还在）
       ['click', 'keydown', 'keyup', 'keypress', 'input'].forEach((type) => dialog.addEventListener(type, (event) => event.stopPropagation()));
@@ -2438,10 +2470,10 @@
           write('fbauthors', authors);
           return { status: 'ok', adopt, build };
         }
-        if (['ck_my_feedback_threads', 'ck_answer_feedback', 'ck_seen_feedback_replies'].includes(name)) {
+        if (['ck_my_feedback_threads', 'ck_my_feedback_history', 'ck_answer_feedback', 'ck_seen_feedback_replies'].includes(name)) {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
-          if (!me) return name === 'ck_my_feedback_threads' ? { status: 'login', threads: [] } : { status: 'login' };
+          if (!me) return name === 'ck_my_feedback_threads' ? { status: 'login', threads: [] } : name === 'ck_my_feedback_history' ? { status: 'login', items: [] } : { status: 'login' };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const mine = new Set(read('fbauthors').filter((row) => row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid))
             .map((row) => String(row.feedback_id)));
@@ -2451,6 +2483,13 @@
               .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text, kind: f.kind || '',
                 replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
             return { status: 'ok', threads };
+          }
+          // 建议箱里“我提过的建议”（2026-11-23 晚）：本人在本班提过的全部建议，新的在前，带双方的回复和老师点赞（规则同 cloudbase-pg.sql）
+          if (name === 'ck_my_feedback_history') {
+            const items = read('feedback').filter((f) => mine.has(String(f.id))).sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 60)
+              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text, kind: f.kind || '', adopted: Number(f.adopted) || 0,
+                replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
+            return { status: 'ok', items };
           }
           if (name === 'ck_answer_feedback') {
             if (!mine.has(String(params.p_id))) throw new Error('只能回复自己的建议');
@@ -3274,6 +3313,13 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-23 晚：不起道号不能进灵田、没起道号的先用道友码、道号半年改一次、登录后提醒（用户：“现在没起道号进入灵田的同学，用静修中的道友码代替名字，
+        //   道友码相当于每个人的身份证。之后不取名字不给进入灵田。然后每位同学6个月给一次修改道号的机会。”“没起道号的同学，下次登陆的时候提醒他起道号”）
+        ['云间灵田 · 先起道号再进入', '云间灵田要先起一个自己的道号才能进入（2—12 个汉字、字母或数字，请文明取名）。以前没起道号就进了灵田的同学，道友们现在看到的是你的道友码（静修“同修”里的“我的道友码”，相当于每个人的身份证），登录课程网站时会提醒你，下次进灵田先起一个道号。第一次起道号不受限制，之后每 6 个月可以改一次（灵田设置里“改道号”写着下次可以改的日子）。', '2026-11-23'],
+        // 2026-11-23 晚：静修环境音（用户：“你帮我把静修里面的环境音也优化升级一下吧，现在的感觉不太逼真，而且有杂音。或者可以加入一些类似于讲解视频中的比较舒缓的背景音。”）
+        ['静修 · 环境音换新', '静修里的环境声换成了更真实、更柔和的声音：檐下雨声和屋檐滴水、山涧溪水、松间风声、竹叶和竹竿轻碰、炉火噼啪、翻书声、低沉的云海声，不再有“沙沙”的杂音。新增“清音雅乐”：舒缓的五声拨弦和柔和铺底，旋律随机生成、不会重复。退出大屏暂停时，计时会记到退出的那一刻，不再少算几秒。', '2026-11-23'],
+        // 2026-11-23 晚：面板建议箱挪位置、能看以前的建议和老师回复（用户：“把学生控制台中的‘匿名建议箱’放在‘导出PDF’的下面，然后学生之前提过的建议和老师的回复，在里面也还能看到。”）
+        ['匿名建议箱挪到“导出 PDF”下面', '面板上的“匿名建议箱”挪到了“导出 PDF”下面。点开以后，下面的“我提过的建议”能看到自己在本班写过的建议、老师的回复和点赞，也可以接着回复老师；这些只有你自己能看到，老师仍然不知道是谁写的。', '2026-11-23'],
         // 2026-11-23：匿名建议箱分“课程共建”“课程疑问”两个标签，面板上多了“建议箱”按钮（用户：“把现有的匿名建议箱分成两个标签……
         //   同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交……如果被采纳直接加20修为值”）
         ['匿名建议箱分成两个标签', `写之前先选一个标签：“课程共建”——对课堂节奏、课程内容提建议，或者自己设计上课用的内容、题目发给老师，被老师采纳可以加修为；“课程疑问”——这堂课哪里没听懂、平台哪里不会操作，老师会在下一堂课统一解答。左下角面板多了“建议箱”按钮，点开就能写，不用再翻到页面最下面。`, '2026-11-23'],

@@ -22,6 +22,9 @@
   let selectedTool = 'auto';
   let engine, scene, economy, farmUI, environmentUI, journeyUI, decorEditor, fullscreenUI, cardsUI, mode = 'home', activePage = 'garden', neighborId = 'qingyao', selectedPlot = null, selectedCrop = 'huangjing';
   let dialogKind = '', lastDialogTrigger = null, audioContext, soundEnabled = false, settingsWarning = false, renderQueued = false;
+  // 智慧课堂（2026-11-23）：页面搭好（下面第一次 render）以前不响应“数据变了要重画”。以前某个文件没加载到、搭页面中途出错时，
+  // 排着队的重画会撞上还没定义的 batchStealMinimum，报“Cannot access 'batchStealMinimum' before initialization”，盖住真正的原因
+  let booted = false;
   let dialogHistory = [], dialogOrigin = null, dialogNavigationRevision = 0;
   let journeyReturnWindow = null, journeyReturnPanel = null, decorReturnWindow = null;
   let fallbackSignature = '', plotSignature = '', seedSignature = '', careSignature = '', pendingImport = null, sceneError = false;
@@ -240,7 +243,7 @@
     setTimeout(() => { node.classList.add('leave'); setTimeout(() => { node.remove(); if (!stack.childElementCount) liftToastLayer(); }, 260); }, type === 'error' ? 4300 : 3500);
   }
   function queueRender() {
-    if (renderQueued || !engine) return;
+    if (renderQueued || !engine || !booted) return;
     renderQueued = true;
     queueMicrotask(() => { renderQueued = false; render(true); });
   }
@@ -1485,6 +1488,7 @@
   decorEditor = window.createSpiritDecorEditor?.({scene,engine,container:document.querySelector('.garden-card'),toast,onClose:returnFromDecorEditor,onSaved:()=>render(true)});
   cardsUI = window.createSpiritCardsUI?.({host:$('cards-host'),engine,esc,icon,toast,onClose:returnFromCards,onOpenMarket:openCardsMarket,onChange:()=>render(true)});
   journeyUI = window.createSpiritJourneyUI?.({engine,openPage:openJourneyPage,isPageVisible:()=>activePage==='journey'&&!cardsUI?.isOpen()&&!$('game-dialog').open&&!$('fullscreen-orientation').open,getContent:()=>$('journey-page'),onTabChange:tab=>{activeJourneyTab=tab;renderFullscreenControls();},onWindowChange:syncGameWindow,onCloseWindow:closeJourneyWindow,openDialog,closeDialog,getDialogKind:()=>dialogKind,toast,art,icon,esc,fmt,onEditDecor:openDecorEditor,onDecorChange:()=>renderGarden(),openMarket:itemKey=>economy.openMarket(itemKey),onReturnHome:()=>{dismissDialog();setView('home');},onAlchemy:pillId=>economy.openAlchemy(pillId)});
+  booted = true;
   fullscreenUI = window.createSpiritFullscreenUI?.({target:document.documentElement,persistent:true,onChange:onFullscreenChange,onResize:resizeFullscreenScenes,isPhone:()=>Math.min(window.innerWidth,window.innerHeight)<=600&&Math.max(window.innerWidth,window.innerHeight)<=1100});
   render(true);
   const revealGarden = () => {
@@ -1532,10 +1536,20 @@
   console.error('灵田初始化失败',error);
   document.body.classList.add('game-booting');
   document.querySelectorAll('dialog[open]').forEach(dialog => dialog.close());
+  // 智慧课堂（2026-11-23）：网络不稳时偶尔有一个文件没加载到，页面搭到一半就停了。自动重新加载一次（一分钟内最多一次），
+  // 再不行才请同学自己点“重新入境”
+  let autoRetry = false;
+  try {
+    const last = Number(sessionStorage.getItem('lingtian-boot-retry') || 0);
+    if (!(Date.now() - last < 60000)) { sessionStorage.setItem('lingtian-boot-retry', String(Date.now())); autoRetry = true; }
+  } catch (_) { autoRetry = false; }
   const splash = document.getElementById('game-boot-splash');
   if (splash) {
     splash.hidden = false;
-    splash.innerHTML = '<span class="game-avatar">灵</span><h1>洞天正在等你</h1><p>灵田未能完整加载，请刷新后继续。</p><button type="button" class="button button-primary">重新入境</button>';
-    splash.querySelector('button').addEventListener('click',() => location.reload());
+    splash.innerHTML = autoRetry
+      ? '<span class="game-avatar">灵</span><h1>洞天正在等你</h1><p>灵田没有完整加载，正在重新加载……</p>'
+      : '<span class="game-avatar">灵</span><h1>洞天正在等你</h1><p>灵田未能完整加载，请刷新后继续。</p><button type="button" class="button button-primary">重新入境</button>';
+    splash.querySelector('button')?.addEventListener('click',() => location.reload());
   }
+  if (autoRetry) setTimeout(() => location.reload(), 700);
 });

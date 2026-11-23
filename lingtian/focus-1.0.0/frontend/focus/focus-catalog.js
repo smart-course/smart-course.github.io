@@ -7,11 +7,13 @@
   ];
   // 环境声独立于雅室选择；没有设置的旧存档继续使用随景清音。
   const SOUNDS = [
-    { id: 'scene', name: '随景清音', description: '随雅室配以疏弦、翻书或轻雨。' },
-    { id: 'rain', name: '檐下听雨', description: '绵密柔和的雨声，没有旋律。' },
+    { id: 'scene', name: '随景清音', description: '随雅室配以疏弦清音：藏经阁偶有翻书声，听雨轩是檐下雨声。' },
+    // 智慧课堂 2026-11-23（用户：“或者可以加入一些类似于讲解视频中的比较舒缓的背景音”）：只有疏弦清音，不随雅室变化
+    { id: 'music', name: '清音雅乐', description: '舒缓的五声拨弦与柔和铺底，旋律随机生成，不会重复。' },
+    { id: 'rain', name: '檐下听雨', description: '细密的雨声和屋檐滴水，没有旋律。' },
     { id: 'stream', name: '山涧清溪', description: '细水流过山石，轻轻起伏。' },
     { id: 'wind', name: '松间清风', description: '缓缓吹过林间的低柔风声。' },
-    { id: 'bamboo', name: '竹叶轻响', description: '微风拂过竹叶，细碎而轻盈。' },
+    { id: 'bamboo', name: '竹叶轻响', description: '微风拂过竹叶，偶尔竹竿轻碰。' },
     { id: 'fire', name: '围炉微火', description: '温暖炉火与轻微木柴声。' },
     { id: 'pages', name: '书卷轻翻', description: '间隔留白的轻柔翻书声。' },
     { id: 'brown', name: '云海沉声', description: '平稳柔和的低频底噪，没有旋律。' }

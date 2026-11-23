@@ -1138,7 +1138,8 @@
   };
   async function loadFeedback() {
     if (!state.klass) return;
-    const rooms = $('[data-fb-scope]').value === 'class' ? state.rooms : state.room ? [state.room] : [];
+    // 2026-11-23 用户：“匿名建议，默认显示本班全部课堂”（teacher.html 里“本班全部课堂”默认选中）
+    const rooms = ($('[data-fb-scope]').value === 'class' ? state.rooms : state.room ? [state.room] : []) || [];
     const ids = new Set(rooms.map((room) => String(room.id)));
     try {
       feedbackRows = (await backend.fetchAll('feedback', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)));

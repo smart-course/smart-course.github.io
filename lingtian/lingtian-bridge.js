@@ -87,10 +87,23 @@
     try { return localStorage.getItem(`lingtian-preview-sect:${ticketCourse}`) || ''; } catch (error) { return ''; }
   }
 
+  // 不起道号不能进灵田（2026-11-23）：云函数挡下（alias_required）时，在这里请同学起道号（几个请求同时被挡也只弹一次），起好接着原来的请求
+  let aliasGate = null;
+  async function waitForAlias() {
+    if (!aliasGate) {
+      aliasGate = (async () => {
+        let change = null;
+        try { const out = await request('/api/profile'); if (out && out.status === 200 && out.body) { change = out.body.aliasChange || null; lastProfile = out.body; } } catch (error) { change = null; }
+        return askAlias(lastProfile && lastProfile.alias, true, change);
+      })().finally(() => { aliasGate = null; });
+    }
+    return aliasGate;
+  }
   async function request(path, body) {
     const [pathname, search] = String(path).split('?');
     const query = Object.fromEntries(new URLSearchParams(search || ''));
-    for (let attempt = 0; attempt < 2; attempt++) {
+    let named = false;
+    for (let attempt = 0; attempt < 3; attempt++) {
       const ticket = ticketValue || await fetchTicket(attempt > 0);
       let out;
       try {
@@ -102,6 +115,11 @@
       if (out && out.body && out.body.code === 'ticket_expired' && attempt === 0) {
         ticketValue = null;
         try { sessionStorage.removeItem(KEY); } catch (error) { /* 忽略 */ }
+        continue;
+      }
+      if (out && out.body && out.body.code === 'alias_required' && pathname !== '/api/profile' && !named) {
+        named = true;
+        await waitForAlias();
         continue;
       }
       return out || { status: 503, body: { ok: false, code: 'no_response', message: '云端暂时没有回应，请稍后再试。' } };
@@ -141,12 +159,30 @@
 
   // 文明取名的提醒（云函数 /api/profile 也给同样的话；2026-11-15 用户：“填写道号的时候也要提醒学生文明取名，否则会被销号”）
   let aliasRule = '请文明取名：不能用真实姓名，不能用国家领导人的姓名、称谓（含谐音、拼音、缩写），不能有辱骂、低俗、色情、政治敏感等字词；道号不文明的，老师会销号。';
-  async function askAlias(current, force) {
+  // 道号规则（2026-11-23 用户：“之后不取名字不给进入灵田……每位同学6个月给一次修改道号的机会”“没起道号的同学，下次登陆的时候提醒他起道号”）：
+  // 没起过道号、道号还是道友码的，进灵田前必须起好（force，没有“以后再说”）；起好以后每 6 个月可以改一次（改道号时先说清楚）
+  const dayText = (ms) => { const d = new Date(Number(ms) + 8 * 3600_000); return `${d.getUTCFullYear()}年${d.getUTCMonth() + 1}月${d.getUTCDate()}日`; };
+  // 北京时间的日历月（与云函数 handler.ts 的 addMonthsBeijing 一样：8 月 31 日再过 6 个月是 2 月的最后一天）
+  const addMonths = (ms, months) => {
+    const d = new Date(Number(ms) + 8 * 3600_000), y = d.getUTCFullYear(), m = d.getUTCMonth() + months;
+    const last = new Date(Date.UTC(y, m + 1, 0)).getUTCDate();
+    return Date.UTC(y, m, Math.min(d.getUTCDate(), last), d.getUTCHours(), d.getUTCMinutes()) - 8 * 3600_000;
+  };
+  async function askAlias(current, force, change) {
+    const months = (change && change.months) || 6;
+    const intro = change && change.isCode
+      ? `<p class="lt-note">你还没有自己的道号，道友们现在看到的是你的道友码 <b class="lt-code">${esc(change.friendCode || current || '')}</b>（道友码相当于每个人的身份证，在静修“同修”里也能看到）。起好道号才能进入云间灵田。</p>`
+      : force ? '<p class="lt-note">起好道号才能进入云间灵田。道友们看到的是道号（2—12 个汉字、字母或数字），老师在工作台能对上是谁。</p>'
+        : '<p class="lt-note">道友们看到的是道号（2—12 个汉字、字母或数字），老师在工作台能对上是谁。</p>';
+    const limit = change && !change.free
+      ? `<p class="lt-limit" role="note">道号每 ${months} 个月可以改一次：这次改了以后，下次要到${esc(dayText(addMonths(Date.now(), months)))}才能再改。</p>`
+      : `<p class="lt-limit" role="note">${force || (change && change.free) ? '第一次起道号不受限制；' : ''}起好以后每 ${months} 个月可以改一次，请想好再定。</p>`;
     return new Promise((resolve) => {
-      const node = openLayer(`<p class="lt-eyebrow">云 间 灵 田</p><h2>给自己起个道号</h2>
-        <p class="lt-note">道友们看到的是道号（2—12 个汉字、字母或数字），老师在工作台能对上是谁。</p>
+      const node = openLayer(`<p class="lt-eyebrow">云 间 灵 田</p><h2>${force ? '先给自己起个道号' : '给自己起个道号'}</h2>
+        ${intro}
         <p class="lt-rule" role="note"><b>文明取名</b>${esc(aliasRule.replace(/^请文明取名：/, ''))}</p>
-        <label class="lt-field"><span>道号</span><input type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="比如：青云客" value="${esc(force ? '' : current || '')}"></label>
+        ${limit}
+        <label class="lt-field"><span>道号</span><input type="text" maxlength="12" autocomplete="off" spellcheck="false" placeholder="比如：青云客" value="${esc(force || (change && change.isCode) ? '' : current || '')}"></label>
         <p class="lt-status" role="status"></p>
         <div class="lt-actions"><button type="button" class="lt-btn lt-primary" data-lt-save>定下道号</button>${force ? '' : '<button type="button" class="lt-btn" data-lt-skip>以后再说</button>'}</div>`, 'lt-alias');
       const input = node.querySelector('input'), status = node.querySelector('.lt-status');
@@ -156,7 +192,12 @@
         if (!alias) { status.textContent = '先写一个道号。'; return; }
         status.textContent = '正在登记……';
         const out = await request('/api/profile', { action: 'setAlias', alias }).catch((error) => ({ status: 503, body: { message: error.message } }));
-        if (out.status === 200 && out.body && out.body.ok) { closeLayer(); resolve(out.body.alias); }
+        if (out.status === 200 && out.body && out.body.ok) {
+          closeLayer();
+          if (lastProfile && !out.body.unchanged) lastProfile = Object.assign({}, lastProfile, { alias: out.body.alias, needsAlias: false,
+            aliasChange: Object.assign({}, lastProfile.aliasChange || {}, { allowed: false, free: false, isCode: false, lastChange: Date.now(), nextAt: out.body.nextAt || null }) });
+          resolve(out.body.alias);
+        }
         else status.textContent = (out.body && out.body.message) || '暂时没登记上，请稍后再试。';
       };
       node.querySelector('[data-lt-save]').addEventListener('click', save);
@@ -177,7 +218,7 @@
       if (rules && rules.alias) aliasRule = rules.alias;
       applyRealmTip(profile);
       if (profile.needsAlias) {
-        const alias = await askAlias(engine.player && engine.player.alias, true);
+        const alias = await askAlias(engine.player && engine.player.alias, true, profile.aliasChange);
         if (alias) { try { await engine.refresh(); } catch (error) { /* 下次刷新再更新 */ } }
       }
       if (profile.observer) observerNote();
@@ -221,7 +262,16 @@
       const target = event.target.closest('[data-lt-rename]');
       if (!target) return;
       event.preventDefault();
-      askAlias(engine.player && engine.player.alias, false).then((alias) => { if (alias) engine.refresh(); });
+      // 2026-11-23：道号每 6 个月可以改一次；还不能改的说清楚下次可以改的日子
+      const change = lastProfile && lastProfile.aliasChange;
+      if (change && change.allowed === false && change.nextAt) {
+        const node = openLayer(`<p class="lt-eyebrow">云 间 灵 田</p><h2>道号暂时不能改</h2>
+          <p class="lt-note">道号每 ${esc(change.months || 6)} 个月可以改一次。你上次改道号是${esc(change.lastChange ? dayText(change.lastChange) : '最近')}，下次可以改的日子是 <b>${esc(dayText(change.nextAt))}</b>。</p>
+          <div class="lt-actions"><button type="button" class="lt-btn lt-primary" data-lt-close>知道了</button></div>`, 'lt-alias');
+        node.querySelector('[data-lt-close]').addEventListener('click', closeLayer);
+        return;
+      }
+      askAlias(engine.player && engine.player.alias, !!(change && change.isCode), change).then((alias) => { if (alias) engine.refresh(); });
     });
     const observer = new MutationObserver(() => {
       const box = document.querySelector('#game-dialog .settings-actions');

@@ -18,6 +18,10 @@ dialog.lt-layer::backdrop { background: transparent; }
 .lt-rule { margin: -4px 0 14px; padding: 9px 12px; border: 1px solid rgba(164, 73, 45, .35); border-left: 4px solid #a4492d; border-radius: 10px;
   background: rgba(164, 73, 45, .06); font-size: 13px; line-height: 1.75; color: #5e3a2c; }
 .lt-rule b { margin-right: 6px; color: #a4492d; letter-spacing: .08em; }
+/* 道号规则（2026-11-23）：道友码、每 6 个月改一次 */
+.lt-code { display: inline-block; padding: 0 7px; border-radius: 7px; background: #f3ead3; color: #6f5420; font-weight: 700; letter-spacing: .05em;
+  font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+.lt-limit { margin: -6px 0 14px; padding: 8px 12px; border-radius: 10px; background: #f1f6ef; color: #3f6b55; font-size: 13px; line-height: 1.7; }
 .lt-stem { margin: 0 0 14px; font-size: 16px; line-height: 1.85; white-space: pre-line; }
 .lt-field { display: grid; gap: 6px; font-size: 13px; color: #6f7462; }
 .lt-field input { min-height: 44px; padding: 8px 14px; border: 1px solid #cfd6c0; border-radius: 12px; font-size: 16px; color: #344b43; background: #fff; }

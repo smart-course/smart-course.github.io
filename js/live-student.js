@@ -244,6 +244,18 @@
   .clp-fbr-status { grid-column: 1 / -1; min-height: 1em; margin: 0; color: #23655f; font-size: 13px; }
   .clp-fbr-status.is-error { color: #a4492d; }
   .clp-fbr-close { justify-self: end; min-width: 120px; background: #6d6259; }
+  .clp-ltn { box-sizing: border-box; width: min(480px, calc(100vw - 24px)); padding: 0; border: 0; border-radius: 18px; background: #fffdf6; color: #2a2118; box-shadow: 0 24px 60px rgba(40, 24, 8, .32); }
+  .clp-ltn::backdrop { background: rgba(20, 14, 8, .45); }
+  .clp-ltn-inner { display: grid; gap: 12px; padding: 22px 22px 18px; }
+  .clp-ltn-eyebrow { margin: 0; color: #9a7d45; font-size: 12.5px; font-weight: 700; letter-spacing: .4em; }
+  .clp-ltn h2 { margin: 0; font-size: 21px; line-height: 1.4; color: #23655f; }
+  .clp-ltn p { margin: 0; font-size: 15px; line-height: 1.75; text-wrap: pretty; }
+  .clp-ltn-code { display: inline-block; padding: 0 8px; border-radius: 8px; background: #f3ead3; color: #6f5420; font-weight: 800; letter-spacing: .06em; font-family: ui-monospace, SFMono-Regular, Menlo, monospace; }
+  .clp-ltn-small { color: #7a6f63; font-size: 13px !important; }
+  .clp-ltn-actions { display: flex; flex-wrap: wrap; gap: 10px; justify-content: flex-end; margin-top: 4px; }
+  .clp-ltn-actions a, .clp-ltn-actions button { display: inline-flex; align-items: center; justify-content: center; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; font: inherit; font-weight: 800; text-decoration: none; cursor: pointer; }
+  .clp-ltn-go { background: #23655f; color: #fff; }
+  .clp-ltn-later { background: #ece5d8; color: #4f463c; }
   .clp-egg { position: fixed; inset: 0; z-index: 2147483002; display: grid; place-items: center; padding: 16px; background: rgba(20,14,8,.38); animation: clp-egg-in .25s ease; }
   .clp-egg-card { position: relative; box-sizing: border-box; width: min(420px, 100%); padding: 22px 22px 18px; border-radius: 16px; text-align: center; color: #3b1d00;
     background: linear-gradient(140deg, #fff7d6, #f3e3ff); box-shadow: 0 18px 50px rgba(0,0,0,.3); font: 15px/1.7 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
@@ -937,7 +949,12 @@
   /* 2026-11-11：按钮多了“灵根”，四个按钮从学号那一行挪到下面单独一行（窄屏自动折行） */
   .clp-v2 .clp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 7px; margin-top: 6px; }
   .clp-acts .clp-xlbtn, .clp-acts .clp-sectbtn { margin-left: 0; }
-  /* 2026-11-23 面板上的“匿名建议箱”（点开直接写）：前面四个胶囊已经占满一行，它单独一整行，浅蓝色、不扫光，看起来是有意排的一行 */
+  /* 2026-11-23 面板上的“匿名建议箱”（点开直接写）：单独一整行，浅蓝色、不扫光。
+     同日晚（用户：“把学生控制台中的‘匿名建议箱’放在‘导出PDF’的下面”）从顶部那排胶囊挪到进度区“导出 PDF”下面（.clp-fbrow） */
+  .clp-v2 .clp-fbrow { padding: 0 14px 10px; }
+  .clp-v2 .clp-progress[hidden] + .clp-fbrow { padding-top: 10px; border-top: 1px dashed rgba(70,51,34,.18); }
+  .clp-fbrow .clp-fbbtn { width: 100%; min-width: 0; min-height: 34px; border-radius: 10px; overflow: hidden; }
+  .clp-fbrow .clp-fbbtn small { min-width: 0; overflow: hidden; text-overflow: ellipsis; }
   .clp-fbbtn { flex: 1 1 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 28px; padding: 3px 12px; border: 1px solid #9dbbe6; border-radius: 999px;
     color: #1f4f93; background: linear-gradient(180deg, #f4f8ff, #dfeafa); box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
     font: 800 12.5px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s; }
@@ -3395,7 +3412,7 @@
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：每周一推选，本宗元婴以上、修为最高；连任最多两周" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span>${MAKEUP ? '<b class="clp-makeup" title="这次课你请过假：可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补">请假补做</b>' : ''}</div>
-      ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}${!OFFLINE && Live.feedbackBox ? '<button type="button" class="clp-fbbtn" data-cl-fb-open title="匿名建议箱：点开直接写，不用翻到页面最下面"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><b>匿名建议箱</b><small>课程共建 · 课程疑问</small></button>' : ''}</div>`}
+      ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
@@ -3418,6 +3435,7 @@
         <div class="clp-prog"><i data-cl-prog></i></div>
         <span class="clp-state" data-cl-state>每题做完点题目下方的“递交”</span>${tools}
       </section>
+      ${AUDIT || OFFLINE || !Live.feedbackBox ? '' : `<div class="clp-fbrow"><button type="button" class="clp-fbbtn" data-cl-fb-open title="匿名建议箱：写建议、提疑问，也能看到以前写过的和老师的回复"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><b>匿名建议箱</b><small>写建议 · 提疑问 · 看回复</small></button></div>`}
       <div class="clp-foot">
         <details class="clp-mydm" data-cl-mydm${AUDIT ? ' hidden' : ''}>
           <summary>我发过的弹幕<span data-cl-mydm-count></span></summary>
@@ -4621,6 +4639,36 @@
       if (threads.length) showFeedbackReplies(threads, room);
     }).catch(() => {});   // 后台还没有这组函数（未执行 SQL）时安静跳过
   });
+  // 云间灵田起道号提醒（2026-11-23 用户：“没起道号的同学，下次登陆的时候提醒他起道号”；同日起不起道号进不了灵田，
+  // 没起道号的同学道号先换成静修的道友码）：进过云间灵田、还没有自己起的道号的同学，每次登录后打开页面提醒一次（这个浏览器会话里只提醒一次）。
+  // lt_alias_reminder 只读本人；后台还没有这个函数（未执行 SQL）时安静跳过
+  if (!OFFLINE && !LOCAL_ONLY && joined && !PREVIEW) checkedIn.then((status) => {
+    if (status !== 'ok') return;
+    const room = Number(identity.classroom) || identity.classroom;
+    const seenKey = `lingtian-alias-reminded:${room}`;
+    try { if (sessionStorage.getItem(seenKey) === '1') return; } catch (_) { /* 存储不可用时照常提醒 */ }
+    backend.rpc('lt_alias_reminder', { p_classroom: room }).then((got) => {
+      const row = Array.isArray(got) ? got[0] : got;
+      if (!row || !row.need) return;
+      try { sessionStorage.setItem(seenKey, '1'); } catch (_) { /* 忽略 */ }
+      showAliasReminder(row.code || '', room);
+    }).catch(() => {});
+  });
+  function showAliasReminder(code, room) {
+    const dialog = document.createElement('dialog');
+    dialog.className = 'clp-ltn';
+    dialog.setAttribute('aria-label', '云间灵田：起一个道号');
+    dialog.innerHTML = `<div class="clp-ltn-inner"><p class="clp-ltn-eyebrow">云间灵田</p><h2>给自己起一个道号吧</h2>
+      <p>你在云间灵田里还没有自己的道号，道友们现在看到的是你的道友码${code ? ` <span class="clp-ltn-code">${esc(code)}</span>` : ''}。道友码相当于每个人的身份证，在静修“同修”里也能看到。</p>
+      <p>起好道号才能再进入云间灵田。第一次起道号不受限制，之后每 6 个月可以改一次。</p>
+      <p class="clp-ltn-small">请文明取名：不要用真实姓名，不能用领导人的姓名、称谓，不能有不文明的字词；道号不文明的，老师会销号。</p>
+      <div class="clp-ltn-actions"><button type="button" class="clp-ltn-later" data-ltn-close>以后再说</button><a class="clp-ltn-go" href="/lingtian/index.html?room=${encodeURIComponent(room)}" target="_blank" rel="noopener" data-ltn-go>去起道号</a></div></div>`;
+    dialog.addEventListener('cancel', (event) => { event.preventDefault(); dialog.close(); dialog.remove(); });
+    dialog.querySelector('[data-ltn-close]').addEventListener('click', () => { dialog.close(); dialog.remove(); });
+    dialog.querySelector('[data-ltn-go]').addEventListener('click', () => { setTimeout(() => { dialog.close(); dialog.remove(); }, 0); });
+    document.body.appendChild(dialog);
+    dialog.showModal();
+  }
   function showFeedbackReplies(threads, room) {
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     const bubble = (r) => `<div class="clp-fbr-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
@@ -5961,7 +6009,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261123b-feedback-pe' : '20261123b-feedback-xjp';   // 2026-11-23 匿名建议箱分两个标签   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261123c-lingtian-pe' : '20261123c-lingtian-xjp';   // 2026-11-23 晚 先起道号、环境音、建议箱历史（两门课都有）   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6281,7 +6329,7 @@
       bindFeedback(card, caseNo, enabled, note);
     });
   }
-  function bindFeedback(root, caseNo, enabled, note) {
+  function bindFeedback(root, caseNo, enabled, note, onSent) {
     const FBP = Live.FEEDBACK || { points: 5, min: 10 };
     const key = `classlive-feedback:${identity.classroom}:${caseNo}`;   // 只在这台设备上记个数，提醒自己提交过几条
     const sent = Number(load(key, 0)) || 0;
@@ -6307,28 +6355,91 @@
         }
         const earned = (Array.isArray(got) ? got[0] : got) === true;
         save(key, (Number(load(key, 0)) || 0) + 1);
+        if (typeof onSent === 'function') setTimeout(onSent, 300);
         return `已匿名提交到“${name}”（${time()}）${earned ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
           + `${kind === 'build' ? '被老师采纳，还可以加修为。' : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
       },
     });
   }
   // 面板上的“建议箱”按钮（2026-11-23 用户：“同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交，不用再翻到课程页面最下方了”）：
-  // 弹出同样的表单（没有笑脸那一行），交到页面最后那个建议箱同样的课堂和案例；关掉再打开，写了一半的字还在
+  // 弹出同样的表单（没有笑脸那一行），交到页面最后那个建议箱同样的课堂和案例；关掉再打开，写了一半的字还在。
+  // 同日晚（用户：“把学生控制台中的‘匿名建议箱’放在‘导出PDF’的下面，然后学生之前提过的建议和老师的回复，在里面也还能看到。”）：
+  // 按钮挪到“导出 PDF”下面；对话框下面是“我提过的建议”（ck_my_feedback_history：本人在本班提过的建议，新的在前，带双方的回复和老师点赞），
+  // 可以接着回复老师（ck_answer_feedback）；看到的老师新回复，关掉对话框时记为已看（ck_seen_feedback_replies，下次登录不再弹出）
   function setupFeedbackDialog() {
     const open = panel.querySelector('[data-cl-fb-open]');
     if (!open) return;
     const caseNo = fbCards.length ? fbCards[0].caseNo : worksheet ? (/(\d{2})$/.exec(unit) || [])[1] : '00';
     if (!Live.feedbackBox || !/^\d{2}$/.test(caseNo || '')) { open.hidden = true; return; }
-    let dialog = null;
+    const room = Number(identity.classroom) || identity.classroom;
+    let dialog = null, unseen = [];
+    const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : '建议';
+    const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${esc(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
+    const item = (f) => {
+      const replies = Array.isArray(f.replies) ? f.replies : [];
+      const fresh = replies.some((r) => r.by_teacher && !r.seen);
+      return `<article class="clp-fbh-item" data-fbh="${esc(f.id)}">
+        <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' ? ' is-ask' : ''}">${kindName(f.kind)}</span><span>${esc(String(f.created_on || ''))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
+        <blockquote>${esc(f.text)}</blockquote>
+        <div class="clp-fbh-chat">${replies.map(bubble).join('')}</div>
+        ${replies.some((r) => r.by_teacher) ? '' : '<p class="clp-fbh-none">老师还没有回复。课程疑问老师一般在下一堂课统一解答。</p>'}
+        <form class="clp-fbh-form"><textarea maxlength="500" placeholder="${replies.some((r) => r.by_teacher) ? '回复老师（选填，1—500 字）' : '补充几句（选填，1—500 字）'}" aria-label="回复老师"></textarea><button type="submit">发送</button><p class="clp-fbh-status" role="status"></p></form>
+      </article>`;
+    };
+    async function loadHistory() {
+      const box = dialog && dialog.querySelector('[data-fbd-hist]');
+      if (!box) return;
+      const state = box.querySelector('[data-fbd-hist-state]'), list = box.querySelector('[data-fbd-hist-list]');
+      if (!list.childElementCount) state.textContent = '正在读取你提过的建议……';
+      try {
+        const got = await backend.rpc('ck_my_feedback_history', { p_classroom: room });
+        const row = Array.isArray(got) ? got[0] : got;
+        if (!row || row.status !== 'ok') { state.textContent = row && row.status === 'login' ? '登录已过期，请回首页用课堂码重新登录后再看。' : '暂时读不到，请稍后再试。'; return; }
+        const items = Array.isArray(row.items) ? row.items : [];
+        state.textContent = items.length ? '' : '你在本班还没有提过建议。在上面写好、选标签、点“提交”以后，这里就能看到；老师回复了也会出现在这里。';
+        list.innerHTML = items.map(item).join('');
+        unseen = items.filter((f) => (f.replies || []).some((r) => r.by_teacher && !r.seen)).map((f) => Number(f.id) || f.id);
+      } catch (problem) {
+        console.error(problem);
+        state.textContent = notReady(problem) ? '“我提过的建议”还没有开通，过一阵再来看。' : '暂时读不到，请检查网络后再试。';
+      }
+    }
     open.addEventListener('click', () => {
       if (!dialog) {
-        dialog = Live.feedbackBox.dialog(FB, { more: fbCards.length ? '去页面最后的建议箱看看 ↓' : '' });
+        dialog = Live.feedbackBox.dialog(FB, { more: fbCards.length ? '去页面最后的建议箱看看 ↓' : '', history: !PREVIEW && !LOCAL_ONLY });
         const ready = fbCards.ready || { enabled: false, note: '' };
-        bindFeedback(dialog.querySelector('.clp-fb'), caseNo, ready.enabled, ready.note);
+        bindFeedback(dialog.querySelector('.clp-fb'), caseNo, ready.enabled, ready.note, loadHistory);
         const more = dialog.querySelector('[data-fbd-more]');
         if (more) more.addEventListener('click', () => { dialog.close(); fbCards[0].card.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+        // 在“我提过的建议”里接着回复老师
+        dialog.addEventListener('submit', async (event) => {
+          const form = event.target.closest('.clp-fbh-form');
+          if (!form) return;
+          event.preventDefault();
+          const article = form.closest('[data-fbh]'), box = form.querySelector('textarea'), say = form.querySelector('.clp-fbh-status'), button = form.querySelector('button');
+          const text = box.value.trim();
+          say.classList.remove('is-error');
+          if (!text) { say.classList.add('is-error'); say.textContent = '先写好要说的话。'; return; }
+          button.disabled = true; say.textContent = '';
+          try {
+            const got = await backend.rpc('ck_answer_feedback', { p_classroom: room, p_id: Number(article.dataset.fbh) || article.dataset.fbh, p_text: text });
+            const res = Array.isArray(got) ? got[0] : got;
+            if (!res || res.status !== 'ok') throw new Error(res && res.status === 'login' ? '登录已过期，请回首页重新登录' : '没有发出去');
+            article.querySelector('.clp-fbh-chat').insertAdjacentHTML('beforeend', bubble(res.reply || { by_teacher: false, text, created_at: new Date().toISOString() }));
+            box.value = ''; say.textContent = '已发给老师（老师仍然不知道是谁写的）。';
+          } catch (problem) {
+            say.classList.add('is-error'); say.textContent = `没有发出去：${(problem && problem.message) || problem}`;
+          } finally { button.disabled = false; }
+        });
+        dialog.addEventListener('close', () => {
+          if (!unseen.length) return;
+          backend.rpc('ck_seen_feedback_replies', { p_classroom: room, p_ids: unseen }).catch(() => {});
+          unseen = [];
+        });
       }
       if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
+      void loadHistory();
     });
   }
 

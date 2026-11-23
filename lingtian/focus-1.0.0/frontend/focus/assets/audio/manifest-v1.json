@@ -1,0 +1,128 @@
+{
+ "version": "v1",
+ "wrap": 0.5,
+ "loops": {
+  "rain": {
+   "file": "amb-rain-v1.m4a",
+   "period": 30.0,
+   "wrap": 0.5,
+   "rmsDb": -22.0,
+   "peak": 0.491,
+   "seam": 0.0301,
+   "above9kDb": -26.4,
+   "bytes": 442926
+  },
+  "stream": {
+   "file": "amb-stream-v1.m4a",
+   "period": 30.0,
+   "wrap": 0.5,
+   "rmsDb": -23.0,
+   "peak": 0.412,
+   "seam": 0.0094,
+   "above9kDb": -59.7,
+   "bytes": 443243
+  },
+  "wind": {
+   "file": "amb-wind-v1.m4a",
+   "period": 48.0,
+   "wrap": 0.5,
+   "rmsDb": -24.0,
+   "peak": 0.304,
+   "seam": 0.0216,
+   "above9kDb": -29.4,
+   "bytes": 699600
+  },
+  "bamboo": {
+   "file": "amb-bamboo-v1.m4a",
+   "period": 40.0,
+   "wrap": 0.5,
+   "rmsDb": -25.0,
+   "peak": 0.319,
+   "seam": 0.0101,
+   "above9kDb": -27.8,
+   "bytes": 587691
+  },
+  "fire": {
+   "file": "amb-fire-v1.m4a",
+   "period": 30.0,
+   "wrap": 0.5,
+   "rmsDb": -23.0,
+   "peak": 0.977,
+   "seam": 0.0034,
+   "above9kDb": -31.3,
+   "bytes": 442926
+  },
+  "room": {
+   "file": "amb-room-v1.m4a",
+   "period": 20.0,
+   "wrap": 0.5,
+   "rmsDb": -46.0,
+   "peak": 0.022,
+   "seam": 0.0005,
+   "above9kDb": -48.3,
+   "bytes": 177616
+  },
+  "brown": {
+   "file": "amb-brown-v1.m4a",
+   "period": 24.0,
+   "wrap": 0.5,
+   "rmsDb": -21.0,
+   "peak": 0.745,
+   "seam": 0.0054,
+   "above9kDb": -67.9,
+   "bytes": 258950
+  },
+  "pad": {
+   "file": "mus-pad-v1.m4a",
+   "period": 32.0,
+   "wrap": 0.5,
+   "rmsDb": -24.0,
+   "bytes": 408725
+  }
+ },
+ "sprites": {
+  "drips": {
+   "file": "fx-drips-v1.m4a",
+   "slot": 1.6,
+   "count": 8,
+   "bytes": 136776
+  },
+  "knocks": {
+   "file": "fx-bamboo-v1.m4a",
+   "slot": 1.4,
+   "count": 6,
+   "bytes": 88520
+  },
+  "pops": {
+   "file": "fx-fire-v1.m4a",
+   "slot": 1.2,
+   "count": 6,
+   "bytes": 76573
+  },
+  "pages": {
+   "file": "fx-pages-v1.m4a",
+   "slot": 2.0,
+   "count": 6,
+   "bytes": 128669
+  },
+  "notes": {
+   "file": "mus-notes-v1.m4a",
+   "slot": 4.2,
+   "count": 11,
+   "bytes": 567272,
+   "names": [
+    "D3",
+    "A3",
+    "D4",
+    "E4",
+    "F#4",
+    "A4",
+    "B4",
+    "D5",
+    "E5",
+    "F#5",
+    "A5"
+   ]
+  }
+ }
+}
