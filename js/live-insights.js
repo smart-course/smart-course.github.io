@@ -131,6 +131,18 @@
   .ins-sec { grid-column: 1 / -1; margin: 14px 0 -4px; padding-top: 12px; border-top: 1px solid rgba(70,51,34,.14); color: ${C.ink}; font-size: 18px; font-weight: 800; }
   .ins-sec::before { content: ""; display: inline-block; width: 6px; height: 20px; margin-right: 10px; border-radius: 3px; background: linear-gradient(180deg, #FF0F6B, #8E44FF); vertical-align: -4px; }
   .ins-sec small { margin-left: 8px; color: ${C.muted}; font-size: 13px; font-weight: 600; }
+  .ins-sec { scroll-margin-top: 150px; }
+  .ins-grid > .ins-sec:first-child { margin-top: 4px; padding-top: 4px; border-top: 0; }
+  /* 分组目录（2026-11-23 用户：“把云间灵田、学情分析和静修数据里面的数据和图表重新排版一下，按照逻辑顺序等，使之更美观”）：
+     一排小标签，点一下跳到这一组 */
+  .ins-nav { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; margin: 14px 0 4px; padding: 8px 10px; border: 1px solid rgba(70,51,34,.12); border-radius: 14px; background: #fffdf8; }
+  .ins-nav > span { flex: 0 0 auto; margin-right: 2px; color: ${C.muted}; font-size: 13px; font-weight: 700; white-space: nowrap; }
+  .ins-nav button { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 5px 14px; white-space: nowrap; border: 1px solid rgba(70,51,34,.16); border-radius: 999px; background: #fff;
+    color: ${C.ink}; font: 700 14px/1.2 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; transition: border-color .15s, color .15s, background .15s; }
+  .ins-nav button::before { content: ""; width: 6px; height: 14px; border-radius: 3px; background: linear-gradient(180deg, #FF0F6B, #8E44FF); }
+  .ins-nav button:hover, .ins-nav button:focus-visible { border-color: ${TONE.blue}; color: ${TONE.blue}; outline: none; }
+  .ins-nav button small { color: ${C.muted}; font-size: 12px; font-weight: 600; }
+  @media (max-width: 640px) { .ins-nav { flex-wrap: nowrap; overflow-x: auto; scrollbar-width: none; } .ins-nav button { flex: 0 0 auto; } }
   .ins-keys { display: flex; flex-wrap: wrap; gap: 6px 16px; margin: 0 0 8px; color: ${C.ink2}; font-size: 12.5px; }
   .ins-keys span { display: inline-flex; align-items: center; gap: 6px; }
   .ins-keys i { display: inline-block; width: 12px; height: 10px; border-radius: 2px; }
@@ -588,6 +600,61 @@
     if (note) { const small = document.createElement('small'); small.textContent = note; h.appendChild(small); }
     parent.appendChild(h);
     return h;
+  }
+  // 按事先排好的分组摆卡片（2026-11-23）：先按 plan 放好分组标题和每张卡片的空位，画图的代码照旧一张张建卡片，
+  //   建好就挪进自己的空位（所以图是在最终的位置、按最终的宽窄画的）；plan＝[{ title, note, cards: [[卡片标题, 宽?], …] }]，
+  //   宽为 true 占满一行、false 占半行、null 用画图代码原来的。finish()：去掉没用上的空位和空的分组
+  function arranger(grid, plan) {
+    const slots = new Map();
+    plan.forEach((sec) => {
+      section(grid, sec.title, sec.note);
+      (sec.cards || []).forEach(([title, wide]) => {
+        const slot = document.createElement('div');
+        slot.className = 'ins-slot';
+        slot.hidden = true;
+        grid.appendChild(slot);
+        slots.set(title, { el: slot, wide });
+      });
+    });
+    return {
+      card(parent, title, sub, wide) {
+        const slot = slots.get(title);
+        const box = card(parent, title, sub, slot && slot.wide != null ? slot.wide : wide);
+        if (slot && slot.el.isConnected) { slot.el.replaceWith(box); slots.delete(title); }
+        return box;
+      },
+      finish() {
+        grid.querySelectorAll(':scope > .ins-slot').forEach((slot) => slot.remove());
+        Array.from(grid.querySelectorAll(':scope > .ins-sec')).forEach((h) => {
+          let next = h.nextElementSibling;
+          while (next && !next.classList.contains('ins-sec') && !next.classList.contains('ins-card')) next = next.nextElementSibling;
+          if (!next || next.classList.contains('ins-sec')) h.remove();
+        });
+      },
+    };
+  }
+  // 分组目录：grid 里每个分组标题一个小标签，点一下滚到那一组；插在 before 前面（默认插在 grid 前面）
+  function nav(grid, before) {
+    const heads = Array.from(grid.querySelectorAll(':scope > .ins-sec'));
+    const anchor = before || grid;
+    const old = anchor.parentNode && anchor.previousElementSibling;
+    if (old && old.classList && old.classList.contains('ins-nav')) old.remove();
+    if (heads.length < 2) return null;
+    const box = document.createElement('nav');
+    box.className = 'ins-nav';
+    box.setAttribute('aria-label', '分组目录');
+    const label = document.createElement('span');
+    label.textContent = '跳到';
+    box.appendChild(label);
+    heads.forEach((h) => {
+      const button = document.createElement('button');
+      button.type = 'button';
+      button.textContent = (h.firstChild && h.firstChild.textContent || '').trim();
+      button.addEventListener('click', () => h.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+      box.appendChild(button);
+    });
+    anchor.parentNode.insertBefore(box, anchor);
+    return box;
   }
   // 图例：[{ name, color, dot }]（两个及以上系列时一定有）
   function keys(host, items) {
@@ -1425,7 +1492,7 @@
   }
 
   window.ClassLiveInsights = {
-    addStyle, card, tiles, section, keys, tableView, empty, colors: C, tones: TONE, cat: CAT, catExt: CAT_EXT, ramps: RAMPS, rateColor, lightbox, openZoom,
+    addStyle, card, tiles, section, arranger, nav, keys, tableView, empty, colors: C, tones: TONE, cat: CAT, catExt: CAT_EXT, ramps: RAMPS, rateColor, lightbox, openZoom,
     stackedColumns: record(stackedColumns), splitBars: record(splitBars), windowed: record(windowed),
     lines: record(lines), treemap: record(treemap), waffle: record(waffle), segmented: record(segmented), calendar: record(calendar), radar: record(radar), meter: record(meter),
     columns: record(columns), bars: record(bars), heatmap: record(heatmap), donut: record(donut), diverging: record(diverging),

@@ -6,8 +6,9 @@
  * 表：加入 ck_checkins、选择 ck_choices、作答 ck_answers（只增不改，教师端取每人最新一条）、课堂 ck_classrooms
  * 函数：ck_join（学生凭课堂码进入）、ck_publish / ck_set_current / ck_set_open（教师管理课堂）、
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
- *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为）、
- *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
+ *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为；
+ *         2026-11-23 起带标签 p_kind：build 课程共建、ask 课程疑问）、
+ *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为；课程共建只能采纳，直接加 20）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
  *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_roster_no（本人在点名册里的编号）、
  *       ck_create_class / ck_rename_class / ck_set_class_units（班级上课范围）/ ck_save_roster / ck_move_classroom / ck_delete_class（教师管理班级与点名册）、
  *       ck_delete_danmaku（教师删除弹幕：撤回已结算的修为并记下提醒）/ ck_my_danmaku_removed（学生页取“无效弹幕被删除”的提醒）
@@ -172,26 +173,36 @@
   // 2026-11-20 点赞上限（用户：“同一位同学，上一次被点赞后，一个礼拜的时间内，最多获得20修为值……因为老师不知道是谁评论，又要防止刷分”）：
   // 同一位同学 adoptDays 天内靠点赞实际得到的修为合计不超过 adoptCap（后台 ck_adopt_recount 写死同样的数）
   const EGG = { adopt: [5, 10, 20], adoptCap: 20, adoptDays: 7, mood: 5, week: 10, days: 3 };
-  // 匿名建议箱的文字、样式和卡片（2026-11-05 起学生页与投屏页共用。用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）：
-  // texts(worksheet) 政经（概念学习页）叫“匿名建议和提问箱”；html(FB, teacher) teacher＝投屏页：同样的笑脸、输入框和“匿名提交”，一律不能用
+  // 匿名建议箱的文字、样式和卡片（2026-11-05 起学生页与投屏页共用。用户：“教师版的匿名建议箱要跟学生版的一样，只是无法递交。”）
+  // 2026-11-23 分成两个标签（用户：“把现有的匿名建议箱分成两个标签，一个是课程共建，另外一个是课程疑问，学生在递交的时候要求选择其中一个标签。
+  //   同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交……如果被采纳直接加20修为值……
+  //   把这两个标签的不同点在课程最下方的匿名建议箱中解释清楚，要简单易懂。”）：两门课都叫“匿名建议箱”，递交前必须选 build（课程共建）或 ask（课程疑问），
+  //   即后台 ck_submit_feedback 的 p_kind；课程共建被老师采纳直接加 FB_ADOPT 修为（后台 ck_adopt_feedback 写死同样的数）。
+  //   texts(worksheet, plain)：plain＝没有修为的课程（《金融机构与市场》等），不写修为；
+  //   html(FB, teacher, opts)：teacher＝投屏页（一律不能用）；opts.head、opts.mood 为 false 时不要标题、笑脸那一行（弹出的对话框）；
+  //   bind(root, { FB, enabled, note, idle, send })：接上选标签、数字数、提交（send(kind, text) 返回成功的说明，出错时抛出带 userMessage 的错误）；
+  //   dialog(FB, opts)：学生面板“建议箱”按钮弹出的对话框（同样的表单，没有笑脸那一行）
+  const FB_ADOPT = 20;
+  let fbSeq = 0;   // 同一页上几份表单（页面最后一份、对话框一份）的单选按钮各用各的 name
   const FEEDBACK_BOX = {
-    texts(worksheet) {
-      return worksheet ? {
-        tag: '匿名建议和提问箱',
-        title: '还有哪里没想通？对这堂课有什么意见或建议？',
-        hint: '学完这一课还有哪里没想通、想问老师什么，都写下来，老师看到后在下一堂课统一解答；老师的讲授、案例的呈现、课堂互动和网页用起来怎么样，希望以后增加哪些内容或互动方式，也可以写。',
-        placeholder: '写下你的疑问，或对这堂课的意见和建议（500 字内）',
-        aria: '本堂课的匿名建议和提问',
-        thanks: '老师看到后会在下一堂课解答疑问。',
-        what: '建议或提问',
-      } : {
+    adopt: FB_ADOPT,
+    texts(worksheet, plain) {
+      return {
         tag: '匿名建议箱',
-        title: '对这堂课，你有什么意见或建议？',
-        hint: '老师的讲授、案例的呈现、课堂互动和网页用起来怎么样？希望以后的课上增加哪些内容或互动方式？都可以写下来。',
-        placeholder: '写下你对这堂课的意见或建议（500 字内）',
-        aria: '本堂课的匿名建议',
-        thanks: '谢谢你的建议！',
-        what: '建议',
+        title: '有建议、有疑问，都可以匿名告诉老师',
+        aria: '本堂课的匿名建议箱',
+        what: '建议或疑问',
+        plain: Boolean(plain),
+        kinds: [
+          { key: 'build', name: '课程共建', lead: '和老师一起把课上好',
+            desc: '对这堂课提建议：节奏快了还是慢了，更重要的是课程内容——哪里没讲清楚、案例可以换什么、还想加什么；也可以自己设计上课用的内容、题目或问题，发给老师。',
+            gain: plain ? '' : `被老师采纳，直接加 ${FB_ADOPT} 修为`,
+            placeholder: '写下你的建议，或你设计的内容、题目、问题（500 字内）' },
+          { key: 'ask', name: '课程疑问', lead: '哪里不懂就问',
+            desc: '这堂课哪里没听懂、没想通；或者网页、平台不会操作（比如怎么递交、在哪里看结果），都可以问。',
+            gain: plain ? '老师会在下一次课统一解答' : '老师会在下一堂课统一解答，也可能直接回复你',
+            placeholder: '写下你的疑问：哪里没听懂，或者哪里不会操作（500 字内）' },
+        ],
       };
     },
     css: `
@@ -221,19 +232,143 @@
   .clp-mood button[disabled] { opacity: .55; cursor: default; }
   .clp-mood-state { flex: 1 1 100%; color: #6d6259; font-size: 12.5px; }
   .clp-mood[hidden] { display: none; }
+  /* 2026-11-23 两个标签：课程共建（琥珀色）、课程疑问（蓝色），必选一个；面板“建议箱”按钮弹出的对话框 */
+  .clp-fb-step { margin: 12px 0 6px; color: #23655f; font-size: 14px; font-weight: 800; }
+  .clp-fb-step span { margin-left: 4px; color: #a4492d; font-size: 13px; font-weight: 700; }
+  .clp-fb-kinds { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+  @media (max-width: 560px) { .clp-fb-kinds { grid-template-columns: 1fr; } }
+  .clp-fb-kind { position: relative; display: flex; flex-direction: column; gap: 4px; min-width: 0; padding: 10px 12px 11px 40px; border: 2px solid rgba(70,51,34,.16); border-radius: 12px;
+    background: #fff; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
+  .clp-fb-kind.is-build { --fbk: #b0601a; --fbk-bg: #fff4e5; }
+  .clp-fb-kind.is-ask { --fbk: #2b62ad; --fbk-bg: #edf3fc; }
+  .clp-fb-kind input { position: absolute; left: 13px; top: 13px; width: 18px; height: 18px; margin: 0; accent-color: var(--fbk); cursor: pointer; }
+  .clp-fb-kind-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
+  .clp-fb-kind-top b { color: var(--fbk); font-size: 17px; line-height: 1.35; }
+  .clp-fb-kind-top small { color: #6d6259; font-size: 13px; font-weight: 700; }
+  .clp-fb-kind-desc { color: #3d352e; font-size: 14px; line-height: 1.6; }
+  .clp-fb-kind-gain { align-self: flex-start; margin-top: 2px; padding: 2px 10px; border-radius: 999px; background: var(--fbk-bg); color: var(--fbk); font-size: 13px; font-weight: 800; line-height: 1.6; }
+  .clp-fb-kind.is-build .clp-fb-kind-gain::before { content: "★ "; }
+  .clp-fb-kind:hover { border-color: var(--fbk); }
+  .clp-fb-kind.is-on { border-color: var(--fbk); background: var(--fbk-bg); box-shadow: 0 0 0 3px rgba(0,0,0,.05); box-shadow: 0 0 0 3px color-mix(in srgb, var(--fbk) 20%, transparent); }
+  .clp-fb-kind.is-on .clp-fb-kind-gain { background: #fff; }
+  .clp-fb-kind.is-off { cursor: default; opacity: .78; }
+  .clp-fb-kind.is-off:hover { border-color: rgba(70,51,34,.16); }
+  .clp-fb-kind:focus-within { outline: 2px solid var(--fbk); outline-offset: 2px; }
+  .clp-fb-kinds.is-missing .clp-fb-kind { border-color: #c0392b; animation: clp-fb-shake .4s; }
+  @keyframes clp-fb-shake { 25% { transform: translateX(-4px); } 75% { transform: translateX(4px); } }
+  @media (prefers-reduced-motion: reduce) { .clp-fb-kinds.is-missing .clp-fb-kind { animation: none; } }
+  .clp-fb-anon { margin: 8px 0 0; color: #4d443c; font-size: 13px; }
+  .clp-fb-anon b { color: #23655f; }
+  .clp-fbd { box-sizing: border-box; width: min(620px, calc(100vw - 20px)); max-width: none; max-height: calc(100dvh - 20px); margin: auto; padding: 0; border: 0; border-radius: 16px;
+    background: #f4f8f6; color: #201c18; box-shadow: 0 24px 60px rgba(0,0,0,.32); overflow: auto; }
+  .clp-fbd::backdrop { background: rgba(24,20,16,.5); }
+  .clp-fbd-inner { padding: 16px 18px 14px; }
+  .clp-fbd-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 10px; }
+  .clp-fbd-head h3 { margin: 6px 0 0; font-size: 18px; line-height: 1.5; }
+  .clp-fbd-x { flex: 0 0 auto; width: 36px; height: 36px; border: 0; border-radius: 50%; background: rgba(35,101,95,.12); color: #23655f; font-family: inherit; font-size: 22px; font-weight: 700; line-height: 1; cursor: pointer; }
+  .clp-fbd-x:hover { background: rgba(35,101,95,.22); }
+  .clp-fbd .clp-fb { margin: 4px 0 0; padding: 0; border: 0; background: transparent; }
+  .clp-fbd-more { display: block; margin: 10px auto 0; padding: 4px 8px; border: 0; background: none; color: #23655f; font-family: inherit; font-size: 13px; font-weight: 700; text-decoration: underline; cursor: pointer; }
+  @media (max-width: 560px) { .clp-fbd-inner { padding: 14px 14px 12px; } .clp-fbd-head h3 { font-size: 16.5px; } }
   `,
-    // 2026-11-05 起后台另记提交者（只用于老师采纳后给作者加修为、通知作者），老师在工作台和导出里仍看不到是谁写的，所以说明改为“老师看不到是谁写的”
-    html(FB, teacher) {
-      return `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
-        <h4>${FB.title}</h4>
-        <div class="clp-mood" role="group" aria-label="上完这堂课的感觉"><span class="clp-mood-q">上完这堂课，你感觉怎么样？</span>
+    html(FB, teacher, opts = {}) {
+      fbSeq += 1;
+      const name = `clp-fbk-${fbSeq}`;
+      const head = opts.head === false ? '' : `<div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
+        <h4>${FB.title}</h4>`;
+      const mood = opts.mood === false ? '' : `<div class="clp-mood" role="group" aria-label="上完这堂课的感觉"><span class="clp-mood-q">上完这堂课，你感觉怎么样？</span>
           <button type="button" data-mood="1" aria-pressed="false" disabled><i aria-hidden="true">😊</i>开心</button>
           <button type="button" data-mood="-1" aria-pressed="false" disabled><i aria-hidden="true">☹️</i>不开心</button>
-          <small class="clp-mood-state" role="status">点一下就行，每天可以改；老师只看到各有多少人，看不到是谁选的。</small></div>
-        <p class="clp-fb-hint">${FB.hint}<b>匿名</b>：老师只看到内容和提交日期，看不到是谁写的。</p>
-        <form class="clp-fb-form"><textarea maxlength="500" rows="4" placeholder="${FB.placeholder}" aria-label="${FB.aria}" disabled></textarea>
+          <small class="clp-mood-state" role="status">点一下就行，每天可以改；老师只看到各有多少人，看不到是谁选的。</small></div>`;
+      const kinds = (FB.kinds || []).map((k) => `<label class="clp-fb-kind is-${k.key} is-off"><input type="radio" name="${name}" value="${k.key}" disabled>
+          <span class="clp-fb-kind-top"><b>${k.name}</b><small>${k.lead}</small></span>
+          <span class="clp-fb-kind-desc">${k.desc}</span>${k.gain ? `<span class="clp-fb-kind-gain">${k.gain}</span>` : ''}</label>`).join('');
+      return `${head}${mood}
+        <form class="clp-fb-form"><p class="clp-fb-step">① 先选一个标签<span>（必选）</span></p>
+        <div class="clp-fb-kinds" role="radiogroup" aria-label="选择标签：课程共建或课程疑问">${kinds}</div>
+        <p class="clp-fb-step">② 再写内容，点“匿名提交”</p>
+        <textarea maxlength="500" rows="4" placeholder="先在上面选一个标签，再写内容" aria-label="${FB.aria}" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-count">0/500</span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
+        <p class="clp-fb-anon"><b>匿名</b>：老师只看到内容和提交日期，看不到是谁写的。</p>
         <p class="clp-fb-state" role="status"></p>`;
+    },
+    bind(root, options) {
+      const { FB, enabled, note, idle, send } = options;
+      const form = root.querySelector('.clp-fb-form');
+      const area = form.querySelector('textarea');
+      const button = form.querySelector('button[type="submit"]');
+      const count = form.querySelector('.clp-fb-count');
+      const group = form.querySelector('.clp-fb-kinds');
+      const radios = Array.from(form.querySelectorAll('.clp-fb-kind input'));
+      const state = root.querySelector('.clp-fb-state');
+      const say = (text, kind) => { state.textContent = text || ''; state.dataset.state = kind || ''; };
+      const info = (key) => (FB.kinds || []).find((k) => k.key === key) || { name: '', placeholder: '' };
+      const picked = () => { const r = radios.find((item) => item.checked); return r ? r.value : ''; };
+      let sending = false;
+      form.addEventListener('submit', (event) => event.preventDefault());
+      if (!enabled) { say(note || ''); return { say }; }
+      const paint = () => {
+        const key = picked();
+        radios.forEach((r) => {
+          r.disabled = sending;
+          r.closest('.clp-fb-kind').classList.toggle('is-on', r.checked);
+          r.closest('.clp-fb-kind').classList.toggle('is-off', sending);
+        });
+        area.disabled = sending;
+        area.placeholder = key ? info(key).placeholder : '先在上面选一个标签，再写内容';
+        button.textContent = key ? `匿名提交到“${info(key).name}”` : '匿名提交';
+        count.textContent = `${area.value.length}/500`;
+        button.disabled = sending || area.value.trim().length < 2;
+      };
+      radios.forEach((r) => r.addEventListener('change', () => {
+        group.classList.remove('is-missing');
+        if (state.dataset.state === 'error') say(idle || '');
+        paint();
+      }));
+      area.addEventListener('input', paint);
+      paint();
+      say(idle || '');
+      form.addEventListener('submit', async () => {
+        const text = area.value.trim();
+        if (text.length < 2 || sending) return;
+        const key = picked();
+        if (!key) {   // 标签必选：没选就提醒，不交
+          group.classList.remove('is-missing');
+          void group.offsetWidth;   // 重新播放提醒动画
+          group.classList.add('is-missing');
+          say('请先在上面选一个标签：是“课程共建”，还是“课程疑问”？', 'error');
+          if (radios[0]) radios[0].focus();
+          return;
+        }
+        sending = true;
+        paint();
+        try {
+          const message = await send(key, text);
+          area.value = '';
+          radios.forEach((r) => { r.checked = false; });   // 每一条都要重新选标签
+          say(message, 'ok');
+        } catch (problem) {
+          say((problem && problem.userMessage) || '提交没有成功：请检查网络后再试。', 'error');
+        } finally {
+          sending = false;
+          paint();
+        }
+      });
+      return { say };
+    },
+    dialog(FB, opts = {}) {
+      const dialog = document.createElement('dialog');
+      dialog.className = 'clp-fbd';
+      dialog.setAttribute('aria-label', FB.tag);
+      dialog.innerHTML = `<div class="clp-fbd-inner"><div class="clp-fbd-head"><div><div class="clp-fb-head"><span class="clp-fb-tag">${FB.tag}</span><span class="clp-fb-label">本堂课</span></div>
+        <h3>${FB.title}</h3></div><button type="button" class="clp-fbd-x" data-fbd-close aria-label="关闭">×</button></div>
+        <section class="clp-fb">${FEEDBACK_BOX.html(FB, false, { head: false, mood: false })}</section>
+        ${opts.more ? `<button type="button" class="clp-fbd-more" data-fbd-more>${opts.more}</button>` : ''}</div>`;
+      // 对话框里打字、点击不传到页面（页面有翻页快捷键）；点灰色背景或 × 关闭（写了一半的字留着，下次打开还在）
+      ['click', 'keydown', 'keyup', 'keypress', 'input'].forEach((type) => dialog.addEventListener(type, (event) => event.stopPropagation()));
+      dialog.addEventListener('click', (event) => { if (event.target === dialog || event.target.closest('[data-fbd-close]')) dialog.close(); });
+      document.body.appendChild(dialog);
+      return dialog;
     },
   };
   const POLL = { presets: [['是', '否'], ['对', '错'], ['赞同', '反对'], ['一', '二'], ['A', 'B', 'C', 'D']], check: 4000, refresh: 2000, keep: 180000 };
@@ -2289,18 +2424,20 @@
         if (name === 'ck_my_notices') {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
-          if (!me) return { status: 'login', adopt: 0 };
+          if (!me) return { status: 'login', adopt: 0, build: 0 };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const authors = read('fbauthors');
           let adopt = 0;
+          let build = 0;   // 其中课程共建被采纳加的（2026-11-23）
           authors.forEach((row) => {
             if (row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid) && row.points > row.notified) {
               adopt += row.points - row.notified;
+              if (row.kind === 'build') build += row.points - row.notified;
               row.notified = row.points;
             }
           });
           write('fbauthors', authors);
-          return { status: 'ok', adopt };
+          return { status: 'ok', adopt, build };
         }
         if (['ck_my_feedback_threads', 'ck_answer_feedback', 'ck_seen_feedback_replies'].includes(name)) {
           const uid = await this.ensureAnonymous();
@@ -2312,7 +2449,7 @@
           const replies = read('fbreplies');
           if (name === 'ck_my_feedback_threads') {
             const threads = read('feedback').filter((f) => mine.has(String(f.id)) && replies.some((r) => String(r.feedback_id) === String(f.id) && r.by_teacher && !r.seen_at))
-              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text,
+              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text, kind: f.kind || '',
                 replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
             return { status: 'ok', threads };
           }
@@ -2330,6 +2467,33 @@
           replies.forEach((r) => { if (ids.has(String(r.feedback_id)) && mine.has(String(r.feedback_id)) && r.by_teacher && !r.seen_at) { r.seen_at = new Date().toISOString(); seen += 1; } });
           write('fbreplies', replies);
           return { status: 'ok', seen };
+        }
+        // 匿名建议：只核对进过这个课堂，存下的行里没有提交者（学生函数，放在下面的 teacherOnly() 之前，2026-11-23 挪到这里）
+        if (name === 'ck_submit_feedback') {
+          const uid = await this.ensureAnonymous();
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const me = room && myCheckin(uid, params.p_classroom);
+          if (!me) {
+            throw Object.assign(new Error('进入课堂后才能提交建议'), { code: '42501' });
+          }
+          const text = String(params.p_text || '').trim();
+          const kind = String(params.p_kind || '');   // 2026-11-23 标签：build 课程共建、ask 课程疑问；''＝旧页面没带（规则同 cloudbase-pg.sql）
+          if (!['', 'build', 'ask'].includes(kind)) throw new Error('请先选标签：课程共建或课程疑问');
+          if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
+          const rows = read('feedback');
+          const id = Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1;
+          rows.push({ id, course: room.course, classroom: room.id, unit: room.chapter, case_no: params.p_case, text, kind, created_on: today(), adopted: 0, adopted_at: null });
+          write('feedback', rows);
+          // 2026-11-05：另记提交者（老师读不到；只用于采纳后给作者加修为、通知作者）
+          const authors = read('fbauthors');
+          authors.push({ feedback_id: id, course: room.course, class_id: room.class_id, classroom: room.id, sid: sidKey(me.sid), name: me.name, created_on: today(), points: 0, notified: 0, kind });
+          write('fbauthors', authors);
+          // 每个课堂第一次提交 10 字以上加修为（只记提交过，不记是哪一条）
+          const bonus = read('bonus');
+          if (text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;
+          bonus.push({ id: `${Date.now()}-fb`, course: room.course, classroom: room.id, day: today(), kind: 'feedback', sid: sidKey(me.sid), name: me.name, points: FEEDBACK.points, created_at: new Date().toISOString() });
+          write('bonus', bonus);
+          return true;
         }
         teacherOnly();
         // 学生版测试页：教师以“王不凡”的名义发弹幕、祭出法宝（规则同 cloudbase-pg.sql 的 ck_test_danmaku；owner 用本机匿名身份，便于“我发过的弹幕”）
@@ -2535,41 +2699,18 @@
           const index = (klass.roster || []).findIndex((person) => sidKey(person.sid) === sidKey(me.sid));
           return index >= 0 ? index + 1 : null;
         }
-        // 匿名建议：只核对进过这个课堂，存下的行里没有提交者
-        if (name === 'ck_submit_feedback') {
-          const uid = await this.ensureAnonymous();
-          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
-          const me = room && myCheckin(uid, params.p_classroom);
-          if (!me) {
-            throw Object.assign(new Error('进入课堂后才能提交建议'), { code: '42501' });
-          }
-          const text = String(params.p_text || '').trim();
-          if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
-          const rows = read('feedback');
-          const id = Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1;
-          rows.push({ id, course: room.course, classroom: room.id, unit: room.chapter, case_no: params.p_case, text, created_on: today(), adopted: 0, adopted_at: null });
-          write('feedback', rows);
-          // 2026-11-05：另记提交者（老师读不到；只用于采纳后给作者加修为、通知作者）
-          const authors = read('fbauthors');
-          authors.push({ feedback_id: id, course: room.course, class_id: room.class_id, classroom: room.id, sid: sidKey(me.sid), name: me.name, created_on: today(), points: 0, notified: 0 });
-          write('fbauthors', authors);
-          // 每个课堂第一次提交 10 字以上加修为（只记提交过，不记是哪一条）
-          const bonus = read('bonus');
-          if (text.length < FEEDBACK.min || bonus.some((row) => String(row.classroom) === String(room.id) && row.kind === 'feedback' && row.sid === sidKey(me.sid))) return false;
-          bonus.push({ id: `${Date.now()}-fb`, course: room.course, classroom: room.id, day: today(), kind: 'feedback', sid: sidKey(me.sid), name: me.name, points: FEEDBACK.points, created_at: new Date().toISOString() });
-          write('bonus', bonus);
-          return true;
-        }
         // 老师点赞采纳匿名建议（规则同 cloudbase-pg.sql 的 ck_adopt_feedback / ck_adopt_recount）：0／5／10／20。
         // 2026-11-20 起同一位同学 7 天内靠点赞最多得 20 修为：这里记下老师点的数（asked）和时间（liked_at），实际加多少（points）按时间顺序重算；
         // 返回的 adopted 是老师点的数，不是实际加的数（不让老师从“没加满”看出几条建议出自同一个人）
         if (name === 'ck_adopt_feedback') {
           teacherOnly();
           const points = Number(params.p_points);
-          if (![0, ...EGG.adopt].includes(points)) throw new Error('修为只能选 5、10 或 20');
           const rows = read('feedback');
           const doc = rows.find((row) => String(row.id) === String(params.p_id));
           if (!doc) throw new Error('这条建议已经删除');
+          // 2026-11-23：课程共建只能采纳（FB_ADOPT）或取消（0），直接加、不按 7 天额度算；课程疑问和没分类的照旧
+          const build = doc.kind === 'build';
+          if (build ? ![0, FB_ADOPT].includes(points) : ![0, ...EGG.adopt].includes(points)) throw new Error(build ? '课程共建只能采纳（加 20 修为）或取消采纳' : '修为只能选 5、10 或 20');
           const authors = read('fbauthors');
           const author = authors.find((row) => String(row.feedback_id) === String(params.p_id));
           if (!author) return { status: 'no_author', adopted: Number(doc.adopted) || 0 };
@@ -2583,14 +2724,15 @@
             const old = rows.find((item) => String(item.id) === String(row.feedback_id));
             Object.assign(row, { asked: row.points, capped: false, liked_at: (old && old.adopted_at) || `${row.created_on}T00:00:00+08:00` });
           });
-          if (points > 0) Object.assign(author, { asked: points, liked_at: now, capped: true });
+          if (build) Object.assign(author, points > 0 ? { asked: points, points, liked_at: now, capped: false } : { asked: 0, points: 0, notified: 0, liked_at: null, capped: false });
+          else if (points > 0) Object.assign(author, { asked: points, liked_at: now, capped: true });
           else Object.assign(author, { asked: 0, liked_at: null, capped: true, points: 0, notified: 0 });
           const at = (row) => Date.parse(row.liked_at);
           const span = EGG.adoptDays * 86400000;
           authors.filter((row) => mine(row) && row.capped !== false && (Number(row.asked) || 0) > 0 && row.liked_at)
             .sort((x, y) => at(x) - at(y) || Number(x.feedback_id) - Number(y.feedback_id))
             .forEach((row) => {
-              const used = authors.filter((other) => mine(other) && other !== row && (Number(other.points) || 0) > 0 && other.liked_at && at(other) > at(row) - span
+              const used = authors.filter((other) => mine(other) && other !== row && other.kind !== 'build' && (Number(other.points) || 0) > 0 && other.liked_at && at(other) > at(row) - span
                 && (at(other) < at(row) || (at(other) === at(row) && Number(other.feedback_id) < Number(row.feedback_id))))
                 .reduce((total, other) => total + Number(other.points), 0);
               const give = Math.min(Number(row.asked), Math.max(0, EGG.adoptCap - used));
@@ -3136,6 +3278,9 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-23：匿名建议箱分“课程共建”“课程疑问”两个标签，面板上多了“建议箱”按钮（用户：“把现有的匿名建议箱分成两个标签……
+        //   同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交……如果被采纳直接加20修为值”）
+        ['匿名建议箱分成两个标签', `写之前先选一个标签：“课程共建”——对课堂节奏、课程内容提建议，或者自己设计上课用的内容、题目发给老师，被老师采纳直接加 ${FB_ADOPT} 修为；“课程疑问”——这堂课哪里没听懂、平台哪里不会操作，老师会在下一堂课统一解答。左下角面板多了“建议箱”按钮，点开就能写，不用再翻到页面最下面。`, '2026-11-23'],
         // 2026-11-23：静修第一次进入的引导、开始计时后的大屏、计时卡版式（用户：“学生第一次进入进修的时候做一段引导页面……”
         //   “点击开始进修后，进入类似于情景猜谜小游戏那样的大屏……看你们谁最先完成静修。”“这个页面可以再设计得美观一些……”）
         ['静修 · 引导、大屏和新版式', '第一次进静修会有三步引导：选性别和化身、选去藏经阁还是听雨轩、看怎么静修（右上角的“？”随时再看）。点“开始静修”就进入大屏：大圆环倒计时，旁边是同室每位同修坐在书案前的实时状态和还剩多久，按谁先完成排名次。退出大屏、切到别的页面都会暂停计时，同室的同学会看到你“切出暂停”，回来点“继续静修”。计时卡的字也放大了，手机、平板都重新排过。', '2026-11-23'],
@@ -3302,9 +3447,7 @@
         ['匿名弹幕', '老师打开“匿名”时，投屏只显示内容、不显示姓名，老师后台仍能看到是谁发的。', '2026-10-12'],
         ['猜词游戏', `老师抽两位同学上台，一人背对屏幕猜、一人用自己的话描述；每次课得分第一的一组两人各加 ${wordgame} 修为。`, '2026-10-12'],
         ['停止递交', '老师可以让某道题停止递交，停止后这道题不能再递交、也不计修为，请跟上课堂节奏及时递交。', '2026-10-12'],
-        config.course === 'political-economy'
-          ? ['匿名建议和提问箱', '每次课最后可以匿名提问或提建议：没想通的地方写下来，老师下一堂课统一解答；老师的讲授、案例的呈现、希望增加的互动方式也都可以说。', '2026-10-12']
-          : ['匿名建议箱', '每次课最后可以匿名对这堂课提建议，老师的讲授、案例的呈现、希望增加的互动方式都可以说。', '2026-10-12'],
+        ['匿名建议箱', '每次课最后（或左下角面板的“建议箱”按钮）可以匿名提建议、提问：分“课程共建”和“课程疑问”两个标签，写之前先选一个。', '2026-10-12'],
         ['手机端', '面板收成一个境界小图标，点一下展开。', '2026-10-12'],
       ] },
     ].filter((section) => !section.course || section.course === config.course);

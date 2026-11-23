@@ -1715,3 +1715,50 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-room-stats .tw-stat.is-quiet b { color: #a3978b; }
 .tw-strip .tw-stat.is-done .tw-stat-ico { background: #e3f3ea; color: #1f7a4d; }
 @media (prefers-reduced-motion: reduce) { .tw-room-stats .tw-stat.is-online .tw-stat-ico { animation: none; } }
+
+/* ---------- 云间灵田、静修数据重新排版（2026-11-23 用户：“你把云间灵田、学情分析和静修数据里面的数据和图表在重新排版一下，按照逻辑顺序等，使之更美观”）----------
+   数据统计、种田行为分析不再套一层框，标题当大标题（20px），里面的分组标题（谁来了、灵石账本……）小一号；开放与卡池两块设置照旧带框，放在最后 */
+.tw-lt-block.is-flat { margin: 28px 0 6px; padding: 0; border: 0; background: transparent; }
+.tw-lt-block.is-flat > h3, .tw-lt-sec-h { margin: 0 0 6px; padding-left: 12px; border-left: 6px solid var(--teal); color: var(--ink); font: 800 20px/1.35 var(--sans); letter-spacing: 0; }
+.tw-lt-sec-h { margin: 32px 0 0; }
+.tw-lt-sec-h small { margin-left: 8px; color: var(--muted); font-size: 13px; font-weight: 600; }
+.tw-lt-block.is-flat .ins-sec { font-size: 16px; }
+/* 点跳转小标签滚到分组标题时，给吸顶的顶栏让出位置：--tw-top-h 是顶栏现在的高度（live-teacher.js 随时量；手机上顶栏不吸顶，是 0） */
+.tw-panel .ins-sec, [data-lt-sec] { scroll-margin-top: calc(var(--tw-top-h, 125px) + 16px); }
+/* 分组跳转栏（学情分析、云间灵田、静修数据）：小标签前的竖条和悬停颜色跟工作台的分组标题一样用青色 */
+.tw-panel .ins-nav button::before { width: 4px; background: var(--teal); }
+.tw-panel .ins-nav button:hover, .tw-panel .ins-nav button:focus-visible { border-color: var(--teal); color: var(--teal); }
+/* 跳转栏右边：云间灵田现在开没开（点一下跳到开放与卡池） */
+.tw-panel .tw-lt-nav .tw-lt-open { margin-left: auto; }
+.tw-panel .tw-lt-nav .tw-lt-open::before { width: 9px; height: 9px; border-radius: 50%; background: #a3978b; }
+.tw-panel .tw-lt-nav .tw-lt-open.is-on { border-color: rgba(31, 122, 77, .35); background: #eef8f2; color: #1f6b45; }
+.tw-panel .tw-lt-nav .tw-lt-open.is-on::before { background: #1f9d55; box-shadow: 0 0 0 3px rgba(31, 157, 85, .18); }
+.tw-panel .tw-lt-nav .tw-lt-open.is-off { background: #f6f2ec; color: #7a6d62; }
+@media (max-width: 640px) {
+  .tw-lt-block.is-flat > h3, .tw-lt-sec-h { font-size: 18px; }
+  .tw-panel .tw-lt-nav .tw-lt-open { margin-left: 0; }
+}
+/* 多了“静修数据”标签（2026-11-23）：每个标签左右收窄，标签之间的空隙也小 1px——“匿名建议（12）”这类带条数的标签也算上，1366 宽的屏幕上仍一行放下（同 10-29“标签页一行”） */
+.tw-tabs button { padding: 8px 9px; }
+.tw-tabbar .tw-tabs { gap: 5px; }
+
+/* ---------- 匿名建议分“课程共建”“课程疑问”（2026-11-23）：标签筛选、卡片左上角的标签、课程共建的“采纳 +20” ---------- */
+.tw-fb-kinds { display: flex; flex-wrap: wrap; gap: 8px; margin: 10px 0 2px; }
+.tw-fb-kinds:empty { display: none; }
+.tw-fb-kindbtn { display: inline-flex; align-items: center; gap: 6px; min-height: 34px; padding: 4px 12px; border: 1.5px solid var(--line); border-radius: 999px; background: #fff;
+  color: var(--ink); font-family: var(--sans); font-size: 14px; font-weight: 700; cursor: pointer; }
+.tw-fb-kindbtn b { min-width: 22px; padding: 0 6px; border-radius: 999px; background: #f1ebe2; font-size: 12.5px; text-align: center; }
+.tw-fb-kindbtn:hover, .tw-fb-kindbtn:focus-visible { border-color: var(--teal); outline: none; }
+.tw-fb-kindbtn[aria-pressed="true"] { border-color: var(--teal); background: var(--teal); color: #fff; }
+.tw-fb-kindbtn[aria-pressed="true"] b { background: rgba(255, 255, 255, .22); }
+.tw-fb-kindbtn.is-build[aria-pressed="true"] { border-color: #b0601a; background: #b0601a; }
+.tw-fb-kindbtn.is-ask[aria-pressed="true"] { border-color: #2b62ad; background: #2b62ad; }
+.tw-fb-meta .tw-fb-kind { justify-self: start; margin-bottom: 3px; padding: 1px 9px; border-radius: 999px; background: #efe9e1; color: #6d6259; font-size: 12.5px; font-weight: 800; }
+.tw-fb-meta .tw-fb-kind.is-build { background: #fff1de; color: #9a5214; box-shadow: inset 0 0 0 1px rgba(176, 96, 26, .3); }
+.tw-fb-meta .tw-fb-kind.is-ask { background: #e9f1fc; color: #24589f; box-shadow: inset 0 0 0 1px rgba(43, 98, 173, .28); }
+.tw-fb-card.is-k-build { border-left: 4px solid #d48a3c; }
+.tw-fb-card.is-k-ask { border-left: 4px solid #6f9bd8; }
+.tw-fb-adopt { border-color: rgba(176, 96, 26, .45); color: #9a5214; }
+.tw-fb-adopt:hover, .tw-fb-adopt:focus-visible { border-color: #b0601a; color: #b0601a; }
+.tw-fb-adopt.is-on { border-color: #b0601a; background: #b0601a; color: #fff; }
+@media (max-width: 760px) { .tw-fb-meta .tw-fb-kind { margin-bottom: 0; } }

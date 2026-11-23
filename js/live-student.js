@@ -937,6 +937,15 @@
   /* 2026-11-11：按钮多了“灵根”，四个按钮从学号那一行挪到下面单独一行（窄屏自动折行） */
   .clp-v2 .clp-acts { display: flex; flex-wrap: wrap; align-items: center; gap: 6px 7px; margin-top: 6px; }
   .clp-acts .clp-xlbtn, .clp-acts .clp-sectbtn { margin-left: 0; }
+  /* 2026-11-23 面板上的“匿名建议箱”（点开直接写）：前面四个胶囊已经占满一行，它单独一整行，浅蓝色、不扫光，看起来是有意排的一行 */
+  .clp-fbbtn { flex: 1 1 100%; display: inline-flex; align-items: center; justify-content: center; gap: 6px; min-height: 28px; padding: 3px 12px; border: 1px solid #9dbbe6; border-radius: 999px;
+    color: #1f4f93; background: linear-gradient(180deg, #f4f8ff, #dfeafa); box-shadow: inset 0 1px 0 rgba(255,255,255,.9);
+    font: 800 12.5px/1.4 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; cursor: pointer; transition: border-color .15s, background .15s; }
+  .clp-fbbtn b { font-weight: 800; }
+  .clp-fbbtn small { color: #4b6f9f; font-size: 11.5px; font-weight: 700; }
+  .clp-fbbtn:hover, .clp-fbbtn:focus-visible { border-color: #3f7cd2; background: linear-gradient(180deg, #eaf2ff, #d2e2f8); outline: none; }
+  .clp-fbbtn[hidden] { display: none; }
+  .clp-fbbtn svg { width: 15px; height: 15px; fill: none; stroke: currentColor; stroke-width: 2; stroke-linecap: round; stroke-linejoin: round; }
   .clp-lgbtn { position: relative; overflow: hidden; flex: 0 0 auto; display: inline-flex; align-items: center; gap: 4px; padding: 2px 10px 2px 8px; border: 1px solid #8f1d47; border-radius: 999px;
     color: #fff; background: linear-gradient(180deg, #ffb3cf, #e8467f 55%, #a61c4e); box-shadow: 0 0 8px rgba(255,15,107,.42), inset 0 1px 0 rgba(255,255,255,.6);
     text-shadow: 0 1px 1px rgba(80,0,30,.35);
@@ -3386,7 +3395,7 @@
       <div class="clp-who"><b class="clp-no" data-cl-no title="你在点名册上的编号" hidden></b><strong class="clp-name">${esc(identity.name)}</strong><b class="clp-realm" data-cl-realm role="button" tabindex="0" title="修为境界（点开看说明）" hidden></b>${AUDIT ? '<b class="clp-audit-tag" title="点名册外、老师允许旁听">旁听</b>' : '<b class="clp-lord" data-cl-lord title="宗主：每周一推选，本宗元婴以上、修为最高；连任最多两周" hidden><i aria-hidden="true"></i>宗主</b>'}
         <span class="clp-links">${window.ClassReadable ? '<button type="button" class="clp-link" data-cl-font aria-haspopup="true" aria-expanded="false" title="调整页面字号（标准、大、特大）">字号</button>' : ''}${PREVIEW || AUDIT || !window.ClassLeave ? '' : '<button type="button" class="clp-link" data-cl-leave title="选择请假日期、写明原因，老师在加入名单里能看到">请假</button>'}<button type="button" class="clp-link" data-cl-fold>收起</button></span></div>
       <div class="clp-sub"><span>${[identity.sid, identity.class_name, identity.group_name, identity.classroom_name].filter(Boolean).map(esc).join(' · ')}</span>${MAKEUP ? '<b class="clp-makeup" title="这次课你请过假：可以补交这次课的题目，照常计修为；弹幕、投票、小游戏等课堂活动不能补">请假补做</b>' : ''}</div>
-      ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}</div>`}
+      ${AUDIT ? '' : `<div class="clp-acts"><button type="button" class="clp-rankbtn" data-cl-rank-open title="本班修为前十名">${TROPHY}修为榜</button>${OFFLINE ? '' : `<button type="button" class="clp-lgbtn" data-cl-lingen-open title="灵根八相：八个方向看自己的长处和短处">${LINGEN_ICON}灵根</button>`}${window.ClassLivePractice && !AUDIT ? '<button type="button" class="clp-xlbtn" data-cl-practice-open title="平时做题攒修为：每天有上限">修炼场</button>' : ''}${(Live.SECTS || []).length && !AUDIT && !OFFLINE ? '<button type="button" class="clp-sectbtn" data-cl-sect-open title="宗门榜：达到「筑基」后可以拜入宗门"><span aria-hidden="true">宗</span>宗门</button>' : ''}${!OFFLINE && Live.feedbackBox ? '<button type="button" class="clp-fbbtn" data-cl-fb-open title="匿名建议箱：点开直接写，不用翻到页面最下面"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="3" y="5.5" width="18" height="13" rx="2.2"/><path d="m3.8 7.2 8.2 6 8.2-6"/></svg><b>匿名建议箱</b><small>课程共建 · 课程疑问</small></button>' : ''}</div>`}
       <div class="clp-rise" data-cl-rise hidden><span data-cl-rise-label></span><span class="clp-rise-bar"><i data-cl-rise-fill></i></span></div>
     </div>
     <div class="clp-body">
@@ -3736,6 +3745,7 @@
   } else {
     setupMechDanmaku(true);
     setupFeedback(true);
+    setupFeedbackDialog();
     setupExamExport();
     setupDebateRooms(true);
     setupDebateClock();
@@ -4593,7 +4603,10 @@
     backend.rpc('ck_my_notices', { p_classroom: Number(identity.classroom) || identity.classroom }).then((got) => {
       const row = Array.isArray(got) ? got[0] : got;
       const points = Number(row && row.adopt) || 0;
-      if (points > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points}点，勇敢的人先享受世界^_^`, true);
+      // 2026-11-23：课程共建被采纳（建议箱里写明了“被老师采纳，直接加 20 修为”）单独说；其余的照旧是彩蛋
+      const build = Math.min(points, Number(row && row.build) || 0);
+      if (build > 0) egg(`你在“课程共建”里写的建议被老师采纳了！修为值 +${build}。虽然老师不知道你是谁，但谢谢你和老师一起把课上好 ^_^`, true);
+      if (points - build > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points - build}点，勇敢的人先享受世界^_^`, true);
     }).catch(() => {});   // 后台还没有这个函数（未执行 SQL）时安静跳过
   });
   // 老师回复了匿名建议（2026-11-19 用户：“对学生的建议，除点赞外，再增加一个回复的功能，回复后在学生下次登陆的时候弹出回复的对话框，学生点击关闭才关闭显示。
@@ -4617,7 +4630,7 @@
     dialog.innerHTML = `<div class="clp-fbr-inner"><h2>老师回复了你的匿名建议</h2>
       <p class="clp-fbr-note">这段往来只有你能看到，老师仍然不知道建议是谁写的。想说什么可以直接回复老师；看完点最下面的“关闭”。</p>
       ${threads.map((t) => `<section class="clp-fbr-item" data-fbr="${esc(t.id)}">
-        <p class="clp-fbr-mine">你的建议<small>${esc(String(t.created_on || ''))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
+        <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : '建议'}<small>${esc(String(t.created_on || ''))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
         <blockquote>${esc(t.text)}</blockquote>
         <div class="clp-fbr-chat">${(t.replies || []).map(bubble).join('')}</div>
         <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><p class="clp-fbr-status" role="status"></p></form>
@@ -5436,7 +5449,7 @@
         ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
         <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方获胜，获胜方不加修为（按自己的判断投，不用看哪一方人多）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
-        <li>匿名建议：在页面最后的${config.course === 'xjp-economy' ? '“匿名建议箱”' : '“匿名建议和提问箱”'}里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上的建议或提问，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）。</li>
+        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，每个课堂第一次写 ${(Live.FEEDBACK || {}).min || 10} 字以上，加 ${(Live.FEEDBACK || {}).points || 5} 修为（只记你提交过，老师看不到哪一条是你写的）；“课程共建”被老师采纳，再加 ${(Live.feedbackBox || {}).adopt || 20} 修为。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -5948,7 +5961,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261123a-focus-pe' : '20261123a-focus-xjp';   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261123b-feedback-pe' : '20261123b-feedback-xjp';   // 2026-11-23 匿名建议箱分两个标签   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6257,56 +6270,65 @@
     });
   }
 
-  // 匿名建议箱：只把建议内容交给后台函数，不带姓名、学号（函数按本人这次登录核对进过本课堂；建议行里没有提交者，提交者另记、老师读不到）
+  // 匿名建议箱：只把建议内容和标签交给后台函数，不带姓名、学号（函数按本人这次登录核对进过本课堂；建议行里没有提交者，提交者另记、老师读不到）。
+  // 2026-11-23 起递交前必须选标签：课程共建（被老师采纳直接加 20 修为）或课程疑问（live-core.js 的 feedbackBox，页面最后的建议箱和面板弹出的表单共用）
+  // 注意：没进课堂、只查看历史课堂时，面板那一段会先调用 setupFeedback（比这里早），所以这里不用 const／let 记东西，开放条件记在 fbCards 上
   function setupFeedback(enabled, note) {
     setupMood(enabled);
+    fbCards.ready = { enabled, note };   // 面板“建议箱”弹出的表单照同样的条件开放
     fbCards.forEach(({ card, caseNo }) => {
-      const area = card.querySelector('textarea');
-      const button = card.querySelector('.clp-fb-form button[type="submit"]');   // 卡片里第一个按钮是笑脸，不能用 querySelector('button')
-      const count = card.querySelector('.clp-fb-count');
-      const state = card.querySelector('.clp-fb-state');
-      const say = (text, kind) => { state.textContent = text; state.dataset.state = kind || ''; };
       shield(card);
-      if (!enabled) { say(note); return; }
-      area.disabled = false;
-      let sending = false;
-      const sync = () => {
-        count.textContent = `${area.value.length}/500`;
-        button.disabled = sending || area.value.trim().length < 2;
-      };
-      area.addEventListener('input', sync);
-      sync();
-      // 只在这台设备上记个数，提醒自己提交过几条
-      const key = `classlive-feedback:${identity.classroom}:${caseNo}`;
-      const sent = Number(load(key, 0)) || 0;
-      // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）
-      const FBP = Live.FEEDBACK || { points: 5, min: 10 };
-      const reward = `本堂课第一次提交 ${FBP.min} 字以上的${FB.what}，加 ${FBP.points} 修为（老师看不到哪条是你写的）。`;
-      say(sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : `写好后点“匿名提交”，可以提交多条。${reward}`);
-      card.querySelector('form').addEventListener('submit', async (event) => {
-        event.preventDefault();
-        const text = area.value.trim();
-        if (text.length < 2 || sending) return;
-        sending = true;
-        sync();
+      bindFeedback(card, caseNo, enabled, note);
+    });
+  }
+  function bindFeedback(root, caseNo, enabled, note) {
+    const FBP = Live.FEEDBACK || { points: 5, min: 10 };
+    const key = `classlive-feedback:${identity.classroom}:${caseNo}`;   // 只在这台设备上记个数，提醒自己提交过几条
+    const sent = Number(load(key, 0)) || 0;
+    // 2026-10-29 用户：“提匿名建议可以增加5分修为值”：每个课堂第一次提交 10 字以上的加修为（后台只记提交过，不记是哪一条）
+    const reward = `本堂课第一次写满 ${FBP.min} 字，加 ${FBP.points} 修为。`;
+    Live.feedbackBox.bind(root, {
+      FB, enabled, note,
+      idle: sent ? `你在这台设备上已匿名提交过 ${sent} 条，还可以继续写。` : `可以提交多条。${reward}`,
+      send: async (kind, text) => {
+        const name = (FB.kinds.find((k) => k.key === kind) || {}).name || '';
+        if (PREVIEW) return `测试页：不会真的提交（学生页会匿名提交到“${name}”）。`;
+        let got;
         try {
-          if (PREVIEW) { say('测试页：不会真的提交（学生页会匿名提交给老师）。', 'ok'); return; }
-          const got = await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text });
-          const earned = (Array.isArray(got) ? got[0] : got) === true;
-          area.value = '';
-          save(key, (Number(load(key, 0)) || 0) + 1);
-          say(`已匿名提交（${time()}），${earned ? `修为 +${FBP.points}（老师结算后计入）。` : ''}${FB.thanks}还可以继续写下一条。`, 'ok');
+          got = await backend.rpc('ck_submit_feedback', { p_classroom: Number(identity.classroom) || identity.classroom, p_case: caseNo, p_text: text, p_kind: kind });
         } catch (problem) {
           console.error(problem);
           const message = `${(problem && problem.message) || problem || ''}`;
-          say(notReady(problem) ? '建议箱还没有开通，请稍后再试。'
-            : /进入课堂|42501/.test(message) ? '提交没有成功：请回到首页用课堂码重新登录后再试。'
-              : '提交没有成功：请检查网络后再试。', 'error');
-        } finally {
-          sending = false;
-          sync();
+          throw Object.assign(new Error(message), {
+            userMessage: notReady(problem) ? '建议箱还没有开通，请稍后再试。'
+              : /进入课堂|42501/.test(message) ? '提交没有成功：请回到首页用课堂码重新登录后再试。'
+                : /选标签/.test(message) ? '提交没有成功：请先选一个标签。' : '提交没有成功：请检查网络后再试。',
+          });
         }
-      });
+        const earned = (Array.isArray(got) ? got[0] : got) === true;
+        save(key, (Number(load(key, 0)) || 0) + 1);
+        return `已匿名提交到“${name}”（${time()}）${earned ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
+          + `${kind === 'build' ? `被老师采纳，再加 ${Live.feedbackBox.adopt} 修为。` : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
+      },
+    });
+  }
+  // 面板上的“建议箱”按钮（2026-11-23 用户：“同时在学生控制台中再做一个匿名建议箱的按钮，点击弹出后方便学生直接递交，不用再翻到课程页面最下方了”）：
+  // 弹出同样的表单（没有笑脸那一行），交到页面最后那个建议箱同样的课堂和案例；关掉再打开，写了一半的字还在
+  function setupFeedbackDialog() {
+    const open = panel.querySelector('[data-cl-fb-open]');
+    if (!open) return;
+    const caseNo = fbCards.length ? fbCards[0].caseNo : worksheet ? (/(\d{2})$/.exec(unit) || [])[1] : '00';
+    if (!Live.feedbackBox || !/^\d{2}$/.test(caseNo || '')) { open.hidden = true; return; }
+    let dialog = null;
+    open.addEventListener('click', () => {
+      if (!dialog) {
+        dialog = Live.feedbackBox.dialog(FB, { more: fbCards.length ? '去页面最后的建议箱看看 ↓' : '' });
+        const ready = fbCards.ready || { enabled: false, note: '' };
+        bindFeedback(dialog.querySelector('.clp-fb'), caseNo, ready.enabled, ready.note);
+        const more = dialog.querySelector('[data-fbd-more]');
+        if (more) more.addEventListener('click', () => { dialog.close(); fbCards[0].card.scrollIntoView({ behavior: 'smooth', block: 'start' }); });
+      }
+      if (typeof dialog.showModal === 'function') dialog.showModal(); else dialog.setAttribute('open', '');
     });
   }
 

@@ -369,7 +369,7 @@
   // 名次：已完成的排前面（按这台设备看到他完成的先后），还在计时的按还剩多久从少到多；暂停的排在计时的后面。
   const STAGE_AWAY = new Set(['hidden', 'blur', 'leave', 'module', 'panel']);
   const STAGE_NET = new Set(['network', 'disconnected', 'connection']);
-  const stage = { el: null, timer: 0, ids: '', finished: new Map(), confirmEnd: false, lastKey: '', busy: false };
+  const stage = { el: null, timer: 0, ids: '', cols: 0, finished: new Map(), confirmEnd: false, lastKey: '', busy: false };
   const SEATED_ART = 'focus/assets/companions-seated-v87.webp';
   const clockText = ms => { const s = Math.max(0, Math.ceil((Number(ms) || 0) / 1000)); return `${String(Math.floor(s / 60)).padStart(2, '0')}:${String(s % 60).padStart(2, '0')}`; };
   const stateLabel = p => {
@@ -457,7 +457,9 @@
     const remaining = a ? Number(a.remainingMs != null ? a.remainingMs : total - (a.elapsedMs || 0)) : 0;
     const status = a ? a.status : 'idle';
     el.dataset.status = status; el.dataset.kind = kind;
-    $s('[data-fh-stage-time]').textContent = clockText(remaining);
+    const timeText = clockText(remaining);
+    $s('[data-fh-stage-time]').textContent = timeText;
+    $s('[data-fh-stage-time]').dataset.long = String(timeText.length > 5);   // 100 分钟以上多一位，字号收一点
     $s('[data-fh-stage-ring]').style.strokeDashoffset = String(339.29 * (1 - Math.min(1, Math.max(0, a ? (a.elapsedMs || 0) / total : 0))));
     const away = status === 'paused' && STAGE_AWAY.has(a.pauseReason);
     $s('[data-fh-stage-label]').textContent = !a ? '待进修' : status === 'completed' ? (kind === 'focus' ? '修习已成' : '小憩已毕') : status === 'paused' ? (away ? '切出暂停' : '已暂停') : kind === 'break' ? '小憩中' : '进修中';
@@ -487,10 +489,20 @@
     const { list, rank, left } = standings(snap);
     const ids = list.map(x => x.id).join('|');
     const desks = $s('[data-fh-stage-desks]');
-    if (ids !== stage.ids) { stage.ids = ids; desks.innerHTML = list.map(deskMarkup).join(''); }   // 有人进出或名次变了才重排
+    // 有人进出、名次变了或者一排放几张变了（转屏）才重排；最后一排不满时补上空席（一间雅室 8 个座位），右边不显得空。
+    // 一排几张按书案格子实际排出来的列数算：手机 2、iPad 横屏 3、iPad 竖屏和电脑 4……
+    const tracks = (getComputedStyle(desks).gridTemplateColumns || '').split(' ').filter(Boolean);
+    const cols = tracks.length && tracks[0] !== 'none' ? tracks.length : 2;
+    if (ids !== stage.ids || cols !== stage.cols) {
+      stage.ids = ids; stage.cols = cols;
+      const empty = '<li class="fh-desk is-empty" aria-hidden="true"><span class="fh-desk-figure"></span><span class="fh-desk-table"></span><span class="fh-desk-text"><b class="fh-desk-name">空席</b><span class="fh-desk-goal">同修入座后会坐在这里</span></span></li>';
+      desks.innerHTML = list.map(deskMarkup).join('') + empty.repeat(Math.max(0, Math.min(8 - list.length, (cols - (list.length % cols)) % cols)));
+    }
     list.forEach(x => {
       const li = desks.querySelector(`[data-fh-desk="${CSS.escape(x.id)}"]`);
       if (!li) return;
+      const goal = li.querySelector('.fh-desk-goal');   // 立愿跟着换（同一个人开始新的一段时，书案上的立愿也要更新）
+      if (goal && goal.textContent !== (x.target || '')) goal.textContent = x.target || '';
       const r = rank.get(x.id);
       li.dataset.status = x.status; li.dataset.kind = x.kind || '';
       li.classList.toggle('is-self', !!x.isSelf); li.classList.toggle('is-friend', !!x.isFriend);

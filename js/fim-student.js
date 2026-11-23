@@ -3,7 +3,8 @@
  *   · 从首页用课堂码登录进来（课堂码＋点名册＋个人口令），本页核对身份、记当天签到、报在线；
  *   · 每道题下面有“递交”：选好或写好后点一下，再点一次确认，交给老师；每题只收第一次，递交后不能修改（后台同样只收第一次）；
  *     老师停止递交的题、课堂结束提交以后，不能再递交；
- *   · 左下角小面板：已递交几题、跳到下一道没递交的题；课次页最后有“本堂作业递交情况”“这堂课感觉怎么样”“匿名建议和提问箱”。
+ *   · 左下角小面板：已递交几题、跳到下一道没递交的题、匿名建议箱（2026-11-23，弹出表单）；课次页最后有“本堂作业递交情况”“这堂课感觉怎么样”“匿名建议箱”
+ *     （分“课程共建”“课程疑问”两个标签，递交前必选）。
  * 没有修为、境界、法宝、宗门、云间灵田（用户 2026-11-20：“不要云间灵田和境界等级了”）。
  *   · 答题计时：老师在投屏页的一道题（或一组题）上点“开始答题”，这里那道题上出现倒计时，页面上方有一条“剩余时间 · 去作答”（fim-timer.js）。
  * 后台用的都是课程网站已有的函数（ck_checkin_today、ck_ping、ck_submit_answer、ck_my_submissions、ck_stopped_items、
@@ -288,11 +289,13 @@
       <button type="button" class="fimp-btn" data-next></button>
       ${HERE === HUB ? '' : `<button type="button" class="fimp-btn is-ghost" data-hub>回到本次课页面</button>`}
       <div data-note></div>
+      ${FBX && joined && !LOCAL_ONLY ? '<button type="button" class="fimp-btn is-ghost" data-fb-open title="课程共建、课程疑问，点开直接写">匿名建议箱</button>' : ''}
       <div class="fimp-links"><span>每题点“递交”，递交后不能修改</span>${PREVIEW ? '' : '<button type="button" data-leave>不是我</button>'}</div></div>`;
     document.body.appendChild(panel);
     panel.addEventListener('click', async (event) => {
       if (event.target.closest('[data-next]')) { const q = nextOpen(); if (q) goTo(q); return; }
       if (event.target.closest('[data-hub]')) { location.href = keyed(HUB); return; }
+      if (event.target.closest('[data-fb-open]')) { openFeedbackDialog(); return; }
       if (event.target.closest('[data-leave]')) {
         if (!window.confirm('退出这台设备上的课堂身份？下次进入要重新输入课堂码和个人口令。')) return;
         try { localStorage.removeItem(STORE); localStorage.removeItem(`${STORE}:${config.course}:${unit}`); } catch (error) { /* 忽略 */ }
@@ -477,15 +480,47 @@
     try { await backend.rpc('ck_ping', { p_classroom: room }); } catch (error) { if (/未知的后台函数|does not exist|PGRST202/.test(String(error && error.message))) pingOff = true; }
   }
 
-  // ---------- 这堂课感觉怎么样、匿名建议和提问箱（只在课次页）
+  // ---------- 这堂课感觉怎么样、匿名建议箱（只在课次页）
+  // 2026-11-23 匿名建议箱分“课程共建”“课程疑问”两个标签，递交前必选（表单、文字、样式与政经习经共用 live-core.js 的 feedbackBox；这门课没有修为，不写修为）；
+  //   左下角面板多了“匿名建议箱”按钮，弹出同样的表单（openFeedbackDialog）
+  const FBX = Live.feedbackBox || null;
+  const FBT = FBX ? FBX.texts(false, true) : null;
+  function feedbackStyle() {
+    if (!FBX || document.querySelector('style[data-fim-fb]')) return;
+    const css = document.createElement('style');
+    css.dataset.fimFb = '';
+    css.textContent = FBX.css;
+    document.head.appendChild(css);
+  }
+  async function sendFeedback(kind, text) {
+    try {
+      await backend.rpc('ck_submit_feedback', { p_classroom: room, p_case: String(config.session || '01').padStart(2, '0'), p_text: text, p_kind: kind });
+    } catch (error) {
+      const message = String((error && error.message) || error || '');
+      throw Object.assign(new Error(message), { userMessage: /重新登录|进入课堂/.test(message) ? '请回首页重新登录后再提交。' : '没有提交成功，请稍后再试。' });
+    }
+    const name = (FBT.kinds.find((k) => k.key === kind) || {}).name || '';
+    return `已匿名提交到“${name}”，谢谢。还可以再写一条，记得先选标签。`;
+  }
+  let fbDialog = null;
+  function openFeedbackDialog() {
+    if (!FBX) return;
+    feedbackStyle();
+    if (!fbDialog) {
+      fbDialog = FBX.dialog(FBT);
+      FBX.bind(fbDialog.querySelector('.clp-fb'), { FB: FBT, enabled: true, idle: '可以提交多条。', send: sendFeedback });
+    }
+    if (typeof fbDialog.showModal === 'function') fbDialog.showModal(); else fbDialog.setAttribute('open', '');
+  }
   function setupFeedback() {
     const host = $('[data-fim-feedback]');
     if (!host || !joined || LOCAL_ONLY) return;
     host.hidden = false;
+    feedbackStyle();
     host.innerHTML = `<h2>课后说两句</h2>
       <div class="fim-card"><h3>这堂课感觉怎么样</h3><div class="fim-mood" data-mood><button type="button" data-mood-v="1">😊 有收获</button><button type="button" data-mood-v="-1">😕 没跟上</button><span class="fq-state" data-mood-state>每天可以选一次，能改。</span></div></div>
-      <div class="fim-card fim-fb"><h3>匿名建议和提问箱</h3><p class="fim-note" style="margin:0">哪里没听懂、想问老师什么、对课堂和网页有什么建议，写下来。完全匿名：后台不记姓名和学号，老师只看到内容和日期。</p>
-      <textarea maxlength="500" placeholder="写在这里（2到500字）" data-fb-text></textarea><button type="button" class="fim-btn" data-fb-send>匿名提交</button> <span class="fq-state" data-fb-state></span></div>`;
+      ${FBX ? `<section class="clp-fb">${FBX.html(FBT, false, { mood: false })}</section>` : ''}`;
+    if (FBX) FBX.bind(host.querySelector('.clp-fb'), { FB: FBT, enabled: true, idle: '可以提交多条。', send: sendFeedback });
     ['keydown', 'keyup', 'keypress'].forEach((type) => host.addEventListener(type, (event) => event.stopPropagation()));
     const moodState = $('[data-mood-state]', host);
     const paintMood = (mood) => $$('[data-mood-v]', host).forEach((b) => b.classList.toggle('is-on', Number(b.dataset.moodV) === Number(mood)));
@@ -502,21 +537,6 @@
           else { paintMood(want); moodState.textContent = want ? '已记下，谢谢。' : '已撤回。'; }
         } catch (error) { moodState.textContent = '没有记上，请稍后再试。'; }
         return;
-      }
-      if (event.target.closest('[data-fb-send]')) {
-        const area = $('[data-fb-text]', host);
-        const state = $('[data-fb-state]', host);
-        const text = area.value.trim();
-        if (text.length < 2) { state.textContent = '至少写2个字。'; state.className = 'fq-state is-bad'; return; }
-        try {
-          await backend.rpc('ck_submit_feedback', { p_classroom: room, p_case: String(config.session || '01').padStart(2, '0'), p_text: text });
-          area.value = '';
-          state.textContent = '已匿名提交，谢谢。可以再写一条。';
-          state.className = 'fq-state is-ok';
-        } catch (error) {
-          state.textContent = /重新登录|进入课堂/.test(String(error && error.message)) ? '请回首页重新登录后再提交。' : '没有提交成功，请稍后再试。';
-          state.className = 'fq-state is-bad';
-        }
       }
     });
   }

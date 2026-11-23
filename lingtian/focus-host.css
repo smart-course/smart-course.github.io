@@ -179,12 +179,42 @@ dialog.fh-picker::backdrop { background: transparent; }
 .fh-desk[data-status="paused"] .fh-desk-bar i { background: #c08a4a; }
 .fh-desk[data-status="completed"] .fh-desk-bar i { background: #c49a46; }
 .fh-desk[data-kind="break"] .fh-desk-bar i { background: #6c93b0; }
+/* 空席：不满 4 人时补上，虚线框＋空书案（2026-11-23 线上用王不凡测：只有一人时右边一大片空白） */
+.fh-desk.is-empty { border-style: dashed; border-color: #d6dac4; background: linear-gradient(180deg, #f6f4e8, #fdfcf6 62%); }
+.fh-desk.is-empty .fh-desk-table { opacity: .55; }
+.fh-desk.is-empty .fh-desk-table::before, .fh-desk.is-empty .fh-desk-table::after { display: none; }
+.fh-desk.is-empty .fh-desk-name { color: #a3a893; font-weight: 600; }
+.fh-desk.is-empty .fh-desk-goal { white-space: normal; color: #a3a893; }
+/* 电脑、平板横屏：圆环和数字再大一些；同修卡片按内容高矮、和左边的计时上下居中（人多时卡片内滚动） */
+.fh-stage-room { align-self: center; max-height: 100%; }
+.fh-stage-ring { width: min(360px, 44vh, 78vw); }
+.fh-stage-clock strong { font-size: clamp(44px, 8.4vh, 84px); }
 /* 平板竖屏和手机：上面计时，下面同修 */
 @media (max-width: 900px) {
-  .fh-stage-main { grid-template-columns: minmax(0, 1fr); align-items: start; gap: 18px; }
+  .fh-stage-main { grid-template-columns: minmax(0, 1fr); align-items: start; align-content: start; gap: 18px; }
   .fh-stage-ring { width: min(280px, 34vh, 72vw); }
   .fh-stage-room { align-self: start; }
   .fh-desks { overflow: visible; grid-template-columns: repeat(auto-fill, minmax(158px, 1fr)); }
+}
+/* iPad 竖屏（高屏）：圆环、数字、按钮都放大，四张书案一排 */
+@media (min-width: 561px) and (max-width: 900px) and (min-height: 900px) {
+  .fh-stage-main { gap: 26px; padding-top: 22px; }
+  .fh-stage-me { gap: 18px; }
+  .fh-stage-where b { font-size: 28px; }
+  .fh-stage-where span { font-size: 16px; }
+  .fh-stage-goal span { font-size: 15px; }
+  .fh-stage-goal b { font-size: 26px; }
+  .fh-stage-ring { width: min(400px, 38vh, 62vw); }
+  .fh-stage-clock span { font-size: 19px; }
+  .fh-stage-clock strong { font-size: 84px; }
+  .fh-stage-clock small { font-size: 16px; }
+  .fh-stage-lead { padding: 8px 22px; font-size: 18px; }
+  .fh-stage-actions { max-width: 560px; }
+  .fh-stage-actions .fh-btn { min-height: 56px; padding: 12px 28px; font-size: 18px; }
+  .fh-stage-hint { font-size: 14px; }
+  .fh-stage-room { padding: 18px 18px 20px; }
+  .fh-stage-room h2 { font-size: 21px; }
+  .fh-desks { grid-template-columns: repeat(4, minmax(0, 1fr)); }
 }
 @media (max-width: 560px) {
   .fh-stage { padding-left: 12px; padding-right: 12px; }
@@ -194,7 +224,7 @@ dialog.fh-picker::backdrop { background: transparent; }
   .fh-stage-exit small { display: none; }
   .fh-stage-me { gap: 10px; }
   .fh-stage-goal b { font-size: 18px; }
-  .fh-stage-ring { width: min(210px, 56vw, 30vh); }
+  .fh-stage-ring { width: min(250px, 66vw, 31vh); }
   .fh-stage-clock strong { font-size: 44px; }
   .fh-stage-clock span { font-size: 14px; }
   .fh-stage-clock small { font-size: 12px; }
@@ -230,4 +260,16 @@ dialog.fh-picker::backdrop { background: transparent; }
   .fh-stage-hint { display: none; }
   .fh-stage-room { align-self: stretch; max-height: calc(100dvh - 90px); }
 }
+/* 倒计时数字更大更醒目（2026-11-23 用户：“倒计时的数字可以更大更明显一些”）：数字按圆环大小走（约圆环宽的 29%，
+   手机约 60px、电脑约 105px、iPad 竖屏约 115px），加粗、颜色更深；圆环里上下两行小字也跟着放大一点。
+   100 分钟以上（如 120:00）多一位，字号收一点免得出圈。不认 cqw 的旧浏览器照旧用上面按屏幕定的字号 */
+.fh-stage-ring { container-type: inline-size; }
+.fh-stage .fh-stage-ring .fh-stage-clock { gap: 1.6cqw; }
+.fh-stage .fh-stage-ring .fh-stage-clock strong { font-size: 29cqw; font-weight: 700; line-height: 1; letter-spacing: 0; color: #1f3d30; text-shadow: 0 1px 0 #fff, 0 6px 20px #2f4a3a24; }
+.fh-stage .fh-stage-ring .fh-stage-clock strong[data-long="true"] { font-size: 23cqw; }
+.fh-stage[data-status="paused"] .fh-stage-ring .fh-stage-clock strong { color: #6b4a2a; }
+.fh-stage .fh-stage-ring .fh-stage-clock span { font-size: max(13px, 4.8cqw); }
+.fh-stage .fh-stage-ring .fh-stage-clock small { font-size: max(12px, 3.9cqw); }
+.fh-desk-line strong { font-size: 17px; font-weight: 800; }
+@media (max-width: 560px) { .fh-desk-line strong { font-size: 15px; } }
 @media (prefers-reduced-motion: reduce) { .fh-ring-bar, .fh-desk-bar i { transition: none; } }
