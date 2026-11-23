@@ -80,7 +80,7 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app .game-boot-steps .is-complete i { border-color: #aa965d; background: #c2ac72; }
 .game-app .game-boot-verse { display: grid; justify-items: center; gap: 8px; margin-top: 4px; }
 .game-app .game-boot-verse small { color: #a48a54; font: 10px/1.4 var(--sans, sans-serif); letter-spacing: 4px; padding-left: 4px; }
-.game-app .game-boot-verse #game-boot-quote { max-width: min(350px, calc(100vw - 64px)); font: 20px/1.8 var(--serif, serif); letter-spacing: 1px; color: #5a7253; text-wrap: balance; }
+.game-app .game-boot-verse #game-boot-quote { max-width: min(350px, calc(100vw - 64px)); font: 22px/1.75 "LingtianVerse", "Kaiti SC", "STKaiti", "KaiTi", var(--serif, serif); letter-spacing: 1px; color: #4f6849; text-wrap: balance; }   /* 2026-11-24 同一款毛笔楷书 */
 @keyframes game-boot-jade-shimmer { 0%, 12% { transform: translateX(0); } 88%, 100% { transform: translateX(420px); } }
 @media (max-width: 600px), (max-height: 450px) {
   .game-app .game-boot-progress { height: 22px; padding: 2px; }
@@ -93,7 +93,7 @@ body.game-app.game-booting .garden-topline { display: none; }
   .game-app .game-boot-splash h1 { font-size: 25px; line-height: 1.2; }
   .game-app .game-boot-journey { gap: 5px; }
   .game-app .game-boot-verse { gap: 4px; margin-top: 1px; }
-  .game-app .game-boot-verse #game-boot-quote { font-size: 17px; line-height: 1.6; }
+  .game-app .game-boot-verse #game-boot-quote { font-size: 19px; line-height: 1.6; }
 }
 @media (prefers-reduced-motion: reduce) {
   .game-app .game-boot-progress i,
@@ -151,7 +151,9 @@ body.game-app.game-booting .garden-topline { display: none; }
 .game-app .game-sky-note { min-height: 26px; align-content: center; font-size: 13px; line-height: 1.5; color: #718163; font-variant-numeric: tabular-nums; letter-spacing: .3px; }
 /* 智慧课堂 2026-11-24：开场那句诗放在天时卡的时间下面（boot-ui.js 填入 #environment-verse，不写“今日语录”）。用户：“你把这句诗句还是放到
    我的灵田这块卡片里面，放在时间下方，卡牌稍微再宽一些，注意手机和ipad的适配。”卡片各档宽度加宽 20—36px；一行放不下时省略号收尾 */
-.game-app .game-sky-verse { display: block; width: 100%; min-width: 0; padding-top: 3px; border-top: 1px solid #d7d6b98a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; color: #8a774a; font: 500 12px/1.4 var(--serif, serif); letter-spacing: 1.5px; }
+/* 2026-11-24 用户：“诗句的字体可以改得更中式一些的字体，稍微明显一些”——用马善政毛笔楷书（Ma Shan Zheng，SIL 开源字体协议，只截取 24 句诗用到的 154 个字，fonts/lingtian-verse.woff2 约 60 KB，协议在 fonts/OFL-MaShanZheng.txt），字号 12→15，颜色和开场画面的诗句一样（深绿 #4f6849，用户：“字体的颜色跟登陆时候一样吧”）；字体没下载到时依次用系统楷体、宋体 */
+@font-face { font-family: "LingtianVerse"; src: url("fonts/lingtian-verse.woff2") format("woff2"); font-weight: 400; font-style: normal; font-display: swap; }
+.game-app .game-sky-verse { display: block; width: 100%; min-width: 0; padding-top: 3px; border-top: 1px solid #d7d6b98a; overflow: hidden; white-space: nowrap; text-overflow: ellipsis; text-align: center; color: #4f6849; font: 400 15px/1.35 "LingtianVerse", "Kaiti SC", "STKaiti", "KaiTi", var(--serif, serif); letter-spacing: 1px; }
 .game-app .game-sky-verse[hidden] { display: none; }
 .game-app .game-sky-summary[aria-disabled="true"] { cursor: default; }
 .game-app .game-sky-summary[aria-disabled="true"] .game-sky-hint { display: none; }
@@ -1059,8 +1061,8 @@ body.game-app.game-booting .garden-topline { display: none; }
    “我的灵田”和时间的天时卡放在最上面一整行（用户：“我的灵田和显示时间的那个卡片放在最上面”），头像、按钮、灵石、今日修行整体下移一行（改 --hud-top）；
    地点标签原来同时有 top 和 bottom，被拉成一长条挡住半块灵田；收获按钮压在工具栏上；底栏九个入口放不下。 */
 @media (max-width: 600px) and (orientation: portrait) {
-  /* 2026-11-24：天时卡多了一行诗句（卡高约 89px），整排往下让出位置（原 62px） */
-  body.game-app { --hud-title-top: max(10px, env(safe-area-inset-top, 0px)); --hud-title-height: 90px; --hud-top: calc(var(--hud-title-top) + var(--hud-title-height) + 8px); }
+  /* 2026-11-24：天时卡多了一行诗句（毛笔楷书 15px，卡高约 93px），整排往下让出位置（原 62px） */
+  body.game-app { --hud-title-top: max(10px, env(safe-area-inset-top, 0px)); --hud-title-height: 94px; --hud-top: calc(var(--hud-title-top) + var(--hud-title-height) + 8px); }
   .game-app .game-center-title { top: var(--hud-title-top); left: var(--hud-left); right: var(--hud-right); width: auto; min-height: var(--hud-title-height); padding: 5px 14px; transform: none; }
   .game-app .game-sky-heading small { font-size: 9px; }
   .game-app #environment-chip-clock { font-size: 24px; }
@@ -1087,17 +1089,17 @@ body.game-app.game-booting .garden-topline { display: none; }
 /* 智慧课堂 2026-11-19：拜访道友时道友名单这一横条的空白处不挡画面——田主的“藏真书案”正好在这一带，卡框要点得到；名单按钮照常可点 */
 .game-app .garden-card .neighbor-strip { pointer-events: none; }
 .game-app .garden-card .neighbor-strip > * { pointer-events: auto; }
-/* 智慧课堂 2026-11-24：天时卡多了一行诗句，变高了（电脑、iPad 约 92px，横屏手机约 85px）。右上角弹出的提示条、同步提示、
+/* 智慧课堂 2026-11-24：天时卡多了一行诗句，变高了（电脑、iPad 约 96px，横屏手机约 89px）。右上角弹出的提示条、同步提示、
    视角面板原来贴着卡片下沿出来，窄一点的屏幕（iPad、横屏手机）会盖住诗句那一行：一律从卡片下面开始（--hud-sky-clear）。
    宽屏上它们在卡片右边，不受影响；竖屏手机的天时卡单独占最上面一整行，照旧（下面重新写回原来的位置）。 */
-body.game-app { --hud-sky-clear: calc(var(--hud-top) + 98px); }
+body.game-app { --hud-sky-clear: calc(var(--hud-top) + 102px); }
 .game-app #toast-stack { top: max(calc(var(--hud-clear-top) + 6px), var(--hud-sky-clear)); }
 .game-app .workspace > .session-banner { top: max(var(--hud-clear-top), var(--hud-sky-clear)); }
 @media (max-width: 930px) {
   .game-app[data-fullscreen-panel="camera"] .camera-controls { top: max(calc(var(--hud-top) + 61px), var(--hud-sky-clear)); }
 }
 @media (max-height: 520px) and (orientation: landscape) {
-  body.game-app { --hud-sky-clear: calc(var(--hud-top) + 91px); }
+  body.game-app { --hud-sky-clear: calc(var(--hud-top) + 95px); }
   .game-app #toast-stack { top: var(--hud-sky-clear); }
   .game-app[data-fullscreen-panel="camera"] .camera-controls { top: var(--hud-sky-clear); }
 }

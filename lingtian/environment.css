@@ -38,8 +38,8 @@
   background-position: right 14px center;
 }
 
-/* 智慧课堂 2026-11-24：“四时天象”里也写开场那句诗（environment-ui.js，读 SpiritBootVerse），两边各一道淡金线，不写“今日语录” */
-.environment-verse{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0 2px;color:#7b6838;font:500 15px/1.6 var(--serif,serif);letter-spacing:2px;text-align:center}
+/* 智慧课堂 2026-11-24：“四时天象”里也写开场那句诗（environment-ui.js，读 SpiritBootVerse），两边各一道淡金线，不写“今日语录”；字体同天时卡（毛笔楷书，@font-face 在 fullscreen.css） */
+.environment-verse{display:flex;align-items:center;justify-content:center;gap:12px;margin:14px 0 2px;color:#4f6849;font:400 20px/1.5 "LingtianVerse","Kaiti SC","STKaiti","KaiTi",var(--serif,serif);letter-spacing:2px;text-align:center}
 .environment-verse::before,.environment-verse::after{content:"";flex:1 1 24px;max-width:72px;height:1px;background:linear-gradient(90deg,transparent,#cdb784)}
 .environment-verse::after{background:linear-gradient(90deg,#cdb784,transparent)}
-@media(max-width:520px){.environment-verse{gap:8px;margin:12px 0 0;font-size:14px;letter-spacing:1.5px}}
+@media(max-width:520px){.environment-verse{gap:8px;margin:12px 0 0;font-size:18px;letter-spacing:1.5px}}

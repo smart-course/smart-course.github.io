@@ -4,6 +4,7 @@
   'use strict';
   const node = document.getElementById('game-boot-quote');
   if (!node) return;
+  // 智慧课堂 2026-11-24：诗句用毛笔楷书显示（fonts/lingtian-verse.woff2 只含这些诗用到的字）。改了下面的诗句，要重跑 python3 tools/verse_font.py
   const verses = [
     '山中无甲子，草木有灵时。',
     '一畦藏四季，半卷养清心。',
