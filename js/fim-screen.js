@@ -99,9 +99,12 @@
   .fqt.is-follow .fqt-clock { background: #5f8f88; font-size: 20px !important; min-width: 70px; }
   .fqt-over { padding: 0 10px; border-radius: 8px; background: #f7e6da; color: #8a3f22 !important; }
   ${Timer ? Timer.CSS : ''}
-  .fim-live-bar { position: fixed; left: 14px; bottom: 14px; z-index: 300; max-width: min(520px, calc(100vw - 28px)); padding: 7px 14px; border-radius: 999px; background: rgba(29,93,88,.94); color: #fff;
+  .fim-live-bar { position: fixed; left: 14px; bottom: 14px; z-index: 300; transition: bottom .18s ease; max-width: min(520px, calc(100vw - 28px)); padding: 7px 14px; border-radius: 999px; background: rgba(29,93,88,.94); color: #fff;
     font: 700 14.5px/1.5 "PingFang SC","Microsoft YaHei",sans-serif; box-shadow: 0 8px 22px rgba(20,40,36,.25); }
   .fim-live-bar.is-bad { background: rgba(138,63,34,.95); }
+  /* 2026-11-25 排版检查：网站的课堂控制条现在收在左下角（一个“课堂”小签），原来放在同一个位置的这一条被它压住了开头。
+     现在这一条始终贴在课堂控制条的上方（见下面的 seat）；窗口不够宽时不显示课堂名和课堂码（控制条展开就能看到），免得伸到原课件底部的导航上 */
+  @media (max-width: 1599px) { .fim-live-bar .flb-room { display: none; } }
   .fim-live-bar a, .fql-line a { display: inline-block; margin: 0 3px; padding: 0 10px; border-radius: 999px; text-decoration: none; font-weight: 700; }   /* 2026-11-23 晚：“教师工作台”不画下划线，做成小胶囊 */
   .fim-live-bar a { border: 1px solid rgba(255,233,196,.55); background: rgba(255,255,255,.12); color: #ffe9c4; }
   .fql-line a { border: 1px solid rgba(29,93,88,.3); background: rgba(29,93,88,.07); color: #1d5d58; }
@@ -111,6 +114,23 @@
   const bar = document.createElement('div');
   bar.className = 'fim-live-bar';
   document.body.appendChild(bar);
+  // 课堂控制条（live-room.js 的 .rm-bar）会展开成一两行、收起成小签，有的页面（自己在左下角有按钮的）还会往上挪：
+  // 这一条跟着它，始终在它上面留8px；没有课堂控制条时回到左下角
+  const seat = () => {
+    const rm = document.querySelector('.rm-bar');
+    const r = rm ? rm.getBoundingClientRect() : null;
+    bar.style.bottom = r && r.width > 1 && r.height > 1 ? `${Math.max(14, Math.round(window.innerHeight - r.top + 8))}px` : '';
+  };
+  const watcher = typeof ResizeObserver === 'function' ? new ResizeObserver(seat) : null;
+  const hook = () => {
+    const rm = document.querySelector('.rm-bar');
+    if (rm && !rm.dataset.fimSeat) { rm.dataset.fimSeat = '1'; if (watcher) watcher.observe(rm); }
+    seat();
+  };
+  new MutationObserver(hook).observe(document.body, { childList: true });
+  window.addEventListener('resize', seat);
+  setInterval(hook, 1000);          // 兜底：控制条只挪位置、不改大小时，观察不到
+  hook();
 
   const valueOf = (row, key) => { const entry = (row.payload || {})[key]; return entry && typeof entry === 'object' && 'v' in entry ? entry.v : undefined; };
   const sameSet = (a, b) => Array.isArray(a) && a.length === b.length && a.map(Number).sort().join() === b.map(Number).sort().join();
@@ -124,7 +144,7 @@
   function paint() {
     bar.classList.toggle('is-bad', Boolean(state.problem));
     bar.innerHTML = state.problem ? state.problem
-      : `${esc(state.room.name)}（课堂码 ${esc(state.room.code)}）· 已加入 ${state.joined} 人 · 已有 ${state.rows.length} 人递交`;
+      : `<span class="flb-room">${esc(state.room.name)}（课堂码 ${esc(state.room.code)}）· </span>已加入 ${state.joined} 人 · 已有 ${state.rows.length} 人递交`;
     $$('[data-fq-group]').forEach((host) => {
       if (state.problem || timerOff) { host.innerHTML = ''; return; }
       if (busy(host)) return;
