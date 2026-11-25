@@ -53,13 +53,17 @@
 .rich-seat.seat-1 .rich-medal { width: 42px; height: 42px; font-size: 19px; color: #5b3f05; background: radial-gradient(circle at 34% 28%, #fff6cf, #edc85f 58%, #c2932e); border: 1.5px solid #fbe9ad; }
 .rich-seat.seat-2 .rich-medal { color: #414b55; background: radial-gradient(circle at 34% 28%, #ffffff, #cfd6dd 58%, #9aa5b0); border: 1.5px solid #eef1f4; }
 .rich-seat.seat-3 .rich-medal { color: #58351a; background: radial-gradient(circle at 34% 28%, #ffe4c8, #d59a67 58%, #a9713f); border: 1.5px solid #f3d3b3; }
-.rich-seat-name { display: flex; align-items: center; justify-content: center; gap: 5px; max-width: 100%; min-width: 0; margin-top: 3px; color: #fffaf0; font-size: 14px; font-weight: 700; }
-.rich-seat-name > span { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+/* 道号最长 12 个字：领奖台上不截断，放不下就折行（手机竖屏一格只有 80 来宽）；“我”的小标放不下时落到下一行 */
+.rich-seat-name { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 2px 5px; max-width: 100%; min-width: 0; margin-top: 3px; color: #fffaf0; font-size: 14px; font-weight: 700; line-height: 1.25; }
+.rich-seat-name > span { min-width: 0; overflow-wrap: anywhere; }
 .rich-seat.seat-1 .rich-seat-name { font-size: 15px; }
-.rich-seat-value { color: var(--rich-gold-pale); font: 700 19px/1.15 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .25); }
+/* 数字和单位各不折行；数字到了六位、一格放不下时，单位落到下一行（不被格子裁掉） */
+.rich-seat-value { display: flex; flex-wrap: wrap; align-items: baseline; justify-content: center; gap: 0 3px; max-width: 100%; color: var(--rich-gold-pale); font: 700 19px/1.15 var(--sans); font-variant-numeric: tabular-nums; white-space: nowrap; text-shadow: 0 1px 0 rgba(0, 0, 0, .25); }
 .rich-seat.seat-1 .rich-seat-value { font-size: 23px; color: #ffe9a3; }
-.rich-seat-value small { margin-left: 3px; font-size: 11px; font-weight: 500; color: #d7cfae; }
-.rich-seat-note { color: #c5d0bb; font-size: 11px; white-space: nowrap; }
+.rich-seat-value small { font-size: 11px; font-weight: 500; color: #d7cfae; }
+/* 成交榜名字下面的“几笔、多少灵石”：两段各不折行，一行放不下就分两行 */
+.rich-seat-note { display: flex; flex-wrap: wrap; justify-content: center; gap: 0 7px; max-width: 100%; color: #c5d0bb; font-size: 11px; line-height: 1.4; }
+.rich-seat-note > span { white-space: nowrap; }
 .rich-seat.is-me { box-shadow: 0 0 0 2px #fff3c8, 0 10px 24px rgba(232, 196, 106, .28); }
 .rich-me-tag { flex: 0 0 auto; padding: 0 7px; border-radius: 9px; font-style: normal; font-size: 11px; font-weight: 700; line-height: 18px; color: #3b2a07; background: linear-gradient(180deg, #fbeab6, #e2bb58); }
 .rich-state, .rich-warning { margin: 0; padding: 26px 10px; text-align: center; color: #d9e2cf; }

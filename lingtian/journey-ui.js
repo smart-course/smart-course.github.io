@@ -131,9 +131,14 @@
       const actionKey = `commission-${period.period}-${q.id}`;
       const confirm = confirmation?.kind === 'delivery' && confirmation.id === q.id && confirmation.period === period.period;
       const material = q.delivery;
+      // 坊市采购单按领单那一刻的境界定（本周不变）。之后突破了、已经能自己种这味灵植的，说明照实写，不再说“你的境界还种不了它”
+      const orderCrop = material && /:market$/.test(String(q.id)) ? cropMap[material.cropId] : null;
+      const description = orderCrop && orderCrop.minRealm > 0 && integer(engine.state?.realm) >= orderCrop.minRealm
+        ? `交付${material.name} ×${F(material.quantity)}。领单以后你已经突破，这味灵植现在可以自己种，也可以去坊市向道友买；领取时从乾坤袋扣除。`
+        : q.description;
       return `<article class="journey-quest${q.claimed ? ' is-claimed' : q.canClaim ? ' is-ready' : ''}">
         <div class="journey-quest-top"><span class="journey-small-label">${period.period === 'daily' ? '日课' : period.period === 'weekly' ? '周令' : '雅集'} ${String(ordinal + 1).padStart(2, '0')}</span><span class="journey-state-tag${q.canClaim ? ' is-ready' : ''}">${q.claimed ? I('check') + '已收好' : q.canClaim ? '可领取' : capped ? '已完成' : '进行中'}</span></div>
-        <h4>${E(q.name)}</h4><p class="journey-card-description">${E(q.description)}</p>
+        <h4>${E(q.name)}</h4><p class="journey-card-description">${E(description)}</p>
         <div class="journey-progress-caption"><span>${material ? '现有材料' : '修行进度'}</span><b>${F(Math.min(integer(q.progress), integer(q.target)))}<small> / ${F(q.target)}</small></b></div>
         ${progressMarkup(q.progress, q.target, q.name)}
         <div class="journey-reward">${I(q.reward?.stones ? 'gem' : 'spark')}<span>${rewardLabel(q.reward, q.rewardLabel, data.decor)}</span></div>

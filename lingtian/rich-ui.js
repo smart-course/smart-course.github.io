@@ -46,7 +46,8 @@
         '<span class="rich-medal" aria-hidden="true">' + row.rank + '</span>' +
         '<strong class="rich-seat-name"><span>' + E(row.alias) + '</span>' + meTag(row) + '</strong>' +
         '<span class="rich-seat-value">' + board.value(row) + '<small>' + board.unit(row) + '</small></span>' +
-        (note ? '<span class="rich-seat-note">' + note + '</span>' : '') + '</div>';
+        // 小字按“ · ”分成两段（rich.css：一行放不下就各占一行，手机竖屏领奖台很窄）
+        (note ? '<span class="rich-seat-note">' + note.split(' · ').map(part => '<span>' + part + '</span>').join('') + '</span>' : '') + '</div>';
     }
     function line(row, board) {
       const note = board.note(row);

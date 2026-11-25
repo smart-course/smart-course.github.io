@@ -253,6 +253,7 @@
       if (message.startsWith('浇灌')) { title = '灵泉已润'; symbol = 'drop'; }
       else if (message.startsWith('种下')) { title = '灵种入土'; symbol = 'seed'; }
       else if (message.startsWith('锄头清理')) { title = '灵田已净'; symbol = 'hoe'; }
+      else if (message.startsWith('已铲掉')) { title = '灵植已铲'; symbol = 'hoe'; }
       else if (message.startsWith('收获')) { title = '灵植入囊'; symbol = 'harvest'; }
       else if (message.includes('升至')) { title = '农具焕新'; symbol = 'workshop'; }
     }
