@@ -151,7 +151,8 @@
   const decorationLabel = item => item.repeatable ? `${item.name} · 第 ${item.copyIndex} 棵` : item.name;
   // The protocol accepts every known decoration; the owner-specific limit is
   // checked again against the saved realm when loading, equipping and saving.
-  const JOURNEY_LIMITS = Object.freeze({ dailyClaims: 2, weeklyClaims: 3, seasonalClaims: 1, equippedDecorations: DECORATIONS.length });
+  // weeklyClaims 3→4（2026-11-26）：每周多一张“坊市采购单”，四张都能领。
+  const JOURNEY_LIMITS = Object.freeze({ dailyClaims: 2, weeklyClaims: 4, seasonalClaims: 1, equippedDecorations: DECORATIONS.length });
   const DECOR_REALM_LIMITS = Object.freeze(REALMS.map((_, index) => Math.min(DECORATIONS.length, [6, 8, 10, 12][index] ?? DECORATIONS.length)));
   function decorationLimitForRealm(realm) {
     return DECOR_REALM_LIMITS[Number.isInteger(realm) && realm >= 0 && realm < REALMS.length ? realm : 0];
@@ -375,6 +376,16 @@
       sectRewards: { gate: false, spring: false, library: false }
     };
   }
+  // 每周“坊市采购单”（2026-11-26）：按本期冻结的境界（record.realm）取一档。
+  // 炼气—结丹要高一阶、自己种不了的灵植；元婴、化神坊市上没有更高阶的货，
+  // 改成大批量黄精芝，向低境界道友收更合算。数量、奖励只在这里调。
+  const MARKET_ORDERS = Object.freeze([
+    { cropId: 'zihou', quantity: 3, stones: 260, reason: '你的境界还种不了它，要去坊市向道友买' },
+    { cropId: 'tianling', quantity: 2, stones: 320, reason: '你的境界还种不了它，要去坊市向道友买' },
+    { cropId: 'yueyang', quantity: 2, stones: 360, reason: '你的境界还种不了它，要去坊市向道友买' },
+    { cropId: 'huangjing', quantity: 30, stones: 600, reason: '自己种要占好几块田，去坊市向道友收更划算' },
+    { cropId: 'huangjing', quantity: 30, stones: 600, reason: '自己种要占好几块田，去坊市向道友收更划算' }
+  ].map(Object.freeze));
   function commissionDefinitions(period, record, origin = null) {
     const window = journeyWindowFromIndex(period, record.index, origin), realm = record.realm;
     let definitions;
@@ -394,10 +405,14 @@
       const chosen = deliveries[positiveMod(record.index, Math.min(realm, 3) + 1)], crop = CROP_MAP[chosen.cropId];
       const delivery = { cropId: chosen.cropId, name: crop.name, quantity: chosen.quantity };
       const harvestTarget = 8 + 2 * realm, brewTarget = 3 + Math.floor(realm / 2);
+      const order = MARKET_ORDERS[Math.max(0, Math.min(realm, MARKET_ORDERS.length - 1))], orderCrop = CROP_MAP[order.cropId];
+      const marketDelivery = { cropId: order.cropId, name: orderCrop.name, quantity: order.quantity };
       definitions = [
         { id: 'harvest', name: '一周药圃记', description: `本周亲手收获 ${harvestTarget} 块成熟灵田。`, metric: 'harvest', target: harvestTarget, stones: 70 },
         { id: 'brew', name: '炉火有常', description: `本周从丹炉领取 ${brewTarget} 颗亲手炼成的丹药。`, metric: 'brew', target: brewTarget, stones: 90 },
-        { id: 'supply', name: '宗门药材单', description: `交付${crop.name} ×${delivery.quantity}，领取时从可用库存扣除。可种植，也可在坊市购买。`, metric: 'delivery', target: delivery.quantity, stones: 120, delivery }
+        { id: 'supply', name: '宗门药材单', description: `交付${crop.name} ×${delivery.quantity}，领取时从可用库存扣除。可种植，也可在坊市购买。`, metric: 'delivery', target: delivery.quantity, stones: 120, delivery },
+        // 新增于原三张之后：原有编号与顺序不变，旧存档的 claimed 照常有效。
+        { id: 'market', name: '坊市采购单', description: `交付${orderCrop.name} ×${order.quantity}。${order.reason}；领取时从乾坤袋扣除。`, metric: 'delivery', target: order.quantity, stones: order.stones, delivery: marketDelivery }
       ];
     } else {
       const season = JOURNEY_SEASONS[positiveMod(record.index, JOURNEY_SEASONS.length)];
@@ -529,6 +544,13 @@
   // NPC gardens retain their autonomous clocks; the player's garden uses stages.
   const makePlant = (cropId, now, progress) => ({ cropId, plantedAt: now - CROP_MAP[cropId].growTime * progress, duration: CROP_MAP[cropId].growTime, watered: false, unlocked: true });
   const makeCultivatedPlant = (cropId, now, stage = 0, nextWaterAt = 0) => ({ cropId, plantedAt: stage === WATERINGS_REQUIRED ? now - CROP_MAP[cropId].growTime : now, duration: CROP_MAP[cropId].growTime, watered: stage > 0, unlocked: true, stage, nextWaterAt, withered: false });
+  // 铲除（2026-11-26）：能不能铲掉这块田里的灵植——还没成熟、没枯，并且是刚种下的：还是“灵种”，
+  // 或者只被雨水自动浇过一遍（“萌芽”）、自己还没动手浇过。界面（app.js）和引擎的 uproot 都用它
+  function canUproot(p) {
+    if (!p || !p.unlocked || !CROP_MAP[p.cropId] || p.withered === true || !Number.isInteger(p.stage)) return false;
+    const rain = Number.isInteger(p.rainWaterings) ? p.rainWaterings : 0;
+    return p.stage === 0 || (p.stage === 1 && rain >= 1);
+  }
   function getGrowthInfo(p, now = Date.now()) {
     const info = { stage: 0, stageName: p && p.unlocked === false ? '待开垦' : '空田', waterings: 0, wateringsNeeded: WATERINGS_REQUIRED, withered: false, witheredReason: null, frostAt: null, ready: false, mature: false, canWater: false, remainingMs: 0, nextWaterAt: 0, progress: 0 };
     if (!p || !p.unlocked || !CROP_MAP[p.cropId]) return info;
@@ -1423,6 +1445,24 @@
         recordJourney('clear', null, items.length);
         return complete(`锄头清理了 ${items.length} 块枯草，灵田可以重新播种。`, { index, indices, items, count: items.length });
       },
+      // 2026-11-26 铲除刚种下的灵植（种错了可以重种）：只铲这一块，种子钱不退；浇过水（进入第二阶段“萌芽”）就不能铲了；
+      // 不计统计、不计委托／任务／历练进度（否则可以种便宜种子再铲掉来刷任务），结果里不带 cost/earned/reward（老师端收支分析按这几个键归类）
+      uproot(index) {
+        refreshWeather();
+        if (weatherCatchupPending) return weatherPending();
+        const p = getPlot(index), growth = getGrowthInfo(p);
+        if (!p || !p.unlocked) return fail('这块灵田尚未开垦。');
+        if (!p.cropId || !CROP_MAP[p.cropId]) return fail('这块田是空的，没有可铲的灵植。');
+        if (growth.withered) return fail('这里是枯草，请用锄头清理。');
+        if (growth.mature) return fail('灵植已经成熟，可以直接采收。');
+        // 2026-11-26 用户：“灵植在第二阶段就不能铲了，以防误铲”——只有刚种下、还是“灵种”（第一阶段，没浇过水）的能铲。
+        // 下雨天例外一步：雨水会在种下的同时自动浇第一遍，灵植一落地就是“萌芽”，那样就完全没有改正的机会了；
+        // 所以“只被雨水浇过一遍、自己还没动手浇”的也算刚种下。再往后（自己浇过，或长到第三阶段“舒叶”）一律不能铲。
+        if (!canUproot(p)) return fail(`灵植已经长到“${GROWTH_STAGES[growth.stage]}”，不能再铲了：只有刚种下、自己还没浇过水的能铲。`);
+        const cropId = p.cropId;
+        state.plots[index] = emptyPlot(true);
+        return complete('已铲掉，这块田可以重新播种了。', { index, cropId, removed: true });
+      },
       harvest(index) {
         refreshWeather();
         if (weatherCatchupPending) return weatherPending();
@@ -1567,7 +1607,7 @@
     if (loadNotice) notify(loadNotice, 'info');
     return api;
   }
-  return Object.freeze({ create, CROPS, REALMS, NEIGHBORS: NEIGHBOR_DEFS, STORAGE_KEY, DEW_MAX, DEW_INTERVAL, NEIGHBOR_INTERVAL, isMature, getGrowthInfo, VERSION, GROWTH_RULES_VERSION, SUPPORTED_VERSIONS, PLOT_COUNT, STARTER_PLOTS, PLOT_UNLOCK_COSTS, WATERINGS_REQUIRED, GROWTH_STAGES, TOOL_CAPACITIES, TOOL_DEFS, PILLS, PILL_MAP, DAILY_LIMITS, BATCH_STEAL_MIN_REALM, dayKey, COMMISSION_PERIODS, JOURNEY_LIMITS, JOURNEY_SEASONS, DECORATIONS, DECOR_REALM_LIMITS, decorationLimitForRealm, RESIDENCES, DECOR_LAYOUT_RULES, getDefaultDecorLayout, validateDecorLayout, coveredDecorObstacles, ACHIEVEMENTS, STORY_CHAPTERS });
+  return Object.freeze({ create, CROPS, REALMS, NEIGHBORS: NEIGHBOR_DEFS, STORAGE_KEY, DEW_MAX, DEW_INTERVAL, NEIGHBOR_INTERVAL, isMature, getGrowthInfo, canUproot, VERSION, GROWTH_RULES_VERSION, SUPPORTED_VERSIONS, PLOT_COUNT, STARTER_PLOTS, PLOT_UNLOCK_COSTS, WATERINGS_REQUIRED, GROWTH_STAGES, TOOL_CAPACITIES, TOOL_DEFS, PILLS, PILL_MAP, DAILY_LIMITS, BATCH_STEAL_MIN_REALM, dayKey, COMMISSION_PERIODS, JOURNEY_LIMITS, JOURNEY_SEASONS, DECORATIONS, DECOR_REALM_LIMITS, decorationLimitForRealm, RESIDENCES, DECOR_LAYOUT_RULES, getDefaultDecorLayout, validateDecorLayout, coveredDecorObstacles, ACHIEVEMENTS, STORY_CHAPTERS });
   }
   global.createSpiritGameRuntime = createSpiritGameRuntime;
   if (typeof window !== 'undefined' && global === window) global.SpiritGame = createSpiritGameRuntime(window);

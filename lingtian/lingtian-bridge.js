@@ -280,7 +280,8 @@
       askAlias(engine.player && engine.player.alias, !!(change && change.isCode), change).then((alias) => { if (alias) engine.refresh(); });
     });
     const observer = new MutationObserver(() => {
-      const box = document.querySelector('#game-dialog .settings-actions');
+      // 2026-11-26：标了 data-no-rename 的按钮区（如“铲掉这株灵植？”确认框）不加“改道号”
+      const box = document.querySelector('#game-dialog .settings-actions:not([data-no-rename])');
       if (box && !box.querySelector('[data-lt-rename]')) {
         const button = document.createElement('button');
         button.type = 'button'; button.className = 'button button-quiet'; button.setAttribute('data-lt-rename', '');

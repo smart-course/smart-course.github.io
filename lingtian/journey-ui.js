@@ -119,6 +119,11 @@
     function confirmMarkup(kind, text, label) {
       return `<div class="journey-confirm" role="group" aria-label="${E(label)}"><p>${text}</p><div>${button('confirm', E(label), key(`confirm-${kind}`))}${button('cancel-confirm', '再想一想', key(`cancel-${kind}`), false, 'quiet')}</div></div>`;
     }
+    // 每周“坊市采购单”（编号以 :market 结尾）：未领取时附一个“去坊市买”，直接打开坊市里这味灵草。
+    function marketLink(q, material) {
+      if (q.claimed || !options.openMarket || !/:market$/.test(String(q.id)) || !cropMap[material.cropId]) return '';
+      return `<button type="button" class="journey-market-link" data-journey-action="commission-market"${attr('id', material.cropId) + key(`commission-market-${q.id}`)}>${I('bag')}去坊市买</button>`;
+    }
     function questCard(q, period, ordinal, data) {
       const capped = !q.claimed && q.ready && !period.remainingClaims;
       let label = q.claimed ? '已领取' : capped ? '今日名额已用完' : q.delivery ? '交付并领奖' : '领取奖励';
@@ -132,7 +137,7 @@
         <div class="journey-progress-caption"><span>${material ? '现有材料' : '修行进度'}</span><b>${F(Math.min(integer(q.progress), integer(q.target)))}<small> / ${F(q.target)}</small></b></div>
         ${progressMarkup(q.progress, q.target, q.name)}
         <div class="journey-reward">${I(q.reward?.stones ? 'gem' : 'spark')}<span>${rewardLabel(q.reward, q.rewardLabel, data.decor)}</span></div>
-        ${material ? `<p class="journey-delivery-note">领奖时交付 ${F(material.quantity)} 份${E(material.name)}。</p>` : ''}
+        ${material ? `<p class="journey-delivery-note">领奖时交付 ${F(material.quantity)} 份${E(material.name)}。${marketLink(q, material)}</p>` : ''}
         ${button('claim-commission', label, attr('period', period.period) + attr('id', q.id) + key(actionKey), !q.canClaim || !!confirmation, q.canClaim ? 'primary' : 'secondary')}
         ${q.reason && !q.canClaim && !q.claimed && !capped ? `<small class="journey-card-reason">${E(q.reason)}</small>` : ''}
         ${confirm ? confirmMarkup('delivery', `交付 <strong>${F(material.quantity)} 份${E(material.name)}</strong>，领取${rewardLabel(q.reward, q.rewardLabel, data.decor)}。交付后材料从乾坤袋扣除。`, '确认交付') : ''}
@@ -141,12 +146,12 @@
     function periodMarkup(period, data) {
       if (!period) return '';
       const p = period.period, seasonal = p === 'seasonal';
-      const intro = p === 'daily' ? '今日三件小事，任选两项领取奖励。照自己的节奏来。' : p === 'weekly' ? '种田、炼丹，也为宗门备一些药材。每周一换新。' : period.calendarTransition ? '旧历的进度与领奖记录为你保留到下一次换季。之后，雅集将随你初次入境起算的四季轮转。' : '四时有雅集，随初次入境起算的七日季节轮转，完成目标即可收藏应季庭幡。';
+      const intro = p === 'daily' ? '今日三件小事，任选两项领取奖励。照自己的节奏来。' : p === 'weekly' ? '种田、炼丹，为宗门备些药材，也去坊市向道友采买。每周一换新。' : period.calendarTransition ? '旧历的进度与领奖记录为你保留到下一次换季。之后，雅集将随你初次入境起算的四季轮转。' : '四时有雅集，随初次入境起算的七日季节轮转，完成目标即可收藏应季庭幡。';
       const heading = seasonal && period.festival ? `${period.calendarTransition?'旧历雅集 · ':''}${period.seasonName} · ${period.festival}` : period.label || (p === 'daily' ? '今日委托' : p === 'weekly' ? '本周委托' : '四时雅集');
       return `<section class="journey-period${seasonal ? ' journey-season-period' : ''}"${seasonal ? ` data-season="${E(period.seasonId || 'spring')}"` : ''}>
         <div class="journey-section-heading"><div>${seasonal ? `<span class="journey-season-seal" aria-hidden="true">${SEASON_GLYPHS[period.seasonId] || '季'}</span>` : ''}<div><span class="journey-eyebrow">${p === 'daily' ? '每日 · 一点积累' : p === 'weekly' ? '每周 · 一步长进' : '七日一季 · 山中雅事'}</span><h3>${E(heading)}</h3></div></div><span class="journey-quota">已领 <b>${F(period.claimedCount)}</b> / ${F(period.claimLimit)}</span></div>
         <p class="journey-section-intro">${intro}</p>
-        <div class="journey-quest-grid${(period.quests || []).length === 1 ? ' has-one' : ''}">${(period.quests || []).map((q, i) => questCard(q, period, i, data)).join('')}</div>
+        <div class="journey-quest-grid${(period.quests || []).length === 1 ? ' has-one' : (period.quests || []).length === 4 ? ' has-four' : ''}">${(period.quests || []).map((q, i) => questCard(q, period, i, data)).join('')}</div>
         <div class="journey-period-footer"><span>${I('clock')}<time data-journey-until="${integer(period.endsAt)}"></time>后换新</span><span>北京时间 · ${p === 'daily' ? '每日 00:00' : p === 'weekly' ? '每周一 00:00' : '随洞天四季'}</span></div>
       </section>`;
     }
@@ -849,6 +854,7 @@
         sectDaylightMode = id; syncSectDaylight(); return;
       }
       if (action === 'market') { engine.setSectActive?.(false); previousSectActive = false; disposeSectScene(); return options.openMarket?.(`herb:${draft.donationCrop || 'huangjing'}`); }
+      if (action === 'commission-market') return cropMap[id] ? options.openMarket?.(`herb:${id}`) : undefined;
       if (action === 'alchemy') return options.onAlchemy?.(id);
       if (action === 'confirm') return confirmAction();
       if (busy()) return;

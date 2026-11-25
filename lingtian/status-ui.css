@@ -251,3 +251,17 @@
 .game-dialog .inventory-card .sell-step.sell-half { flex: 1 0 auto; padding: 0 9px; font-size: 11px; }
 .game-dialog .inventory-card .button .sell-label { min-width: 0; }
 .game-dialog .inventory-card .sell-step:active { background: #e6ead6; }
+
+/* 2026-11-26 铲除还在长的灵植：次要按钮，比“浇水”弱，不抢主按钮的位置（全屏时也不和主按钮平分宽度） */
+.plot-action-buttons > .button.plot-uproot-button { flex: 0 0 auto; min-width: 0; color: #8a6b48; border-color: #e3d3b3; background: transparent; }
+.game-app .plot-detail .plot-action-buttons > .button.plot-uproot-button { flex: 0 0 auto; }
+.plot-action-buttons > .button.plot-uproot-button:hover { background: #f6ead2; }
+
+/* 铲除确认框（2026-11-26 用户：“铲除的对话框不要这么长，小巧一些，最好符合现有的风格”）：同别的对话框一个样子，只是窄、按钮靠右 */
+.game-dialog[data-kind="uproot"] { width: min(380px, calc(100vw - 32px)); max-width: 380px; }
+/* 游戏窗口里对话框默认 940px 宽（fullscreen.css 的 .game-app .game-dialog）：这里选择器多一层，才压得过它 */
+.game-app .game-dialog[data-kind="uproot"] { width: min(380px, calc(100vw - var(--game-window-left, 12px) - var(--game-window-right, 12px))); }
+.game-dialog[data-kind="uproot"] .dialog-intro { margin-bottom: 16px; }
+.game-dialog[data-kind="uproot"] .dialog-intro b { color: #a45c43; font-weight: 700; }
+.game-dialog[data-kind="uproot"] .uproot-actions { justify-content: flex-end; flex-wrap: nowrap; gap: 8px; }
+.game-dialog[data-kind="uproot"] .uproot-actions .button { flex: 0 0 auto; min-width: 84px; }

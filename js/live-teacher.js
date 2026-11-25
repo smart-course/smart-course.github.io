@@ -739,6 +739,7 @@
     $('[data-rotate-code]').hidden = false;   // 历史课堂也能换码：换了以后学生就不能再用旧码进来查看
     $('[data-toggle-open]').hidden = !room.is_current;
     $('[data-toggle-open]').textContent = room.submissions_open ? '结束提交' : '重新开放提交';
+    loadRevealInfo();
     const mode = $('[data-danmaku-mode]');
     mode.value = room.danmaku || 'off';
     mode.disabled = !room.is_current;
@@ -784,6 +785,73 @@
     if (!window.confirm(tip)) { box.checked = !on; return; }
     box.disabled = true;
     roomAction(on ? '打开学生可进入' : '关掉学生可进入', () => backend.rpc('ck_set_current', { p_classroom: Number(state.room.id), p_current: on }));
+  });
+  // ---------- 发布答案（2026-11-26） ----------
+  // 用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示。然后教师端再设置一个一键发布答案的按钮，确保上完这堂课后，
+  //   所有学生都能看到答案（之前设置的境界要求不变）”。课上在投屏页点题目上的“核对”逐题放开；这里一次把本课堂的解答全部放开，可以收回。
+  //   后台 ck_revealed_items / ck_reveal_items（题号 "*" ＝全部）。期中考查作业、不用解答题库的课程不显示；后台还没更新时也不显示。
+  let revealInfo = null;   // 当前课堂 {all, published, passed, items}；null＝还没读到，或后台没有这项功能
+  let revealFor = '';
+  function renderRevealInfo() {
+    const button = $('[data-publish-answers]');
+    const line = $('[data-reveal-status]');
+    const info = revealInfo;
+    button.hidden = !info;
+    line.hidden = !info;
+    if (!info) return;
+    const published = Boolean(info.published);
+    const passed = !published && Boolean(info.passed);
+    const count = Array.isArray(info.items) ? info.items.length : 0;
+    button.textContent = published ? '收回答案' : '发布答案';
+    button.classList.toggle('is-gold', !published && !passed);
+    button.disabled = passed;
+    button.title = published ? '收回后，只有课上在投屏页核对过的题学生还能看解答'
+      : passed ? '本班已经上了后面的课，这次课的解答已经自动放开，不用再发布'
+        : '把本课堂每道题的解答一次放开给学生（照旧要先递交这道题；普通解答要到「筑基」）。下课后点一下，学生就都能看到答案';
+    line.classList.toggle('is-on', published || passed);
+    line.textContent = published ? `答案已发布（${isoDay(millis(info.published)).slice(5)} ${clock(millis(info.published)).slice(0, 5)}）：学生递交过的题都能看解答，境界要求不变。`
+      : passed ? '本班已经上了后面的课：这次课的解答已自动放开。'
+        : count ? `课上已核对 ${count} 项，这些题学生能看解答；其余的要等核对，或点“发布答案”。`
+          : '答案还没发布：学生递交后，要等老师在投屏页核对这道题，或点“发布答案”，才能看解答。';
+  }
+  async function loadRevealInfo() {
+    const room = state.room;
+    const id = room ? String(room.id) : '';
+    if (id !== revealFor) { revealInfo = null; revealFor = id; renderRevealInfo(); }
+    if (!room || PLAIN || isExam(room.chapter)) return;
+    try {
+      const value = await backend.rpc('ck_revealed_items', { p_classroom: Number(room.id) });
+      if (revealFor !== id) return;
+      const res = (Array.isArray(value) ? value[0] : value) || null;
+      revealInfo = res && res.status === 'ok' ? res : null;
+    } catch (error) {
+      if (revealFor !== id) return;
+      revealInfo = null;   // 后台还没有执行“解答等老师核对”的 SQL
+    }
+    renderRevealInfo();
+  }
+  $('[data-publish-answers]').addEventListener('click', async () => {
+    if (!state.room || !revealInfo) return;
+    const room = state.room;
+    const on = !revealInfo.published;
+    const label = on ? '发布答案' : '收回答案';
+    const tip = on
+      ? `发布“${room.name}”的全部答案？\n\n发布后，本课堂每道题的解答对学生放开：照旧要先递交这道题；普通解答要到「筑基」，四步解析不看境界。做错的题也会进入“回温”。\n发布以后可以再点“收回答案”。`
+      : `收回“${room.name}”的答案？\n\n收回后，只有课上在投屏页核对过的题学生还能看解答。`;
+    if (!window.confirm(tip)) return;
+    actionStatus(`${label}……`);
+    try {
+      const value = await backend.rpc('ck_reveal_items', { p_classroom: Number(room.id), p_items: ['*'], p_on: on });
+      if (state.room && String(state.room.id) === String(room.id)) {
+        const res = (Array.isArray(value) ? value[0] : value) || null;
+        revealInfo = res && res.status === 'ok' ? res : revealInfo;
+        renderRevealInfo();
+      }
+      actionStatus(`${label}：已完成（${clock(Date.now())}）`);
+    } catch (error) {
+      console.error(error);
+      actionStatus(`${label}失败：${error.message || error}`);
+    }
   });
   $('[data-toggle-open]').addEventListener('click', () => {
     const open = !state.room.submissions_open;
@@ -1129,12 +1197,13 @@
   // 建议的标签（2026-11-23 用户：“把现有的匿名建议箱分成两个标签，一个是课程共建，另外一个是课程疑问，学生在递交的时候要求选择其中一个标签”）：
   // build 课程共建、ask 课程疑问、''＝11 月 23 日以前提交的（未分类）。三类右边都是“赞”（5／10／20，同一位同学 7 天内靠点赞最多得 20）：
   // 11-23 上午课程共建曾是“采纳 +20”、不受 7 天上限，下午用户：“这个还是改为原来的点赞模式吧，分三档，然后‘同一人 7 天内靠点赞最多 20’”
-  const FB_KINDS = { build: '课程共建', ask: '课程疑问', '': '未分类' };
+  // 2026-11-26 加第三个标签 chat 纯唠嗑（同样可以点赞、回复）
+  const FB_KINDS = { build: '课程共建', ask: '课程疑问', chat: '纯唠嗑', '': '未分类' };
   // 表情（2026-11-23 用户：“匿名建议和老师回复都可以使用修仙小道士的表情包”）：建议、往来回复里的记号〖符号〗画成图，导出表格写成“[表情·悟了]”
   const fbHtml = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.html(text, null, 'stk-inline') : esc(text));
   const fbPlain = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.plain(text) : String(text == null ? '' : text));
-  const fbKindOf = (doc) => (doc && (doc.kind === 'build' || doc.kind === 'ask') ? doc.kind : '');
-  let fbKind = 'all';   // 上面的标签筛选：all／build／ask／none
+  const fbKindOf = (doc) => (doc && (doc.kind === 'build' || doc.kind === 'ask' || doc.kind === 'chat') ? doc.kind : '');
+  let fbKind = 'all';   // 上面的标签筛选：all／build／ask／chat／none
   // 现在显示的几条：按内容查找＋标签筛选，新的在前（列表、放大看、上一条下一条都用这一份）
   const fbShown = () => {
     const query = $('[data-fb-search]').value.trim();
@@ -1202,15 +1271,15 @@
     const query = $('[data-fb-search]').value.trim();
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const count = (key) => feedbackRows.filter((doc) => fbKindOf(doc) === key).length;
-    const nBuild = count('build'), nAsk = count('ask'), nOld = count('');
+    const nBuild = count('build'), nAsk = count('ask'), nChat = count('chat'), nOld = count('');
     if (fbKind === 'none' && !nOld) fbKind = 'all';
     const rows = fbShown();
     const liked = feedbackRows.filter((doc) => Number(doc.adopted) > 0).length;
     const waiting = feedbackRows.filter((doc) => awaitingReply(doc.id)).length;
     // 标签筛选（2026-11-23）：全部／课程共建／课程疑问（／未分类），带条数
-    const chips = [['all', '全部', feedbackRows.length], ['build', '课程共建', nBuild], ['ask', '课程疑问', nAsk]].concat(nOld ? [['none', '未分类', nOld]] : []);
+    const chips = [['all', '全部', feedbackRows.length], ['build', '课程共建', nBuild], ['ask', '课程疑问', nAsk], ['chat', '纯唠嗑', nChat]].concat(nOld ? [['none', '未分类', nOld]] : []);
     $('[data-fb-kinds]').innerHTML = feedbackRows.length ? chips.map(([key, label, n]) => `<button type="button" class="tw-fb-kindbtn is-${key}" data-fb-kind="${key}" aria-pressed="${fbKind === key}">${label}<b>${n}</b></button>`).join('') : '';
-    const kinds = [`课程共建 ${nBuild} 条`, `课程疑问 ${nAsk} 条`].concat(nOld ? [`未分类 ${nOld} 条（11 月 23 日以前提交的）`] : []);
+    const kinds = [`课程共建 ${nBuild} 条`, `课程疑问 ${nAsk} 条`, `纯唠嗑 ${nChat} 条`].concat(nOld ? [`未分类 ${nOld} 条（11 月 23 日以前提交的）`] : []);
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条：${kinds.join('、')}${liked ? `；已点赞 ${liked} 条` : ''}${query || fbKind !== 'all' ? `；符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
     // 2026-11-22 第二档美化：一条建议一张卡片——左边日期、课堂、哪次课，中间建议（点击放大），往来回复缩进排在下面，右边回复、点赞、删除
     $('[data-fb-rows]').innerHTML = rows.map((doc) => {
@@ -1222,7 +1291,7 @@
         <div class="tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></div></article>`;
     }).join('')
       || `<p class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : fbKind !== 'all' && feedbackRows.length ? '这个标签下还没有建议。'
-        : '还没有收到建议。学生在每次课页面最后的“匿名建议箱”（或自己页面面板上的“建议箱”按钮）里选好标签——课程共建或课程疑问——提交后，会出现在这里。'}</p>`;
+        : '还没有收到建议。学生在每次课页面最后的“匿名建议箱”（或自己页面面板上的“建议箱”按钮）里选好标签——课程共建、课程疑问或纯唠嗑——提交后，会出现在这里。'}</p>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
   }
   // 放大看一条建议（2026-11-05 用户：“‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”）：
@@ -6197,7 +6266,7 @@
       ['数据表与导出', '每张图下面可以“查看数据表”，全部明细可以导出 Excel。'],
     ]);
     setIntro('feedback', '学生在每次课页面最后的“匿名建议箱”里写的建议和疑问；这里只有内容和提交时间，看不到是谁写的。', [
-      ['写些什么', '学生递交前要选一个标签：课程共建（对课堂节奏、课程内容的建议，或自己设计的上课内容、题目）或课程疑问（没听懂的地方、平台操作问题，可在下一次课统一解答）。上面可以按标签筛选；11 月 23 日以前提交的显示“未分类”。'],
+      ['写些什么', '学生递交前要选一个标签：课程共建（对课堂节奏、课程内容的建议，或自己设计的上课内容、题目）、课程疑问（没听懂的地方、平台操作问题，可在下一次课统一解答）或纯唠嗑（生活、学习里的趣事，或者迷茫、困惑，随便聊聊）。上面可以按标签筛选；11 月 23 日以前提交的显示“未分类”。'],
       ['匿名', '这里和导出文件里只有内容和提交时间（2026-11-24 以前的建议只记了日期），看不到是谁写的。'],
       ['这堂课感觉怎么样', '建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。'],
     ]);

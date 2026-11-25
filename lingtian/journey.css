@@ -54,6 +54,12 @@
 .journey-quest > .journey-button { width: 100%; font-size: 11px; }
 .journey-delivery-note { font-size: 10px; color: #9a9277; line-height: 1.7; margin: -3px 0 10px !important; }
 .journey-card-reason { display: block; font-size: 10px; color: #9b977f; line-height: 1.8; text-align: center; padding-top: 7px; }
+/* 每周四张委托（含“坊市采购单”，2026-11-26）：两列两行，不让第四张单独占一行。 */
+.journey-quest-grid.has-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+/* “去坊市买”：跟在交付说明后面的小胶囊按钮。 */
+.journey-market-link { display: inline-flex; align-items: center; gap: 3px; margin-left: 6px; min-height: 26px; padding: 2px 9px; border: 1px solid #d8c99c; border-radius: 999px; background: #fbf6e4; color: #82662f; font-size: 10px; line-height: 1.4; white-space: nowrap; vertical-align: middle; }
+.journey-market-link .icon { width: 12px; height: 12px; }
+.journey-market-link:hover { background: #f5ebcb; border-color: #c8b277; }
 .journey-period-footer { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; color: #959c85; font-size: 10px; line-height: 1.6; margin-top: 11px; }
 .journey-period-footer > span { display: flex; align-items: center; gap: 5px; }
 .journey-period-footer .icon { width: 13px; height: 13px; }
@@ -330,6 +336,8 @@
   .journey-quest > .journey-button { grid-column: 2; align-self: end; width: auto; min-width: 95px; min-height: 44px; margin-top: 12px; font-size: 12px; padding: 8px 10px; }
   .journey-delivery-note { grid-column: 1 / -1; grid-row: 7; margin: 9px 0 0 !important; font-size: 11px; }
   .journey-card-reason { grid-column: 1 / -1; text-align: left; font-size: 11px; }
+  .journey-quest-grid.has-four { grid-template-columns: 1fr; }
+  .journey-market-link { min-height: 34px; padding: 4px 11px; font-size: 11px; margin: 4px 0 0 6px; }
   .journey-period { padding-bottom: 21px; margin-bottom: 22px; }
   .journey-period-footer { font-size: 10px; row-gap: 5px; }
   .journey-period-footer > span:last-child { font-size: 9px; }
@@ -1071,6 +1079,10 @@
   .journey-page .journey-root .journey-school-motto p { font-size: 12px; }
 }
 
+/* 游戏窗口横屏时 fullscreen.css 用三列；四张周委托改两列。 */
+@media (max-height: 520px) and (orientation: landscape) {
+  .game-app .game-window-body .journey-quest-grid.has-four { grid-template-columns: repeat(2, minmax(0, 1fr)); }
+}
 @media (max-width: 960px) and (max-height: 520px) {
   .journey-page .journey-tabs { position: static; }
   .journey-page .journey-root .journey-feedback { top: 8px; }

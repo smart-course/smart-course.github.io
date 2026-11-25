@@ -144,6 +144,12 @@ em { color: var(--muted); font-style: normal; font-size: 14px; white-space: nowr
 .tw-room-btn.is-gold { border-color: #e8c46a; background: #e8c46a; color: #3b2a07; }
 .tw-room-btn.is-gold:hover, .tw-room-btn.is-gold:focus-visible { background: #f0d58e; }
 .tw-room-action-status { font-size: 13px; opacity: .85; }
+/* 发布答案（2026-11-26）：按钮下面一行说明现在学生能不能看解答；已发布时前面一个小绿点 */
+.tw-room-reveal { margin-top: 8px; font-size: 13px; line-height: 1.5; opacity: .9; }
+.tw-room-reveal[hidden] { display: none; }
+.tw-room-reveal::before { content: ""; display: inline-block; width: 8px; height: 8px; margin-right: 7px; border-radius: 50%; background: rgba(255, 255, 255, .45); vertical-align: 1px; }
+.tw-room-reveal.is-on::before { background: #8fe3b0; }
+.tw-room-btn[disabled] { opacity: .55; cursor: default; transform: none; }
 .tw-badge { display: inline-block; padding: 3px 10px; border-radius: 20px; background: rgba(255,255,255,.18); font-size: 13px; font-weight: 800; }
 .tw-badge.is-live { background: #e8c46a; color: #3b2a07; }
 .tw-badge.is-closed { background: var(--rust); }
@@ -1766,11 +1772,14 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-fb-kindbtn[aria-pressed="true"] b { background: rgba(255, 255, 255, .22); }
 .tw-fb-kindbtn.is-build[aria-pressed="true"] { border-color: #b0601a; background: #b0601a; }
 .tw-fb-kindbtn.is-ask[aria-pressed="true"] { border-color: #2b62ad; background: #2b62ad; }
+.tw-fb-kindbtn.is-chat[aria-pressed="true"] { border-color: #8a4b9e; background: #8a4b9e; }   /* 2026-11-26 纯唠嗑（紫色） */
 .tw-fb-meta .tw-fb-kind { justify-self: start; margin-bottom: 3px; padding: 1px 9px; border-radius: 999px; background: #efe9e1; color: #6d6259; font-size: 12.5px; font-weight: 800; }
 .tw-fb-meta .tw-fb-kind.is-build { background: #fff1de; color: #9a5214; box-shadow: inset 0 0 0 1px rgba(176, 96, 26, .3); }
 .tw-fb-meta .tw-fb-kind.is-ask { background: #e9f1fc; color: #24589f; box-shadow: inset 0 0 0 1px rgba(43, 98, 173, .28); }
+.tw-fb-meta .tw-fb-kind.is-chat { background: #f5ecf9; color: #773d8b; box-shadow: inset 0 0 0 1px rgba(138, 75, 158, .28); }
 .tw-fb-card.is-k-build { border-left: 4px solid #d48a3c; }
 .tw-fb-card.is-k-ask { border-left: 4px solid #6f9bd8; }
+.tw-fb-card.is-k-chat { border-left: 4px solid #b58ac6; }
 @media (max-width: 760px) { .tw-fb-meta .tw-fb-kind { margin-bottom: 0; } }
 
 /* 匿名建议、往来回复里的表情（2026-11-23，live-stickers.js 的 attach 和 html） */

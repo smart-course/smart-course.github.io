@@ -49,6 +49,10 @@
   .lv-head button[data-lv-stop].is-confirm { color: #fff; background: #a4492d; }
   .lv-head button[data-lv-stop].is-on { border-color: var(--teal, #23655f); color: #fff; background: var(--teal, #23655f); }
   .lv-head button[disabled] { opacity: .6; cursor: progress; }
+  /* “给学生看解答”（2026-11-26）：没放开时金棕色描边，放开后墨绿实底；答案全部发布后不能再点 */
+  .lv-head button[data-lv-reveal] { border-color: #8a6a1f; color: #8a6a1f; }
+  .lv-head button[data-lv-reveal].is-on { border-color: var(--teal, #23655f); color: #fff; background: var(--teal, #23655f); }
+  .lv-head button[data-lv-reveal].is-on[disabled] { opacity: .8; cursor: default; }
   .lv-stopped { padding: 2px 9px; border-radius: 12px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
   .lv-stopped[hidden] { display: none; }
   .lv.is-stopped { border-color: #a4492d; background: rgba(164, 73, 45, .07); }
@@ -109,6 +113,29 @@
   });
 
   // ---------- 在页面上找出各互动区块 ----------
+  // 解答等老师核对后才给学生看（2026-11-26，用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示”）：
+  //   这一块对应解答题库里的哪些题号（同 tools/explain_bank.py；末尾 * ＝同一前缀的一组题）。老师点题目上的“核对”“看解答”时自动放开，
+  //   每块“学生实时结果”里也有“给学生看解答”可以手动放开、收回；课后在工作台点“发布答案”一次全放开。没有标准解答的块（投票、辩论票）和出门测不设。
+  function revealOf(spec) {
+    if (OFFLINE) return [];
+    if (CONCEPT) {
+      const key = String(spec.key || '');
+      // 出门测（课后自修）学生页本来就不给解答，答案下一次课讲评，这里不设
+      return /\.(discover|check|apply|challenge|explain)$/.test(key) || key === 'chain' || key === 'transfer' ? [key] : [];
+    }
+    const no = spec.case;
+    if (!no) return [];
+    if (spec.kind === 'quiz') return /^exit-\d+$/.test(spec.item || '') ? [] : [`${no}:${spec.item}`];   // 出门测同上，不设
+    if (spec.kind === 'prepost') return [`${no}:pre`, `${no}:post`];
+    if (spec.kind === 'match') return [`${no}:match*`, `${no}:transfer-k`, `${no}:transfer`];
+    if (spec.kind === 'poll' && spec.item === 'transfer-k') return [`${no}:transfer-k`, `${no}:transfer`];
+    if ((spec.kind === 'sim' || spec.kind === 'rt-sim') && /^sim-\d+$/.test(spec.item || '')) return [`${no}:${spec.item}`];
+    if (spec.kind === 'versus') return [`${no}:debate-post`];
+    return [];
+  }
+  // 一块所在的“这道题”的范围：老师在这个范围里点核对类的按钮，就算核对了这一块
+  const REVEAL_SCOPE = '.cl-challenge, .cl-step, .cl-chain, .cl-transfer, .cl-exit, [data-quiz], article.sim-round, [data-transfer-choice], section.ix-match, section.ix-prepost';
+
   const blocks = [];
   const addBlock = (anchor, spec, where = 'afterend') => {
     if (!anchor) return;
@@ -117,14 +144,16 @@
     box.setAttribute('data-ix', '');
     box.innerHTML = '<div class="lv-head"><span class="lv-tag">学生实时结果</span><span class="lv-count" data-lv-count>—</span>'
       + '<span class="lv-stopped" data-lv-stopped hidden>已停止递交</span><span class="lv-note" data-lv-note></span>'
-      + '<span class="lv-acts"><button type="button" data-lv-stop hidden>停止递交</button><button type="button" data-lv-toggle>显示分布</button></span></div>'
+      + '<span class="lv-acts"><button type="button" data-lv-reveal hidden>给学生看解答</button><button type="button" data-lv-stop hidden>停止递交</button><button type="button" data-lv-toggle>显示分布</button></span></div>'
       + '<div class="lv-body" data-lv-body hidden></div>';
     ['click', 'keydown'].forEach((type) => box.addEventListener(type, (event) => event.stopPropagation()));
     anchor.insertAdjacentElement(where, box);
     // 停止递交用的题号：习经“案例号:题目”，政经为作业题目编号；只统计人数的文字题（cl-count）不设
     const stop = OFFLINE || spec.kind === 'cl-count' ? null
       : spec.stop !== undefined ? spec.stop : CONCEPT ? spec.key : spec.case && spec.item ? `${spec.case}:${spec.item}` : null;
-    const block = { ...spec, stop, box, open: false, confirm: false, busy: false };
+    const block = { ...spec, stop, box, open: false, confirm: false, busy: false,
+      reveal: revealOf(spec), scope: anchor.closest(REVEAL_SCOPE) || anchor.parentElement, revealBusy: false };
+    box.querySelector('[data-lv-reveal]').addEventListener('click', () => toggleReveal(block));
     box.querySelector('[data-lv-toggle]').addEventListener('click', () => {
       block.open = !block.open;
       box.querySelector('[data-lv-toggle]').textContent = block.open ? '隐藏分布' : '显示分布';
@@ -366,11 +395,13 @@
       toggle.hidden = true;
       body.hidden = true;
       stopView(block);
+      revealView(block);
       return;
     }
     noteEl.textContent = block.error || '';
     toggle.hidden = block.kind === 'cl-count';
     stopView(block);
+    revealView(block);
     body.hidden = !block.open;
     const html = CONCEPT ? conceptView(block, countEl) : caseView(block, countEl);
     if (block.open && html !== null) body.innerHTML = html;
@@ -658,6 +689,88 @@
     }
   }
 
+  // ---------- 解答等老师核对后才给学生看（2026-11-26） ----------
+  // reveal：本课堂已经放开的题（后台 ck_revealed_items）。all＝全部放开了（工作台点过“发布答案”，或本班已经上了后面的课）
+  let reveal = { all: false, items: [], published: null, passed: false };
+  let revealReady = false;   // 后台有这项功能（已执行相应 SQL）时才显示按钮、才自动放开
+  const applyReveal = (value) => {
+    const res = (Array.isArray(value) ? value[0] : value) || {};
+    reveal = { all: Boolean(res.all), items: Array.isArray(res.items) ? res.items.map(String) : [], published: res.published || null, passed: Boolean(res.passed) };
+  };
+  const revealed = (block) => reveal.all || (block.reveal.length > 0 && block.reveal.every((item) => reveal.items.includes(item)));
+  function revealView(block) {
+    const button = block.box.querySelector('[data-lv-reveal]');
+    if (!button) return;
+    const on = revealed(block);
+    button.hidden = Boolean(status) || !revealReady || !block.reveal.length;
+    button.disabled = block.revealBusy || reveal.all;
+    button.classList.toggle('is-on', on);
+    button.textContent = block.revealBusy ? '正在处理……' : reveal.all ? '答案已全部发布' : on ? '学生已能看解答' : '给学生看解答';
+    button.title = reveal.all ? (reveal.published ? '已在工作台点过“发布答案”，本课堂的解答学生都能看了（仍要先递交、普通解答要到筑基）' : '本班已经上了后面的课，这次课的解答自动放开了')
+      : on ? '这道题的解答学生已经能看（仍要先递交、普通解答要到筑基）。点一下收回'
+        : '学生递交这道题以后，要等老师核对（点题目上的“核对”“看解答”会自动放开）或点这里，才能看解答';
+  }
+  async function sendReveal(items, on, block) {
+    if (OFFLINE || !backend || !room || status || !items.length) return;
+    if (block) { block.revealBusy = true; renderBlock(block); }
+    try {
+      applyReveal(await backend.rpc('ck_reveal_items', { p_classroom: Number(room.id), p_items: items, p_on: on }));
+      revealReady = true;
+      if (block) block.error = '';
+    } catch (error) {
+      console.warn('[给学生看解答]', error);
+      if (block) block.error = on ? '没有放开成功，请再点一次' : '没有收回成功，请再点一次';
+    } finally {
+      if (block) block.revealBusy = false;
+      render();
+    }
+  }
+  function toggleReveal(block) {
+    if (!room || status || !revealReady || !block.reveal.length || block.revealBusy || reveal.all) return;
+    sendReveal(block.reveal, !revealed(block), block);
+  }
+  // 老师在题目上点“核对”“看解答”“猜好了，看看是不是这样”等：自动把这道题放开。control＝被点的按钮或刚展开的解析
+  const REVEAL_CONTROLS = '[data-action="check"], [data-action="answers"], [data-action="challenge"], [data-action="reveal"], [data-action="skip"], [data-action="model"], '
+    + '[data-item-answer], [data-quiz-check], [data-match-check]';
+  function autoReveal(control) {
+    if (OFFLINE || !revealReady || !room || status || reveal.all) return;
+    const items = new Set();
+    // 范围包住这个按钮的块里，取最里面的（如“变一变”在“用一用”里面：点“变一变”的按钮只放开“变一变”）
+    const inside = blocks.filter((block) => block.reveal.length && block.scope && block.scope.contains(control));
+    inside.filter((a) => !inside.some((b) => b !== a && b.scope !== a.scope && a.scope.contains(b.scope)))
+      .forEach((block) => block.reveal.forEach((item) => items.add(item)));
+    // 习经：每组快问快答下面的“展开四步解析”（题号 NN:steps-qN）、核心研讨题的“查看解析”（题号 NN:qN）没有“学生实时结果”块，按所在的题目编号算
+    if (!CONCEPT && control.matches('details.answer-reveal')) {
+      const group = control.closest('.quiz-group[id^="case-"]');
+      const article = group ? null : control.closest('article.question-item[id^="case-"]');
+      const match = ((group || article || {}).id || '').match(/^case-(\d{2})-q(\d{2})$/);
+      if (match) items.add(`${match[1]}:${group ? 'steps-q' : 'q'}${Number(match[2])}`);
+    }
+    const fresh = Array.from(items).filter((item) => !reveal.items.includes(item));
+    if (fresh.length) sendReveal(fresh, true, null);
+  }
+  if (!OFFLINE) {
+    document.addEventListener('click', (event) => {
+      const control = event.target && event.target.closest ? event.target.closest(REVEAL_CONTROLS) : null;
+      if (control && !control.closest('.lv')) autoReveal(control);
+    }, true);
+    // 折叠的解析展开时（toggle 不冒泡，用捕获）
+    document.addEventListener('toggle', (event) => {
+      const details = event.target;
+      if (details && details.matches && details.open && details.matches('details.answer-reveal, details.ix-reveal, details[data-prepost-reveal]')) autoReveal(details);
+    }, true);
+  }
+  async function loadReveals() {
+    if (OFFLINE || !room || status) { reveal = { all: false, items: [], published: null, passed: false }; return; }
+    try {
+      applyReveal(await backend.rpc('ck_revealed_items', { p_classroom: Number(room.id) }));
+      revealReady = true;
+    } catch (error) {
+      // 后台还没有执行“解答等老师核对”的 SQL：不显示按钮，学生端照旧（递交后就能看）
+      revealReady = false;
+    }
+  }
+
   async function loadRoom() {
     try {
       const rooms = await backend.fetchAll('classrooms', { course: config.course });
@@ -667,6 +780,7 @@
       else status = '';
       if (!room || String(room.id) !== homeworkRoom) { homeworkRoom = room ? String(room.id) : ''; known.clear(); cursor = null; answers = []; }
       await loadStops();
+      await loadReveals();
     } catch (error) {
       room = null;
       status = '请先<a href="/teacher/" target="_blank" rel="noopener">登录教师工作台</a>，再刷新本页。';

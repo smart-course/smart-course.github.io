@@ -386,6 +386,8 @@
   .clp-ex-btn { padding: 5px 14px; border: 1.5px solid #c9a24a; border-radius: 999px; background: linear-gradient(180deg, #fff8e0, #f6e2a8); color: #6b4200;
     font: 700 14px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
   .clp-ex-btn.is-locked, .clp-ex-btn:disabled { border-color: #d6cdbd; background: #f4f0e6; color: #8a7f74; cursor: default; }
+  /* 等老师核对（2026-11-26）：样子同“锁着”，但可以点——点一下向后台再问一次 */
+  .clp-ex-btn.is-wait:not(:disabled) { border-style: dashed; cursor: pointer; }
   .clp-ex-body { margin-top: 8px; padding: 12px 14px; border-left: 3px solid #c9a24a; border-radius: 0 10px 10px 0; background: #fffaf0; color: #201c18;
     font: 15.5px/1.75 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; text-align: left; }
   .clp-ex-body ul { margin: 6px 0 0; padding-left: 20px; }
@@ -1623,7 +1625,28 @@
   const EXPLAIN_TEXT = {
     none: '这道题是开放题，没有标准解答，请对照课堂讲评。', todo: '后台还没收到你这道题的递交：递交成功后再来看解答。',
     locked: '达到「筑基」境界才能看解答：老师结算修为后，境界会更新。', login: '请回首页用课堂码重新登录后再看解答。',
+    wait: '老师还没有核对这道题。课上老师核对以后，或者课后老师发布答案以后，这里就能看到解答。',
   };
+  // 解答等老师核对后显示（2026-11-26，用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示。然后教师端再设置一个一键发布答案的按钮”）：
+  //   后台 ck_revealed_items 给出本课堂已经放开的题（items，末尾 * ＝同一前缀的一组题）和是否全部放开（all：老师点了“发布答案”，或本班已经上了后面的课）。
+  //   给不给解答由后台 ck_my_explain 把关（没放开时返回 wait）；这里只用来把按钮提前标成“等老师核对”。境界要求不变（普通解答仍要「筑基」）。
+  //   读不到（后台还没更新）或还没读到时不标，照旧显示“展开解答”。学生版测试页（教师账号，后台直接给解答）不标。
+  let revealState = null;   // { all, items }
+  let revealAt = 0;
+  const isRevealed = (key) => !revealState || revealState.all
+    || revealState.items.some((item) => item === key || (item.slice(-1) === '*' && String(key).indexOf(item.slice(0, -1)) === 0));
+  async function loadReveals(force) {
+    if (!canExplain || PREVIEW || (!force && Date.now() - revealAt < 20000)) return;
+    revealAt = Date.now();
+    try {
+      const value = await backend.rpc('ck_revealed_items', { p_classroom: Number(identity.classroom) || identity.classroom });
+      const res = (Array.isArray(value) ? value[0] : value) || {};
+      if (res.status !== 'ok') return;
+      revealState = { all: Boolean(res.all), items: Array.isArray(res.items) ? res.items.map(String) : [] };
+      questions.forEach(paintExplain);
+      document.dispatchEvent(new CustomEvent('classlive:reveals'));
+    } catch (problem) { /* 后台还没有这个函数：不标“等老师核对” */ }
+  }
   // 政经“先想一想”的解答还带这个概念的讲解（2026-11-19 用户：“概念题后面的答案，概念定义的解释那部分学生如果达到筑基了，在学生端也显示”）：
   // 讲解版投屏的“学习概念”一步——要点与定义、公式、教案板书、典型题解析、教材原文（tools/explain_bank.py 的 pe_learn）
   const exTable = (t) => (t && Array.isArray(t.head) ? `<div class="clp-ex-scroll"><table class="clp-ex-table"><thead><tr>${t.head.map((h) => `<th>${esc(h)}</th>`).join('')}</tr></thead>`
@@ -1663,20 +1686,26 @@
     const button = box.querySelector('.clp-ex-btn');
     const open = gateLevel >= EXPLAIN_LEVEL || openKey(q);
     if (button.dataset.busy) return;
+    // 境界够了、但老师还没核对这道题：按钮标“老师核对后可看”，仍可以点（点一下向后台再问一次）
+    const shut = box.querySelector('.clp-ex-body').hidden;
+    const wait = open && shut && !q.explained && !isRevealed(q.key);
     button.disabled = !open;
-    button.classList.toggle('is-locked', !open);
-    button.textContent = open ? (box.querySelector('.clp-ex-body').hidden ? explainLabel(q) : openKey(q) ? '收起四步解析' : '收起解答')
-      : withLearn(q) ? '🔒 解答与概念讲解：达到「筑基」境界解锁' : '🔒 解答：达到「筑基」境界解锁';
+    button.classList.toggle('is-locked', !open || wait);
+    button.classList.toggle('is-wait', wait);
+    button.textContent = wait ? (openKey(q) ? '🔒 四步解析：老师核对后可看' : withLearn(q) ? '🔒 解答与概念讲解：老师核对后可看' : '🔒 解答：老师核对后可看')
+      : open ? (shut ? explainLabel(q) : q.explained ? (openKey(q) ? '收起四步解析' : '收起解答') : '收起')
+        : withLearn(q) ? '🔒 解答与概念讲解：达到「筑基」境界解锁' : '🔒 解答：达到「筑基」境界解锁';
   }
   async function toggleExplain(q, box) {
     const body = box.querySelector('.clp-ex-body');
     const button = box.querySelector('.clp-ex-btn');
-    if (!body.hidden) { body.hidden = true; button.textContent = explainLabel(q); return; }
+    if (!body.hidden) { body.hidden = true; paintExplain(q); return; }
     if (!q.explained) {
       button.dataset.busy = '1';
       button.disabled = true;
       button.textContent = '正在读取解答……';
       let html = '';
+      let waiting = false;
       try {
         const value = await backend.rpc('ck_my_explain', { p_classroom: Number(identity.classroom) || identity.classroom, p_key: q.key });
         const res = (Array.isArray(value) ? value[0] : value) || {};
@@ -1684,16 +1713,24 @@
         else if (res.status === 'none') q.explained = `<p class="clp-ex-note">${EXPLAIN_TEXT.none}</p>`;
         else html = `<p class="clp-ex-note">${esc(EXPLAIN_TEXT[res.status] || '暂时读不到解答。')}</p>`;
         if (res.status === 'locked') applyRealmGates(Number(res.realm) || 0);
+        waiting = res.status === 'wait';
       } catch (problem) {
         html = `<p class="clp-ex-note">${/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))
           ? '题目解答还没有开通（老师后台尚未更新）。' : '读取解答失败：请检查网络后再试。'}</p>`;
       }
       delete button.dataset.busy;
       button.disabled = false;
-      if (!q.explained) { body.innerHTML = html; body.hidden = false; button.textContent = '再试一次'; return; }
+      if (!q.explained) {
+        body.innerHTML = html;
+        body.hidden = false;
+        button.textContent = waiting ? '收起' : '再试一次';
+        if (waiting) loadReveals(true);   // 老师这时可能已经核对了别的题：顺便把各题按钮更新一遍
+        return;
+      }
     }
     body.innerHTML = q.explained;
     body.hidden = false;
+    button.classList.remove('is-wait', 'is-locked');
     button.textContent = openKey(q) ? '收起四步解析' : '收起解答';
   }
   function applyRealmGates(level) {
@@ -1716,6 +1753,12 @@
     else setQ(q, joined ? IDLE : '', '');
   });
   applyRealmGates(gateLevel);
+  // 解答等老师核对后显示（2026-11-26）：进页面读一次本课堂已经放开的题；每递交一题、回到页面时再读（最多 20 秒一次）
+  if (canExplain && !PREVIEW && backend) {
+    loadReveals(true);
+    document.addEventListener('classlive:submitted', () => loadReveals(false));
+    document.addEventListener('visibilitychange', () => { if (!document.hidden) loadReveals(false); });
+  }
   if (worksheet && joined && !OFFLINE && !AUDIT) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）；旁听不计
   if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
   if (!worksheet && canExplain && backend) setupSteps();
@@ -2170,39 +2213,54 @@
       const paint = () => {
         if (button.dataset.busy || !body.hidden) return;
         const done = groupQs.length > 0 && groupQs.every((q) => locked[q.key]);
+        // 2026-11-26：都递交了，还要等老师核对这一组题（或课后发布答案）才能展开；按钮仍可以点（点一下向后台再问一次）
+        const wait = done && !cached && !(isRevealed(key) || groupQs.every((q) => isRevealed(q.key)));
         button.disabled = !done;
-        button.classList.toggle('is-locked', !done);
-        button.textContent = done ? '展开四步解析' : '🔒 展开四步解析';
-        hint.textContent = done ? `这一组题都递交了：点开看 Q${number} 的道理怎样按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`
-          : `这一组题都递交以后才能展开：把 Q${number} 的道理按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`;
+        button.classList.toggle('is-locked', !done || wait);
+        button.classList.toggle('is-wait', wait);
+        button.textContent = wait ? '🔒 四步解析：老师核对后可看' : done ? '展开四步解析' : '🔒 展开四步解析';
+        hint.textContent = wait ? `这一组题你都递交了。等老师在课上核对这一组题，或者课后发布答案以后，就能展开看 Q${number} 的四步解析。`
+          : done ? `这一组题都递交了：点开看 Q${number} 的道理怎样按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`
+            : `这一组题都递交以后才能展开：把 Q${number} 的道理按“亮明观点—教材依据—案例事实—回到题目说明”讲完整。`;
       };
       paint();
       document.addEventListener('classlive:submitted', paint);
+      document.addEventListener('classlive:reveals', paint);
       button.addEventListener('click', async () => {
-        if (!body.hidden) { body.hidden = true; button.textContent = '展开四步解析'; return; }
+        if (!body.hidden) { body.hidden = true; button.textContent = '展开四步解析'; paint(); return; }
         if (!cached) {
           button.disabled = true;
           button.dataset.busy = '1';
           button.textContent = '正在读取……';
           let note = '';
+          let waiting = false;
           try {
             const value = await backend.rpc('ck_my_explain', { p_classroom: Number(identity.classroom) || identity.classroom, p_key: key });
             const res = (Array.isArray(value) ? value[0] : value) || {};
             if (res.status === 'ok') cached = explainHtml({ ...(res.body || {}), open: true });
             else note = res.status === 'todo' ? '这一组还有题没有递交：全部递交以后再来看四步解析。'
+              : res.status === 'wait' ? '老师还没有核对这一组题。课上老师核对以后，或者课后老师发布答案以后，就能看四步解析。'
               : res.status === 'none' ? '这一组的四步解析还没有同步到后台：请老师打开一次教师工作台。'
               : res.status === 'locked' ? '四步解析还没有对所有同学开放（老师后台尚未更新）。'
               : res.status === 'login' ? EXPLAIN_TEXT.login : '暂时读不到四步解析。';
+            waiting = res.status === 'wait';
           } catch (problem) {
             note = /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))
               ? '题目解答还没有开通（老师后台尚未更新）。' : '读取失败：请检查网络后再试。';
           }
           button.disabled = false;
           delete button.dataset.busy;
-          if (!cached) { body.innerHTML = `<p class="clp-ex-note">${esc(note)}</p>`; body.hidden = false; button.textContent = '再试一次'; return; }
+          if (!cached) {
+            body.innerHTML = `<p class="clp-ex-note">${esc(note)}</p>`;
+            body.hidden = false;
+            button.textContent = waiting ? '收起' : '再试一次';
+            if (waiting) loadReveals(true);
+            return;
+          }
         }
         body.innerHTML = cached;
         body.hidden = false;
+        button.classList.remove('is-wait', 'is-locked');
         button.textContent = '收起四步解析';
       });
     });
@@ -4716,7 +4774,10 @@
       // 2026-11-23：课程共建被点赞采纳（建议箱里写着“被老师采纳，可以加修为”）单独说；其余的照旧是彩蛋
       const build = Math.min(points, Number(row && row.build) || 0);
       if (build > 0) egg(`你在“课程共建”里写的建议被老师采纳了！修为值 +${build}。虽然老师不知道你是谁，但谢谢你和老师一起把课上好 ^_^`, true);
-      if (points - build > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points - build}点，勇敢的人先享受世界^_^`, true);
+      // 2026-11-26：纯唠嗑被老师点赞（后台 ck_my_notices 的 chat）用中性的说法，不说“采纳”
+      const chat = Math.min(points - build, Number(row && row.chat) || 0);
+      if (chat > 0) egg(`老师给你在“纯唠嗑”里写的话点了赞，修为值 +${chat}。老师不知道你是谁，但很高兴听你聊聊 ^_^`, true);
+      if (points - build - chat > 0) egg(`你的匿名建议已被采纳，虽然不知道你是谁，但是恭喜你的修为值莫名提升了${points - build - chat}点，勇敢的人先享受世界^_^`, true);
     }).catch(() => {});   // 后台还没有这个函数（未执行 SQL）时安静跳过
   });
   // 老师回复了匿名建议（2026-11-19 用户：“对学生的建议，除点赞外，再增加一个回复的功能，回复后在学生下次登陆的时候弹出回复的对话框，学生点击关闭才关闭显示。
@@ -4784,7 +4845,7 @@
     dialog.innerHTML = `<div class="clp-fbr-inner"><h2>老师回复了你的匿名建议</h2>
       <p class="clp-fbr-note">这段往来只有你能看到，老师仍然不知道建议是谁写的。想说什么可以直接回复老师；看完点最下面的“关闭”。</p>
       ${threads.map((t) => `<section class="clp-fbr-item" data-fbr="${esc(t.id)}">
-        <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : '建议'}<small>${esc(t.created_at ? when(t.created_at) : fbDay(t.created_on))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
+        <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : t.kind === 'chat' ? '“纯唠嗑”' : '建议'}<small>${esc(t.created_at ? when(t.created_at) : fbDay(t.created_on))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
         <blockquote>${fbStk(t.text)}</blockquote>
         <div class="clp-fbr-chat">${(t.replies || []).map(bubble).join('')}</div>
         <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><div class="clp-fbr-tools"></div><p class="clp-fbr-status" role="status"></p></form>
@@ -5607,7 +5668,7 @@
         ${config.course === 'xjp-economy' ? `<li>分组讨论（案例 02、03、04、05、10、11、13、14）：每组聊天室里点赞最多的一位（本组发言人）加 ${(Live.DISCUSS || {}).leader || 5} 修为；本方提案被全班表决采纳的角色组，组里在聊天室发过言的同学各加 ${(Live.DISCUSS || {}).win || 5} 修为（两项可以都得）。</li>` : ''}
         <li>辩论赛：两方聊天室合起来，发言被点赞最多的三位同学各加 ${(Live.DEBATE || {}).likes || 5} 修为；辩后投票票数多的一方获胜，获胜方不加修为（按自己的判断投，不用看哪一方人多）。</li>
         <li>修炼场：点面板上的“修炼场”平时做题。${practiceRule()}</li>
-        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，匿名提建议、提疑问（老师看不到是谁写的），递交本身不加修为；“课程共建”被老师点赞采纳，可以加修为。</li>
+        <li>匿名建议箱：在页面最后的建议箱或面板上的“建议箱”里，匿名提建议、提疑问，或者选“纯唠嗑”随便聊聊（老师看不到是谁写的），递交本身不加修为；“课程共建”被老师点赞采纳，可以加修为。</li>
         <li>情境猜谜抢答：老师点“看玩法”或出题后，页面上方弹出“情境猜谜抢答”对话框；每次出题后全班统一倒计时 ${(Live.PUZZLE || {}).delay || 10} 秒，倒计时结束才能输入谜底，每题最多猜 ${(Live.PUZZLE || {}).tries || 3} 次；第一个猜中的同学加 ${(Live.PUZZLE || {}).points || 5} 修为（每次课最多累计 ${(Live.PUZZLE || {}).cap || 20}）。</li>
         <li>老师点赞：说得好的弹幕，老师会在投屏上盖一枚「师赞」朱印（每堂课最多 ${(Live.LIKE || {}).limit || 20} 个赞），被赞一次额外加 ${(Live.LIKE || {}).points || 5} 修为，每次课最多算 ${(Live.LIKE || {}).perStudent || 2} 个。被赞的弹幕在“我发过的弹幕”里标着「师赞」。</li>
       </ul>
@@ -6119,7 +6180,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261124-practice-pe' : '20261124-practice-xjp';   // 2026-11-24 修炼场思考辨析、灵田进入更快、面板收起（两门课都有）   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261126-reveal-pe' : '20261126-reveal-xjp';   // 2026-11-26 解答等老师核对后显示、建议箱纯唠嗑、灵田铲除与富豪榜（两门课都有）   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
@@ -6468,7 +6529,7 @@
         save(key, (Number(load(key, 0)) || 0) + 1);
         if (typeof onSent === 'function') setTimeout(onSent, 300);
         return `已匿名提交到“${name}”（${time()}）${earned && FBP.points ? `，修为 +${FBP.points}（老师结算后计入）` : ''}。`
-          + `${kind === 'build' ? '被老师采纳，还可以加修为。' : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
+          + `${kind === 'build' ? '被老师采纳，还可以加修为。' : kind === 'chat' ? '老师会看到，也可能回复你。' : '老师会在下一堂课统一解答。'}还可以再写一条，记得先选标签。`;
       },
     });
   }
@@ -6525,16 +6586,16 @@
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
     // 建议的提交时间（2026-11-24 起记到几点几分）；以前的建议只有日期，也写成“几月几日”
     const fbDay = (day) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(String(day || '')); return m ? `${Number(m[1])}月${Number(m[2])}日` : String(day || ''); };
-    const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : '建议';
+    const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : kind === 'chat' ? '纯唠嗑' : '建议';
     const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${fbStk(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
     const item = (f) => {
       const replies = Array.isArray(f.replies) ? f.replies : [];
       const fresh = replies.some((r) => r.by_teacher && !r.seen);
       return `<article class="clp-fbh-item" data-fbh="${esc(f.id)}">
-        <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' ? ' is-ask' : ''}">${kindName(f.kind)}</span><span>${esc(f.created_at ? when(f.created_at) : fbDay(f.created_on))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
+        <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' || f.kind === 'chat' ? ` is-${f.kind}` : ''}">${kindName(f.kind)}</span><span>${esc(f.created_at ? when(f.created_at) : fbDay(f.created_on))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
         <blockquote>${fbStk(f.text)}</blockquote>
         <div class="clp-fbh-chat">${replies.map(bubble).join('')}</div>
-        ${replies.some((r) => r.by_teacher) ? '' : '<p class="clp-fbh-none">老师还没有回复。课程疑问老师一般在下一堂课统一解答。</p>'}
+        ${replies.some((r) => r.by_teacher) ? '' : `<p class="clp-fbh-none">老师还没有回复。${f.kind === 'chat' ? '' : '课程疑问老师一般在下一堂课统一解答。'}</p>`}
         <form class="clp-fbh-form"><textarea maxlength="500" placeholder="${replies.some((r) => r.by_teacher) ? '回复老师（选填，1—500 字）' : '补充几句（选填，1—500 字）'}" aria-label="回复老师"></textarea><button type="submit">发送</button><div class="clp-fbh-tools"></div><p class="clp-fbh-status" role="status"></p></form>
       </article>`;
     };

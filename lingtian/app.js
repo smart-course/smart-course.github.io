@@ -99,8 +99,8 @@
   function farmActionState(index) {
     if (mode !== 'home' || !farmOperation?.indices.includes(index)) return null;
     const action = farmOperation.action, phase = farmOperation.phase;
-    const glyph = {plant:'seed',water:'watering',clear:'hoe',harvest:'harvest'}[action];
-    const label = phase === 'unconfirmed' ? '待同步' : phase === 'confirming' ? '确认中' : {plant:'播种中',water:'浇灌中',clear:'锄草中',harvest:'采收中'}[action];
+    const glyph = {plant:'seed',water:'watering',clear:'hoe',uproot:'hoe',harvest:'harvest'}[action];
+    const label = phase === 'unconfirmed' ? '待同步' : phase === 'confirming' ? '确认中' : {plant:'播种中',water:'浇灌中',clear:'锄草中',uproot:'铲除中',harvest:'采收中'}[action];
     const note = phase === 'unconfirmed' ? '结果未确认，请同步云端' : phase === 'confirming' ? '稍候，无需重复点击' : farmOperation.indices.length > 1 ? `正在照料 ${farmOperation.indices.length} 田` : '动作完成后继续照料';
     return {action,phase,label,note,glyph};
   }
@@ -120,12 +120,33 @@
   }
   function farmFeedbackDuration(action) {
     if (window.matchMedia?.('(prefers-reduced-motion: reduce)').matches) return 260;
-    return {plant:520,water:820,clear:720,harvest:420}[action] || 520;
+    return {plant:520,water:820,clear:720,uproot:720,harvest:420}[action] || 520;
+  }
+  // 2026-11-26 铲除刚种下的灵植：先弹一个小确认框（种子钱不退），确认后按普通照料操作执行（离线引擎、联网都走 engine.uproot）。
+  // 用户：“灵植在第二阶段就不能铲了，以防误铲”——只有刚种下的田才有“铲除”按钮（还是“灵种”，或只被雨水浇过一遍、自己还没浇；规则在 game.js 的 canUproot）
+  let pendingUproot = null;
+  function requestUproot(index) {
+    if (mode !== 'home' || !Number.isInteger(index) || farmActionsBlocked()) return;
+    const p = engine.state.plots[index], c = p && cropMap[p.cropId];
+    if (!p || !p.unlocked || !c || p.withered) return;
+    if (mature(p)) { toast('灵植已经成熟，可以直接采收。','info'); return; }
+    if (!window.SpiritGame.canUproot(p)) { toast('这株灵植已经长起来了，不能再铲：只有刚种下、自己还没浇过水的能铲。','info'); return; }
+    pendingUproot = {index,cropId:p.cropId};
+    openDialog('uproot','铲掉这株灵植？',`<p class="dialog-intro">「${esc(c.name)}」刚种下，铲掉后这块田变回空田。<b>种子钱不退。</b></p><div class="settings-actions uproot-actions" data-no-rename><button class="button button-quiet" data-settings-back>先不铲</button><button class="button button-danger" data-uproot-confirm>${icon('hoe')}铲掉</button></div>`);
+  }
+  function confirmUproot() {
+    const target = pendingUproot; pendingUproot = null;
+    dismissDialog();
+    if (!target) return;
+    const p = engine.state.plots[target.index];
+    // 确认期间田里的情况变了（比如刚好成熟、云端同步换了灵植）：不铲，免得铲错
+    if (!p || p.cropId !== target.cropId || p.withered || mature(p) || !window.SpiritGame.canUproot(p)) { toast('这块田的情况刚刚变了，没有铲除。请再看一眼。','info'); plotSignature = ''; render(true); return; }
+    return performFarmAction('uproot',target.index);
   }
   async function performFarmAction(action, index, bulk = false) {
     if (decorEditor?.isOpen()) return;
     if (mode !== 'home' || !Number.isInteger(index) || index < 0 || index >= plotCount) return;
-    if (!['plant','clear','water','harvest'].includes(action) || farmActionsBlocked()) return;
+    if (!['plant','clear','water','harvest','uproot'].includes(action) || farmActionsBlocked()) return;
     const current = Date.now();
     if (!bulk && (current - (recentFarmActions.get(`${index}:${action}`) || 0) < 450 || (index === lastUnlockedPlot && current - lastUnlockedAt < 450))) return;
     if (!bulk) selectedPlot = index;
@@ -146,7 +167,8 @@
     plotSignature = ''; fallbackSignature = ''; careSignature = ''; render(true);
     const duration = farmFeedbackDuration(action);
     // Start a decorative attempt immediately, never a success acknowledgement.
-    scene?.beginFarmAction?.(action,indices,{duration});
+    // 铲除（uproot）借用锄头的动画
+    scene?.beginFarmAction?.(action === 'uproot' ? 'clear' : action,indices,{duration});
     let finishAnimation;
     const animation = new Promise(resolve => { finishAnimation = resolve; });
     const animationTimer = setTimeout(() => {
@@ -661,7 +683,8 @@
         actionNote = '雨停后，尚未补足的阶段可继续用灵泉浇灌';
       }
       statusFoot = `已补水 ${g.waterings} / 4 次${p.rainWaterings ? ' · 雨水 '+p.rainWaterings+' 次' : ''}`;
-
+      // 2026-11-26 种错了可以铲掉重种（种子钱不退）：次要按钮，放在浇水后面；只有刚种下、还是“灵种”（没浇过水）时才有，浇过水就不能铲了，以防误铲
+      if (mode === 'home' && window.SpiritGame.canUproot(p)) action += `<button class="button button-quiet plot-uproot-button" data-uproot-request title="刚种下的可以铲掉重种（种子钱不退）；自己浇过水就不能铲了">${icon('hoe')}铲除</button>`;
     }
     if (c && !p.withered && mode === 'home') stages = `<ol class="growth-steps" aria-label="已补水 ${g.waterings} 次，共需 4 次">${['灵种','萌芽','舒叶','蕴灵','成熟'].map((name,i)=>`<li class="${i < g.stage ? 'done' : i === g.stage ? 'current' : ''}" ${i === g.stage ? 'aria-current="step"' : ''}><i>${i < g.stage ? '✓' : i === 0 ? '·' : i}</i><span>${name}</span></li>`).join('')}</ol>`;
     const activity = farmActionState(selectedPlot);
@@ -671,7 +694,7 @@
       action = `<button class="button button-secondary farm-action-pending" data-phase="${activity.phase}" disabled aria-busy="${activity.phase !== 'unconfirmed'}">${icon(activity.glyph)}${activity.label}</button>`;
       if (activity.phase === 'unconfirmed') action += `<button class="button button-primary" data-sync-cloud>${icon('cloud')}同步云端</button>`;
       actionNote = activity.note;
-    } else if (mode === 'home' && farmActionsBlocked()) action = action.replace(/data-action="(unlock|clear|water|plant|harvest)"/g,'disabled data-action="$1"');
+    } else if (mode === 'home' && farmActionsBlocked()) action = action.replace(/data-action="(unlock|clear|water|plant|harvest)"/g,'disabled data-action="$1"').replace(/data-uproot-request/g,'disabled data-uproot-request');
     if (c && ready && scene?.inspectPlot) action = `<button class="button button-secondary" data-inspect-plot>${icon('expand')}细看灵植</button>` + action;
     el.dataset.tone = tone;
     const status = statusLabel ? `<div class="plot-status-panel"><span class="plot-status-caption">${icon(countdown ? 'clock' : tone === 'earth' ? 'hoe' : tone === 'gold' ? 'spark' : tone === 'water' ? 'drop' : 'leaf')}${statusLabel}</span><strong class="plot-status-value ${countdown ? 'is-countdown' : ''}">${countdown ? `<time data-countdown aria-label="${timeLeft(g.remainingMs)}">${statusValue}</time>` : statusValue}</strong><small>${statusFoot}</small></div>` : '';
@@ -894,8 +917,8 @@
     if (!sameWindow) noteNavigation();
     setFullscreenPanel('');
     dialogKind = kind;
-    const symbols = {journey:'book',arrival:'leaf',bag:'bag',alchemy:'fire',market:'gem',tools:'workshop',codex:'book',guide:'leaf',settings:'gear',about:'mountain',reset:'reset',import:'upload',plots:'grid',guard:'formation',environment:'sun','farm-directory':'users','farm-history':'book'};
-    const overlines = {bag:'收获入囊 · 灵石有余',alchemy:'八方灵药 · 一炉仙缘',market:'灵植丹药 · 道藏互通',tools:'精工良器 · 耕有所得',codex:'草木有灵 · 五境药谱',guide:'一方灵田 · 四时有序',settings:'洞天小记 · 仙途常在',plots:'掌中一圃 · 轻点照料',guard:'以学问道 · 破阵采灵',environment:'晨昏往复 · 草木知时','farm-directory':'仙山有邻 · 草木有缘','farm-history':'一来一往 · 仙缘有记'};
+    const symbols = {uproot:'hoe',rich:'gem',journey:'book',arrival:'leaf',bag:'bag',alchemy:'fire',market:'gem',tools:'workshop',codex:'book',guide:'leaf',settings:'gear',about:'mountain',reset:'reset',import:'upload',plots:'grid',guard:'formation',environment:'sun','farm-directory':'users','farm-history':'book'};
+    const overlines = {uproot:'刚种下可重种 · 种子钱不退',rich:'灵石在手 · 每分钟更新',bag:'收获入囊 · 灵石有余',alchemy:'八方灵药 · 一炉仙缘',market:'灵植丹药 · 道藏互通',tools:'精工良器 · 耕有所得',codex:'草木有灵 · 五境药谱',guide:'一方灵田 · 四时有序',settings:'洞天小记 · 仙途常在',plots:'掌中一圃 · 轻点照料',guard:'以学问道 · 破阵采灵',environment:'晨昏往复 · 草木知时','farm-directory':'仙山有邻 · 草木有缘','farm-history':'一来一往 · 仙缘有记'};
     $('game-dialog').dataset.kind = kind;
     $('dialog-emblem').innerHTML = icon(symbols[kind] || 'leaf');
     $('dialog-overline').textContent = kind === 'journey' ? '日有所获 · 山中有伴' : kind === 'arrival' ? '重返云间 · 仙途有记' : overlines[kind] || '云 间 灵 田';
@@ -1029,12 +1052,26 @@
     card.querySelector('[data-sell-n]').textContent = n;
     card.querySelector('[data-sell-sum]').textContent = fmt(n * crop.sellPrice);
   }
+  // 卖给药铺前把坊市的价摆出来（2026-11-26）：乾坤袋打开时读一次坊市行情摘要（不轮询，离线不显示）；
+  // 坊市最高买价高于药铺回收价的灵植，显示“坊市有人出 X 收”和“去坊市卖”（跳到坊市这件商品的卖出一侧，价格预填）
+  let bagQuotes = null, bagQuotesRequest = 0;
+  const bagBid = c => { const bid = engine.online && bagQuotes?.items?.['herb:'+c.id]?.bestBid; return bid && bid.price > c.sellPrice ? bid : null; };
+  async function loadBagQuotes() {
+    if (!engine.online || typeof engine.getMarketQuotes !== 'function') return;
+    const request = ++bagQuotesRequest;
+    try { const data = await engine.getMarketQuotes(); if (request === bagQuotesRequest && data?.items) { bagQuotes = data; if (dialogKind === 'bag') renderInventory(); } } catch (_) { /* 读不到行情就不显示提示，药铺照常收 */ }
+  }
+  function bagQuoteMarkup(c) {
+    const bid = bagBid(c);
+    return bid ? `<p class="bag-market-hint">${icon('gem')}<span>坊市有人出 <b>${fmt(bid.price)}</b> 收（×${fmt(bid.quantity)}），比药铺多 ${fmt(bid.price-c.sellPrice)}</span><button type="button" class="bag-market-go" data-goto-market="herb:${c.id}" data-price="${bid.price}">去坊市卖</button></p>` : '';
+  }
   function inventoryMarkup() {
     const items = crops.filter(c => engine.state.bag[c.id] > 0), stats = engine.getStats();
-    return `<p class="dialog-intro">采收与偷采所得，皆藏于此。灵草可按丹方炼丹，也可挂到坊市卖给同学。下方是药铺的固定回收价，即时售出所得灵石可用于开田、买种与升级农具。</p>${items.length ? `<div class="dialog-grid">${items.map(c => `<article class="inventory-card" data-sell-card="${c.id}"><span class="quantity">可用 ${engine.state.bag[c.id]} 份</span><div class="seed-art">${art(c.id,true)}</div><h3>${c.name}</h3><p>药铺回收 · 每份 ${c.sellPrice} 灵石</p><div class="sell-count" role="group" aria-label="${c.name}售出数量"><button type="button" class="sell-step" data-sell-step="-1" data-sell-for="${c.id}" aria-label="少一份">−</button><input type="number" inputmode="numeric" min="1" max="${engine.state.bag[c.id]}" step="1" value="${sellCountOf(c.id)}" data-sell-count="${c.id}" aria-label="售出份数"><button type="button" class="sell-step" data-sell-step="1" data-sell-for="${c.id}" aria-label="多一份">＋</button><button type="button" class="sell-step sell-half" data-sell-step="half" data-sell-for="${c.id}">一半</button></div><button class="button button-primary" data-sell="${c.id}" data-qty="count">${icon('gem')}<span class="sell-label">售给药铺 <span data-sell-n>${sellCountOf(c.id)}</span> 份 · +<span data-sell-sum>${fmt(c.sellPrice*sellCountOf(c.id))}</span></span></button><button class="button button-secondary" data-sell="${c.id}" data-qty="all">全部售给药铺 · +${fmt(c.sellPrice*engine.state.bag[c.id])}</button></article>`).join('')}</div>` : `<div class="empty-bag">${icon('bag')}<h3>一只轻盈的乾坤袋</h3><p>收获成熟灵草、拜访道友，或到坊市买入炼丹原料。<br>已挂卖单的灵草暂时冻结，不计入可用库存。</p><button class="button button-primary" style="margin-top:20px" data-return-home>回灵田看看</button></div>`}<div class="dialog-footer"><span>可用 ${stats.bagCount} 份灵草 · 药铺回收合计 ${fmt(stats.bagValue)} 灵石</span>${items.length ? `<button class="button button-secondary" data-sell-all>${icon('gem')}全部售给药铺</button>` : ''}</div><div class="guide-note">药铺回收价是固定的游戏价格，坊市价格来自学生之间的真实成交。卖出材料前，可先看看丹方需求与市场行情。</div>`;
+    const higher = items.filter(bagBid);
+    return `<p class="dialog-intro">采收与偷采所得，皆藏于此。灵草可按丹方炼丹，也可挂到坊市卖给同学。下方是药铺的固定回收价，即时售出所得灵石可用于开田、买种与升级农具。</p>${items.length ? `<div class="dialog-grid">${items.map(c => `<article class="inventory-card" data-sell-card="${c.id}"><span class="quantity">可用 ${engine.state.bag[c.id]} 份</span><div class="seed-art">${art(c.id,true)}</div><h3>${c.name}</h3><p>药铺回收 · 每份 ${c.sellPrice} 灵石</p>${bagQuoteMarkup(c)}<div class="sell-count" role="group" aria-label="${c.name}售出数量"><button type="button" class="sell-step" data-sell-step="-1" data-sell-for="${c.id}" aria-label="少一份">−</button><input type="number" inputmode="numeric" min="1" max="${engine.state.bag[c.id]}" step="1" value="${sellCountOf(c.id)}" data-sell-count="${c.id}" aria-label="售出份数"><button type="button" class="sell-step" data-sell-step="1" data-sell-for="${c.id}" aria-label="多一份">＋</button><button type="button" class="sell-step sell-half" data-sell-step="half" data-sell-for="${c.id}">一半</button></div><button class="button button-primary" data-sell="${c.id}" data-qty="count">${icon('gem')}<span class="sell-label">售给药铺 <span data-sell-n>${sellCountOf(c.id)}</span> 份 · +<span data-sell-sum>${fmt(c.sellPrice*sellCountOf(c.id))}</span></span></button><button class="button button-secondary" data-sell="${c.id}" data-qty="all">全部售给药铺 · +${fmt(c.sellPrice*engine.state.bag[c.id])}</button></article>`).join('')}</div>` : `<div class="empty-bag">${icon('bag')}<h3>一只轻盈的乾坤袋</h3><p>收获成熟灵草、拜访道友，或到坊市买入炼丹原料。<br>已挂卖单的灵草暂时冻结，不计入可用库存。</p><button class="button button-primary" style="margin-top:20px" data-return-home>回灵田看看</button></div>`}<div class="dialog-footer"><span>可用 ${stats.bagCount} 份灵草 · 药铺回收合计 ${fmt(stats.bagValue)} 灵石</span>${items.length ? `<button class="button button-secondary" data-sell-all>${icon('gem')}全部售给药铺</button>` : ''}</div>${higher.length ? `<p class="bag-market-tip">${icon('gem')}${higher.map(c=>c.name).join('、')}在坊市有人出价比药铺高，一键全卖之前先看看上面的“去坊市卖”。</p>` : ''}<div class="guide-note">药铺回收价是固定的游戏价格，坊市价格来自学生之间的真实成交。卖出材料前，可先看看丹方需求与市场行情。</div>`;
   }
   function renderInventory() { $('dialog-content').innerHTML = inventoryMarkup(); }
-  function openInventory() { openDialog('bag','乾坤袋 · 灵草',inventoryMarkup()); }
+  function openInventory() { openDialog('bag','乾坤袋 · 灵草',inventoryMarkup()); void loadBagQuotes(); }
   function workshopMarkup() {
     const capacities = window.SpiritGame.TOOL_CAPACITIES;
     return `<p class="dialog-intro">把一季收成换成趁手农具。锄头清除收割后的枯草，浇水壶照料已经到时的灵植；农具最高三级，需积攒灵石逐级升级；以所点田块为中心，优先处理附近符合条件的田。</p><div class="workshop-wallet">${icon('gem')}现有灵石 <strong>${fmt(engine.state.stones)}</strong><button class="text-button" data-open="bag">出售灵植 ${icon('arrow')}</button></div><div class="workshop-grid">${['hoe','wateringCan'].map(kind => {
@@ -1169,6 +1206,8 @@
       requestAnimationFrame(()=>{scene?.resize?.();scene?.inspectPlot?.(index);});return;
     }
     if (b.hasAttribute('data-close-plot')) { selectedPlot = null; scene?.focusPlot?.(null); renderGarden(); return; }
+    if (b.hasAttribute('data-uproot-request')) return requestUproot(selectedPlot);
+    if (b.dataset.uprootConfirm !== undefined) { if (event.detail > 1) return; return confirmUproot(); }
     if (b.dataset.action) {
       const i = selectedPlot; if (i === null) return;
       const action = b.dataset.action;
@@ -1188,6 +1227,7 @@
       if (input) input.value = sellCountOf(id);
       return;
     }
+    if (b.dataset.gotoMarket) return economy.openMarket(b.dataset.gotoMarket,{side:'sell',price:b.dataset.price});
     if (b.dataset.sell) return engine.sell(b.dataset.sell,b.dataset.qty === 'all' ? 'all' : sellCountOf(b.dataset.sell));
     if (b.hasAttribute('data-sell-all')) return engine.sellAll();
     if (b.dataset.open) return openNamed(b.dataset.open);
@@ -1327,7 +1367,22 @@
       document.querySelector(`button[data-fullscreen-panel="${previous}"]`)?.focus({preventScroll:true});
     }
   }
+  // 底部导航“坊市”（2026-11-26）：集市日（周一、三、五）加一个小小的“集”字；我的挂单被别人成交了、还没打开坊市看过时加未读角标
+  function renderMarketDock() {
+    const button = document.querySelector('#game-dock [data-fullscreen-command="market"]');
+    if (!button) return;
+    let badge = button.querySelector('#market-fill-badge'), tag = button.querySelector('.market-day-tag');
+    if (!badge) { badge = document.createElement('b'); badge.className = 'badge'; badge.id = 'market-fill-badge'; badge.hidden = true; button.appendChild(badge); }
+    if (!tag) { tag = document.createElement('b'); tag.className = 'market-day-tag'; tag.textContent = '集'; tag.hidden = true; tag.setAttribute('aria-hidden','true'); button.appendChild(tag); }
+    const unread = engine.online && Array.isArray(engine.marketFills) ? engine.marketFills.length : 0;
+    const marketDay = !!(engine.online && window.SpiritMarketDay?.info(engine.now()).today);
+    badge.textContent = unread ? String(Math.min(unread,99)) : ''; badge.hidden = !unread;
+    tag.hidden = !marketDay;
+    const label = '打开云间坊市' + (marketDay ? '（今天是集市日：成交免手续费）' : '') + (unread ? `，你挂的单成交了 ${unread} 笔` : '');
+    if (button.getAttribute('aria-label') !== label) { button.setAttribute('aria-label',label); button.title = marketDay ? '今天是集市日：成交免手续费' : ''; }
+  }
   function renderFullscreenControls() {
+    renderMarketDock();
     const state = engine.state, realm = realms[state.realm];
     const sectOpen = activePage === 'journey' && activeJourneyTab === 'sect';
     const decorOpen = activePage === 'journey' && activeJourneyTab === 'decor';

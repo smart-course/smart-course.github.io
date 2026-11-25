@@ -1107,3 +1107,15 @@ body.game-app { --hud-sky-clear: calc(var(--hud-top) + 102px); }
   body.game-app { --hud-sky-clear: 0px; }
   .game-app #toast-stack { top: var(--hud-title-top); }
 }
+
+/* 底部导航“坊市”：集市日的“集”字（左上角，未读角标在右上角）；乾坤袋里坊市出价比药铺高的提示（2026-11-26） */
+.game-app .game-dock .market-day-tag { position: absolute; top: -3px; left: -1px; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; border: 1px solid #fff5cc; background: #c9a35c; color: #fffdf1; font: 600 9px/1 var(--serif, serif); box-shadow: 0 2px 5px #67582a24; pointer-events: none; }
+.game-app .game-dock .market-day-tag[hidden] { display: none; }
+.game-dialog .bag-market-hint { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 4px 8px; margin: 4px 0 6px; padding: 6px 8px; border-radius: 9px; border: 1px solid #ddce9d; background: #f8f0da; color: #7d6534; font-size: 11px; line-height: 1.5; }
+.game-dialog .bag-market-hint .icon { width: 14px; height: 14px; }
+.game-dialog .bag-market-hint b { font-weight: 700; }
+.game-dialog .bag-market-go { border: 1px solid #c9a35c; border-radius: 999px; background: #fffdf4; color: #7d6534; font-size: 11px; padding: 3px 10px; min-height: 28px; cursor: pointer; }
+.game-dialog .bag-market-go:hover { background: #f3e6c3; }
+.game-dialog .bag-market-tip { display: flex; align-items: center; gap: 6px; margin: 8px 0 0; color: #7d6534; font-size: 11px; line-height: 1.6; }
+.game-dialog .bag-market-tip .icon { width: 14px; height: 14px; flex: 0 0 auto; }
+@media (max-width: 600px) { .game-app .game-dock .market-day-tag { top: -4px; left: -2px; width: 15px; height: 15px; font-size: 8px; } .game-dialog .bag-market-go { min-height: 32px; } }

@@ -3,7 +3,7 @@
   'use strict';
   const PENDING_KEY = 'yunjian-cloud-pending-action-v1';
   const READ_METHODS = ['getUnlockInfo','getToolInfo','getToolTargets','getGrowthInfo','getQuests','getStats','getAlchemyInfo','isMature','getJourneyInfo','getCodexInfo','getDecorInfo','getResidenceInfo','getStoryInfo'];
-  const WRITE_METHODS = ['plant','water','clear','harvest','harvestAll','sell','sellAll','breakthrough','unlock','claimQuest','upgradeTool','startBrew','claimBrew','consumePill','claimCommission','claimAchievement','buyDecoration','equipDecoration','buyResidence','equipResidence','saveDecorLayout','readStory'];
+  const WRITE_METHODS = ['plant','water','clear','uproot','harvest','harvestAll','sell','sellAll','breakthrough','unlock','claimQuest','upgradeTool','startBrew','claimBrew','consumePill','claimCommission','claimAchievement','buyDecoration','equipDecoration','buyResidence','equipResidence','saveDecorLayout','readStory'];
   async function create(options = {}) {
     let view, account = null, accountKey = null, accountChanged = false, authRequired = false, revision = -1, connected = true, busy = false, polling = null;
     let serverAnchor = 0, monotonicAnchor = performance.now(), lastPoll = 0, pending = null;
@@ -27,6 +27,43 @@
     const SG = global.createSpiritGameRuntime({Date:clock,Math:global.Math,disableWeather:true,localStorage:{getItem:k=>memory.get(k) || null,setItem:(k,v)=>memory.set(k,v)}});
     const message = (text,type='info') => options.onMessage?.(text,type);
     const changed = () => options.onChange?.();
+    // 坊市被动成交提醒（2026-11-26）：我挂着的单在我不在时被别人成交了，下次进游戏、停在游戏里下一次刷新时提醒。
+    // 随原来的 /api/game 读取（进入时一次、之后每 30 秒的刷新）带上 fillsSince，不另开轮询；“上次看过”的时间存在本机，打开坊市才算看过。
+    const FILLS_KEY = 'yunjian-market-fills-seen-v1', FILLS_DEFAULT_BACK = 3*86400000;
+    let fillsSeen = null, marketFillsUnread = [], fillsBooted = false;
+    const announcedFills = new Set();
+    const storeGet = key => { try { return global.localStorage.getItem(key); } catch (_) { return null; } };
+    const storeSet = (key,value) => { try { global.localStorage.setItem(key,value); } catch (_) {} };
+    const seenFor = key => { const value = Number(storeGet(FILLS_KEY+':'+key)); return Number.isSafeInteger(value) && value > 0 ? value : null; };
+    function gamePath() {
+      const guess = accountKey || storeGet(FILLS_KEY+':last');
+      const since = fillsSeen ?? (guess ? seenFor(guess) : null) ?? ((serverAnchor ? clock.now() : Date.now()) - FILLS_DEFAULT_BACK);
+      return '/api/game?fillsSince='+Math.max(0,Math.floor(since));
+    }
+    function describeFill(item) {
+      const n = Math.floor(Number(item.quantity)||0), p = Math.floor(Number(item.price)||0), F = v => Math.floor(Number(v)||0).toLocaleString('zh-CN');
+      if (item.kind === 'card') return '道藏「'+(global.SpiritCards?.getCard?.(item.cardId)?.title || '卡牌')+'」×'+n+'，单价 '+F(p)+'，实收 '+F(item.net)+' 灵石';
+      return (item.side === 'sell' ? '卖出' : '买到')+(item.name || '货品')+' ×'+n+'，单价 '+F(p)+'，'+(item.side === 'sell' ? '实收 '+F(item.net) : '实付 '+F(item.gross))+' 灵石';
+    }
+    function ingestFills(payload) {
+      if (!accountKey || !payload || !payload.marketFills || !Array.isArray(payload.marketFills.items)) return;
+      if (fillsSeen === null) { fillsSeen = seenFor(accountKey) ?? (payload.serverTime - FILLS_DEFAULT_BACK); storeSet(FILLS_KEY+':last',accountKey); }
+      marketFillsUnread = payload.marketFills.items.filter(item => item && typeof item.id === 'string' && Number(item.createdAt) > fillsSeen)
+        .sort((a,b) => b.createdAt - a.createdAt).slice(0,50);
+      const fresh = marketFillsUnread.filter(item => !announcedFills.has(item.id));
+      if (!fresh.length) return;
+      fresh.forEach(item => announcedFills.add(item.id));
+      const text = fresh.length === 1 ? '你挂的单成交了：'+describeFill(fresh[0])+'。'
+        : '坊市里你挂的单成交了 '+fresh.length+' 笔：'+fresh.slice(0,2).map(describeFill).join('；')+(fresh.length > 2 ? '……' : '')+'。打开“坊市”看看。';
+      // 刚进游戏时先让开场画面过去再提示
+      if (fillsBooted) message(text,'success'); else setTimeout(() => message(text,'success'),4000);
+    }
+    function markMarketFillsSeen() {
+      if (!accountKey || !marketFillsUnread.length) return;
+      fillsSeen = Math.max(fillsSeen || 0, ...marketFillsUnread.map(item => Number(item.createdAt) || 0));
+      storeSet(FILLS_KEY+':'+accountKey,String(fillsSeen)); storeSet(FILLS_KEY+':last',accountKey);
+      marketFillsUnread = []; changed();
+    }
     function rememberPending(value) {
       pending = value;
       try { if(value) global.localStorage.setItem(PENDING_KEY+':'+value.body.accountKey,JSON.stringify(value)); else if(accountKey) global.localStorage.removeItem(PENDING_KEY+':'+accountKey); } catch (_) {}
@@ -110,8 +147,9 @@
         return data;
       } finally { clearTimeout(timeout); }
     }
-    const initial = await request('/api/game');
+    const initial = await request(gamePath());
     hydrate(initial);
+    ingestFills(initial); fillsBooted = true;
     try {
       const stored = JSON.parse(global.localStorage.getItem(PENDING_KEY+':'+accountKey) || 'null');
       if (stored && stored.body?.accountKey === accountKey && ['/api/game','/api/orders','/api/farms','/api/sect','/api/cards','/api/study'].includes(stored.path) && typeof stored.body?.requestId==='string' && JSON.stringify(stored).length<8000) pending = stored;
@@ -178,7 +216,8 @@
           if (pending) return false;
         }
         try {
-          hydrate(await request('/api/game'));
+          const game = await request(gamePath());
+          hydrate(game); ingestFills(game);
           if (farmsLoaded || activeFarmerId || pendingChallenge) {
             const data = await request('/api/farms'+(activeFarmerId?'?farmer='+encodeURIComponent(activeFarmerId):''));
             if (hydrate(data)) hydrateFarms(data);
@@ -380,8 +419,15 @@
       refreshFarms(){return write('/api/farms',{action:'refresh'});},
       answerRefresh(quizId,optionId){return write('/api/farms',{action:'answerRefresh',quizId,optionId});},
       abandonRefresh(quizId){return write('/api/farms',{action:'abandonRefresh',quizId});},
+      // 灵田富豪榜（2026-11-26）：只读，按现有灵石排名；云函数每门课缓存 60 秒
+      getRich(){return request('/api/rich');},
       get farmBatch(){return farmBatch;},
       get pendingQuiz(){return pendingQuiz;},
+      // 坊市（2026-11-26）：各商品行情摘要（只读；乾坤袋、炼丹面板打开时读一次），被动成交提醒
+      getMarketQuotes(){return request('/api/quotes');},
+      get marketFills(){return marketFillsUnread.slice();},
+      markMarketFillsSeen,
+      describeMarketFill:describeFill,
       placeOrder(order){return write('/api/orders',{action:'place',...order});},
       cancelOrder(orderId){return write('/api/orders',{action:'cancel',orderId});}
     };

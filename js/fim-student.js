@@ -4,7 +4,7 @@
  *   · 每道题下面有“递交”：选好或写好后点一下，再点一次确认，交给老师；每题只收第一次，递交后不能修改（后台同样只收第一次）；
  *     老师停止递交的题、课堂结束提交以后，不能再递交；
  *   · 左下角小面板：已递交几题、跳到下一道没递交的题、匿名建议箱（2026-11-23，弹出表单）；课次页最后有“本堂作业递交情况”“这堂课感觉怎么样”“匿名建议箱”
- *     （分“课程共建”“课程疑问”两个标签，递交前必选）。
+ *     （分“课程共建”“课程疑问”“纯唠嗑”三个标签，递交前必选；2026-11-26 加纯唠嗑）。
  * 没有修为、境界、法宝、宗门、云间灵田（用户 2026-11-20：“不要云间灵田和境界等级了”）。
  *   · 答题计时：老师在投屏页的一道题（或一组题）上点“开始答题”，这里那道题上出现倒计时，页面上方有一条“剩余时间 · 去作答”（fim-timer.js）。
  * 后台用的都是课程网站已有的函数（ck_checkin_today、ck_ping、ck_submit_answer、ck_my_submissions、ck_stopped_items、
@@ -293,7 +293,7 @@
       <button type="button" class="fimp-btn" data-next></button>
       ${HERE === HUB ? '' : `<button type="button" class="fimp-btn is-ghost" data-hub>回到本次课页面</button>`}
       <div data-note></div>
-      ${FBX && joined && !LOCAL_ONLY ? '<button type="button" class="fimp-btn is-ghost" data-fb-open title="课程共建、课程疑问，点开直接写">匿名建议箱</button>' : ''}
+      ${FBX && joined && !LOCAL_ONLY ? '<button type="button" class="fimp-btn is-ghost" data-fb-open title="课程共建、课程疑问、纯唠嗑，点开直接写">匿名建议箱</button>' : ''}
       <div class="fimp-links"><span>每题点“递交”，递交后不能修改</span>${PREVIEW ? '' : '<button type="button" data-leave>不是我</button>'}</div></div>`;
     document.body.appendChild(panel);
     panel.addEventListener('click', async (event) => {

@@ -191,7 +191,7 @@
     texts(worksheet, plain) {
       return {
         tag: '匿名建议箱',
-        title: '有建议、有疑问，都可以匿名告诉老师',
+        title: '有建议、有疑问，或者只是想聊聊，都可以匿名告诉老师',
         aria: '本堂课的匿名建议箱',
         what: '建议或疑问',
         plain: Boolean(plain),
@@ -204,6 +204,12 @@
             desc: '这堂课哪里没听懂、没想通；或者网页、平台不会操作（比如怎么递交、在哪里看结果），都可以问。',
             gain: plain ? '老师会在下一次课统一解答' : '老师会在下一堂课统一解答，也可能直接回复你',
             placeholder: '写下你的疑问：哪里没听懂，或者哪里不会操作（500 字内）' },
+          // 2026-11-26 第三个标签：纯唠嗑（chat），不一定和课有关；anon＝选中后下面“匿名”那一行换成的话（不说采纳、不写修为）
+          { key: 'chat', name: '纯唠嗑', lead: '想到什么说什么',
+            desc: '跟老师分享生活、学习里的趣事，或者迷茫、困惑，随便聊聊；不一定和这堂课有关。',
+            gain: plain ? '老师会看到' : '老师会看到，也可能回复你',   // plain 的课程（金融两门）工作台不设回复
+            placeholder: '想聊什么就写什么：一件趣事、最近的心情，或者迷茫、困惑（500 字内）',
+            anon: `老师只看到内容和提交时间，看不到是谁写的。放心聊，老师会看到${plain ? '' : '，也可能回复你'}。` },
         ],
       };
     },
@@ -245,6 +251,8 @@
     background: #fff; cursor: pointer; transition: border-color .15s, background .15s, box-shadow .15s; }
   .clp-fb-kind.is-build { --fbk: #b0601a; --fbk-bg: #fff4e5; }
   .clp-fb-kind.is-ask { --fbk: #2b62ad; --fbk-bg: #edf3fc; }
+  /* 2026-11-26 第三个标签“纯唠嗑”（紫色），占满一整行排在两个下面 */
+  .clp-fb-kind.is-chat { --fbk: #8a4b9e; --fbk-bg: #f6eefa; grid-column: 1 / -1; }
   .clp-fb-kind input { position: absolute; left: 13px; top: 13px; width: 18px; height: 18px; margin: 0; accent-color: var(--fbk); cursor: pointer; }
   .clp-fb-kind-top { display: flex; flex-wrap: wrap; align-items: baseline; gap: 2px 8px; }
   .clp-fb-kind-top b { color: var(--fbk); font-size: 17px; line-height: 1.35; }
@@ -289,6 +297,7 @@
   .clp-fbh-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 8px; color: #7a6f63; font-size: 12.5px; }
   .clp-fbh-kind { padding: 1px 8px; border-radius: 999px; background: #e6f1ed; color: #23655f; font-weight: 800; }
   .clp-fbh-kind.is-ask { background: #eaf0fb; color: #2f5b9a; }
+  .clp-fbh-kind.is-chat { background: #f4ebf8; color: #7a3f8e; }
   .clp-fbh-like { color: #9a5b0c; font-weight: 800; }
   .clp-fbh-new { color: #b8481f; font-weight: 800; }
   .clp-fbh-item blockquote { margin: 6px 0 0; padding: 0 0 0 10px; border-left: 3px solid rgba(35,101,95,.35); color: #2a2118; font-size: 14px; line-height: 1.7; white-space: pre-wrap; overflow-wrap: anywhere; }
@@ -326,7 +335,7 @@
           <span class="clp-fb-kind-desc">${k.desc}</span>${k.gain ? `<span class="clp-fb-kind-gain">${k.gain}</span>` : ''}</label>`).join('');
       return `${head}${mood}
         <form class="clp-fb-form"><p class="clp-fb-step">① 先选一个标签<span>（必选）</span></p>
-        <div class="clp-fb-kinds" role="radiogroup" aria-label="选择标签：课程共建或课程疑问">${kinds}</div>
+        <div class="clp-fb-kinds" role="radiogroup" aria-label="选择标签：${(FB.kinds || []).map((k) => k.name).join('、')}">${kinds}</div>
         <p class="clp-fb-step">② 再写内容，点“匿名提交”</p>
         <textarea maxlength="500" rows="4" placeholder="先在上面选一个标签，再写内容" aria-label="${FB.aria}" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-left"><span class="clp-fb-stk"></span><span class="clp-fb-count">0/500</span></span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
@@ -342,6 +351,8 @@
       const group = form.querySelector('.clp-fb-kinds');
       const radios = Array.from(form.querySelectorAll('.clp-fb-kind input'));
       const state = root.querySelector('.clp-fb-state');
+      const anonEl = root.querySelector('.clp-fb-anon');   // 2026-11-26：选了带 anon 的标签（纯唠嗑）时，“匿名”那一行换成它的话
+      const ANON = anonEl ? anonEl.innerHTML : '';
       const say = (text, kind) => { state.textContent = text || ''; state.dataset.state = kind || ''; };
       const info = (key) => (FB.kinds || []).find((k) => k.key === key) || { name: '', placeholder: '' };
       const picked = () => { const r = radios.find((item) => item.checked); return r ? r.value : ''; };
@@ -361,6 +372,7 @@
         area.disabled = sending;
         area.placeholder = key ? info(key).placeholder : '先在上面选一个标签，再写内容';
         button.textContent = key ? `匿名提交到“${info(key).name}”` : '匿名提交';
+        if (anonEl) anonEl.innerHTML = key && info(key).anon ? `<b>匿名</b>：${info(key).anon}` : ANON;
         count.textContent = `${area.value.length}/500`;
         button.disabled = sending || area.value.trim().length < 2;
       };
@@ -380,7 +392,7 @@
           group.classList.remove('is-missing');
           void group.offsetWidth;   // 重新播放提醒动画
           group.classList.add('is-missing');
-          say('请先在上面选一个标签：是“课程共建”，还是“课程疑问”？', 'error');
+          say(`请先在上面选一个标签：${(FB.kinds || []).map((k) => `“${k.name}”`).join('、')}，三选一。`, 'error');
           if (radios[0]) radios[0].focus();
           return;
         }
@@ -786,6 +798,25 @@
       write('seclog', rows);
     };
     const stopsOf = (classroom) => read('stops').filter((row) => String(row.classroom) === String(classroom)).map((row) => row.item).sort();
+    // 解答等老师核对后显示（2026-11-26，规则同后台 ck_room_passed / ck_revealed_items / ck_item_revealed）：本机表 reveals
+    const roomPassed = (classroom) => {
+      const rooms = read('classrooms');
+      const r1 = rooms.find((row) => String(row.id) === String(classroom));
+      if (!r1 || /^exam/.test(r1.chapter || '')) return false;
+      return rooms.some((r2) => r2.course === r1.course && (Number(r2.class_id) || 0) === (Number(r1.class_id) || 0) && !/^exam/.test(r2.chapter || '')
+        && String(r2.created_at || '') > String(r1.created_at || '') && (r2.chapter !== r1.chapter || (Number(r2.case_no) || 0) !== (Number(r1.case_no) || 0))
+        && read('checkins').some((c) => String(c.classroom) === String(r2.id)));
+    };
+    const revealStateOf = (classroom) => {
+      const mine = read('reveals').filter((row) => String(row.classroom) === String(classroom));
+      const star = mine.find((row) => row.item === '*');
+      const passed = roomPassed(classroom);
+      return { status: 'ok', all: Boolean(star) || passed, published: star ? star.created_at : null, passed, items: mine.filter((row) => row.item !== '*').map((row) => row.item).sort() };
+    };
+    const itemRevealed = (classroom, key) => {
+      const state = revealStateOf(classroom);
+      return state.all || state.items.some((item) => item === key || (item.endsWith('*') && String(key || '').startsWith(item.slice(0, -1))));
+    };
     const guard = (kind, doc, uid) => {
       const state = classroomState(doc.classroom);
       // 加入记录只能经 ck_join 写入；选择、作答、弹幕须与本人这次登录的加入记录一致
@@ -1615,6 +1646,24 @@
           rows.filter((r) => String(r.classroom) === String(params.p_classroom)).forEach((r) => { started[r.game] = r.started_at; });
           return { status: 'ok', started };
         }
+        // 解答等老师核对后显示（2026-11-26，规则同 cloudbase-pg-20261126-解答等老师核对.sql 的 ck_revealed_items / ck_reveal_items）：
+        // 本机表 reveals（每课堂每题一行，item '*' ＝已发布全部答案）；revealedIn 也给下面的 ck_my_explain 用
+        if (name === 'ck_revealed_items' || name === 'ck_reveal_items') {
+          let rows = read('reveals');
+          if (name === 'ck_reveal_items') {
+            teacherOnly();
+            if (!read('classrooms').some((r) => String(r.id) === String(params.p_classroom))) throw new Error('课堂不存在');
+            const items = params.p_items;
+            if (!Array.isArray(items) || !items.length || items.length > 200
+              || items.some((item) => typeof item !== 'string' || (item !== '*' && !/^[A-Za-z0-9][A-Za-z0-9:._-]{0,46}[*]?$/.test(item)))) throw new Error('题目编号不正确');
+            const mine = (r) => String(r.classroom) === String(params.p_classroom);
+            if (params.p_on !== false) {
+              items.forEach((item) => { if (!rows.some((r) => mine(r) && r.item === item)) rows.push({ classroom: params.p_classroom, item, created_at: new Date().toISOString() }); });
+            } else rows = rows.filter((r) => !(mine(r) && items.includes(r.item)));
+            write('reveals', rows);
+          }
+          return revealStateOf(params.p_classroom);
+        }
         // 机制图闯关看板（2026-11-20，规则同 cloudbase-pg-20261120-抢答与闯关.sql 的 ck_mech_report / ck_mech_board）：本机表 mechruns（每课堂每案例每人一行）
         if (name === 'ck_mech_report' || name === 'ck_mech_board') {
           const runs = read('mechruns');
@@ -2358,12 +2407,16 @@
               || (item && read('choices').some((c) => mine(c) && c.case === no && (c.item === item || (loose && item === 'match' && /^match-/.test(c.item)))))
               || (item && read('answers').some((a) => mine(a) && a.case === no && a.item === item));
           };
+          // 2026-11-26：老师核对过这道题（或已发布答案、本班已上后面的课）以后才给，否则 wait
+          const open = (key) => itemRevealed(params.p_classroom, key);
           if (Array.isArray(row.body.need)) {
             if (!row.body.need.every((key) => submitted(key, false))) return { status: 'todo' };
+            if (!(open(params.p_key) || row.body.need.every(open))) return { status: 'wait' };
             const { need: skip, ...rest } = row.body;
             return { status: 'ok', body: rest };
           }
-          return submitted(params.p_key, true) ? { status: 'ok', body: row.body } : { status: 'todo' };
+          if (!submitted(params.p_key, true)) return { status: 'todo' };
+          return open(params.p_key) ? { status: 'ok', body: row.body } : { status: 'wait' };
         }
         // 修炼场（规则同 cloudbase-pg.sql 的 ck_practice_home / items / answer / essay）
         if (/^ck_practice_(home|items|answer|essay)$/.test(name)) {
@@ -2477,20 +2530,22 @@
         if (name === 'ck_my_notices') {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
-          if (!me) return { status: 'login', adopt: 0, build: 0 };
+          if (!me) return { status: 'login', adopt: 0, build: 0, chat: 0 };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
           const authors = read('fbauthors');
           let adopt = 0;
           let build = 0;   // 其中课程共建被采纳加的（2026-11-23）
+          let chat = 0;    // 其中纯唠嗑被点赞加的（2026-11-26）
           authors.forEach((row) => {
             if (row.course === room.course && String(row.class_id) === String(room.class_id) && row.sid === sidKey(me.sid) && row.points > row.notified) {
               adopt += row.points - row.notified;
               if (row.kind === 'build') build += row.points - row.notified;
+              if (row.kind === 'chat') chat += row.points - row.notified;
               row.notified = row.points;
             }
           });
           write('fbauthors', authors);
-          return { status: 'ok', adopt, build };
+          return { status: 'ok', adopt, build, chat };
         }
         if (['ck_my_feedback_threads', 'ck_my_feedback_history', 'ck_answer_feedback', 'ck_seen_feedback_replies'].includes(name)) {
           const uid = await this.ensureAnonymous();
@@ -2538,7 +2593,7 @@
           }
           const text = String(params.p_text || '').trim();
           const kind = String(params.p_kind || '');   // 2026-11-23 标签：build 课程共建、ask 课程疑问；''＝旧页面没带（规则同 cloudbase-pg.sql）
-          if (!['', 'build', 'ask'].includes(kind)) throw new Error('请先选标签：课程共建或课程疑问');
+          if (!['', 'build', 'ask', 'chat'].includes(kind)) throw new Error('请先选标签：课程共建、课程疑问或纯唠嗑');   // 2026-11-26 加 chat 纯唠嗑
           if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
           const rows = read('feedback');
           const id = Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1;
@@ -2733,7 +2788,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes', 'fbauthors'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'reveals', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes', 'fbauthors'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses', 'logindays'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -3335,6 +3390,17 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-26：解答等老师核对后才显示（用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示……一键发布答案”）
+        ['题目解答 · 老师核对后才能看', '从今天起，递交以后还不能马上看解答：要等老师在课上核对这道题，或者课后老师发布答案。还没核对时，题目下面的按钮写着“🔒 解答：老师核对后可看”，点一下会再问一次有没有放开。境界要求和以前一样：普通解答要到「筑基」，四步解析不看境界。做错的题也是老师核对或发布答案以后，才进“回温”。', '2026-11-26'],
+        // 2026-11-26：匿名建议箱第三个标签“纯唠嗑”（用户：“匿名建议箱再增加一个标签：纯唠嗑，可以跟老师分享一些生活、学习中的趣事或者迷茫疑惑等等”）
+        ['匿名建议箱 · 新增“纯唠嗑”', '匿名建议箱多了第三个标签“纯唠嗑”：生活、学习里的趣事，或者迷茫、困惑，想到什么都可以跟老师聊聊，不一定和这堂课有关。照样是匿名的，老师会看到，也可能回复你。', '2026-11-26'],
+        // 2026-11-26：灵田铲除、富豪榜（用户：“铲子可以铲除刚种的菜，以防有同学种错了灵植，但是买种子的灵石不退回”“在灵田里面设置一个灵田富豪榜，按照现在拥有的灵石进行排名”）
+        ['云间灵田 · 种错了可以铲掉', '刚种下、还没浇过水的灵植可以铲掉重种：点开这块田，“浇水”旁边有“铲除”，铲掉以后变回空田。买种子的灵石不退；浇过水就不能铲了，免得误铲。', '2026-11-26'],
+        ['云间灵田 · 富豪榜和成交榜', '坊市右上角多了“富豪榜”：按现在手里的灵石给同一门课的道友排名，前三名上领奖台。旁边还有本周的“成交榜”，按你和多少位不同的道友成交过来排。榜上只写道号。', '2026-11-26'],
+        // 2026-11-26：坊市鼓励交易的几项（用户：“挂单取消有效期，可以一直挂着。其它几条都做吧。每周一三五是集市日。”）
+        ['坊市 · 挂单不再过期，一三五是集市日', '坊市里的挂单（灵植、丹药、卡牌）不再过期，会一直挂着，直到成交或你自己撤销。每周一、三、五是集市日，这三天成交免手续费。你不在的时候挂单成交了，下次进灵田会提醒你。', '2026-11-26'],
+        ['坊市 · 卖药铺之前先看一眼坊市的价', '在乾坤袋里卖给药铺时，如果坊市有人出更高的价收，会直接告诉你能多卖多少，点一下就去坊市卖给他。炼丹缺药材时，也会告诉你坊市现在最低卖多少。', '2026-11-26'],
+        ['每周委托 · 坊市采购单', '每周委托多了一张“坊市采购单”：交付一种你现在的境界还种不了的灵植（元婴以上是一批黄精芝），要去坊市向道友买，奖励比别的委托高。每周能领的委托从 3 张变成 4 张。', '2026-11-26'],
         // 2026-11-24：匿名建议只递交不再加修为（用户：“匿名建议箱只递交的话不再增加修为值了，只有老师点赞才增加”）
         ['匿名建议箱 · 老师点赞才加修为', '从今天起，写匿名建议、提疑问不再直接加修为；“课程共建”的建议被老师点赞采纳，才会加修为。以前已经加上的修为不变。', '2026-11-24'],
         // 2026-11-24：修炼场每单元加 4 道思考辨析（用户：“修炼场的题目能不能增加一些数量，然后增加难度，要能够让学生在做题的过程中有自己的思考过程，思考后做出选择”）

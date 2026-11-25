@@ -15,11 +15,22 @@
     listed: ['限价单 · 报价是一份交易意愿', '订单已进入队列。卖方的报价是愿意接受的最低价格，买方的报价是愿意支付的最高价格。没有合适的对手方时，订单会等待，最新成交价不会因此改变。'],
     priority: ['撮合 · 价格优先，同价按先后', '买价越高、卖价越低，越优先成交；同一价格按服务器受理时间排队。新订单与已有订单相遇时，采用已有对手方订单的价格，并不取两者平均。'],
     partial: ['部分成交 · 余单继续等待', '一张订单可以分几次成交。例如挂出 5 颗、成交 2 颗，剩下 3 颗继续排队；你可以撤回余下 3 颗，已经成交的部分不会被撤销。'],
-    cancelled: ['撤单 · 只取回未成交的资产', '未成交余单已申请撤回，返还以服务器结果为准。已经成交的部分属于完成的交易，不能通过撤单取回。订单到期也只退回未成交部分。'],
+    cancelled: ['撤单 · 只取回未成交的资产', '未成交余单已申请撤回，返还以服务器结果为准。已经成交的部分属于完成的交易，不能通过撤单取回。'],
     spread: ['价差与流动性 · 上一笔不保证下一笔', '最高买价与最低卖价之间的距离叫价差。上一笔成交价只是历史记录；此刻能否按该价成交，还要看对手方报价和可成交数量。'],
     use: ['使用价值 · 效果不等于价格', '服用丹药提升修为，体现它在游戏中的使用价值；交易则形成交换关系。修为效果增加一倍，并不意味着成交价格一定增加一倍。'],
     production: ['供求与生产 · 多炼一炉前想一想', '更多同类丹药进入市场会增加供给，能否卖出还取决于有支付能力的需求。炼制倒计时是生产周期，不是劳动时间；材料支出也不能直接等同于马克思所说的商品价值。']
   };
+
+  // 集市日（2026-11-26 用户：“每周一三五是集市日”）：北京时间周一、三、五成交免手续费。是否免以云端成交那一刻为准；
+  // 界面上的提示按服务器校准过的时钟（engine.now）算，坊市行情返回 rules.marketDay 时以它为准。
+  const MARKET_WEEKDAYS = [1, 3, 5], WEEKDAY_NAMES = ['周日','周一','周二','周三','周四','周五','周六'];
+  function marketDayInfo(now) {
+    const weekday = new Date(Number(now) + 8 * 3600000).getUTCDay();
+    let ahead = 1;
+    while (!MARKET_WEEKDAYS.includes((weekday + ahead) % 7) && ahead < 7) ahead++;
+    return {today: MARKET_WEEKDAYS.includes(weekday), next: WEEKDAY_NAMES[(weekday + ahead) % 7]};
+  }
+  window.SpiritMarketDay = Object.freeze({info: marketDayInfo});
 
   function create(options) {
     const engine = options.engine;
@@ -59,6 +70,18 @@
     let marketInterval = '1h', marketSelectedTime = null, chartSignature = '', chartHost = null, chartDispose = null;
     let lesson = 'empty';
     let draft = marketDrafts.herb;
+    // 灵田富豪榜（2026-11-26）：只在联网模式显示入口；打开时读一次，另有“刷新”按钮（云函数每分钟更新一次）
+    // 榜单界面在 rich-ui.js（富豪榜＋本周成交榜，2026-11-26 豪华版）：这里只留坊市里的入口按钮
+    const richBoard = window.YunjianRichBoard ? window.YunjianRichBoard.create({engine, icon: I, esc: E, fmt: F, openDialog: (kind, title, html) => options.openDialog(kind, title, html)}) : null;
+    const richAvailable = () => !!(richBoard && richBoard.available());
+    // 坊市行情摘要（2026-11-26）：炼丹面板打开时读一次（不轮询），缺药材时给出“坊市最低价，去买”；离线单机不显示
+    let quotes = null, quotesRequest = 0;
+    // 打开坊市时，把“我不在时被成交的挂单”留在面板上看一眼（同时记为已看过，坊市按钮的角标消失）
+    let shownFills = [];
+    const marketDayNow = () => {
+      const server = marketCategory !== 'cards' && marketData?.rules?.marketDay;
+      return server && typeof server.today === 'boolean' ? server : marketDayInfo(engine.now());
+    };
 
     const content = () => document.getElementById('dialog-content');
     const root = kind => content() && content().querySelector('[data-econ-screen="' + kind + '"]');
@@ -122,6 +145,29 @@
           '<span class="econ-countdown" data-econ-brew-countdown>' + E(clock(brew.remainingMs)) + '</span><small>距离成丹</small>') + '</div></section>';
     }
 
+    function ingredientQuoteMarkup(id, crop) {
+      if (!engine.online || !quotes || !quotes.items) return '';
+      const quote = quotes.items['herb:' + id];
+      if (!quote) return '';
+      const locked = crop && Number(crop.minRealm) > Number(state().realm);
+      const lockText = locked ? '<em>' + E(realmName(crop.minRealm)) + '才能种，可到坊市买</em>' : '';
+      if (quote.bestAsk) return '<p class="econ-ingredient-quote">' + lockText + '<span>坊市最低 <b>' + F(quote.bestAsk.price) + '</b> 灵石（有 ' + F(quote.bestAsk.quantity) + ' 份）</span>' +
+        '<button type="button" class="econ-quote-link" data-econ-action="goto-market"' + attr('item', 'herb:' + id) + attr('side', 'buy') + attr('price', quote.bestAsk.price) + '>去买</button></p>';
+      return '<p class="econ-ingredient-quote">' + lockText + '<span>坊市暂时没人卖，可以挂买单</span>' +
+        '<button type="button" class="econ-quote-link" data-econ-action="goto-market"' + attr('item', 'herb:' + id) + attr('side', 'buy') + attr('price', quote.lastPrice || '') + '>去挂买单</button></p>';
+    }
+
+    async function loadQuotes(after) {
+      if (!engine.online || typeof engine.getMarketQuotes !== 'function') return;
+      const request = ++quotesRequest;
+      try {
+        const data = await engine.getMarketQuotes();
+        if (request !== quotesRequest || !data || !data.items) return;
+        quotes = data;
+        after?.();
+      } catch (_) { /* 读不到行情就不显示这一行，不影响炼丹 */ }
+    }
+
     function recipeMarkup(pill, info) {
       if (!pill) return note('丹方尚未加载，请刷新后重试。');
       const ingredients = Object.entries(pill.ingredients);
@@ -132,7 +178,7 @@
         const have = Number(state().bag[id] || 0);
         return '<div class="econ-ingredient' + (have < qty ? ' is-missing' : '') + '"><span class="econ-ingredient-art">' + plantArt(id) +
           '</span><div><strong>' + E(crop?.name || id) + '</strong><small>需 ' + F(qty) + ' 份 · 行囊 ' + F(have) +
-          '</small></div><span class="econ-ingredient-status">' + (have < qty ? '差 ' + F(qty - have) + ' 份' : I('check') + '已备齐') + '</span></div>';
+          '</small>' + (have < qty ? ingredientQuoteMarkup(id, crop) : '') + '</div><span class="econ-ingredient-status">' + (have < qty ? '差 ' + F(qty - have) + ' 份' : I('check') + '已备齐') + '</span></div>';
       }).join('');
       const confirmation = brewConfirmation === pill.id && !problem
         ? '<div class="econ-confirm" role="status"><strong>确认开炉 · ' + E(pill.name) + '</strong><p>立即投入 ' + F(total) + ' 份灵草和 ' + F(pill.cost) +
@@ -179,7 +225,7 @@
     function renderAlchemy(force) {
       if (!visible('alchemy')) return;
       const info = alchemyInfo();
-      const signature = JSON.stringify([state().bag, state().pills, state().stones, state().realm, info.daily, info.brew?.id, info.brew?.ready, actionBusy, selectedPill, brewConfirmation]);
+      const signature = JSON.stringify([state().bag, state().pills, state().stones, state().realm, info.daily, info.brew?.id, info.brew?.ready, actionBusy, selectedPill, brewConfirmation, quotes?.at]);
       if (force || signature !== alchemySignature) {
         const host = content(), scrollTop = host.scrollTop;
         const oldTabs = host.querySelector('.econ-recipe-tabs');
@@ -210,6 +256,7 @@
       options.openDialog('alchemy', '灵火丹房', alchemyMarkup(info));
       alchemySignature = '';
       renderAlchemy(true);
+      void loadQuotes(() => renderAlchemy(true));
     }
 
     async function alchemyAction(action, pillId) {
@@ -232,13 +279,14 @@
 
     function rulesMarkup() {
       return '<details class="econ-rules"><summary>' + I('book') + '坊市规则与经济学小课<span>展开阅读</span></summary><div class="econ-rules-body">' +
-        '<h4>每一张订单怎样成交</h4><ol><li><strong>自主限价。</strong>单价为 1—1,000,000 整数灵石，数量 1—999；每人最多同时保留 10 张有效订单。每份灵草、每颗丹药分别计价。</li>' +
+        '<h4>每一张订单怎样成交</h4><ol><li><strong>自主限价。</strong>单价为 1—1,000,000 整数灵石，数量 1—999。挂单一直有效，直到成交或你自己撤销；每人最多同时挂 10 笔。每份灵草、每颗丹药分别计价。</li>' +
         '<li><strong>价格优先、时间优先。</strong>买价高者、卖价低者优先；同价按服务器受理先后。以已经挂在盘口中的对手方价格成交，禁止自己与自己成交。</li>' +
         '<li><strong>冻结与返还。</strong>买单冻结“限价 × 数量”的灵石，卖单冻结商品。若买入成交价低于限价，差额返还；成交部分归对手方，未成交部分继续排队。</li>' +
-        '<li><strong>部分成交与撤单。</strong>可随时申请撤销未成交部分；订单 24 小时到期后退回余下冻结资产。已成交交易不能通过撤单撤回。</li>' +
+        '<li><strong>部分成交与撤单。</strong>可随时撤销未成交部分，撤销后退回余下冻结的灵石或货品。已成交交易不能通过撤单撤回。</li>' +
         '<li><strong>卖方手续费。</strong>灵植为成交金额的 1%，丹药 2%，道藏卡牌 3%；向上取整，每笔最低 1 灵石，从卖方收入扣除。分多笔成交时逐笔计费，低价小单的手续费占比可能较高。</li>' +
+        '<li><strong>集市日免手续费。</strong>每周一、三、五（北京时间）是集市日，这三天成交的交易一律免手续费（灵植、丹药、道藏卡牌都一样）；挂单在哪天挂出不要紧，看成交那一刻。</li>' +
         '<li><strong>价格来自真实成交。</strong>最新价是上一笔成交价；24 小时均价按成交量加权。没有成交就显示“暂无成交”，挂单价和统计均价都不代表必然能成交的价格。</li></ol>' +
-        '<p class="econ-fineprint">本游戏借鉴真实市场的限价、撮合和撤单规则；24 小时有效期、数量单位、立即交收及手续费是课堂游戏参数，并非对证券市场全部制度的复刻。</p>' +
+        '<p class="econ-fineprint">本游戏借鉴真实市场的限价、撮合和撤单规则；挂单一直有效、数量单位、立即交收、手续费与集市日是课堂游戏参数，并非对证券市场全部制度的复刻。</p>' +
         '<div class="econ-knowledge-grid">' + ['listed','priority','partial','spread','use','production'].map(key =>
           '<article><h4>' + E(LESSONS[key][0]) + '</h4><p>' + E(LESSONS[key][1]) + '</p></article>').join('') +
         '</div><div class="econ-theory-note"><strong>把“价值”和“价格”分清</strong><p>马克思的政治经济学以社会必要劳动时间说明商品价值。供求变化影响市场价格及其波动，不能把某位修士投入的材料钱、炼制等待时间或 24 小时成交均价直接叫作商品价值。游戏可以帮助观察交换、供求与竞争，但它的倒计时并不是对社会劳动过程的完整模拟。</p></div>' +
@@ -272,10 +320,41 @@
 
     function marketMarkup() {
       const cards = marketCategory === 'cards';
-      return '<div class="econ-shell" data-econ-screen="market" data-market-category="' + marketCategory + '"><nav class="econ-market-tabs" role="tablist" aria-label="坊市商品分类">' +
+      return '<div class="econ-shell" data-econ-screen="market" data-market-category="' + marketCategory + '">' + richEntryMarkup() + '<div data-econ-market-day>' + marketDayMarkup() + '</div>' + fillsMarkup() + '<nav class="econ-market-tabs" role="tablist" aria-label="坊市商品分类">' +
         marketCategories.map(([id, label]) => '<button type="button" role="tab" id="econ-market-tab-' + id + '" data-econ-action="market-category" data-category="' + id + '" aria-selected="' + (marketCategory === id) + '" aria-controls="econ-market-panel" tabindex="' + (marketCategory === id ? '0' : '-1') + '">' + label + '</button>').join('') +
         '</nav><section id="econ-market-panel" data-econ-market-panel role="tabpanel" aria-labelledby="econ-market-tab-' + marketCategory + '"><div data-econ-goods-market' + (cards ? ' hidden' : '') + '>' + (cards ? '' : goodsMarketMarkup()) +
         '</div><div class="econ-card-market" data-econ-card-market' + (cards ? '' : ' hidden') + '></div></section></div>';
+    }
+
+    function marketDayMarkup() {
+      if (!engine.online) return '';
+      const day = marketDayNow();
+      return day.today
+        ? '<p class="econ-market-day is-today"><b aria-hidden="true">集</b>今天是集市日（每周一、三、五）：成交免手续费</p>'
+        : '<p class="econ-market-day"><b aria-hidden="true">集</b>下一个集市日：' + E(day.next) + '（每周一、三、五成交免手续费）</p>';
+    }
+    function renderMarketDay() {
+      const slot = root('market')?.querySelector('[data-econ-market-day]');
+      if (!slot) return;
+      const markup = marketDayMarkup();
+      if (slot.dataset.signature !== markup) { slot.dataset.signature = markup; slot.innerHTML = markup; }
+    }
+    function fillsMarkup() {
+      if (!engine.online || !shownFills.length) return '';
+      const describe = typeof engine.describeMarketFill === 'function' ? engine.describeMarketFill : () => '';
+      return '<section class="econ-fills" data-econ-fills role="status"><div class="econ-fills-head"><strong>' + I('gem') + '你不在时，挂的单成交了 ' + shownFills.length + ' 笔</strong>' +
+        '<button type="button" class="econ-quote-link" data-econ-action="dismiss-fills">知道了</button></div><ul>' +
+        shownFills.slice(0, 6).map(item => '<li><span>' + E(describe(item)) + '</span><time>' + E(dateText(item.createdAt)) + '</time></li>').join('') +
+        (shownFills.length > 6 ? '<li><span>还有 ' + (shownFills.length - 6) + ' 笔，详见“灵田小记”。</span></li>' : '') + '</ul></section>';
+    }
+
+    function richEntryMarkup() {
+      if (!richAvailable()) return '';
+      return '<div class="econ-rich-entry"><button type="button" class="button button-secondary econ-rich-open" data-econ-action="open-rich" aria-haspopup="dialog" title="富豪榜：按现在手里的灵石排名；成交榜：本周和多少位道友成交过">' + I('gem') + '富豪榜 · 成交榜</button></div>';
+    }
+
+    function openRich(tab) {
+      return richAvailable() ? richBoard.open(tab) : false;
     }
 
     function updateMarketTabs() {
@@ -376,11 +455,25 @@
       return true;
     }
 
-    function openMarket(itemKey) {
+    // preset（2026-11-26）：从乾坤袋“去坊市卖”、炼丹面板“去买”跳过来时，选好这件商品、买入或卖出一侧，价格预填（不会直接下单）
+    function applyPreset(preset, category) {
+      if (!preset || category === 'cards' || !marketDrafts[category]) return;
+      const target = marketDrafts[category];
+      if (preset.side === 'buy' || preset.side === 'sell') target.side = preset.side;
+      if (/^\d{1,7}$/.test(String(preset.price ?? ''))) target.price = String(preset.price);
+      if (visible('market') && marketCategory === category) {
+        const input = root('market')?.querySelector('[data-econ-field="price"]');
+        if (input) input.value = target.price;
+        marketConfirmation = null;
+        updateOrderForm();
+      }
+    }
+
+    function openMarket(itemKey, preset) {
       const initialCardId = typeof itemKey === 'string' && itemKey.startsWith('card:') ? itemKey.slice(5) : '';
       const category = itemKey === 'cards' || initialCardId ? 'cards' : itemMap[itemKey]?.type || 'herb';
       if (categoryBusy()) return false;
-      if (visible('market')) return switchMarketCategory(category, itemKey, initialCardId);
+      if (visible('market')) { const switched = switchMarketCategory(category, itemKey, initialCardId); if (switched) applyPreset(preset, category); return switched; }
       readDraft();
       closeCardMarket(true);
       marketCategory = category;
@@ -392,9 +485,12 @@
         }
         selectedItem = selectedItems[category];
       }
+      applyPreset(preset, category);
       resetMarketData();
       lesson = category === 'herb' ? 'production' : 'empty';
+      shownFills = engine.online && Array.isArray(engine.marketFills) ? engine.marketFills : [];
       options.openDialog('market', '云间坊市', marketMarkup());
+      if (shownFills.length) engine.markMarketFillsSeen?.();
       const host = root('market');
       if (!host) return false;
       cardMarketSlot = host.querySelector('[data-econ-card-market]');
@@ -452,9 +548,11 @@
       return {
         feePercent: Number.isFinite(rules?.feePercent) && rules.feePercent > 0 && rules.feePercent <= 100
           ? rules.feePercent : itemMap[itemKey]?.type === 'pill' ? 2 : 1,
-        minimumFee: Number.isSafeInteger(rules?.minimumFee) && rules.minimumFee >= 1 ? rules.minimumFee : 1
+        minimumFee: Number.isSafeInteger(rules?.minimumFee) && rules.minimumFee >= 1 ? rules.minimumFee : 1,
+        feeFreeToday: typeof rules?.feeFreeToday === 'boolean' ? rules.feeFreeToday : marketDayInfo(engine.now()).today
       };
     }
+    const feeOf = (amount, rules) => rules.feeFreeToday ? 0 : Math.max(rules.minimumFee, Math.ceil(amount * rules.feePercent / 100));
 
     const orderReview = order => Object.assign({}, order, marketFeeRules(order.itemKey));
 
@@ -482,7 +580,8 @@
       }
       const amount = (order.price || 0) * (order.quantity || 0);
       const feeRules = marketFeeRules(order.itemKey);
-      const fee = Math.max(feeRules.minimumFee, Math.ceil(amount * feeRules.feePercent / 100));
+      const fee = feeOf(amount, feeRules);
+      renderMarketDay();
       host.querySelector('[data-econ-wallet]').innerHTML = '<span>' + I('gem') + '<strong>' + F(state().stones) + '</strong> 可用灵石</span><span>' + I('bag') +
         E(item.name) + ' <strong>' + F(owned(item)) + '</strong> ' + item.unit + '可用</span>';
       host.querySelectorAll('[data-econ-action="side"]').forEach(node => {
@@ -494,7 +593,7 @@
         ? '<span>填写单价和数量，核对冻结资产后再提交。</span>'
         : order.side === 'buy'
           ? '<span>预计冻结 <strong>' + F(amount) + '</strong> 灵石</span><small>买入不另收手续费；若以更低价格成交，退回差额。</small>'
-          : '<span>预计冻结 <strong>' + F(order.quantity) + ' ' + item.unit + '</strong> ' + E(item.name) + '</span><small>按限价一次全部成交：成交额 ' + F(amount) + '，手续费 ' + F(fee) + '（' + feeRules.feePercent + '%），预计到账 ' + F(Math.max(0, amount - fee)) + ' 灵石。</small><small>分批成交逐笔计费；实际成交价与到账以交易记录为准。</small>';
+          : '<span>预计冻结 <strong>' + F(order.quantity) + ' ' + item.unit + '</strong> ' + E(item.name) + '</span><small>按限价一次全部成交：成交额 ' + F(amount) + '，手续费 ' + (feeRules.feeFreeToday ? '0（集市日免手续费）' : F(fee) + '（' + feeRules.feePercent + '%）') + '，预计到账 ' + F(Math.max(0, amount - fee)) + ' 灵石。</small><small>分批成交逐笔计费；实际成交价与到账以交易记录为准。</small>';
       const review = host.querySelector('[data-econ-action="review-order"]');
       review.disabled = !!actionBusy || !marketData;
       review.dataset.side = draft.side;   // 2026-11-23：买入按钮红、卖出按钮绿（economy.css）
@@ -507,8 +606,12 @@
       confirmHost.dataset.signature = confirmationKey;
       confirmHost.innerHTML = '<div class="econ-confirm" role="status"><span class="econ-kicker">请核对后确认</span><h4>' + (order.side === 'buy' ? '买入 ' : '卖出 ') + E(item.name) +
         '</h4><dl><div><dt>限价 / 数量</dt><dd>' + F(order.price) + ' 灵石 × ' + F(order.quantity) + ' ' + item.unit + '</dd></div><div><dt>立即冻结</dt><dd>' +
-        (order.side === 'buy' ? F(amount) + ' 灵石' : F(order.quantity) + ' ' + item.unit + E(item.name)) + '</dd></div><div><dt>有效期</dt><dd>24 小时；可撤未成交部分</dd></div></dl>' +
-        '<p>' + (order.side === 'buy' ? '实际成交价不会高于此限价。' : '实际成交价不会低于此限价，卖方逐笔支付 ' + feeRules.feePercent + '% 手续费（向上取整，最低 ' + F(feeRules.minimumFee) + ' 灵石）。') +
+        (order.side === 'buy' ? F(amount) + ' 灵石' : F(order.quantity) + ' ' + item.unit + E(item.name)) + '</dd></div>' +
+        '<div><dt>手续费</dt><dd>' + (order.side === 'buy' ? '买方不付' : feeRules.feeFreeToday ? '0 · 集市日免手续费' : '约 ' + F(fee) + ' 灵石（' + feeRules.feePercent + '%）') + '</dd></div>' +
+        '<div><dt>有效期</dt><dd>一直有效，直到成交或你自己撤销；每人最多同时挂 10 笔</dd></div></dl>' +
+        '<p>' + (order.side === 'buy' ? '实际成交价不会高于此限价。' : feeRules.feeFreeToday
+          ? '实际成交价不会低于此限价。今天是集市日，今天成交免手续费；挂到别的日子才成交的，照常收 ' + feeRules.feePercent + '%。'
+          : '实际成交价不会低于此限价，卖方逐笔支付 ' + feeRules.feePercent + '% 手续费（向上取整，最低 ' + F(feeRules.minimumFee) + ' 灵石）；周一、三、五集市日成交免手续费。') +
         '提交后可能立即成交。</p><div class="econ-actions">' + button('confirm-order', actionBusy === 'order' ? '正在提交…' : '确认并提交委托', attr('side', order.side), !!actionBusy) +
         button('dismiss-order', '修改', '', !!actionBusy, true) + '</div></div>';
     }
@@ -549,7 +652,7 @@
         return '<article class="econ-order-row"><div class="econ-order-row-heading"><strong>' + E(item?.name || order.itemKey) + '</strong><span class="econ-side-badge ' + (order.side === 'buy' ? 'is-buy' : 'is-sell') + '">' +
           (order.side === 'buy' ? '买入' : '卖出') + '</span><span>' + E(status) + '</span></div><div class="econ-order-row-body"><div><strong>' + F(order.price) + ' <small>灵石 / ' + (item?.unit || '件') +
           '</small></strong><p>委托 ' + F(total) + ' · ' + (open ? '已成交 ' + F(total - remaining) + ' · 余 ' + F(remaining) : E(status)) +
-          '</p><small>' + E(dateText(order.createdAt)) + (open ? ' · <span data-econ-expiry="' + E(order.expiresAt) + '"></span>' : '') + '</small></div>' +
+          '</p><small>' + E(dateText(order.createdAt)) + (open ? ' · 一直有效，直到成交或撤销' : '') + '</small></div>' +
           (open ? button('review-cancel', '撤回余单', attr('order', order.id), !!actionBusy, true) : '') + '</div>' +
           (cancelConfirmation === order.id && open ? '<div class="econ-confirm econ-cancel-confirm"><p>撤回尚未成交的 ' + F(remaining) + ' ' + (item?.unit || '件') +
             '；预计解冻 ' + (order.side === 'buy' ? F(order.price * remaining) + ' 灵石' : F(remaining) + ' ' + (item?.unit || '件') + E(item?.name || '商品')) +
@@ -641,10 +744,6 @@
           errorHost.innerHTML = marketError ? note('<strong>坊市暂未连通</strong><br>' + E(marketError) + ' 请点击“刷新行情”重试。已有显示为上次同步的数据。', 'error') : '';
         }
       }
-      host.querySelectorAll('[data-econ-expiry]').forEach(node => {
-        const remaining = timestamp(node.dataset.econExpiry) - (Date.now() + serverOffset);
-        node.textContent = remaining > 0 ? clock(remaining) + ' 后到期' : '已到期，等待同步返还';
-      });
       const refreshButton = host.querySelector('[data-econ-action="refresh-market"]');
       if (refreshButton) refreshButton.disabled = marketLoading;
       renderMarketChart();
@@ -771,12 +870,18 @@
       else if (action === 'claim-brew') alchemyAction('claim');
       else if (action === 'consume-pill') alchemyAction('consume', pillId);
       else if (action === 'open-market') openMarket();
+      else if (action === 'open-rich') openRich();
       else if (action === 'market-category') switchMarketCategory(target.dataset.category);
       else if (action === 'sell-item') {
         const item = itemMap[target.dataset.item];
         if (item && !categoryBusy()) { marketDrafts[item.type].side = 'sell'; openMarket(item.key); }
       }
       else if (action === 'refresh-market') loadMarket();
+      else if (action === 'goto-market') {
+        const item = itemMap[target.dataset.item];
+        if (item && !categoryBusy()) openMarket(item.key, {side: target.dataset.side, price: target.dataset.price});
+      }
+      else if (action === 'dismiss-fills') { shownFills = []; root('market')?.querySelector('[data-econ-fills]')?.remove(); }
       else if (action === 'side' && !actionBusy) {
         draft.side = target.dataset.side === 'buy' ? 'buy' : 'sell'; marketConfirmation = null; updateOrderForm();
       } else if (action === 'quote' && !actionBusy) {
@@ -816,7 +921,7 @@
       if (!actionBusy && !marketLoading && Date.now() - lastMarketLoad >= 10000) loadMarket();
     }
 
-    return {openAlchemy, openMarket, refresh, handleClick, handleChange, isCardsMarketVisible, syncCardActivity};
+    return {openAlchemy, openMarket, openRich, refresh, handleClick, handleChange, isCardsMarketVisible, syncCardActivity};
   }
 
   window.SpiritEconomyUI = Object.freeze({create});

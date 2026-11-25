@@ -496,7 +496,7 @@
   if (fbCard) {
     const stateEl = fbCard.querySelector('.clp-fb-state');
     const what = fbCard.dataset.what;
-    const note = '老师的页面只展示、不能提交：请在你自己页面最后的建议箱，或左下角面板的“建议箱”按钮里写（先选标签：课程共建或课程疑问）。';
+    const note = '老师的页面只展示、不能提交：请在你自己页面最后的建议箱，或左下角面板的“建议箱”按钮里写（先选标签：课程共建、课程疑问或纯唠嗑）。';
     stateEl.textContent = note;
     const refreshFeedback = async () => {
       try {
@@ -505,7 +505,8 @@
         const rows = (await backend.fetchAll('feedback', { classroom: Number(current.id) })).filter((row) => String(row.created_on || '').slice(0, 10) === today);
         const n = rows.length;
         const nBuild = rows.filter((row) => row.kind === 'build').length, nAsk = rows.filter((row) => row.kind === 'ask').length;   // 2026-11-23 两个标签
-        stateEl.textContent = `${note}${n ? `这堂课已经收到 ${n} 条（课程共建 ${nBuild} 条、课程疑问 ${nAsk} 条），谢谢大家！（内容只在老师的工作台里看）` : `这堂课还没有收到${what}：下课前花一分钟写一写吧。`}`;
+        const nChat = rows.filter((row) => row.kind === 'chat').length;   // 2026-11-26 第三个标签：纯唠嗑
+        stateEl.textContent = `${note}${n ? `这堂课已经收到 ${n} 条（课程共建 ${nBuild} 条、课程疑问 ${nAsk} 条${nChat ? `、纯唠嗑 ${nChat} 条` : ''}），谢谢大家！（内容只在老师的工作台里看）` : `这堂课还没有收到${what}：下课前花一分钟写一写吧。`}`;
       } catch (error) {
         stateEl.textContent = note;   // 不是当前课堂、未登录教师工作台或后台还没有建议箱时只显示说明
       }

@@ -326,3 +326,35 @@
   .econ-market-tabs { gap:4px;margin-bottom:15px;padding:4px; }
   .econ-market-tabs > button { min-height:46px;padding:9px 6px;font-size:16px; }
 }
+
+/* 灵田富豪榜、成交榜（2026-11-26）：坊市顶上一行右侧的入口按钮；榜单对话框的样式在 rich.css */
+.econ-rich-entry { display:flex; justify-content:flex-end; margin:-4px 0 10px; }
+.econ-shell .button.econ-rich-open { min-height:38px; padding:6px 14px; gap:6px; }
+@media (max-height: 520px) and (orientation: landscape) {
+  .econ-rich-entry { margin-bottom:6px; }
+}
+}
+
+/* 坊市集市日、被动成交提醒、炼丹缺药时的坊市价（2026-11-26） */
+.econ-market-day { display:flex; align-items:center; gap:8px; margin:0 0 10px; padding:7px 12px; border-radius:10px; border:1px solid #dfe4d0; background:#f4f6ec; color:#6a785c; font-size:12px; line-height:1.6; }
+.econ-market-day b { display:inline-grid; place-items:center; flex:0 0 auto; width:20px; height:20px; border-radius:50%; background:#cfd8bd; color:#4d6a4f; font:600 11px/1 var(--serif, serif); }
+.econ-market-day.is-today { border-color:#ddce9d; background:#f8f0da; color:#7d6534; font-weight:600; }
+.econ-market-day.is-today b { background:#b89755; color:#fffdf1; }
+.econ-fills { margin:0 0 12px; padding:10px 13px; border-radius:10px; border:1px solid #d3dcc1; background:#eef3e3; color:#4f6a50; font-size:12px; }
+.econ-fills-head { display:flex; align-items:center; justify-content:space-between; gap:10px; }
+.econ-fills-head strong { display:inline-flex; align-items:center; gap:6px; font-size:12px; }
+.econ-fills-head .icon { width:15px; height:15px; }
+.econ-fills ul { margin:6px 0 0; padding:0; list-style:none; }
+.econ-fills li { display:flex; justify-content:space-between; gap:10px; padding:4px 0; border-top:1px dashed #d5ddc6; line-height:1.6; }
+.econ-fills li time { flex:0 0 auto; color:#8a957c; font-size:11px; font-variant-numeric:tabular-nums; }
+.econ-quote-link { flex:0 0 auto; border:1px solid #c9d3b6; border-radius:999px; background:#fffdf4; color:#4f714c; font-size:11px; line-height:1.4; padding:3px 10px; min-height:26px; cursor:pointer; }
+.econ-quote-link:hover { background:#e6edd8; }
+.econ-quote-link:focus-visible { outline:2px solid #7a9b6c; outline-offset:2px; }
+.econ-ingredient-quote { display:flex; flex-wrap:wrap; align-items:center; gap:4px 8px; margin:3px 0 1px; color:#7d6534; font-size:11px; line-height:1.5; }
+.econ-ingredient-quote b { font-weight:700; }
+.econ-ingredient-quote em { font-style:normal; color:#966d4c; }
+@media (max-width: 600px) {
+  .econ-market-day { font-size:11px; padding:6px 10px; }
+  .econ-fills li { flex-direction:column; gap:0; }
+  .econ-quote-link { min-height:32px; padding:5px 12px; }
+}
