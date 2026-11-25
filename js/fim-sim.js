@@ -218,6 +218,16 @@
     const identity = (last.course === config.course && last.chapter === unit) || !(mine && mine.classroom) ? last : mine;
     const joined = Boolean(identity.classroom && identity.name && identity.sid && identity.course === config.course && identity.chapter === unit);
     const back = `${unit}.html`;
+    // 2026-11-25：老师从工作台打开的“学生版测试页”（?preview=课堂编号）用的是测试身份“王不凡”，不在点名册里，进不了要分组发卡的模拟房间。
+    // 原来只提示“先登录”，老师看不出是怎么回事。
+    const preview = params.get('preview');
+    if (preview) {
+      overlay('这是老师的学生版测试页', `<p>模拟房间要分组发卡，得用点名册里的学生身份登录才能进。测试页用的是“王不凡”，不在任何一组里，所以进不来。</p>
+        <p>老师开房间、分组发卡、推进阶段，用“课堂模拟控制台”。里面有各组的隐藏身份，请在自己的屏幕上打开，不要投屏。</p>
+        <p>想看学生看到的样子：另开一个浏览器（或者无痕窗口），用点名册里的一位同学登录这次课，再点“进入模拟房间”。</p>
+        <a href="/teacher/${esc(config.course)}/sim.html?room=${encodeURIComponent(preview)}" target="_blank" rel="noopener">打开课堂模拟控制台</a><a href="${back}">回到本次课页面</a>`);
+      return;
+    }
     if (!joined) { overlay('先登录', `<p>请回首页，用老师公布的这次课的课堂码登录，再从这次课的页面进入模拟房间。</p><a href="/">回首页</a>`); return; }
     if (identity.audit) { overlay('旁听不能进入模拟房间', `<p>课堂模拟要分组发卡，旁听的同学不参加。</p><a href="${back}">回到本次课页面</a>`); return; }
     const classroom = Number(identity.classroom);

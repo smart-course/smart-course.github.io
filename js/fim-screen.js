@@ -143,6 +143,8 @@
 
   function paint() {
     bar.classList.toggle('is-bad', Boolean(state.problem));
+    // 课次页上“打开课堂模拟控制台”的链接：带上这个课堂的编号，控制台就直接打开这一个课堂的房间
+    if (state.room && state.room.id) document.querySelectorAll('a[data-sim-console-link]').forEach((a) => { a.setAttribute('href', `sim.html?room=${encodeURIComponent(state.room.id)}`); });
     bar.innerHTML = state.problem ? state.problem
       : `<span class="flb-room">${esc(state.room.name)}（课堂码 ${esc(state.room.code)}）· </span>已加入 ${state.joined} 人 · 已有 ${state.rows.length} 人递交`;
     $$('[data-fq-group]').forEach((host) => {
