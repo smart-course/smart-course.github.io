@@ -1500,7 +1500,7 @@
     });
   }
   // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在页面最后的“资料与延伸阅读”之后
-  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。建议本身只记日期；
+  //   （习经章节页：本章知识点小结→资料与延伸阅读→建议箱；政经案例页同理）。网站版才有，离线版不加。建议本身只记提交时间（2026-11-24 以前只记日期）；
   //   2026-11-05 起后台另记提交者（老师读不到），只用于老师点赞采纳后给作者加修为、作者下次打开页面时通知
   //   政经叫“匿名建议和提问箱”：2026-10-22 起概念小结的“提问墙”弹幕删去，没想通的问题写在这里，老师下一堂课统一解答 ----------
   const fbCards = [];
@@ -4775,6 +4775,8 @@
   }
   function showFeedbackReplies(threads, room) {
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    // 建议的提交时间（2026-11-24 起记到几点几分）；以前的建议只有日期，也写成“几月几日”
+    const fbDay = (day) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(String(day || '')); return m ? `${Number(m[1])}月${Number(m[2])}日` : String(day || ''); };
     const bubble = (r) => `<div class="clp-fbr-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${fbStk(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
     const dialog = document.createElement('dialog');
     dialog.className = 'clp-fbr';
@@ -4782,7 +4784,7 @@
     dialog.innerHTML = `<div class="clp-fbr-inner"><h2>老师回复了你的匿名建议</h2>
       <p class="clp-fbr-note">这段往来只有你能看到，老师仍然不知道建议是谁写的。想说什么可以直接回复老师；看完点最下面的“关闭”。</p>
       ${threads.map((t) => `<section class="clp-fbr-item" data-fbr="${esc(t.id)}">
-        <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : '建议'}<small>${esc(String(t.created_on || ''))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
+        <p class="clp-fbr-mine">你的${t.kind === 'build' ? '“课程共建”' : t.kind === 'ask' ? '“课程疑问”' : '建议'}<small>${esc(t.created_at ? when(t.created_at) : fbDay(t.created_on))}${t.case_no && t.case_no !== '00' ? ` · 案例${esc(t.case_no)}` : ''}</small></p>
         <blockquote>${fbStk(t.text)}</blockquote>
         <div class="clp-fbr-chat">${(t.replies || []).map(bubble).join('')}</div>
         <form class="clp-fbr-form"><textarea maxlength="500" placeholder="回复老师（选填，1—500 字）" aria-label="回复老师"></textarea><button type="submit">发送</button><div class="clp-fbr-tools"></div><p class="clp-fbr-status" role="status"></p></form>
@@ -6521,13 +6523,15 @@
       setInterval(() => { if (!document.hidden && !(dialog && dialog.open)) void refreshUnread(); }, 180000);
     }
     const when = (iso) => { const d = new Date(iso); return Number.isNaN(d.getTime()) ? '' : `${d.getMonth() + 1}月${d.getDate()}日 ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`; };
+    // 建议的提交时间（2026-11-24 起记到几点几分）；以前的建议只有日期，也写成“几月几日”
+    const fbDay = (day) => { const m = /^\d{4}-(\d{2})-(\d{2})/.exec(String(day || '')); return m ? `${Number(m[1])}月${Number(m[2])}日` : String(day || ''); };
     const kindName = (kind) => kind === 'build' ? '课程共建' : kind === 'ask' ? '课程疑问' : '建议';
     const bubble = (r) => `<div class="clp-fbh-bubble ${r.by_teacher ? 'is-teacher' : 'is-me'}${r.by_teacher && !r.seen ? ' is-new' : ''}"><b>${r.by_teacher ? '老师' : '我'}</b>${fbStk(r.text)}<small>${esc(when(r.created_at))}</small></div>`;
     const item = (f) => {
       const replies = Array.isArray(f.replies) ? f.replies : [];
       const fresh = replies.some((r) => r.by_teacher && !r.seen);
       return `<article class="clp-fbh-item" data-fbh="${esc(f.id)}">
-        <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' ? ' is-ask' : ''}">${kindName(f.kind)}</span><span>${esc(String(f.created_on || ''))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
+        <div class="clp-fbh-meta"><span class="clp-fbh-kind${f.kind === 'ask' ? ' is-ask' : ''}">${kindName(f.kind)}</span><span>${esc(f.created_at ? when(f.created_at) : fbDay(f.created_on))}${f.case_no && f.case_no !== '00' ? ` · 案例${esc(f.case_no)}` : ''}</span>${Number(f.adopted) > 0 ? `<span class="clp-fbh-like">老师点赞 +${Number(f.adopted)}</span>` : ''}${fresh ? '<span class="clp-fbh-new">老师有新回复</span>' : ''}</div>
         <blockquote>${fbStk(f.text)}</blockquote>
         <div class="clp-fbh-chat">${replies.map(bubble).join('')}</div>
         ${replies.some((r) => r.by_teacher) ? '' : '<p class="clp-fbh-none">老师还没有回复。课程疑问老师一般在下一堂课统一解答。</p>'}

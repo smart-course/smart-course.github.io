@@ -123,6 +123,8 @@
   const millis = (value) => (value ? Date.parse(String(value).replace(/(\.\d{3})\d+/, '$1')) || 0 : 0);
   const clock = (ts) => ts ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit', second: '2-digit' }).format(new Date(ts)) : '';
   const isoDay = (ts) => ts ? new Intl.DateTimeFormat('sv-SE', { timeZone: 'Asia/Shanghai' }).format(new Date(ts)) : '';
+  // 匿名建议的提交时间（2026-11-24 用户：“学生递交的匿名建议也要显示具体时间”）：之后的建议记到几点几分（created_at），以前的只有日期
+  const fbTime = (doc) => (doc && doc.created_at ? `${isoDay(millis(doc.created_at))} ${clock(millis(doc.created_at)).slice(0, 5)}` : String((doc && doc.created_on) || ''));
   const pct = (value, total) => (total ? Math.round(value / total * 100) : 0);
   const joinLink = (code) => `${location.origin}/?join=${encodeURIComponent(code)}`;
   $('[data-course-title]').textContent = mustPick ? '请选择课程' : course.title;
@@ -1118,7 +1120,7 @@
     });
   }
 
-  // ---------------- 匿名建议（表里没有提交者，只有日期；2026-11-05 起提交者另记在后台，老师读不到，只用于点赞采纳后给作者加修为） ----------------
+  // ---------------- 匿名建议（表里没有提交者，只有提交日期，2026-11-24 起另记几点几分；2026-11-05 起提交者另记在后台，老师读不到，只用于点赞采纳后给作者加修为） ----------------
   // 表还没建（还没执行相应的 SQL）：安静地按空表处理。“列不存在”（42703）不算，要报出来（2026-10-28 在线状态就是这样被悄悄吞掉的）
   const missingTable = (error) => /42P01|PGRST205|relation "?[\w.]+"? does not exist|Could not find the table/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`);
   let feedbackRows = [];
@@ -1215,7 +1217,7 @@
       const room = roomName.get(String(doc.classroom)) || '';
       const kind = fbKindOf(doc);
       return `<article class="tw-fb-card is-k-${kind || 'none'}${Number(doc.adopted) > 0 ? ' is-liked' : ''}${awaitingReply(doc.id) ? ' is-waiting' : ''}">
-        <div class="tw-fb-meta"><b class="tw-fb-kind is-${kind || 'none'}">${FB_KINDS[kind]}</b><time>${esc(doc.created_on || '')}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
+        <div class="tw-fb-meta"><b class="tw-fb-kind is-${kind || 'none'}">${FB_KINDS[kind]}</b><time>${esc(fbTime(doc))}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
         <div class="tw-fb-main"><p class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${fbHtml(doc.text)}</p>${threadHtml(doc.id)}</div>
         <div class="tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></div></article>`;
     }).join('')
@@ -1237,7 +1239,7 @@
     const size = (text) => { const n = Array.from(String(text || '')).length; return n <= 24 ? 64 : n <= 60 ? 52 : n <= 120 ? 44 : n <= 220 ? 36 : n <= 400 ? 30 : 26; };
     const paint = () => {
       const doc = list[at];
-      panel.innerHTML = `<div class="tw-fb-zoom-meta"><span>${fbKindOf(doc) ? FB_KINDS[fbKindOf(doc)] : '匿名建议'}</span>${esc(doc.created_on || '')}${roomName.get(String(doc.classroom)) ? ` · ${esc(roomName.get(String(doc.classroom)))}` : ''} · ${esc(sessionLabel(doc.case_no))}<b>${at + 1} / ${list.length}</b></div>
+      panel.innerHTML = `<div class="tw-fb-zoom-meta"><span>${fbKindOf(doc) ? FB_KINDS[fbKindOf(doc)] : '匿名建议'}</span>${esc(fbTime(doc))}${roomName.get(String(doc.classroom)) ? ` · ${esc(roomName.get(String(doc.classroom)))}` : ''} · ${esc(sessionLabel(doc.case_no))}<b>${at + 1} / ${list.length}</b></div>
         <p class="tw-fb-zoom-text" style="--fz:${size(doc.text)}px">${fbHtml(doc.text)}</p>
         <div class="tw-fb-zoom-nav"><button type="button" data-fbz="-1"${at === 0 ? ' disabled' : ''} aria-label="上一条">‹ 上一条</button><button type="button" data-fbz="1"${at === list.length - 1 ? ' disabled' : ''} aria-label="下一条">下一条 ›</button></div>`;
     };
@@ -1454,11 +1456,11 @@
   $('[data-fb-export]').addEventListener('click', () => {
     const roomName = new Map(state.rooms.map((room) => [String(room.id), room.name]));
     const rows = feedbackRows.slice().sort((a, b) => Number(a.id) - Number(b.id))
-      .map((doc, index) => [index + 1, doc.created_on || '', roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), FB_KINDS[fbKindOf(doc)], fbPlain(doc.text), Number(doc.adopted) || '',
+      .map((doc, index) => [index + 1, fbTime(doc), roomName.get(String(doc.classroom)) || '', sessionLabel(doc.case_no), FB_KINDS[fbKindOf(doc)], fbPlain(doc.text), Number(doc.adopted) || '',
         repliesOf(doc.id).map((r) => `${r.by_teacher ? '老师' : '作者'}（${replyTime(r.created_at)}）：${fbPlain(r.text)}`).join('\n')]);
     const scope = $('[data-fb-scope]').value === 'class' ? '本班全部课堂' : safeName((state.room && state.room.name) || '本课堂');
     download(`${course.title}_${safeName(state.klass.name)}_${scope}_匿名建议_${window.ClassLive.today()}.csv`,
-      csv([['序号', '日期', '课堂', '哪次课', '标签', '建议', '点赞加修为', '往来回复'], ...rows]));
+      csv([['序号', '提交时间', '课堂', '哪次课', '标签', '建议', '点赞加修为', '往来回复'], ...rows]));
   });
 
   // ---------------- 期中考查：批阅与导出（2026-10-28 用户：“期中考查作业要可以一键导出为word文档，导出的文档中包含学生的学号、姓名等信息。
@@ -6194,9 +6196,9 @@
       ['图表', '每天在学人数、一周学习时段、各类行为、在线时长、每次课的到课和作答正确率，以及每位同学的明细。'],
       ['数据表与导出', '每张图下面可以“查看数据表”，全部明细可以导出 Excel。'],
     ]);
-    setIntro('feedback', '学生在每次课页面最后的“匿名建议箱”里写的建议和疑问；这里只有内容和提交日期，看不到是谁写的。', [
+    setIntro('feedback', '学生在每次课页面最后的“匿名建议箱”里写的建议和疑问；这里只有内容和提交时间，看不到是谁写的。', [
       ['写些什么', '学生递交前要选一个标签：课程共建（对课堂节奏、课程内容的建议，或自己设计的上课内容、题目）或课程疑问（没听懂的地方、平台操作问题，可在下一次课统一解答）。上面可以按标签筛选；11 月 23 日以前提交的显示“未分类”。'],
-      ['匿名', '这里和导出文件里只有内容和提交日期，看不到是谁写的。'],
+      ['匿名', '这里和导出文件里只有内容和提交时间（2026-11-24 以前的建议只记了日期），看不到是谁写的。'],
       ['这堂课感觉怎么样', '建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。'],
     ]);
     const plainCss = document.createElement('style');

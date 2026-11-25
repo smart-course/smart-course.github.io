@@ -6,7 +6,7 @@
  * 表：加入 ck_checkins、选择 ck_choices、作答 ck_answers（只增不改，教师端取每人最新一条）、课堂 ck_classrooms
  * 函数：ck_join（学生凭课堂码进入）、ck_publish / ck_set_current / ck_set_open（教师管理课堂）、
  *       ck_submit_answer（概念学习课程逐题“递交”，每题只收第一次）、ck_my_danmaku / ck_withdraw_my_danmaku（学生查看、撤回自己的弹幕，记录保留）、
- *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记日期；2026-11-05 起提交者另记，老师读不到，只供采纳加修为；
+ *       ck_submit_feedback（每个案例最后的匿名建议：建议本身不存提交者，只记提交时间（2026-11-24 以前只记日期）；2026-11-05 起提交者另记，老师读不到，只供采纳加修为；
  *         2026-11-23 起带标签 p_kind：build 课程共建、ask 课程疑问）、
  *       ck_adopt_feedback（教师点赞采纳建议，给作者加 5／10／20 修为，同一位同学 7 天内最多 20）、ck_my_notices（作者下次打开页面时取“被采纳”通知）、
  *       ck_reply_feedback／ck_feedback_replies_for／ck_delete_feedback_reply（教师回复建议，2026-11-19）、ck_my_feedback_threads／ck_answer_feedback／ck_seen_feedback_replies（作者看回复、回复老师、点关闭）、ck_my_feedback_history（建议箱里“我提过的建议”，2026-11-23）、ck_my_roster_no（本人在点名册里的编号）、
@@ -330,7 +330,7 @@
         <p class="clp-fb-step">② 再写内容，点“匿名提交”</p>
         <textarea maxlength="500" rows="4" placeholder="先在上面选一个标签，再写内容" aria-label="${FB.aria}" disabled></textarea>
         <div class="clp-fb-row"><span class="clp-fb-left"><span class="clp-fb-stk"></span><span class="clp-fb-count">0/500</span></span><button type="submit" disabled${teacher ? ' title="教师版只能看，不能递交"' : ''}>匿名提交</button></div></form>
-        <p class="clp-fb-anon"><b>匿名</b>：老师只看到内容和提交日期，看不到是谁写的。</p>
+        <p class="clp-fb-anon"><b>匿名</b>：老师只看到内容和提交时间，看不到是谁写的。</p>
         <p class="clp-fb-state" role="status"></p>`;
     },
     bind(root, options) {
@@ -2502,14 +2502,14 @@
           const replies = read('fbreplies');
           if (name === 'ck_my_feedback_threads') {
             const threads = read('feedback').filter((f) => mine.has(String(f.id)) && replies.some((r) => String(r.feedback_id) === String(f.id) && r.by_teacher && !r.seen_at))
-              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text, kind: f.kind || '',
+              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, created_at: f.created_at || null, text: f.text, kind: f.kind || '',
                 replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
             return { status: 'ok', threads };
           }
           // 建议箱里“我提过的建议”（2026-11-23 晚）：本人在本班提过的全部建议，新的在前，带双方的回复和老师点赞（规则同 cloudbase-pg.sql）
           if (name === 'ck_my_feedback_history') {
             const items = read('feedback').filter((f) => mine.has(String(f.id))).sort((a, b) => Number(b.id) - Number(a.id)).slice(0, 60)
-              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, text: f.text, kind: f.kind || '', adopted: Number(f.adopted) || 0,
+              .map((f) => ({ id: f.id, case_no: f.case_no, created_on: f.created_on, created_at: f.created_at || null, text: f.text, kind: f.kind || '', adopted: Number(f.adopted) || 0,
                 replies: replies.filter((r) => String(r.feedback_id) === String(f.id)).map((r) => ({ id: r.id, by_teacher: r.by_teacher, text: r.text, created_at: r.created_at, seen: Boolean(r.seen_at) })) }));
             return { status: 'ok', items };
           }
@@ -2542,7 +2542,7 @@
           if (!/^\d{2}$/.test(String(params.p_case || '')) || text.length < 2 || text.length > 500) throw new Error('建议请写 2—500 字');
           const rows = read('feedback');
           const id = Math.max(0, ...rows.map((row) => Number(row.id) || 0)) + 1;
-          rows.push({ id, course: room.course, classroom: room.id, unit: room.chapter, case_no: params.p_case, text, kind, created_on: today(), adopted: 0, adopted_at: null });
+          rows.push({ id, course: room.course, classroom: room.id, unit: room.chapter, case_no: params.p_case, text, kind, created_on: today(), created_at: new Date().toISOString(), adopted: 0, adopted_at: null });
           write('feedback', rows);
           // 2026-11-05：另记提交者（老师读不到；只用于采纳后给作者加修为、通知作者）
           const authors = read('fbauthors');
@@ -3341,6 +3341,8 @@
         ['修炼场 · 新增“思考辨析”', '修炼场每个单元多了 4 道“思考辨析”：先读情境和问题，再看“先想一想”的提示，自己想清楚了，再点“想好了，看选项”。四个选项都是“判断＋理由”的完整说法，只认关键词选不对，要把道理想明白。分值和情境辨析一样，每天的上限不变。', '2026-11-24'],
         // 2026-11-24：灵田文件存在本机、按实际下载报进度（同学反映“每次卡到87%就会停”）
         ['云间灵田 · 进入更快', '云间灵田的文件下载一次以后会存在你自己的设备上，以后再进来不用重新下载，快很多（灵田更新以后，只下载变了的那几个文件）。网络不好时会自动重下；开场画面上写着正在下载第几个文件、正在连接云端，等太久会提示“重新连接”，不会再一直停在 87%。', '2026-11-24'],
+        // 2026-11-24：匿名建议记下提交时间（用户：“学生递交的匿名建议也要显示具体时间”），照实告诉学生
+        ['匿名建议 · 记下提交时间', '从今天起，匿名建议会记下提交的时间（几点几分）：老师那边看到的是建议内容和提交时间，仍然看不到是谁写的；你在“我提过的建议”里也能看到自己每条建议的时间。', '2026-11-24'],
         // 2026-11-24：登录时姓名里的标点放宽（后台 ck_name_key）
         ['登录 · 姓名里的“·”写错也能登录', '名字中间有间隔号“·”的同学，登录时写成“.”“•”、空格，或者干脆不写，都能登录，登录后照样按点名册上的写法显示；个人口令还是要输对。', '2026-11-24'],
         // 2026-11-24：静修立愿框改版、日文字体换成中文字体（雅室只有一人时的那一项按用户要求不写进更新说明）
