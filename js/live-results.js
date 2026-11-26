@@ -39,6 +39,12 @@
   .lv-tag { padding: 2px 9px; border-radius: 12px; color: #fff; background: var(--teal, #23655f); font-weight: 800; font-size: 13px; }
   .lv-count { color: var(--ink, #201c18); font-weight: 800; font-size: 16px; }
   .lv-note { color: var(--muted, #6d6259); font-size: 14px; }
+  /* 后测改选的理由（2026-11-26） */
+  .lv-why { margin: 12px 0 0; padding: 10px 14px; border: 1px solid #ead9bb; border-radius: 10px; background: #fbf6ea; }
+  .lv-why h5 { margin: 0 0 6px; font-size: 15px; color: #6b4a12; }
+  .lv-why ul { margin: 0; padding-left: 18px; }
+  .lv-why li { margin: 4px 0; line-height: 1.7; }
+  .lv-why li b { margin-right: 8px; color: #8d3a20; font-variant-numeric: tabular-nums; }
   /* “登录教师工作台”（2026-11-23 晚）：不画下划线，做成墨绿小胶囊 */
   .lv-note a { display: inline-block; margin: 0 2px; padding: 0 9px; border: 1px solid rgba(35,101,95,.3); border-radius: 999px; background: rgba(35,101,95,.07); color: #23655f; font-weight: 700; text-decoration: none; }
   .lv-note a:hover { background: rgba(35,101,95,.14); border-color: rgba(35,101,95,.55); }
@@ -121,7 +127,8 @@
     if (CONCEPT) {
       const key = String(spec.key || '');
       // 出门测（课后自修）学生页本来就不给解答，答案下一次课讲评，这里不设
-      return /\.(discover|check|apply|challenge|explain)$/.test(key) || key === 'chain' || key === 'transfer' ? [key] : [];
+      // 2026-11-26 起深度思考（aha，递交题、不计分）、论据卡（debate.cards：每张卡偏向哪一方，辩论流程进入“论据卡对一对”时也会自动放开）也有解答
+      return /\.(discover|check|apply|challenge|explain)$/.test(key) || ['chain', 'transfer', 'aha', 'debate.cards'].includes(key) ? [key] : [];
     }
     const no = spec.case;
     if (!no) return [];
@@ -134,7 +141,7 @@
     return [];
   }
   // 一块所在的“这道题”的范围：老师在这个范围里点核对类的按钮，就算核对了这一块
-  const REVEAL_SCOPE = '.cl-challenge, .cl-step, .cl-chain, .cl-transfer, .cl-exit, [data-quiz], article.sim-round, [data-transfer-choice], section.ix-match, section.ix-prepost';
+  const REVEAL_SCOPE = '.cl-challenge, .cl-step, .cl-chain, .cl-transfer, .cl-exit, .cl-aha, [data-quiz], article.sim-round, [data-transfer-choice], section.ix-match, section.ix-prepost';
 
   const blocks = [];
   const addBlock = (anchor, spec, where = 'afterend') => {
@@ -337,6 +344,12 @@
       const post = debate.querySelector('[data-debate-vote="post"] fieldset');
       if (post) addBlock(post, { kind: 'cl-versus', key: 'debate.post', preKey: 'debate.pre', options: sides });
     }
+    // 深度思考（2026-11-26 用户：“深度思考也要增加重做、直接看解答和给学生看解答和学生递交情况的按钮”）：学生递交（题号 aha，不计分），
+    // 这里显示递交人数和分布；点“揭晓”“直接看解答”或块里的“给学生看解答”以后，学生页才能展开解答
+    const aha = document.querySelector('.cl-aha[data-aha]');
+    if (aha && aha.querySelector('.cl-actions')) {
+      addBlock(aha.querySelector('.cl-actions'), { kind: 'cl-option', key: 'aha', options: optionsOf(aha.querySelector('.cl-aha-q')), answer: Number(aha.dataset.answer) });
+    }
     // 案例 01 的课堂投票（如“说说你喜欢的授课方式”）：讲解版里没有投票区块，在学习总览后补一张卡片显示结果
     if (D.poll && Array.isArray(D.poll.options) && D.poll.options.length) {
       const anchor = document.querySelector('[data-overview]') || document.querySelector('.cl-exit');
@@ -372,6 +385,7 @@
   let latestDocs = [];      // 章节案例课程：每人每题最新一条 {sid, case, item, choice}（圆桌会议按角色分组用）
   let answers = [];         // 概念学习课程：每位学生 {题目编号: 作答}（每题取第一次递交）
   const tally = (caseNo, item) => counts.get(`${caseNo}|${item}`) || new Map();
+  let whyRows = [];   // 后测改选的理由（2026-11-26）
   const total = (map) => Array.from(map.values()).reduce((a, b) => a + b, 0);
   const valuesOf = (key) => answers.filter((row) => Object.prototype.hasOwnProperty.call(row, key)).map((row) => row[key]);
 
@@ -497,9 +511,20 @@
       const post = tally(block.case, 'post');
       const preAll = total(pre);
       const postAll = total(post);
-      countEl.textContent = `前测 ${preAll} 人 · 后测 ${postAll} 人`;
+      // 后测改了选项的同学写的理由（2026-11-26，题号 NN:post-why，文字作答）：只列内容和“几号 → 几号”，不显示姓名
+      const whys = whyRows.filter((row) => row.case === block.case);
+      countEl.textContent = `前测 ${preAll} 人 · 后测 ${postAll} 人${whys.length ? ` · 改选理由 ${whys.length} 条` : ''}`;
       if (!block.open) return null;
       const ref = block.ref;
+      const fromTo = (sid) => {
+        const pick = (item) => (latestDocs.find((doc) => doc.sid === sid && doc.case === block.case && doc.item === item) || {}).choice;
+        const a = pick('pre');
+        const b = pick('post');
+        return a && b ? `${String(a).padStart(2, '0')} → ${String(b).padStart(2, '0')}` : '';
+      };
+      const whyHtml = whys.length
+        ? `<div class="lv-why"><h5>是什么改变了判断（${whys.length} 条，不显示姓名）</h5><ul>${whys.map((row) => `<li><b>${esc(fromTo(row.sid))}</b>${esc(row.text)}</li>`).join('')}</ul></div>`
+        : '<p class="lv-note">后测改了选项的同学，递交后会写一句是哪条事实线索或哪个理论抓手改变了判断，写了的显示在这里（不显示姓名）。</p>';
       return (ref ? `<p class="lv-rate">选中参考答案：前测 ${pct(pre.get(ref) || 0, preAll)}% → 后测 ${pct(post.get(ref) || 0, postAll)}%</p>` : '')
         + '<div class="lv-legend"><span><i class="is-pre"></i>前测</span><span><i></i>后测</span></div>' + block.options.map((option) => {
           const a = pct(pre.get(option.key) || 0, preAll);
@@ -507,7 +532,7 @@
           const delta = b - a;
           return `<div class="lv-row is-pair"><span class="lv-label">${star(ref === option.key)}<b>${esc(option.label)}</b>${esc(option.text)}</span>${bar(pre.get(option.key) || 0, preAll, 'is-pre')}${bar(post.get(option.key) || 0, postAll)}
             <span class="lv-num">${a}% → ${b}%（${delta > 0 ? '+' : ''}${delta}）</span></div>`;
-        }).join('');
+        }).join('') + whyHtml;
     }
     if (block.kind === 'match') {
       const answered = Math.max(0, ...block.clues.map((clue) => total(tally(block.case, clue.item))));
@@ -731,7 +756,7 @@
   }
   // 老师在题目上点“核对”“看解答”“猜好了，看看是不是这样”等：自动把这道题放开。control＝被点的按钮或刚展开的解析
   const REVEAL_CONTROLS = '[data-action="check"], [data-action="answers"], [data-action="challenge"], [data-action="reveal"], [data-action="skip"], [data-action="model"], '
-    + '[data-item-answer], [data-quiz-check], [data-match-check]';
+    + '[data-item-answer], [data-quiz-check], [data-match-check], [data-aha-go], [data-aha-go-now]';
   function autoReveal(control) {
     if (OFFLINE || !revealReady || !room || status || reveal.all) return;
     const items = new Set();
@@ -760,6 +785,8 @@
       if (details && details.matches && details.open && details.matches('details.answer-reveal, details.ix-reveal, details[data-prepost-reveal]')) autoReveal(details);
     }, true);
   }
+  // 辩论流程进入“论据卡对一对”时放开了论据卡的解答（live-debate.js）：重新读一次，按钮跟着变
+  document.addEventListener('classlive:reveals-changed', () => { loadReveals().then(render); });
   async function loadReveals() {
     if (OFFLINE || !room || status) { reveal = { all: false, items: [], published: null, passed: false }; return; }
     try {
@@ -832,6 +859,11 @@
         next.set(key, map);
       });
       counts = next;
+      // 后测改选的理由：有“后测”的块展开着才读（文字作答里题号 post-why 的几行）
+      if (blocks.some((block) => block.kind === 'prepost' && block.open)) {
+        whyRows = (await backend.fetchAll('answers', { classroom: Number(room.id), item: 'post-why' }))
+          .map((row) => ({ sid: row.sid, case: row.case, text: String(row.text || '') }));
+      }
     } catch (error) {
       console.warn('[实时投票]', error);
     }

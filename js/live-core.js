@@ -39,7 +39,7 @@
     puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes',
-    sectmembers: 'ck_sect_members', visits: 'ck_visits', tlgames: 'ck_tl_games', tlanswers: 'ck_tl_answers' };
+    sectmembers: 'ck_sect_members', visits: 'ck_visits', tlgames: 'ck_tl_games', tlanswers: 'ck_tl_answers', reflections: 'ck_reflections' };
   // 没有 id 列的表（主键是几列合起来的）：分页读取时按这一列排序。2026-10-28 查出工作台读在线状态一直按 id 排序而报错，
   // 错误又被当成“表还没建”忽略，所以小绿灯和“现在在线”人数一直不显示
   const ORDER_BY = { presence: 'sid', stops: 'item', giftuses: 'sid', teachersettings: 'key', pollvotes: 'sid', debatematches: 'case_no' };
@@ -162,7 +162,9 @@
   // 2026-11-20 辩论赛每一步的计时同步到学生页：沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live（表 ck_debate_matches，线上一直在，不用再执行 SQL），
   // 阶段名只能用旧的那几个，这里对照：选立场 · 论据卡＝pro_open，聊天室＝free，辩后投票＝vote，公布结果＝done
   // 2026-11-20 加“自由讨论”一步（用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点”），借用阶段名 con_open
-  const DEBATE_STAGE = { prep: 'pro_open', talk: 'con_open', chat: 'free', vote: 'vote', result: 'done' };
+  // 2026-11-26 五步（用户：“选择立场1分钟。选择论据卡跟后面的讨论结合起来……选择论据卡+自由讨论给10分钟的时间……等学生聊天室发言点赞结束后，
+  //   可以让他们看自己选择的论据卡是否跟自己的立场一致。然后再进行辩后投票。”）：prep＝选立场，talk＝选论据卡 · 自由讨论，新加 check＝论据卡对一对，借用阶段名 con_sum
+  const DEBATE_STAGE = { prep: 'pro_open', talk: 'con_open', chat: 'free', check: 'con_sum', vote: 'vote', result: 'done' };
   // 经营沙盘（2026-11-03，习经案例 08 第二课时）：四个角色组聊天室沿用辩论聊天室（房间＝案例号＋b，side＝r1—r4）；
   // 经营合格时四位代表各 rep、本方指标最高的角色组里发过言的同学各 top（同一人相加，不超过 20；后台 ck_set_biz_awards 发放）；学生页每 poll 毫秒刷新
   const BIZ = { rep: 10, top: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
@@ -1306,15 +1308,26 @@
             const game = gameJson(false);
             if (mem) {
               const g = gameRow();
-              return { status: 'joined', role: mem.side, nick: mem.nick, test: Boolean(me.test), rep: Boolean(g && g.reps && g.reps[mem.side] && g.reps[mem.side].sid === sid), game };
+              return { status: 'joined', role: mem.side, nick: mem.nick, test: Boolean(me.test), rep: Boolean(g && g.reps && g.reps[mem.side] && g.reps[mem.side].sid === sid), want: me.test ? null : chosen(), game };
             }
             const role = me.test ? null : chosen();
             return { status: !role && !me.test ? 'pick' : 'nick', role, test: Boolean(me.test), rep: false, game };
           }
           if (name === 'ck_biz_join') {
             if (!room || !room.is_current) return { status: 'closed' };
-            if (mem) return { status: 'ok', role: mem.side, nick: mem.nick };
             const role = me.test ? (BIZ.roles.includes(params.p_role) ? params.p_role : null) : chosen();
+            if (mem) {
+              // 2026-11-26 组别跟着递交的角色走（同 cloudbase-pg.sql 的 ck_biz_join）：进过别的组就换过来，原来那组的代表位置让出来
+              if (role && role !== mem.side) {
+                const old = mem.side;
+                mem.side = role;
+                write('debatemembers', members);
+                const g = gameRow();
+                if (g && g.reps && g.reps[old] && g.reps[old].sid === sid) { delete g.reps[old]; write('bizgames', games); }
+                return { status: 'ok', role, nick: mem.nick, moved: true };
+              }
+              return { status: 'ok', role: mem.side, nick: mem.nick };
+            }
             if (!role) return { status: 'pick' };
             // 2026-11-18 起实名（同 cloudbase-pg.sql 的 ck_disc_join / ck_biz_join）：登录时的姓名，同名加学号末两位（还重复加末四位）；p_nick 不再使用
             const real = String(me.name || '').replace(/\s+/g, '').slice(0, 12) || `同学${String(sid).slice(-4)}`;
@@ -1951,9 +1964,10 @@
             const rows = runs.filter(mine);
             const miss = {};
             rows.forEach((r) => Object.keys(r.miss || {}).forEach((k) => { if (Number(r.miss[k]) > 0) miss[k] = (miss[k] || 0) + 1; }));
-            const cleared = rows.filter((r) => r.cleared_at).sort((x, y) => x.cleared_at - y.cleared_at);
+            // 2026-11-26 按各自用时排（原来按通关先后）
+            const cleared = rows.filter((r) => r.cleared_at).sort((x, y) => (x.used_ms - y.used_ms) || (x.cleared_at - y.cleared_at));
             return { status: 'ok', players: rows.length, chain: rows.filter((r) => r.chain).length, cleared: cleared.length, miss,
-              list: cleared.slice(0, 12).map((r) => ({ name: r.name, ms: r.used_ms, miss: Object.values(r.miss || {}).reduce((sum, v) => sum + (Number(v) || 0), 0) })) };
+              list: cleared.slice(0, 12).map((r) => ({ name: r.name, ms: r.used_ms, tries: r.tries, miss: Object.values(r.miss || {}).reduce((sum, v) => sum + (Number(v) || 0), 0) })) };
           }
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
@@ -1971,20 +1985,21 @@
           const sid = sidKey(me.sid);
           let row = runs.find((r) => mine(r) && r.sid === sid);
           if (!row) {
-            row = { id: nextId(runs), classroom: params.p_classroom, case_no: params.p_case, sid, name: me.name, step: 0, total: 0, chain: false, miss: {}, tries: 1, used_ms: null, cleared_at: null };
+            row = { id: nextId(runs), classroom: params.p_classroom, case_no: params.p_case, sid, name: me.name, step: 0, total: 0, chain: false, miss: {}, tries: 1, used_ms: null, cleared_at: null, created: Date.now() };
             runs.push(row);
           }
           if (!row.cleared_at) { row.step = Math.max(row.step, step); row.total = total; row.miss = missIn; }   // 通关以后再闯，不改第一次的成绩
           row.chain = row.chain || st.chain === true || clear;
           row.tries = Math.max(row.tries, Math.min(99, Math.max(1, int(st.tries, 1))));
-          if (clear && !row.cleared_at) { row.cleared_at = Date.now(); row.used_ms = Math.min(3600000, int(st.ms, 0)); }
+          // 各自计时（2026-11-26）：刷新页面重置计时的，用第一次收到进度的时刻兜底（宽限 15 秒）
+          if (clear && !row.cleared_at) { row.cleared_at = Date.now(); row.used_ms = Math.max(Math.min(3600000, int(st.ms, 0)), row.created ? Date.now() - row.created - 15000 : 0); }
           row.name = me.name;
           write('mechruns', runs);
           return { status: 'ok' };
         }
         // 限时抢答与闯关（2026-11-20，规则同 cloudbase-pg-20261120-抢答与闯关.sql 的 ck_act_control / live / answer / board）：
         // 本机表 actgames（每课堂每案例每种玩法一行，含参考答案）、actanswers（每人每局一次）；后台时钟用 performance 的时刻
-        if (/^ck_act_(control|live|answer|board)$/.test(name)) {
+        if (/^ck_act_(control|live|answer|board|enter|step)$/.test(name)) {
           const clock = () => Math.round(performance.timeOrigin + performance.now());
           const norm = (text) => Array.from(new Set(String(text == null ? '' : text).split(',').map((v) => v.trim()).filter(Boolean))).sort().join(',');
           const games = read('actgames');
@@ -2009,9 +2024,13 @@
                 secs: Math.min(1800, Math.max(0, params.p_secs == null ? 60 : Number(params.p_secs))), closed_at: null };
               if (g) Object.assign(g, next);
               else { g = { id: Math.max(0, ...games.map((x) => Number(x.id) || 0)) + 1, course: room.course, classroom: room.id, case_no: params.p_case, kind: params.p_kind, top: 10, points: 5, ...next }; games.push(g); }
+              // 闯关重新开放：进了场却没交卷的同学可以重新参与
+              const done = read('actanswers').filter((a) => a.game_id === g.id).map((a) => a.sid);
+              write('actentries', read('actentries').filter((e) => e.game_id !== g.id || done.includes(e.sid)));
             } else if (params.p_action === 'reset') {
               write('actgames', games.filter((x) => x !== g));
               if (g) write('actanswers', read('actanswers').filter((a) => a.game_id !== g.id));
+              if (g) write('actentries', read('actentries').filter((e) => e.game_id !== g.id));
               return { status: 'none' };
             } else {
               if (!g) return { status: 'none' };
@@ -2028,10 +2047,14 @@
             teacherOnly();
             const g = games.find((x) => sameRoom(x) && x.case_no === params.p_case && x.kind === params.p_kind);
             if (!g) return { status: 'none', now: clock() };
-            const list = read('actanswers').filter((a) => a.game_id === g.id).sort((x, y) => x.at - y.at);
+            // 闯关按答对题数从多到少、一样多按用时从短到长（又快又准确）；抢答按交卷先后
+            const list = read('actanswers').filter((a) => a.game_id === g.id)
+              .sort((x, y) => (g.kind === 'quest' ? (y.right_n - x.right_n) || (x.used_ms - y.used_ms) : 0) || (x.at - y.at));
+            const entries = read('actentries').filter((e) => e.game_id === g.id);
             const items = {};
             Object.keys(g.answer).forEach((k) => { items[k] = list.filter((a) => norm((a.value || {})[k]) === norm(g.answer[k])).length; });
             return { status: 'ok', game: stateOf(g), total: list.length, right: list.filter((a) => a.ok).length, items,
+              entered: entries.length, working: entries.filter((e) => !list.some((a) => a.sid === e.sid)).length,
               list: list.map((a) => ({ sid: a.sid, name: a.name, ok: a.ok, right: a.right_n, total: a.total_n, place: a.place, bonus: a.bonus, ms: a.used_ms })) };
           }
           const uid = await this.ensureAnonymous();
@@ -2039,34 +2062,74 @@
           if (!me && !localStorage.getItem(prefix + 'teacher')) return { status: 'login' };
           const sid = me ? sidKey(me.sid) : null;
           const answers = read('actanswers');
+          const entries = read('actentries');
+          const enterOf = (g) => { const e = sid && g.kind === 'quest' ? entries.find((x) => x.game_id === g.id && x.sid === sid) : null; return e ? { entered: e.entered_at, deadline: e.entered_at + g.secs * 1000, steps: e.steps || {} } : null; };
+          if (name === 'ck_act_enter' || name === 'ck_act_step') {
+            const g = games.find((x) => String(x.id) === String(params.p_game) && sameRoom(x));
+            if (!g || g.kind !== 'quest') return { status: 'gone' };
+            if (g.mode !== 'game') return { status: name === 'ck_act_step' ? 'gone' : 'plain' };
+            const now = clock();
+            if (name === 'ck_act_enter') {
+              if (now < g.go_at) return { status: 'wait' };
+              if (!me) return { status: 'ok', preview: true, entered: now, deadline: now + g.secs * 1000, now, secs: g.secs, steps: {} };
+              let e = entries.find((x) => x.game_id === g.id && x.sid === sid);
+              if (!e) {
+                if (g.closed_at) return { status: 'closed' };
+                e = { game_id: g.id, classroom: g.classroom, sid, name: me.name, entered_at: now, steps: {} };
+                entries.push(e);
+                write('actentries', entries);
+              }
+              return { status: 'ok', entered: e.entered_at, deadline: e.entered_at + g.secs * 1000, now, secs: g.secs, steps: e.steps || {} };
+            }
+            if (!me) return { status: 'preview' };
+            if (!params.p_value || typeof params.p_value !== 'object' || Array.isArray(params.p_value)) throw new Error('参数不对');
+            const e = entries.find((x) => x.game_id === g.id && x.sid === sid);
+            if (!e) return { status: 'enter' };
+            if (answers.some((a) => a.game_id === g.id && a.sid === sid)) return { status: 'done' };
+            if (now > e.entered_at + g.secs * 1000 + 8000) return { status: 'late' };
+            Object.keys(params.p_value).forEach((k) => {   // 只收参考答案里有的、还没递交过的（递交过的不能改）
+              if (k in g.answer && !(k in (e.steps || {})) && norm(params.p_value[k])) e.steps = { ...(e.steps || {}), [k]: norm(params.p_value[k]) };
+            });
+            write('actentries', entries);
+            return { status: 'ok', steps: e.steps };
+          }
           if (name === 'ck_act_live') {
             return { status: 'ok', now: clock(), games: games.filter(sameRoom).map((g) => {
               const mine = sid ? answers.find((a) => a.game_id === g.id && a.sid === sid) : null;
               const { now: skip, ...rest } = stateOf(g);
-              return { ...rest, mine: mine ? { value: mine.value, right: mine.right_n, total: mine.total_n, ok: mine.ok, place: mine.place, bonus: mine.bonus } : null,
+              return { ...rest, enter: enterOf(g), mine: mine ? { value: mine.value, right: mine.right_n, total: mine.total_n, ok: mine.ok, place: mine.place, bonus: mine.bonus, ms: mine.used_ms } : null,
                 key: g.kind === 'quest' && mine ? g.answer : null, explain: g.kind === 'quest' && mine ? explainOf(g) : null };
             }) };
           }
           const g = games.find((x) => String(x.id) === String(params.p_game) && sameRoom(x));
           if (!g) return { status: 'gone' };
           if (g.mode !== 'game') return { status: 'plain' };
-          const a = (params.p_value && params.p_value.a) || {};
+          let a = (params.p_value && params.p_value.a) || {};
           const keys = Object.keys(g.answer);
-          const right = keys.filter((k) => norm(a[k]) === norm(g.answer[k])).length;
-          const ok = keys.length > 0 && right === keys.length;
           const extra = g.kind === 'quest' ? { key: g.answer, explain: explainOf(g) } : {};
-          if (!me) return { status: 'ok', preview: true, place: null, bonus: 0, ok, right, total: keys.length, ...extra };   // 学生版测试页里的教师账号：只判不记
+          const judge = () => { const right = keys.filter((k) => norm(a[k]) === norm(g.answer[k])).length; return { right, ok: keys.length > 0 && right === keys.length }; };
+          if (!me) { const j = judge(); return { status: 'ok', preview: true, place: null, bonus: 0, ok: j.ok, right: j.right, total: keys.length, value: a, ...extra }; }   // 学生版测试页里的教师账号：只判不记
           const old = answers.find((x) => x.game_id === g.id && x.sid === sid);
-          if (old) return { status: 'done', place: old.place, bonus: old.bonus, ...extra, ok: old.ok, right: old.right_n, total: old.total_n, value: old.value };
-          if (g.closed_at) return { status: 'closed' };
+          if (old) return { status: 'done', place: old.place, bonus: old.bonus, ms: old.used_ms, ...extra, ok: old.ok, right: old.right_n, total: old.total_n, value: old.value };
           const now = clock();
-          if (now < g.go_at) return { status: 'wait', go_at: g.go_at, now };
-          if (now > g.go_at + g.secs * 1000 + 8000) return { status: 'late' };
+          const ent = g.kind === 'quest' ? entries.find((x) => x.game_id === g.id && x.sid === sid) : null;
+          let late = false;
+          if (ent) {
+            // 闯关各自计时（2026-11-26）：从本人进场算起；老师结束以后已经在闯的照样在自己的时限内交卷；每关递交过的以记下的为准
+            if (now > ent.entered_at + g.secs * 1000 + 8000) { a = { ...(ent.steps || {}) }; late = true; }   // 超时交卷：只算时限内递交过的关，用时记满
+            else a = { ...a, ...(ent.steps || {}) };
+          } else {
+            if (g.closed_at) return { status: 'closed' };
+            if (now < g.go_at) return { status: 'wait', go_at: g.go_at, now };
+            if (now > g.go_at + g.secs * 1000 + 8000) return { status: 'late' };
+          }
+          const { right, ok } = judge();
           let place = null;
           let bonus = 0;
           if (ok && g.kind === 'rush') { place = answers.filter((x) => x.game_id === g.id && x.ok).length + 1; bonus = place <= g.top ? g.points : 0; }
           else if (ok) bonus = g.points;
-          answers.push({ id: nextId(answers), game_id: g.id, classroom: g.classroom, sid, name: me.name, value: a, right_n: right, total_n: keys.length, ok, place, bonus, used_ms: Math.max(0, now - g.go_at), at: now });
+          const usedMs = late ? g.secs * 1000 : Math.max(0, now - (ent ? ent.entered_at : g.go_at));
+          answers.push({ id: nextId(answers), game_id: g.id, classroom: g.classroom, sid, name: me.name, value: a, right_n: right, total_n: keys.length, ok, place, bonus, used_ms: usedMs, at: now });
           write('actanswers', answers);
           if (bonus > 0) {
             const bonusRows = read('bonus');
@@ -2084,7 +2147,7 @@
               choice: norm(a[k]), label: String(labels[k] || '').slice(0, 120), ts: Date.now() });
           });
           write('choices', choices);
-          return { status: 'ok', place, bonus, ok, right, total: keys.length, ...extra };
+          return { status: 'ok', place, bonus, ok, right, total: keys.length, ms: usedMs, value: a, ...extra };
         }
         // 情境猜谜抢答（规则同 cloudbase-pg.sql 的 ck_puzzle_open / close / live / guess）
         // 模拟“后台时钟”：用 performance 的时刻，不受页面里改动 Date.now 的影响（本机测试倒计时同步时用）
@@ -2655,6 +2718,34 @@
           uses.push({ course: room.course, class_id: Number(room.class_id) || 0, sid: key(me.sid), gift: gift.id, classroom: room.id, used_at: new Date().toISOString() });
           write('giftuses', uses);
           return true;
+        }
+        // 课后心得（2026-11-26，规则同 cloudbase-pg-20261126-学习心得.sql 的 ck_reflect_save / ck_reflect_mine）：
+        //   每人每课堂每个案例一份（case_no 两位数字），pick＝印象最深的条目，marks＝{条目: 2 掌握了 / 1 基本懂 / 0 还没懂}，text 最多 1000 字；可以改了再保存
+        if (name === 'ck_reflect_save' || name === 'ck_reflect_mine') {
+          const uid = await this.ensureAnonymous();
+          const me = myCheckin(uid, params.p_classroom);
+          if (!me) return { status: 'login' };
+          const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
+          const caseNo = String(params.p_case || '');
+          if (!room || !/^\d{2}$/.test(caseNo)) throw new Error('课堂或案例编号不正确');
+          const rows = read('reflections');
+          const mine = rows.find((r) => String(r.classroom) === String(room.id) && r.sid === sidKey(me.sid) && r.case_no === caseNo);
+          if (name === 'ck_reflect_mine') {
+            return mine ? { status: 'ok', pick: mine.pick, marks: mine.marks, text: mine.body, at: mine.updated_at } : { status: 'none' };
+          }
+          const pick = params.p_pick == null || params.p_pick === '' ? null : String(params.p_pick);
+          const marks = params.p_marks && typeof params.p_marks === 'object' && !Array.isArray(params.p_marks) ? params.p_marks : {};
+          const text = String(params.p_text == null ? '' : params.p_text).trim();
+          if (pick !== null && !/^[a-z]{1,2}\d{1,2}$/.test(pick)) throw new Error('印象最深的条目不正确');
+          if (Object.keys(marks).length > 12 || Object.entries(marks).some(([k, v]) => !/^[a-z]{1,2}\d{1,2}$/.test(k) || ![0, 1, 2].includes(v))) throw new Error('掌握情况不正确');
+          if (Array.from(text).length > 1000) throw new Error('心得最多 1000 字');
+          if (pick === null && !Object.keys(marks).length && !text) throw new Error('还没有写心得');
+          const now = new Date().toISOString();
+          const row = mine || { id: nextId(rows), course: room.course, class_id: Number(room.class_id) || null, classroom: room.id, unit: room.chapter, case_no: caseNo,
+            sid: sidKey(me.sid), name: me.name, created_at: now };
+          Object.assign(row, { pick, marks, body: text, updated_at: now });
+          write('reflections', mine ? rows : rows.concat([row]));
+          return { status: 'ok', at: now };
         }
         // 题目解答（规则同 cloudbase-pg.sql 的 ck_my_explain：境界达到筑基、本人已在这个课堂递交这道题）
         if (name === 'ck_my_explain') {
@@ -3694,6 +3785,32 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-26 阶段 338：习经机制图闯关（选错从头再来、各自计时）、小资料分析“参与闯关”、经营沙盘、后测改选理由；政经线索并进题目；两门课情境猜谜每课 8 题
+        ...(config.course === 'political-economy' ? [
+          ['线索都放到了要用它的题目前面', '以前有几条线索单独放在概念学完之后（比如只给辩论赛论据卡用的）。现在它们都放到了要用的地方：辩论赛论据卡用的线索，'
+            + '在辩论赛“② 选论据卡”这一步的开头；概念讲解里提到的，在那个概念第 1 步的开头。只有案例开头讲“事情怎么开始”的线索还放在最前面。', '2026-11-26'],
+        ] : [
+          ['机制图闯关 · 选错一步就从头再来', '机制图闯关换了规则：推链条、Boss 战任何一步选错，都要从第一关从头再来。计时从你第一次点“开始闯关”算起，'
+            + '中途重来不停表，刷新页面也接着算；比的是谁用时最短（各算各的，网速快慢不影响）。Boss“想当然”现在有了形象和血条，答对一题砍它一格血。', '2026-11-26'],
+          ['小资料分析 · 自己点“参与闯关”', '迁移任务的小资料分析：老师启动闯关以后，页面上出现“参与闯关”按钮，点了才进入、才开始计时（各算各的，谁先进去都一样）。'
+            + '三则小资料一关一关做，每关点“递交本关”后就不能再改；时间到了自动交卷。按答对的题数和用时排名，交卷后页面上显示完整的题目、答案和你错在哪里。', '2026-11-26'],
+          ['经营沙盘 · 自动进组、自动选代表', '经营沙盘递交角色以后，会自动带你进入本组聊天室；老师进入“代表投票”时，各组聊天室里点赞最多的同学自动当选代表。'
+            + '“经营会”上方有一条步骤条，跟着老师的经营大屏走；结算以后写明经营是否合格、你这次加了多少修为。', '2026-11-26'],
+          ['后测投票 · 改了选择写一句理由', '后测投票如果和前测选得不一样，题目下面会出现一个小框：写一句是哪条事实线索或哪个理论抓手改变了你的判断，递交给老师。', '2026-11-26'],
+        ]),
+        // 2026-11-27 情境猜谜先看玩法、“进入情境猜谜”按钮、出题后切出页面每次多等 3 秒
+        ['情境猜谜 · 先看玩法，抢答时留在本页', '老师打开情境猜谜后，页面上方先弹出玩法，等老师出题再全班统一倒计时；没弹出来的话，点页面“情境猜谜”一节里的“进入情境猜谜”。'
+          + '出题以后如果切到别的应用或标签页，每切出一次，这一题的抢答就要多等 3 秒才交上，所以抢答时请留在本页。', '2026-11-27'],
+        ['情境猜谜 · 每课 8 题', '情境猜谜加了题，每节课 8 题，老师挑着出。老师出题后，页面上方弹出抢答框，第一个猜中的加 5 修为。', '2026-11-26'],
+        // 2026-11-26 阶段 337：辩论赛五步与“论据卡对一对”、深度思考递交（政经）、情境猜谜一页（政经）、课后心得（两门课）
+        ['辩论赛 · 选论据卡有 10 分钟了', '辩论赛先用 1 分钟投辩前票选立场；接着用 10 分钟和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于你的立场，选 2 张递交，再想好要在聊天室里说的话。'
+          + '聊天室发言点赞结束后，多了一步“论据卡对一对”：页面上显示你选的每张卡偏向哪一方、和你的立场是否一致（论据卡没有对错之分，想想你是怎样用它的），然后再投辩后票。', '2026-11-26'],
+        ...(config.course === 'political-economy' ? [
+          ['深度思考 · 先递交，老师揭晓后看解答', '“深度思考”这道题改成递交：凭直觉选一个，点题目下方的“递交”（不计分）。老师在课上揭晓以后，就能在题目下方展开解答，看讲解、带走一句话和教材原文（不用到「筑基」）。', '2026-11-26'],
+          ['情境猜谜 · 单独一页', '“课后自修”前面多了一页“情境猜谜”：老师在大屏出一个小情境，猜它说的是本案例哪个概念。老师出题后，页面上方会弹出抢答框，第一个猜中的加 5 修为。', '2026-11-26'],
+        ] : []),
+        ['课后心得', `${config.course === 'political-economy' ? '“概念小结”页的概念卡' : '“本节课重点 · 本章知识点小结”里的知识点卡片'}换成了“课后心得”：选出这节课印象最深的${config.course === 'political-economy' ? '概念' : '知识点'}，`
+          + '给每一个的掌握情况打个分（掌握了／基本懂／还没懂），再像记笔记一样写几句心得，点“保存心得”交给老师。以后可以改了再保存；不加修为，老师会根据大家的心得调整讲法。', '2026-11-26'],
         // 2026-11-26：猜词游戏大屏（用户：“习经中每章的正文都加入猜词游戏……一开始让学生选择加入/不加入；然后加入的同学投票选择抽1人上台或抽2人上台……政经中把这个游戏放在课后自修前面。”）
         ['猜词游戏 · 自己选择加入、投票抽几人', `猜词游戏搬进了正文（${config.course === 'political-economy' ? '“课后自修”前面的一页' : '每个出门测前面'}），是额外小游戏，不计入本课的时间和分值。老师打开猜词大屏后，页面下方弹出“加入／不加入”；加入的同学投票：抽 1 人上台（被抽中的同学在自己的页面上输入名字或在名单里选一位搭档）还是抽 2 人上台。当天得分第一的一组两人各加 ${wordgame} 修为。`, '2026-11-26'],
         // 2026-11-26：解答等老师核对后才显示（用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示……一键发布答案”）

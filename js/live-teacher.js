@@ -3836,18 +3836,21 @@
   }
 
   // ---------------- 文字作答 ----------------
+  // 文字作答的下拉框：写作题之外加一项“后测 · 是什么改变了判断”（2026-11-26，后测改了选项的同学写的，不计分，不在 c.items 里、不进结算）
+  const answerItems = (item) => (item ? item.items.concat(item.poll ? [{ key: 'post-why', label: '后测 · 是什么改变了判断（不计分）',
+    prompt: '后测改了选项的同学写的一句话：是哪条事实线索或哪个理论抓手改变了判断。' }] : []) : []);
   function fillItems() {
     const item = caseMap.get($('[data-answer-case]').value);
     const select = $('[data-answer-item]');
     const previous = select.value;
-    select.innerHTML = item ? item.items.map((entry) => `<option value="${entry.key}">${esc(entry.label)}</option>`).join('') : '';
-    if (item && item.items.some((entry) => entry.key === previous)) select.value = previous;
+    select.innerHTML = answerItems(item).map((entry) => `<option value="${entry.key}">${esc(entry.label)}</option>`).join('');
+    if (answerItems(item).some((entry) => entry.key === previous)) select.value = previous;
   }
   function renderAnswers() {
     const item = caseMap.get($('[data-answer-case]').value);
     if (!item) { $('[data-answer-list]').innerHTML = ''; $('[data-answer-prompt]').textContent = ''; return; }
     const key = $('[data-answer-item]').value;
-    const entry = item.items.find((candidate) => candidate.key === key);
+    const entry = answerItems(item).find((candidate) => candidate.key === key);
     $('[data-answer-prompt]').innerHTML = entry ? esc(entry.prompt)
       + (entry.reference && entry.reference.length ? `<details class="tw-reference"><summary>${esc(entry.reference_label || '参考要点')}</summary><ol${entry.reference_label ? ' class="is-steps"' : ''}>${entry.reference.map((line) => `<li>${esc(line)}</li>`).join('')}</ol></details>` : '') : '';
     const query = $('[data-answer-search]').value.trim();
@@ -5851,7 +5854,7 @@
     }
   }
   // 之后才出现的内容（悬停提示、放大图）也替换：学情分析区域和放大图（挂在 body 上的 .ins-zoom）
-  const inInsights = (n) => { const el = n && (n.nodeType === 1 ? n : n.parentElement); return Boolean(el && el.closest('[data-ins-root], .ins-zoom')); };
+  const inInsights = (n) => { const el = n && (n.nodeType === 1 ? n : n.parentElement); return Boolean(el && el.closest('[data-ins-root], [data-rf-root], .ins-zoom')); };
   const privacyWatch = new MutationObserver((list) => {
     if (!insPrivacy.on) return;
     list.forEach((m) => {
@@ -5864,10 +5867,11 @@
     if (insPrivacy.on) privacyWatch.observe(document.body, { childList: true, subtree: true, characterData: true, attributes: true, attributeFilter: ['title', 'aria-label', 'data-tip'] });
   };
   function paintPrivacyButton() {
-    const button = $('[data-ins-privacy]');
-    if (!button) return;
-    button.setAttribute('aria-pressed', String(insPrivacy.on));
-    button.textContent = insPrivacy.on ? '显示姓名' : '隐藏姓名';
+    // 学情分析、学习心得（2026-11-26）两个标签的“隐藏姓名”是同一个开关
+    $$('[data-ins-privacy], [data-rf-privacy]').forEach((button) => {
+      button.setAttribute('aria-pressed', String(insPrivacy.on));
+      button.textContent = insPrivacy.on ? '显示姓名' : '隐藏姓名';
+    });
     document.body.classList.toggle('is-ins-private', insPrivacy.on);
   }
   // 学情分析的分组和顺序（2026-11-23 用户：“你把云间灵田、学情分析和静修数据里面的数据和图表在重新排版一下，按照逻辑顺序等，使之更美观”）：
@@ -6533,6 +6537,204 @@
       .observe(document.body, { childList: true, subtree: true, characterData: true });
   }
   $('[data-tab="insight"]').addEventListener('click', () => renderInsights(false));
+  // ---------------- 学习心得（2026-11-26） ----------------
+  // 用户：“……然后把统计结果放到教师控制台中，在学情分析右边再设一个‘学习心得’板块，可以看看每位同学对这堂课哪部分概念印象最深，哪些内容掌握得更好，
+  //   不好的地方我也可以改进。”学生在每次课“课后心得”里交的（ck_reflections，按本班课堂读）：pick 印象最深的条目（政经概念 k1…，习经研讨题 q1…），
+  //   marks {条目: 2 掌握了 / 1 基本懂 / 0 还没懂}，body 心得。只统计点名册上的同学（班外允许加入的不算，同学情分析）；“隐藏姓名”与学情分析共用
+  const rfState = { run: 0, key: '', rows: null, at: 0, missing: false, export: null };
+  const reflectCases = (room) => {
+    if (!room || isExam(room.chapter)) return [];
+    if (CONCEPT) {
+      const unit = unitMap.get(room.chapter);
+      return unit ? [{ no: String(unit.number).padStart(2, '0'), title: unit.title, items: (unit.concepts || []).map((k, i) => ({ id: k.id, label: `概念 ${i + 1} · ${k.name}` })) }] : [];
+    }
+    const chapter = chapterMap.get(room.chapter);
+    const only = Number(room.case_no) || 0;
+    return chapter ? chapter.cases.map((item) => caseMap.get(item.number)).filter((c) => c && (!only || Number(c.number) === only))
+      .map((c) => ({ no: c.number, title: c.title, items: c.reflect || [] })) : [];
+  };
+  function paintReflectRooms() {
+    const select = $('[data-rf-room]');
+    const rooms = state.rooms.filter((room) => !isExam(room.chapter));
+    const keep = select.value;
+    select.innerHTML = `<option value="all">本班全部课堂（概览）</option>${rooms.map((room) => `<option value="${esc(room.id)}">${esc(room.name)} · ${esc(chapterLabel(room))}</option>`).join('')}`;
+    const want = keep && (keep === 'all' || rooms.some((room) => String(room.id) === keep)) ? keep
+      : state.room && rooms.some((room) => String(room.id) === String(state.room.id)) ? String(state.room.id) : 'all';
+    select.value = want;
+  }
+  async function loadReflections(force) {
+    const rooms = state.rooms.filter((room) => !isExam(room.chapter));
+    const key = `${course.slug}:${state.klass.id}:${rooms.map((room) => room.id).join(',')}`;
+    if (!force && rfState.rows && rfState.key === key && Date.now() - rfState.at < 30000) return rfState.rows;
+    const ids = rooms.map((room) => Number(room.id) || room.id);
+    let rows = [];
+    try {
+      rows = !ids.length ? [] : typeof backend.fetchRows === 'function' ? await backend.fetchRows('reflections', { in: ['classroom', ids] })
+        : (await Promise.all(ids.map((id) => backend.fetchAll('reflections', { classroom: id })))).flat();
+      rfState.missing = false;
+    } catch (error) {
+      if (!missingTable(error)) throw error;
+      rfState.missing = true;
+    }
+    Object.assign(rfState, { key, rows, at: Date.now() });
+    return rows;
+  }
+  const rfWhen = (iso) => { const ms = millis(iso); return ms ? `${isoDay(ms).slice(5).replace('-', '/')} ${clock(ms).slice(0, 5)}` : ''; };
+  async function renderReflect(force) {
+    const root = $('[data-rf-root]');
+    const status = $('[data-rf-status]');
+    const I = window.ClassLiveInsights;
+    if (!root || !state.klass) return;
+    if (!I) { root.textContent = '图表脚本没有加载，请刷新页面再试。'; return; }
+    I.addStyle();
+    addReflectStyle();
+    paintReflectRooms();
+    const run = ++rfState.run;
+    status.textContent = '正在读取本班的课后心得……';
+    let rows;
+    try { rows = await loadReflections(force); } catch (error) { if (run !== rfState.run) return; console.error(error); status.textContent = `读取失败：${failReason(error)}`; return; }
+    if (run !== rfState.run) return;
+    root.textContent = '';
+    rfState.export = null;
+    if (rfState.missing) { status.textContent = '后台还没有“课后心得”这张表：执行 tools/cloudbase-pg-20261126-学习心得.sql 以后，学生交的心得就会显示在这里。'; return; }
+    const roster = rosterOf();
+    const core = roster.filter((person) => !person.extra);
+    const coreSids = new Set(core.map((person) => sidKey(person.sid)));
+    const inRoster = (sid) => !core.length || coreSids.has(sidKey(sid));
+    const mine = rows.filter((row) => inRoster(row.sid));
+    const people = new Map(core.map((person) => [sidKey(person.sid), person.name]));
+    mine.forEach((row) => { if (!people.has(sidKey(row.sid))) people.set(sidKey(row.sid), row.name); });
+    privacyMap(people, roster);
+    const nameOf = (sid) => people.get(sidKey(sid)) || '';
+    const rooms = state.rooms.filter((room) => !isExam(room.chapter));
+    const pick = $('[data-rf-room]').value;
+    const total = core.length;
+    const read = `数据读于 ${clock(Date.now())}。${insPrivacy.on ? ' · 已隐藏姓名和学号' : ''}`;
+    const T = I.tones;
+    const LV = [{ v: 2, name: '掌握了', color: T.green }, { v: 1, name: '基本懂', color: T.yellow }, { v: 0, name: '还没懂', color: T.red }];
+    const query = $('[data-rf-search]').value.trim();
+    const grid = document.createElement('div');
+    grid.className = 'ins-grid';
+    root.appendChild(grid);
+    // 每个课堂、每个案例的统计（概览和单个课堂共用）
+    const statsOf = (list, items) => {
+      const picks = new Map(items.map((it) => [it.id, 0]));
+      const marks = new Map(items.map((it) => [it.id, [0, 0, 0]]));   // 掌握了、基本懂、还没懂
+      list.forEach((row) => {
+        if (picks.has(row.pick)) picks.set(row.pick, picks.get(row.pick) + 1);
+        Object.entries(row.marks || {}).forEach(([id, v]) => { const m = marks.get(id); if (m && [0, 1, 2].includes(Number(v))) m[2 - Number(v)] += 1; });
+      });
+      const weak = items.map((it) => ({ it, m: marks.get(it.id) })).filter(({ m }) => m[2] > 0)
+        .sort((a, b) => b.m[2] / (b.m[0] + b.m[1] + b.m[2]) - a.m[2] / (a.m[0] + a.m[1] + a.m[2]) || b.m[2] - a.m[2]);
+      return { picks, marks, weak };
+    };
+    if (pick === 'all') {
+      status.textContent = `${state.klass.name}全部课堂 · 点名册 ${total} 人 · 共 ${mine.length} 份心得。${read}`;
+      const card = I.card(grid, '各次课的课后心得', '每次课（课堂）一行，最近的在上面；点一行看这次课的详细统计和每位同学的心得。', true);
+      const lines = [];
+      const html = rooms.map((room) => reflectCases(room).map((c) => {
+        const list = mine.filter((row) => String(row.classroom) === String(room.id) && row.case_no === c.no);
+        const st = statsOf(list, c.items);
+        const top = c.items.slice().sort((a, b) => st.picks.get(b.id) - st.picks.get(a.id))[0];
+        const topText = top && st.picks.get(top.id) ? `${top.label}（${st.picks.get(top.id)} 人）` : '—';
+        const weakText = st.weak.length ? `${st.weak[0].it.label}（还没懂 ${st.weak[0].m[2]} 人）` : '—';
+        lines.push([room.name, `案例 ${c.no} ${c.title}`, list.length, total ? Math.round(list.length / total * 100) : '', topText, weakText]);
+        return `<tr data-rf-go="${esc(room.id)}" tabindex="0"><td>${esc(room.name)}</td><td>案例 ${esc(c.no)} · ${esc(c.title)}</td><td class="num">${list.length}${total ? ` <small>（${Math.round(list.length / total * 100)}%）</small>` : ''}</td>`
+          + `<td>${esc(topText)}</td><td>${esc(weakText)}</td></tr>`;
+      }).join('')).join('');
+      card.insertAdjacentHTML('beforeend', `<div class="tw-scroll"><table class="tw-table rf-overview"><thead><tr><th>课堂</th><th>案例</th><th>写了心得</th><th>印象最深最多的</th><th>还没懂最多的</th></tr></thead>`
+        + `<tbody>${html || '<tr><td colspan="5" class="empty">本班还没有课堂。</td></tr>'}</tbody></table></div>`);
+      rfState.export = { name: '全部课堂', sheets: [{ name: '各次课', rows: [['课堂', '案例', '写了心得（人）', '占点名册（%）', '印象最深最多的', '还没懂最多的']].concat(lines), widths: [26, 30, 14, 12, 36, 36] }] };
+      return;
+    }
+    const room = rooms.find((item) => String(item.id) === pick);
+    if (!room) { status.textContent = '没有找到这个课堂。'; return; }
+    const cases = reflectCases(room);
+    const inRoom = mine.filter((row) => String(row.classroom) === String(room.id));
+    status.textContent = `课堂“${room.name}”· 点名册 ${total} 人 · 写了心得 ${new Set(inRoom.map((row) => sidKey(row.sid))).size} 人。${read}`;
+    const sheets = [];
+    cases.forEach((c) => {
+      const list = inRoom.filter((row) => row.case_no === c.no).sort((a, b) => millis(b.updated_at) - millis(a.updated_at));
+      const label = new Map(c.items.map((it) => [it.id, it.label]));
+      const st = statsOf(list, c.items);
+      if (cases.length > 1) I.section(grid, `案例 ${c.no} · ${c.title}`, `${list.length} 份心得`);
+      const texts = list.filter((row) => String(row.body || '').trim());
+      I.tiles(grid, [
+        { label: '写了心得', value: `${list.length} 人`, note: total ? `占点名册 ${Math.round(list.length / total * 100)}%` : '' },
+        { label: '选了印象最深', value: `${list.filter((row) => label.has(row.pick)).length} 人` },
+        { label: '写了几句心得', value: `${texts.length} 人`, note: texts.length ? `平均 ${Math.round(texts.reduce((t, row) => t + Array.from(String(row.body).trim()).length, 0) / texts.length)} 字` : '' },
+        { label: '还没懂最多', value: st.weak.length ? st.weak[0].it.label.replace(/^概念 \d+ · |^Q\d+ · /, '') : '—', note: st.weak.length ? `还没懂 ${st.weak[0].m[2]} 人` : '' },
+      ]).classList.add('is-wide');
+      const add = (title, sub, wide) => { const box = I.card(grid, title, sub, wide); const host = document.createElement('div'); box.appendChild(host); return [box, host]; };
+      const [c1, h1] = add('印象最深的概念', '每个概念被选为“印象最深”的人数（每人选一个）。');
+      I.bars(h1, c1, c.items.map((it, i) => ({ label: it.label, value: st.picks.get(it.id), text: `${st.picks.get(it.id)} 人`, color: I.cat[i % I.cat.length] })),
+        { labelMax: 220, aria: '印象最深的概念横条图', empty: '还没有同学选印象最深的概念。' });
+      I.tableView(c1, ['概念', '选为印象最深（人）'], c.items.map((it) => [it.label, st.picks.get(it.id)]));
+      const [c2, h2] = add('每个概念掌握得怎么样', '学生自己打的分：掌握了、基本懂、还没懂各几人；悬停看具体人数。');
+      I.keys(h2, LV);
+      I.splitBars(h2, c2, c.items.map((it) => ({ label: it.label, values: st.marks.get(it.id), lines: [it.label] })), LV, { unit: ' 人', aria: '每个概念掌握情况分段横条图', empty: '还没有同学给掌握情况打分。' });
+      I.tableView(c2, ['概念', '掌握了', '基本懂', '还没懂'], c.items.map((it) => [it.label, ...st.marks.get(it.id)]));
+      const [c3] = add('需要再讲讲', '“还没懂”占的比例从高到低；下次课可以先补一补，或者换个例子讲。', true);
+      c3.insertAdjacentHTML('beforeend', st.weak.length
+        ? `<ol class="rf-weak">${st.weak.map(({ it, m }) => `<li><b>${esc(it.label)}</b><span>还没懂 ${m[2]} 人、基本懂 ${m[1]} 人、掌握了 ${m[0]} 人（${m[0] + m[1] + m[2]} 人打了分）</span></li>`).join('')}</ol>`
+        : '<p class="ins-empty">没有同学选“还没懂”。</p>');
+      // 每位同学的心得（可查找）
+      const shown = list.filter((row) => !query || `${nameOf(row.sid)} ${row.body || ''}`.includes(query));
+      const [c4] = add('每位同学的心得', `最近保存的在上面${query ? `；查找“${query}”：${shown.length} 份` : ''}。学生可以改了再保存，这里是最新的一份。`, true);
+      const chip = (v) => { const lv = LV.find((x) => x.v === Number(v)); return lv ? `<i class="rf-chip is-${lv.v}">${lv.name}</i>` : '<i class="rf-chip">未选</i>'; };
+      c4.insertAdjacentHTML('beforeend', `<div class="tw-scroll"><table class="tw-table rf-people"><thead><tr><th>姓名</th><th>印象最深</th><th>掌握情况</th><th>心得</th><th>保存时间</th></tr></thead><tbody>`
+        + (shown.map((row) => `<tr><td class="tw-nowrap">${esc(nameOf(row.sid))}</td><td>${esc(label.get(row.pick) || '—')}</td>`
+          + `<td class="rf-marks">${c.items.map((it) => `<span><em>${esc(it.label.replace(/ · .*/, ''))}</em>${chip((row.marks || {})[it.id])}</span>`).join('')}</td>`
+          + `<td class="rf-text">${esc(String(row.body || '').trim()) || '<span class="tw-sub">（没写）</span>'}</td><td class="tw-nowrap">${esc(rfWhen(row.updated_at))}</td></tr>`).join('')
+          || `<tr><td colspan="5" class="empty">${query ? '没有找到。' : '还没有同学交心得。'}</td></tr>`) + '</tbody></table></div>');
+      sheets.push({ name: `案例${c.no}`, rows: [['姓名', '学号', '印象最深', ...c.items.map((it) => it.label), '心得', '字数', '保存时间']]
+        .concat(list.map((row) => [nameOf(row.sid), insPrivacy.on ? '••••' : String(row.sid), label.get(row.pick) || '', ...c.items.map((it) => { const lv = LV.find((x) => x.v === Number((row.marks || {})[it.id])); return lv ? lv.name : ''; }),
+          String(row.body || '').trim(), Array.from(String(row.body || '').trim()).length, rfWhen(row.updated_at)])), widths: [12, 16, 26, ...c.items.map(() => 14), 60, 8, 14] });
+    });
+    if (!cases.length) I.empty(grid, '这个课堂没有课后心得（期中考查作业的课堂不设）。');
+    rfState.export = { name: room.name, sheets };
+  }
+  function addReflectStyle() {
+    if (document.getElementById('tw-rf-style')) return;
+    const style = document.createElement('style');
+    style.id = 'tw-rf-style';
+    style.textContent = `
+    [data-panel="reflect"] .tw-bar input[type=search] { min-width: 200px; }
+    .rf-overview tbody tr { cursor: pointer; } .rf-overview tbody tr:hover, .rf-overview tbody tr:focus-visible { background: #f3eee5; outline: none; }
+    .rf-overview small { color: #6d6259; font-weight: 400; }
+    .rf-weak { margin: 4px 0 0; padding-left: 22px; } .rf-weak li { margin: 6px 0; line-height: 1.7; } .rf-weak b { margin-right: 10px; } .rf-weak span { color: #5f554c; }
+    .rf-people td { vertical-align: top; } .rf-people .rf-text { min-width: 260px; max-width: 520px; white-space: pre-wrap; line-height: 1.75; }
+    .rf-marks { min-width: 180px; } .rf-marks span { display: inline-flex; align-items: center; gap: 4px; margin: 0 10px 4px 0; white-space: nowrap; } .rf-marks em { font-style: normal; color: #6d6259; font-size: 12.5px; }
+    .rf-chip { display: inline-block; padding: 1px 8px; border-radius: 999px; background: #eee7da; color: #5f554c; font-style: normal; font-size: 12.5px; font-weight: 700; }
+    .rf-chip.is-2 { background: #e2f3d3; color: #2f6b12; } .rf-chip.is-1 { background: #fff3c4; color: #7a5a00; } .rf-chip.is-0 { background: #ffe1dc; color: #a62a1c; }
+    `;
+    document.head.appendChild(style);
+  }
+  $('[data-tab="reflect"]').addEventListener('click', () => renderReflect(false));
+  $('[data-rf-room]').addEventListener('change', () => renderReflect(false));
+  $('[data-rf-refresh]').addEventListener('click', () => renderReflect(true));
+  let rfSearchTimer = 0;
+  $('[data-rf-search]').addEventListener('input', () => { clearTimeout(rfSearchTimer); rfSearchTimer = setTimeout(() => renderReflect(false), 250); });
+  $('[data-rf-root]').addEventListener('click', (event) => {
+    const go = event.target.closest('[data-rf-go]');
+    if (go) { $('[data-rf-room]').value = go.dataset.rfGo; renderReflect(false); }
+  });
+  $('[data-rf-root]').addEventListener('keydown', (event) => {
+    const go = event.target.closest('[data-rf-go]');
+    if (go && (event.key === 'Enter' || event.key === ' ')) { event.preventDefault(); $('[data-rf-room]').value = go.dataset.rfGo; renderReflect(false); }
+  });
+  $('[data-rf-privacy]').addEventListener('click', () => {
+    insPrivacy.on = !insPrivacy.on;
+    try { localStorage.setItem('teacher:ins-privacy', insPrivacy.on ? '1' : '0'); } catch (error) { /* 忽略 */ }
+    paintPrivacyButton();
+    watchPrivacy();
+    renderReflect(false);
+  });
+  $('[data-rf-export]').addEventListener('click', () => {
+    if (!rfState.export || !rfState.export.sheets.length) { $('[data-rf-status]').textContent = '还没有可以导出的心得：先选一个课堂。'; return; }
+    const O = window.ClassLive.office;
+    O.save(O.xlsxBook(rfState.export.sheets), `${course.title}_${safeName(state.klass.name)}_学习心得_${safeName(rfState.export.name)}_${window.ClassLive.today()}.xlsx`);
+  });
   // ---------------- 更新说明（2026-11-06 用户：“超过20天以上的更新状态不在学生端的‘更新说明’中显示。但是在教师控制台专门设置一个新的‘更新说明’板块记录所有更新情况。”） ----------------
   //   上半部分：本课程学生页“更新说明”的全部条目（live-core 的 newsList），标出哪些已超过 20 天、学生页不再显示；
   //   下半部分：全部更新记录（构建时从对话记录整理，TEACHER_DATA.updates：编号、日期、内容、上线提交），可搜索

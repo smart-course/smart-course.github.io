@@ -49,11 +49,13 @@
   /* “操作提示：关”（html.cl-hide-ops，本机记住）：投屏页上只写给老师看的操作说明先藏起来——步骤条的说明、课时步骤表下的提示、
      活动的组织提示、“开始”控制条下的说明、辩论流程的提示 */
   html.cl-hide-ops .ix-step-howto, html.cl-hide-ops .ix-step-more, html.cl-hide-ops .plan-hint, html.cl-hide-ops .interaction-note,
+  html.cl-hide-ops .ix-step-tip, html.cl-hide-ops .ix-tip:not(.debate-rules-box), html.cl-hide-ops .act-tip,
   html.cl-hide-ops .mech-quest.is-teacher > .mech-dm-head, html.cl-hide-ops .mechanism-lab > .mechanism-task,
   html.cl-hide-ops .gate-note, html.cl-hide-ops .dbf-tip, html.cl-hide-ops .dbf-now small { display: none !important; }
   /* 步骤条（习经）：每条说明先只显示一行，点“展开”看全文 */
-  .ix-step-howto li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
-  .ix-step.is-howto-open .ix-step-howto li { display: block; -webkit-line-clamp: unset; overflow: visible; }
+  /* 2026-11-26 起习经页面自己把说明收进“说明”（.ix-step-tip，点开看全文），这里只管旧页面（说明直接放在步骤条里的） */
+  .ix-step-body > .ix-step-howto li { display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 1; overflow: hidden; }
+  .ix-step.is-howto-open .ix-step-body > .ix-step-howto li { display: block; -webkit-line-clamp: unset; overflow: visible; }
   .ix-step-more { margin: 6px 0 0; padding: 2px 12px; border: 1px solid rgba(35,101,95,.3); border-radius: 999px; background: #fffdf8; color: #23655f;
     font: 700 13px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; }
   .ix-step-more:hover { background: #eef5f2; }
@@ -213,7 +215,7 @@
   let stepTimer = 0;
   const stepMore = () => document.querySelectorAll('.ix-step').forEach((step) => {
     const list = step.querySelector('.ix-step-howto');
-    if (!list) return;
+    if (!list || list.closest('details')) return;   // 新页面：说明已经收在“说明”里
     const open = step.classList.contains('is-howto-open');
     const cut = open || Array.from(list.children).some((li) => li.scrollHeight > li.clientHeight + 2);
     let more = step.querySelector('.ix-step-more');

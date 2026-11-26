@@ -62,6 +62,8 @@
   .dbf-clock.is-low { color: #ffd38a; } .dbf-clock.is-up { color: #ffb59d; animation: dbf-blink 1s steps(2, start) infinite; }
   @keyframes dbf-blink { to { visibility: hidden; } }
   .dbf-nodes { display: flex; flex-wrap: wrap; gap: 10px 22px; margin: 0; padding: 16px 18px 12px; list-style: none; }
+  /* 2026-11-26 五步加“公布结果”共六个节点：宽屏上排成一行（原来第六个换到下一行） */
+  @media (min-width: 900px) { .dbf-nodes { display: grid; grid-template-columns: repeat(6, minmax(0, 1fr)); gap: 10px 20px; } .dbf-node button { width: 100%; min-width: 0; height: 100%; } }
   .dbf-node { position: relative; }
   .dbf-node:not(:last-child)::after { content: "→"; position: absolute; right: -17px; top: 50%; transform: translateY(-50%); color: #b8862b; font-weight: 800; }
   .dbf-node button { display: grid; justify-items: start; gap: 2px; min-width: 128px; padding: 7px 12px 8px; border: 1.5px solid rgba(70,51,34,.18); border-radius: 12px;
@@ -112,18 +114,22 @@
   const rpcOne = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
 
   // 辩论流程：前几步计时（同步到学生页），最后一步停止辩后投票的递交、公布结果
+  // 2026-11-20 用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点。”
+  // 2026-11-26 五步（用户：“学生选择立场和论据卡的时间1分钟太短了，学生根本看不完论据卡，把这两部分分开，选择立场1分钟。选择论据卡跟后面的讨论结合起来，
+  //   让学生也可以跟同桌讨论哪些论据卡适用于其立场，然后选择论据卡+自由讨论给10分钟的时间。其它环节还是一样。这里还可以再设一个小巧思：
+  //   等学生聊天室发言点赞结束后，可以让他们看自己选择的论据卡是否跟自己的立场一致。然后再进行辩后投票。”）
   const FLOW = [
-    { key: 'prep', label: '选立场 · 论据卡', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），再选 2 张论据卡，都点“递交”；学生页同步倒计时，时间到就不能再递交' },
-    // 2026-11-20 用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点。”
-    { key: 'talk', label: '自由讨论', secs: 300, hint: '同一立场的同学（或前后桌）当面讨论：我方最有力的理由是什么、对方会怎么反驳；每人想好要在聊天室里说的一句话。这一步聊天室还不能发言' },
+    { key: 'prep', label: '选立场', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），点“递交”；学生页同步倒计时，时间到就不能再递交' },
+    { key: 'talk', label: '选论据卡 · 自由讨论', secs: 600, hint: '学生和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于自己的立场，选 2 张递交；再想好本方最有力的理由、对方会怎么反驳、要在聊天室里说的一句话。这一步聊天室还不能发言' },
     { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
+    { key: 'check', label: '论据卡对一对', secs: 60, hint: '进入这一步时自动放开论据卡的解答：学生页显示自己选的每张论据卡偏向哪一方、和自己的辩前票是否一致。论据卡没有对错之分，可以请选了偏向对方的卡的同学说说是怎样用的' },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
     { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `按票数公布哪一方获胜；全场点赞前三各加 ${DB.likes} 修为，获胜方不加修为` },
   ];
   const flowIndex = (key) => FLOW.findIndex((step) => step.key === key);
   // 2026-11-20 每一步的计时同步到学生页（用户：“辩论赛中的倒计时，在学生端中也设置倒计时，倒计时结束的话无法递交。但是如果老师点了+30秒，就又可以递交。”）：
   // 沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live，阶段名对照见 live-core.js 的 DEBATE_STAGE；学生页 live-student.js 的 setupDebateClock 读它
-  const STAGE = window.ClassLive.DEBATE_STAGE || { prep: 'pro_open', talk: 'con_open', chat: 'free', vote: 'vote', result: 'done' };
+  const STAGE = window.ClassLive.DEBATE_STAGE || { prep: 'pro_open', talk: 'con_open', chat: 'free', check: 'con_sum', vote: 'vote', result: 'done' };
   const KEY_OF = Object.fromEntries(Object.entries(STAGE).map(([key, stage]) => [stage, key]));
 
   boards.forEach((board) => {
@@ -131,6 +137,8 @@
     const section = board.closest('[data-debate]') || board.parentElement;
     // 辩后投票的题号：政经在作业里（debate.post，一个课堂一个案例），习经是“案例号:debate-post”
     const postKey = board.closest('.cl-debate') ? 'debate.post' : `${no}:debate-post`;
+    // 论据卡的题号（“论据卡对一对”一步放开它的解答：每张卡偏向哪一方，见 tools/explain_bank.py）
+    const cardsKey = board.closest('.cl-debate') ? 'debate.cards' : `${no}:debate-cards`;
     let room = null;
     let data = null;       // ck_debate_board
     let last = '';
@@ -146,7 +154,8 @@
     flow.className = 'dbf';
     flow.setAttribute('data-ix', '');
     const rules = section.querySelector('.debate-rules, .cl-debate-rules');
-    if (rules) rules.insertAdjacentElement('beforebegin', flow); else board.insertAdjacentElement('beforebegin', flow);
+    // 2026-11-26 起习经的辩论流程也收进 details（同政经）：流程图放在整个 details 前面
+    if (rules) (rules.closest('details') || rules).insertAdjacentElement('beforebegin', flow); else board.insertAdjacentElement('beforebegin', flow);
     section.classList.add('has-dbf');
     // ---------- 辩论结果：放在辩后投票那一块的最后 ----------
     const result = document.createElement('div');
@@ -326,6 +335,12 @@
       renderFlow();
       renderResult();
       sync('stage', step.key, step.secs);
+      // 论据卡对一对（2026-11-26）：把论据卡的解答放开给本课堂的学生（同“学生实时结果”里的“给学生看解答”；后台没有这项功能时忽略）
+      if (step.key === 'check') {
+        backend.rpc('ck_reveal_items', { p_classroom: Number(room.id) || room.id, p_items: [cardsKey], p_on: true })
+          .then(() => document.dispatchEvent(new CustomEvent('classlive:reveals-changed')))
+          .catch((error) => console.warn('[论据卡对一对] 没有放开论据卡的解答', error));
+      }
     }
     function pause() {
       const state = readLocal();

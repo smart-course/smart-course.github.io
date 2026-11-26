@@ -34,8 +34,15 @@
   const chapter = Number((String(unit).match(/(\d+)$/) || [])[1]) || 0;
   const esc = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
   const RUSH = { chance: 0.99, delay: 5, top: 10, points: 5, secs: chapter <= 5 ? 60 : chapter === 6 ? 50 : chapter === 7 ? 40 : 30 };
-  const QUEST = { delay: 5, minutes: [7, 8, 10], pick: 7, points: 5 };
+  // 闯关（2026-11-26 各自计时）：老师“启动闯关”后马上开放（不再统一倒计时 5 秒），学生自己点“参与闯关”，时长从各人进场算起
+  const QUEST = { delay: 0, minutes: [7, 8, 10], pick: 7, points: 5 };
   const clock = (secs) => `${String(Math.floor(secs / 60)).padStart(2, '0')}:${String(secs % 60).padStart(2, '0')}`;
+  const span = (ms) => { const sec = Math.max(1, Math.round((Number(ms) || 0) / 1000)); return sec >= 60 ? `${Math.floor(sec / 60)} 分 ${sec % 60} 秒` : `${sec} 秒`; };   // 用时（闯关排名用）
+  // 按钮图标（线条图，不用表情符号：各家系统上的表情符号样子不一）
+  const ico = (body) => `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true" focusable="false">${body}</svg>`;
+  const FLAG = ico('<path d="M6 21V4"/><path d="M6 4.5h11.5l-2.6 4 2.6 4H6z" fill="currentColor"/>');
+  const UNDO = ico('<path d="M4.5 12a7.5 7.5 0 1 0 2.2-5.3"/><path d="M4.5 4.5v4h4"/>');
+  const SCREEN = ico('<rect x="3" y="4" width="18" height="12" rx="2"/><path d="M8 20h8M12 16v4"/>');
   const rpcOne = async (name, params) => { const value = await backend.rpc(name, params); return (Array.isArray(value) ? value[0] : value) || {}; };
   const roomFor = async (no) => {
     const rooms = await backend.fetchAll('classrooms', { course: config.course });
@@ -51,17 +58,43 @@
   .act-ctl { margin: 14px 0; padding: 14px 16px; border: 2px solid #c9a24a; border-radius: 14px; background: linear-gradient(135deg, #fffaf0, #fdf1d8); color: #3b2a07;
     font: 16px/1.6 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
   .act-ctl-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px 12px; }
-  .act-ctl button { padding: 9px 16px; border: 1.5px solid rgba(70, 51, 34, .28); border-radius: 10px; background: #fff; color: #3b2a07; font: inherit; font-weight: 800; line-height: 1.2; cursor: pointer; }
-  .act-ctl button.is-main { border-color: #b5701e; background: linear-gradient(180deg, #f6c765, #dd9a2c); color: #3b2400; font-size: 18px; padding: 11px 22px; box-shadow: 0 4px 12px rgba(181, 112, 30, .28); }
-  .act-ctl button.is-warn { border-color: #a4492d; color: #a4492d; }
-  .act-ctl button:disabled { opacity: .5; cursor: default; }
+  /* 按钮（2026-11-26 用户：“机制图 · 闯关，按钮再美化一下”）：立体游戏按钮——上亮下暗的渐变＋底边厚度，按下去沉一下；图标用线条图 */
+  .act-ctl button { display: inline-flex; align-items: center; justify-content: center; gap: 8px; min-height: 44px; padding: 0 18px; border: 0; border-radius: 12px; color: #3b2a07;
+    background: linear-gradient(180deg, #ffffff, #f6efe2); box-shadow: inset 0 0 0 1.5px rgba(70, 51, 34, .22), 0 3px 0 rgba(70, 51, 34, .22), 0 8px 16px -10px rgba(70, 51, 34, .5);
+    font: inherit; font-weight: 800; line-height: 1.2; white-space: nowrap; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, filter .15s ease; }
+  .act-ctl button svg { flex: 0 0 auto; width: 20px; height: 20px; }
+  .act-ctl button:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.04); }
+  .act-ctl button:not(:disabled):active { transform: translateY(2px); box-shadow: inset 0 0 0 1.5px rgba(70, 51, 34, .22), 0 1px 0 rgba(70, 51, 34, .22); }
+  .act-ctl button:focus-visible { outline: 3px solid rgba(35, 101, 95, .45); outline-offset: 2px; }
+  .act-ctl button.is-main { min-height: 52px; padding: 0 24px 0 12px; color: #fff; font-size: 18px; letter-spacing: .02em; text-shadow: 0 1px 0 rgba(0, 0, 0, .25);
+    background: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 50%), linear-gradient(180deg, #2f8478, #1c5a52);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 4px 0 #123e39, 0 12px 22px -10px rgba(18, 62, 57, .7); }
+  .act-ctl button.is-main:not(:disabled):active { box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 1px 0 #123e39; }
+  .act-ctl button.is-main .gate-ico { display: grid; place-items: center; width: 32px; height: 32px; border-radius: 50%; color: #7a3d0c; background: linear-gradient(180deg, #ffe9a8, #f2bb4c); box-shadow: inset 0 -2px 0 rgba(122, 61, 12, .25); text-shadow: none; }
+  .act-ctl button.is-main .gate-ico svg { width: 18px; height: 18px; }
+  .act-ctl button.is-screen { color: #ffe3a3; background: linear-gradient(180deg, rgba(255, 255, 255, .12), rgba(255, 255, 255, 0) 50%), linear-gradient(180deg, #3a2c3f, #1f1824);
+    box-shadow: inset 0 0 0 1px rgba(255, 217, 138, .35), 0 3px 0 #0e0b10, 0 10px 18px -10px rgba(14, 11, 16, .8); }
+  .act-ctl button.is-screen:not(:disabled):active { box-shadow: inset 0 0 0 1px rgba(255, 217, 138, .35), 0 1px 0 #0e0b10; }
+  .act-ctl button.is-undo, .act-ctl button.is-warn { color: #8a3a22; background: linear-gradient(180deg, #ffffff, #fbefe9); box-shadow: inset 0 0 0 1.5px rgba(164, 73, 45, .4), 0 3px 0 rgba(164, 73, 45, .25); }
+  .act-ctl button.is-undo:not(:disabled):active, .act-ctl button.is-warn:not(:disabled):active { box-shadow: inset 0 0 0 1.5px rgba(164, 73, 45, .4), 0 1px 0 rgba(164, 73, 45, .25); }
+  .act-ctl button:disabled { opacity: .5; cursor: default; transform: none; filter: none; }
+  @media (prefers-reduced-motion: reduce) { .act-ctl button { transition: none; } }
+  .act-ctl button.is-main:not(:has(.gate-ico)) { padding: 0 24px; }
   .act-ctl button[hidden], .act-ctl select[hidden] { display: none; }
-  .act-ctl select { padding: 8px 10px; border: 1.5px solid rgba(70, 51, 34, .28); border-radius: 10px; background: #fff; font: inherit; }
+  .act-ctl select { min-height: 44px; padding: 0 10px; border: 1.5px solid rgba(70, 51, 34, .28); border-radius: 12px; background: #fff; font: inherit; }
   .act-state { flex: 1 1 220px; min-width: 0; font-weight: 700; }
   .act-clock { flex: 0 0 auto; min-width: 92px; padding: 2px 14px; border-radius: 12px; background: #3b2a07; color: #ffe9b3; font: 800 30px/1.3 -apple-system, "PingFang SC", sans-serif; font-variant-numeric: tabular-nums; text-align: center; }
   .act-clock.is-low { background: #a4492d; color: #fff; }
   .act-clock[hidden] { display: none; }
   .act-note { margin: 8px 0 0; color: #6b5a40; font-size: 14.5px; }
+  /* 2026-11-26 抢答／闯关条下的长说明收进“怎么玩”（用户：“有些文字是不是不需要，或者可以简洁一些（隐藏起来？），使之更美观”） */
+  .act-tip { margin: 8px 0 0; }
+  .act-tip > summary { display: inline-flex; align-items: center; gap: 6px; padding: 2px 12px 2px 8px; border: 1px solid rgba(122, 90, 18, .3); border-radius: 999px;
+    background: rgba(255, 255, 255, .7); color: #7a5a12; font: 700 13.5px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; list-style: none; }
+  .act-tip > summary::-webkit-details-marker { display: none; }
+  .act-tip > summary::before { content: "?"; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #b5701e; color: #fff; font-size: 11.5px; font-weight: 800; }
+  .act-tip > summary::after { content: "▾"; font-size: 11px; }
+  .act-tip[open] > summary::after { content: "▴"; }
   .act-board { margin: 12px 0 0; padding: 12px 14px; border-radius: 12px; background: rgba(255, 255, 255, .85); border: 1px solid #ead9bb; }
   .act-board[hidden] { display: none; }
   .act-board h5 { margin: 0 0 8px; font-size: 16px; }
@@ -104,11 +137,18 @@
   .act-stage-center > * { margin: auto; }
   .act-stage-note { min-height: 28px; margin: 6px 0; text-align: center; color: #ffe8a8; font-weight: 700; font-size: clamp(17px, 1.6vw, 22px); line-height: 1.4; }
   .act-stage-actions { display: flex; flex-wrap: wrap; justify-content: center; align-items: center; gap: 12px; }
-  .act-stage-actions button, .act-stage-actions select { min-width: 130px; min-height: 58px; padding: 8px 20px; border: 1px solid rgba(255, 255, 255, .5); border-radius: 8px; color: #fff;
-    background: rgba(255, 255, 255, .12); font: inherit; font-weight: 800; font-size: 22px; line-height: 1.2; cursor: pointer; }
-  .act-stage-actions button.is-go { border-color: #ffd98a; color: #2b2118; background: #ffd98a; }
-  .act-stage-actions button.is-red { border-color: #f0a08c; background: #c8452d; }
+  /* 大屏按钮（2026-11-26）：同控制条的立体按钮，颜色按大屏的深底配 */
+  .act-stage-actions button, .act-stage-actions select { min-width: 130px; min-height: 58px; padding: 8px 22px; border: 0; border-radius: 12px; color: #fff;
+    background: linear-gradient(180deg, rgba(255, 255, 255, .16), rgba(255, 255, 255, .06)); box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, .4), 0 4px 0 rgba(0, 0, 0, .5);
+    font: inherit; font-weight: 800; font-size: 22px; line-height: 1.2; cursor: pointer; transition: transform .12s ease, box-shadow .12s ease, filter .15s ease; }
+  .act-stage-actions button.is-go { color: #2b2118; background: linear-gradient(180deg, rgba(255, 255, 255, .35), rgba(255, 255, 255, 0) 50%), linear-gradient(180deg, #ffe39a, #f0b445);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .4), 0 5px 0 #9a6416, 0 14px 26px -10px rgba(240, 180, 69, .55); }
+  .act-stage-actions button.is-red { background: linear-gradient(180deg, rgba(255, 255, 255, .22), rgba(255, 255, 255, 0) 50%), linear-gradient(180deg, #ea5a3e, #b3361f);
+    box-shadow: inset 0 0 0 1px rgba(255, 200, 180, .45), 0 5px 0 #6e2213, 0 14px 30px -10px rgba(234, 90, 62, .6); }
+  .act-stage-actions button:not(:disabled):hover { transform: translateY(-1px); filter: brightness(1.08); }
+  .act-stage-actions button:not(:disabled):active { transform: translateY(3px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .3), 0 1px 0 rgba(0, 0, 0, .5); }
   .act-stage-actions button:disabled { opacity: .45; cursor: default; }
+  @media (prefers-reduced-motion: reduce) { .act-stage-actions button { transition: none; } }
   .act-stage-actions select option { color: #2b2118; }
   .act-stage-rules { width: min(1100px, 94vw); }
   .act-stage-rules h3 { margin: 0 0 14px; text-align: center; font-weight: 800; font-size: clamp(30px, 3.4vw, 46px); line-height: 1.3; }
@@ -175,6 +215,14 @@
   .act-stage-rank.mqs-rank li { gap: 8px; padding: 8px 12px; }
   .act-stage-rank.mqs-rank li em { font-size: .72em; }
   .act-stage-empty { font-weight: 700; font-size: clamp(20px, 2vw, 30px); color: rgba(255, 255, 255, .8); text-align: center; }
+  /* 机制图闯关大屏上的 Boss“想当然”（2026-11-26）：全班合力，每有一位同学通关，它就掉一截血；全部通关时被打败。
+     形象和血条的样式用页面里学生版同一套（.mq-bossfig、.mq-hp-*，在 build_case_html.py 的 ENHANCED_CSS 里） */
+  .mqs-head { display: flex; flex-wrap: wrap; align-items: center; justify-content: center; gap: 14px 30px; width: 100%; }
+  .mqs-boss { display: grid; grid-template-columns: 118px minmax(0, 1fr); align-items: center; gap: 0 16px; width: min(560px, 100%); padding: 2px 20px 2px 8px; border: 1px solid rgba(240, 160, 140, .32); border-radius: 18px;
+    background: radial-gradient(ellipse 34% 120% at 10% 60%, rgba(176, 128, 255, .28), transparent 70%), linear-gradient(90deg, rgba(200, 69, 45, .28), rgba(200, 69, 45, .06)); }
+  .mqs-boss-fig { position: relative; }
+  .mqs-boss-note { margin: 8px 0 0; color: #ffd9cf; font-weight: 700; font-size: clamp(15px, 1.35vw, 19px); line-height: 1.45; }
+  .mqs-boss-note b { color: #fff; font-size: 1.15em; }
   @media (prefers-reduced-motion: reduce) { .act-stage-count { animation: none; } }
   @media print { .act-ctl, .mq-board, .act-stage { display: none !important; } .act-veil > .quiz-item, .act-veil .tk-items, .act-veil .tk-legend { display: revert !important; } }
   `;
@@ -200,7 +248,7 @@
     // ----- 大屏（2026-11-20 用户：“机制图闯关也一起改成大屏风格。”）-----
     const opener = document.createElement('div');
     opener.className = 'act-ctl';
-    opener.innerHTML = '<div class="act-ctl-row"><button type="button" class="is-main" data-ms-open>🖥 打开闯关大屏</button>'
+    opener.innerHTML = `<div class="act-ctl-row"><button type="button" class="is-screen" data-ms-open>${SCREEN}打开闯关大屏</button>`
       + '<span class="act-state">学生在自己的页面上闯关（不计修为）。大屏上看在闯和通关的人数，再一步一步揭晓机制图和每个箭头的道理。</span></div>';
     ['click', 'keydown', 'keyup'].forEach((type) => opener.addEventListener(type, (event) => event.stopPropagation()));
     el.insertAdjacentElement('beforebegin', opener);
@@ -217,6 +265,56 @@
       <div class="act-stage-actions" data-ms-actions></div>`;
     ['click', 'keyup'].forEach((type) => stage.addEventListener(type, (event) => event.stopPropagation()));
     document.body.appendChild(stage);
+    // 大屏上的 Boss“想当然”：和学生版（build_case_html.py 的 bossFig）同一个形象，改那边要一起改
+    let figNo = 0;
+    const bossFig = (extra) => {
+      const id = `mqsf${no}x${figNo += 1}`;
+      return `<svg class="mq-bossfig${extra ? ` ${extra}` : ''}" viewBox="0 0 160 160" aria-hidden="true" focusable="false">`
+        + `<defs><radialGradient id="${id}a" cx="50%" cy="50%" r="50%"><stop offset="0" stop-color="#c59dff" stop-opacity=".5"/><stop offset="1" stop-color="#c59dff" stop-opacity="0"/></radialGradient>`
+        + `<linearGradient id="${id}b" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#9670dc"/><stop offset=".55" stop-color="#5e3c9e"/><stop offset="1" stop-color="#341f63"/></linearGradient>`
+        + `<linearGradient id="${id}c" x1="0" y1="0" x2="0" y2="1"><stop offset="0" stop-color="#fff0b8"/><stop offset="1" stop-color="#e2a636"/></linearGradient></defs>`
+        + '<ellipse class="bf-shadow" cx="80" cy="150" rx="40" ry="6"/>'
+        + '<g class="bf-body">'
+        + `<circle cx="80" cy="84" r="72" fill="url(#${id}a)"/>`
+        + `<path fill="url(#${id}b)" d="M80 30C113 30 134 53 134 86V114C134 121 127 125 121 120C115 115 109 116 105 122C101 128 92 129 88 123C84 117 76 117 72 123C68 129 59 128 55 122C51 116 45 115 39 120C33 125 26 121 26 114V86C26 53 47 30 80 30Z"/>`
+        + '<path d="M44 60C47 47 57 38 70 35" fill="none" stroke="#fff" stroke-opacity=".32" stroke-width="5" stroke-linecap="round"/>'
+        + '<ellipse cx="80" cy="100" rx="31" ry="19" fill="#fff" fill-opacity=".09"/>'
+        + `<g class="bf-crown"><path fill="url(#${id}c)" stroke="#9a6416" stroke-width="1.6" stroke-linejoin="round" d="M63 35L60 16L71 25L80 10L89 25L100 16L97 35Z"/><circle cx="80" cy="23" r="3.2" fill="#e0453a"/></g>`
+        + '<ellipse cx="55" cy="81" rx="7" ry="4" fill="#ff8fb5" fill-opacity=".4"/><ellipse cx="105" cy="81" rx="7" ry="4" fill="#ff8fb5" fill-opacity=".4"/>'
+        + '<g fill="none" stroke="#1d1230" stroke-width="3" stroke-linecap="round" stroke-linejoin="round">'
+        + '<g class="bf-face bf-idle"><ellipse cx="64" cy="67" rx="10.5" ry="8.5" fill="#fff" stroke="none"/><ellipse cx="96" cy="67" rx="10.5" ry="8.5" fill="#fff" stroke="none"/>'
+        + '<circle cx="68" cy="69.5" r="4.3" fill="#1d1230" stroke="none"/><circle cx="100" cy="69.5" r="4.3" fill="#1d1230" stroke="none"/>'
+        + '<path d="M53.5 67A10.5 9 0 0 1 74.5 67Z" fill="#4b2e86" stroke="none"/><path d="M85.5 67A10.5 9 0 0 1 106.5 67Z" fill="#4b2e86" stroke="none"/>'
+        + '<path d="M53.5 67H74.5M85.5 67H106.5" stroke-width="2.4"/><path d="M53 53Q63 50 73 54M87 50Q97 42 107 47"/><path d="M68 93Q81 99 94 88l3-2"/></g>'
+        + '<g class="bf-face bf-hurt"><path d="M57 60L69 67L57 74M103 60L91 67L103 74" stroke-width="3.6"/><path d="M54 51L70 56M106 51L90 56"/><ellipse cx="80" cy="94" rx="5.5" ry="6.5" fill="#1d1230" stroke="none"/><path d="M121 47q5 7 0 11q-5-4 0-11z" fill="#9fd8ff" stroke="none"/></g>'
+        + '<g class="bf-face bf-laugh"><path d="M55 70Q64 59 73 70M87 70Q96 59 105 70" stroke-width="3.6"/><path d="M54 52Q63 47 72 51M88 51Q97 47 106 52"/><path d="M63 86Q80 110 97 86Z" fill="#1d1230"/><path d="M72 97Q80 106 88 97Q80 100 72 97Z" fill="#ff6b8a" stroke="none"/></g>'
+        + '<g class="bf-face bf-down"><path d="M57 60L71 74M71 60L57 74M89 60L103 74M103 60L89 74" stroke-width="3.6"/><path d="M65 95q3.75-4 7.5 0t7.5 0t7.5 0t7.5 0"/></g>'
+        + '</g>'
+        + '<g transform="rotate(-10 116 108)"><rect x="96" y="99" width="40" height="19" rx="3" fill="#f7e9c4" stroke="#b08a43" stroke-width="1.5"/><rect x="92" y="96.5" width="6" height="24" rx="3" fill="#dcbc78"/><rect x="134" y="96.5" width="6" height="24" rx="3" fill="#dcbc78"/>'
+        + '<text x="116" y="113" text-anchor="middle" font-size="11.5" font-weight="800" fill="#7a4a12">①②③</text></g>'
+        + '<ellipse cx="95" cy="121" rx="7.5" ry="6" fill="#6f4bb3"/>'
+        + '</g></svg>';
+    };
+    let bossShown = -1;    // 上次画的时候有几位同学通关（多了就让它挨一下）
+    let bossPct = 100;     // 上次画的血量（新画的血条从这里滑到新的血量）
+    const bossHtml = (b) => {
+      const players = Number(b.players) || 0;
+      const cleared = Math.min(players, Number(b.cleared) || 0);
+      const pct = players ? Math.round(100 * (players - cleared) / players) : 100;
+      const beaten = players > 0 && cleared >= players;
+      const look = beaten ? 'is-beaten' : bossShown >= 0 && cleared > bossShown ? 'is-hurt' : '';
+      const note = !players ? '全班合力：每有一位同学通关，“想当然”就掉一截血。'
+        : beaten ? `全班 <b>${players}</b> 人都通关了：“想当然”被打败！`
+          : `已有 <b>${cleared}</b> 人打败了它，还剩 <b>${players - cleared}</b> 人在闯。`;
+      const html = `<div class="mqs-boss"><div class="mqs-boss-fig">${bossFig(look)}${look === 'is-hurt' ? '<span class="mq-slash" aria-hidden="true"></span>' : ''}</div><div class="mq-arena-info">
+        <div class="mq-hp${pct > 0 && pct <= 20 ? ' is-low' : ''}" role="meter" aria-label="“想当然”的血量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="${pct}">
+          <div class="mq-hp-head"><b>想当然</b><span class="mq-hp-tag">BOSS</span><span class="mq-hp-num"><b>${pct}</b>%</span></div>
+          <div class="mq-hp-track" style="--n:1"><i class="mq-hp-trail" data-to="${pct}" style="width:${bossPct}%"></i><i class="mq-hp-fill" data-to="${pct}" style="width:${bossPct}%"></i></div></div>
+        <p class="mqs-boss-note">${note}</p></div></div>`;
+      bossShown = cleared;
+      bossPct = pct;
+      return html;
+    };
     let shown = 1;         // 大屏上已经揭晓到第几个节点
     let closed = false;    // 循环图：最后一个箭头（回到第一步）揭晓了没有
     let stageSig = '';
@@ -235,11 +333,17 @@
         ? `<div class="mqs-node is-lit${index === shown - 1 && !closed ? ' is-now' : ''}"><i>${'①②③④⑤⑥'[index]}</i><b>${esc(node.label)}</b><span>${esc(node.text)}</span></div>`
         : '<div class="mqs-node"><b>？</b></div>')).join('<em>→</em>') + (loop ? `<em class="is-loop${closed ? ' is-on' : ''}">↺</em>` : '');
       stage.querySelector('[data-ms-center]').innerHTML = `<div class="act-stage-run">
-        <div class="act-stage-stats"><div><b>${b.players}</b><span>在闯</span></div><div><b>${b.chain}</b><span>推出链条</span></div><div class="is-good"><b>${b.cleared}</b><span>通关</span></div></div>
+        <div class="mqs-head">${bossHtml(b)}<div class="act-stage-stats"><div><b>${b.players}</b><span>在闯</span></div><div><b>${b.chain}</b><span>推出链条</span></div><div class="is-good"><b>${b.cleared}</b><span>通关</span></div></div></div>
         <div class="mqs-nodes">${cards}</div>
         ${ref ? `<p class="act-stage-answer">${esc(ref.head)}<br>${esc(ref.why)}</p>` : ''}
         ${b.players ? `<ul class="mqs-chips"><li>推链条：${Number(miss.next) || 0} 人选错过</li>${links.map((tag) => `<li${worst && worst.n > 0 && worst.tag === tag ? ' class="is-worst"' : ''}>${esc(tag)}：${Number(miss[tag]) || 0} 人答错过</li>`).join('')}</ul>` : ''}
-        ${b.list && b.list.length ? `<ol class="act-stage-rank mqs-rank">${b.list.map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${span(row.ms)}${row.miss ? ` · 错 ${row.miss} 次` : ' · 全对'}</em></li>`).join('')}</ol>` : ''}</div>`;
+        ${b.list && b.list.length ? `<ol class="act-stage-rank mqs-rank">${b.list.map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${span(row.ms)}${row.miss ? ` · 重来 ${row.miss} 次` : ' · 一次通关'}</em></li>`).join('')}</ol>` : ''}</div>`;
+      // 血条从上次的位置滑到新的血量（下一帧再改宽度，过渡才看得见）
+      requestAnimationFrame(() => {
+        stage.querySelectorAll('.mqs-boss [data-to]').forEach((bar) => { bar.style.width = `${bar.dataset.to}%`; });
+        const hurt = stage.querySelector('.mqs-boss .mq-bossfig.is-hurt');
+        if (hurt) setTimeout(() => hurt.classList.remove('is-hurt'), 900);   // 挨一下就回到平时的样子
+      });
       stage.querySelector('[data-ms-note]').textContent = !room ? '当前课堂不是本章（或没有登录教师工作台）：人数不会更新，仍可以一步一步揭晓。'
         : revealed() >= steps() ? '整张机制图揭晓完了：请同学把几步连起来说一遍。'
           : worst && worst.n > 0 ? `同学们在自己的页面上闯关。答错的人最多的是 ${worst.tag}：揭晓到这一步时多讲两句。`
@@ -282,7 +386,7 @@
           <div class="is-boss"><span>打败 Boss</span><em><i style="width:${width(b.cleared)}%"></i></em><b>${b.cleared}</b></div></div>
         <ul class="act-items"><li>推链条：${Number(miss.next) || 0} 人选错过</li>${links.map((tag) => `<li${worst && worst.n > 0 && worst.tag === tag ? ' class="is-worst"' : ''}>Boss 战 ${esc(tag)}：${Number(miss[tag]) || 0} 人答错过</li>`).join('')}</ul>
         ${worst && worst.n > 0 ? `<p class="act-note">答错的人最多的是 ${esc(worst.tag)}：逐步揭晓时先把这一步讲透。</p>` : ''}
-        ${b.list && b.list.length ? `<ol class="act-rank" style="margin-top:10px">${b.list.map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${span(row.ms)}${row.miss ? ` · 错 ${row.miss} 次` : ' · 全对'}</em></li>`).join('')}</ol>` : ''}`;
+        ${b.list && b.list.length ? `<p class="act-note" style="margin:10px 0 4px">用时最短的同学（各自从第一次点“开始闯关”算起，答错从头再来不停表）：</p><ol class="act-rank">${b.list.map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${span(row.ms)}${row.miss ? ` · 重来 ${row.miss} 次` : ' · 一次通关'}</em></li>`).join('')}</ol>` : ''}`;
     };
     const refresh = async () => {
       if (!room || off) return;
@@ -336,9 +440,9 @@
         <button type="button" data-act-extend hidden>${kind === 'rush' ? '+10 秒' : '+1 分钟'}</button>
         <button type="button" class="is-warn" data-act-stop hidden>${kind === 'rush' ? '结束抢答' : '结束闯关'}</button>
       </div>
-      <p class="act-note">${kind === 'rush'
+      <details class="act-tip"><summary>怎么玩</summary><p class="act-note">${kind === 'rush'
         ? `学生页先不显示这道题。点“打开抢答大屏”，在大屏上点“随机抢答”：学生页弹出 ${RUSH.delay} 秒倒计时，随后限时 ${RUSH.secs} 秒作答，每人只能交一次，前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。抢答结束后再点下面的“核对”讲评。`
-        : `学生页先不显示这三道题。点“打开闯关大屏”，在大屏上选时长、点“开始闯关”：学生页弹出 ${QUEST.delay} 秒倒计时，随后三则小资料一关一关作答（做完一关再出下一关）——每关两问（先选讲对了的分析，再判断它对应哪个理论要点），两问都对才算过关；限时内只能交一次，三关全过加 ${QUEST.points} 修为。交卷后学生页显示题目和解答。`}</p>
+        : `学生页先不显示这三道题。点“打开闯关大屏”，在大屏上选时长、点“启动闯关”：学生页出现“参与闯关”按钮，学生自己点进去，时长从各人进场算起（谁先进去都一样）。三则小资料一关一关作答——每关两问（先选讲对了的分析，再判断它对应哪个理论要点），每关递交后不能修改，到时间自动交卷。名单按答对的题数和用时排（又快又准确），三关全对加 ${QUEST.points} 修为。交卷后学生页显示完整的题目、答案和讲解。等大家都交完再点“结束闯关”。`}</p></details>
       <div class="act-board" data-act-board hidden></div>`;
     const head = box.querySelector('.interaction-heading') || box.querySelector('.tk-intro') || box.firstElementChild;
     head.insertAdjacentElement('afterend', ctl);
@@ -354,7 +458,9 @@
     let peek = false;      // 老师点了“先看一眼题目”
     let lastPhase = '';
     const now = () => Date.now() + offset;
-    const phase = () => (!game ? 'none' : game.mode === 'plain' ? 'plain' : game.closed ? 'over' : now() < game.go_at ? 'count' : now() <= game.go_at + game.secs * 1000 ? 'open' : 'over');
+    // 闯关没有统一的结束时刻：老师点“结束闯关”才结束（各人在自己的时限内交卷）
+    const phase = () => (!game ? 'none' : game.mode === 'plain' ? 'plain' : game.closed ? 'over' : now() < game.go_at ? 'count'
+      : kind === 'quest' || now() <= game.go_at + game.secs * 1000 ? 'open' : 'over');
     const control = (action, extra = {}) => rpcOne('ck_act_control', { p_classroom: Number(room.id) || room.id, p_case: no, p_kind: kind, p_action: action,
       p_mode: extra.mode || null, p_answer: extra.answer || null, p_secs: extra.secs == null ? null : extra.secs, p_delay: extra.delay == null ? null : extra.delay });
     const adopt = (res, t0) => {
@@ -371,7 +477,7 @@
       ui.extend.hidden = !(p === 'open' || p === 'over');
       ui.stop.hidden = !running;
       ui.go.textContent = kind === 'rush' ? '🖥 打开抢答大屏' : '🖥 打开闯关大屏';
-      ui.clock.hidden = !running;
+      ui.clock.hidden = !running || kind === 'quest';
       const veil = (p === 'none' || p === 'count') && !peek;
       box.classList.toggle('act-veil', veil);
       ui.peek.hidden = !(p === 'none' || p === 'count');
@@ -385,9 +491,10 @@
         : note && (p === 'none' || p === 'plain') ? note
         : p === 'none' ? (kind === 'rush' ? '还没开始：学生页上这道题是收起的。' : '还没开放：学生页上这三道题是收起的。')
         : p === 'plain' ? '这道题已经照常开放给学生作答（不抢答、不闯关），下面的“学生实时结果”照常显示。'
-        : p === 'count' ? (kind === 'rush' ? '抢答触发！学生页正在倒计时……' : '闯关入口已开放，学生页正在倒计时……')
-        : p === 'open' ? `作答中 · 已交 ${total} 人 · ${kind === 'rush' ? '答对' : '三关全过'} ${right} 人`
-        : `已结束 · 共交 ${total} 人 · ${kind === 'rush' ? '答对' : '三关全过'} ${right} 人${kind === 'rush' ? '。请点下面的“核对”讲评。' : '。交了卷的同学已经在自己页面上看到题目和解答。'}`;
+        : p === 'count' ? (kind === 'rush' ? '抢答触发！学生页正在倒计时……' : '闯关马上开始……')
+        : p === 'open' ? (kind === 'rush' ? `作答中 · 已交 ${total} 人 · 答对 ${right} 人`
+          : `闯关中 · 参与 ${board ? board.entered || 0 : 0} 人 · 在闯 ${board ? board.working || 0 : 0} 人 · 已交卷 ${total} 人 · 三关全过 ${right} 人（各自计时 ${Math.round((game.secs || 0) / 60)} 分钟）`)
+        : `已结束 · 共交 ${total} 人 · ${kind === 'rush' ? '答对' : '三关全过'} ${right} 人${kind === 'rush' ? '。请点下面的“核对”讲评。' : '。交了卷的同学已经在自己页面上看到完整的题目、答案和讲解。'}`;
       paintBoard(p);
       if (p === 'over' && kind === 'quest' && lastPhase !== 'over') tab = 0;   // 闯关刚结束：大屏从第一关开始揭晓
       lastPhase = p;
@@ -405,10 +512,10 @@
       } else {
         const ids = Object.keys(board.items || {}).sort();
         const label = (id) => { const m = /^tk-(\d+)(k?)$/.exec(id); return m ? `第 ${m[1]} 关${m[2] ? '第二问' : '第一问'}` : id; };
-        const passed = board.list.filter((row) => row.ok);
-        ui.board.innerHTML = `<h5>已交<b>${board.total}</b>人 · 三关全过<b>${board.right}</b>人（各加 ${QUEST.points} 修为）</h5>`
+        // 名单：答对的题数从多到少，一样多的用时从短到长（后台已排好；用时从各人点“参与闯关”算起）
+        ui.board.innerHTML = `<h5>参与<b>${board.entered || 0}</b>人 · 在闯<b>${board.working || 0}</b>人 · 已交卷<b>${board.total}</b>人 · 三关全过<b>${board.right}</b>人（各加 ${QUEST.points} 修为）</h5>`
           + (ids.length ? `<ul class="act-items">${ids.map((id) => `<li>${esc(label(id))}：答对 ${board.items[id]} 人</li>`).join('')}</ul>` : '')
-          + (passed.length ? `<ol class="act-rank" style="margin-top:10px">${passed.slice(0, 30).map((row, i) => `<li><i>${i + 1}</i><span>${esc(row.name)}</span><em>${secs(row.ms)}</em></li>`).join('')}</ol>` : '');
+          + (board.list.length ? `<ol class="act-rank" style="margin-top:10px">${board.list.slice(0, 30).map((row, i) => `<li class="${row.ok ? '' : 'is-out'}"><i>${i + 1}</i><span>${esc(row.name)}</span><em>${row.right}/${row.total} · ${span(row.ms)}</em></li>`).join('')}</ol>` : '');
       }
     }
     async function refresh() {
@@ -485,10 +592,10 @@
       `每人只能交一次；前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。`,
       '没有触发时，题目照常开放，学生像平常一样作答。',
     ] : [
-      '三则小资料，一则一关：学生在自己的页面上闯关，做完一关再出下一关。',
-      '每关两问：先选出讲对了的分析，再判断它对应哪个理论要点；两问都对才算过关。',
-      `限时作答，只能交一次，到时间自动交卷；三关全过加 ${QUEST.points} 修为。`,
-      '时间到以后，在大屏上一关一关揭晓答案。',
+      '学生页先不显示这三则小资料。点“启动闯关”后，学生页出现“参与闯关”按钮，学生自己点进去。',
+      '限时从每位同学点“参与闯关”时算起，各算各的，谁先进去都一样；到时间自动交卷。',
+      '三则小资料一关一关做：每关两问（先选讲对了的分析，再判断它对应哪个理论要点），每关递交后不能修改。',
+      `按答对的题数排名，一样多的比用时（又快又准确）；三关全对加 ${QUEST.points} 修为。交卷后学生页显示完整的题目、答案和错在哪里。`,
     ]);
     const levelView = (i, reveal) => {
       const L = levels[i];
@@ -525,7 +632,7 @@
           actions = kind === 'rush'
             ? `<button type="button" class="is-go" data-as-start${busy ? ' disabled' : ''}>🎲 随机抢答</button><button type="button" data-as-plain${busy || p === 'plain' ? ' disabled' : ''}>不抢答，直接开放这道题</button>`
             : `<select data-as-mins aria-label="闯关时长">${QUEST.minutes.map((m) => `<option value="${m}"${String(m) === String(ui.mins.value) ? ' selected' : ''}>${m} 分钟</option>`).join('')}</select>`
-              + `<button type="button" class="is-go" data-as-start${busy ? ' disabled' : ''}>🚩 开始闯关</button><button type="button" data-as-plain${busy || p === 'plain' ? ' disabled' : ''}>不闯关，直接开放题目</button>`;
+              + `<button type="button" class="is-go" data-as-start${busy ? ' disabled' : ''}>🚩 启动闯关</button><button type="button" data-as-plain${busy || p === 'plain' ? ' disabled' : ''}>不闯关，直接开放题目</button>`;
         } else if (p === 'count') {
           center = `<div class="act-stage-count">${Math.max(1, Math.ceil((game.go_at - now()) / 1000))}</div>`;
           hint = kind === 'rush' ? '抢答触发！看清题目再交，只能交一次。' : '闯关马上开始：三关、每关两问，只能交一次。';
@@ -533,9 +640,14 @@
         } else if (p === 'open') {
           const tabs = kind === 'quest' ? `<div class="act-stage-tabs"><button type="button" data-as-tab="-1" aria-pressed="${tab < 0}">总览</button>${levels.map((L, i) =>
             `<button type="button" data-as-tab="${i}" aria-pressed="${tab === i}">第 ${i + 1} 关 ${esc(L.title.replace(/^小资料\s*\d+\s*/, ''))}</button>`).join('')}</div>` : '';
-          center = `<div class="act-stage-run"><div class="act-stage-head"><div class="act-stage-clock" data-as-clock></div>${stats}</div>${tabs}`
-            + (kind === 'rush' ? `<div class="act-stage-q"><p class="act-stage-qtext"><small>多选</small>${esc(levels[0].prompt)}</p>${optList(levels[0], false)}</div>` : tab >= 0 && levels[tab] ? levelView(tab, false) : '') + '</div>';
-          hint = kind === 'rush' ? `前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。` : '学生在自己的页面上一关一关作答；点上面的某一关，可以把这一关的小资料和题目投到大屏上（不显示答案）。';
+          // 闯关（各自计时）：没有统一倒计时，大屏上是参与、在闯、交卷的人数和实时排名
+          const qstats = kind === 'quest' ? `<div class="act-stage-stats"><div><b>${board ? board.entered || 0 : 0}</b><span>参与</span></div><div><b>${board ? board.working || 0 : 0}</b><span>在闯</span></div>`
+            + `<div><b>${total}</b><span>已交卷</span></div><div class="is-good"><b>${right}</b><span>三关全过</span></div></div>` : '';
+          const live = kind === 'quest' && board && board.list.length && tab < 0 ? `<ol class="act-stage-rank">${board.list.slice(0, 12).map((row, i) =>
+            `<li class="${row.ok ? '' : 'is-out'}"><i>${i + 1}</i><span>${esc(row.name)}</span><em>${row.right}/${row.total} · ${span(row.ms)}</em></li>`).join('')}</ol>` : '';
+          center = `<div class="act-stage-run"><div class="act-stage-head">${kind === 'quest' ? `<div class="act-stage-clock is-done">限时 ${Math.round((game.secs || 0) / 60)} 分钟 · 各自计时</div>${qstats}` : `<div class="act-stage-clock" data-as-clock></div>${stats}`}</div>${tabs}`
+            + (kind === 'rush' ? `<div class="act-stage-q"><p class="act-stage-qtext"><small>多选</small>${esc(levels[0].prompt)}</p>${optList(levels[0], false)}</div>` : tab >= 0 && levels[tab] ? levelView(tab, false) : live) + '</div>';
+          hint = kind === 'rush' ? `前 ${RUSH.top} 位答对的同学各加 ${RUSH.points} 修为。` : '同学们点“参与闯关”自己进去，时间从各人进场算起；排名先看答对的题数，一样多的比用时。点上面的某一关，可以把这一关投到大屏上（不显示答案）。';
           actions = `<button type="button" data-as-extend${busy ? ' disabled' : ''}>${kind === 'rush' ? '+10 秒' : '+1 分钟'}</button><button type="button" class="is-red" data-as-stop${busy ? ' disabled' : ''}>${kind === 'rush' ? '结束抢答' : '结束闯关'}</button>`;
         } else {
           const done = `<div class="act-stage-head"><div class="act-stage-clock is-done">${kind === 'rush' ? '抢答结束' : '闯关结束'}</div>${stats}</div>`;
@@ -546,13 +658,18 @@
             hint = `前 ${RUSH.top} 名各加 ${RUSH.points} 修为。关闭大屏后，点题目下面的“核对”逐项讲评。`;
             actions = `<button type="button" data-as-start${busy ? ' disabled' : ''}>🎲 再来一次（没交的同学）</button><button type="button" class="is-go" data-as-close>关闭大屏，去讲评</button>`;
           } else {
-            const passed = (board ? board.list : []).filter((row) => row.ok);
+            const rows = board ? board.list : [];
             const at = Math.min(Math.max(tab, 0), levels.length);
+            const working = board ? Number(board.working) || 0 : 0;
             const tabs = `<div class="act-stage-tabs">${levels.map((L, i) => `<button type="button" data-as-tab="${i}" aria-pressed="${at === i}">第 ${i + 1} 关</button>`).join('')}`
-              + `<button type="button" data-as-tab="${levels.length}" aria-pressed="${at === levels.length}">过关名单</button></div>`;
-            center = `<div class="act-stage-run">${done}${tabs}${at < levels.length ? levelView(at, true)
-              : (passed.length ? rankList(passed.slice(0, 40), false) : '<p class="act-stage-empty">这一次没有同学三关全过。</p>')}</div>`;
-            hint = at < levels.length ? `第 ${at + 1} 关揭晓：看答案和每一问答对的人数；讲完点“下一关”。交了卷的同学已经在自己页面上看到题目和解答。` : `三关全过的同学各加 ${QUEST.points} 修为。`;
+              + `<button type="button" data-as-tab="${levels.length}" aria-pressed="${at === levels.length}">排名</button></div>`;
+            const rank = rows.length ? `<ol class="act-stage-rank">${rows.slice(0, 40).map((row, i) => `<li class="${row.ok ? '' : 'is-out'}"><i>${i + 1}</i><span>${esc(row.name)}</span><em>${row.right}/${row.total} · ${span(row.ms)}${row.bonus > 0 ? ` · +${row.bonus}` : ''}</em></li>`).join('')}</ol>`
+              : '<p class="act-stage-empty">这一次没有同学交卷。</p>';
+            // 还有同学在自己的时限内闯关时，先别揭晓答案
+            center = `<div class="act-stage-run">${done}${tabs}${working && at < levels.length ? `<p class="act-stage-empty">还有 ${working} 位同学在自己的时限内闯关：等他们交完卷再揭晓答案，或先看“排名”。</p>`
+              : at < levels.length ? levelView(at, true) : rank}</div>`;
+            hint = at < levels.length ? `第 ${at + 1} 关揭晓：看答案和每一问答对的人数；讲完点“下一关”。交了卷的同学已经在自己页面上看到完整的题目、答案和讲解。`
+              : `排名先看答对的题数，一样多的比用时（各自从“参与闯关”算起）；三关全对的同学各加 ${QUEST.points} 修为。`;
             actions = `<button type="button" data-as-prev${at <= 0 ? ' disabled' : ''}>‹ 上一关</button><button type="button" class="is-go" data-as-next${at >= levels.length ? ' disabled' : ''}>${at >= levels.length - 1 ? '过关名单 ›' : '下一关 ›'}</button>`
               + `<button type="button" data-as-start${busy ? ' disabled' : ''}>🚩 重新开放（没交的同学）</button><button type="button" data-as-close>关闭大屏</button>`;
           }

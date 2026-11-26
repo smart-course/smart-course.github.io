@@ -97,6 +97,15 @@
   .wgx-t-open:disabled { opacity: .5; cursor: default; }
   .wgx-t-state { flex: 1 1 260px; min-width: 0; color: #ffe8a8; font-weight: 700; }
   .wgx-t-note { margin: 8px 0 0; color: #6d6259; font-size: 13.5px; }
+  /* 2026-11-26 玩法、大屏条下的说明收进“玩法／怎么玩 ▾”（用户：“有些文字是不是不需要，或者可以简洁一些（隐藏起来？），使之更美观”） */
+  .wgx-tip { margin: 8px 0 0; }
+  .wgx-tip > summary { display: inline-flex; align-items: center; gap: 6px; padding: 3px 12px 3px 8px; border: 1px solid rgba(35, 101, 95, .28); border-radius: 999px;
+    background: rgba(35, 101, 95, .06); color: #23655f; font: 700 13.5px/1.6 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; cursor: pointer; list-style: none; }
+  .wgx-tip > summary::-webkit-details-marker { display: none; }
+  .wgx-tip > summary::before { content: "i"; display: grid; place-items: center; width: 17px; height: 17px; border-radius: 50%; background: #23655f; color: #fff; font: italic 800 11.5px/1 Georgia, serif; }
+  .wgx-tip > summary::after { content: "▾"; font-size: 11px; }
+  .wgx-tip[open] > summary::after { content: "▴"; }
+  .wgx-tip[open] > ol, .wgx-tip[open] > p { margin-top: 10px; }
   .wgx-tb { display: grid; gap: 8px; margin-top: 8px; }
   .wgx-tb p { margin: 0; color: #6d6259; font-size: 13.5px; line-height: 1.55; }
   .wgx-tb button { justify-self: start; padding: 9px 16px; border: 1px solid #b5701e; border-radius: 10px; color: #2b2118; background: linear-gradient(180deg, #f6c765, #dd9a2c); font: inherit; font-weight: 800; cursor: pointer; }
@@ -576,8 +585,8 @@
       }
       box.classList.add('wgx-live');
       box.innerHTML = '<div class="wgx-t-bar"><button type="button" class="wgx-t-open" data-wgx-open>🎮 打开猜词大屏</button><span class="wgx-t-state" data-wgx-tstate role="status">正在连接……</span></div>'
-        + '<p class="wgx-t-note">打开以后，学生页弹出“加入／不加入”；加入的同学投票抽 1 人还是抽 2 人上台，按票多的一边抽（一样多时老师选）。抽 1 人时，抽中的同学在自己的页面上选搭档，老师也可以代选。'
-        + `上台前可以调换描述人和猜词人、换人、选 1—5 分钟和词组。额外小游戏，不计入本课时间和每次课的分值；今天得分第一的一组每人加 ${POINTS} 修为（在大屏得分榜上发）。</p>`;
+        + '<details class="wgx-tip"><summary>怎么玩</summary><p class="wgx-t-note">打开以后，学生页弹出“加入／不加入”；加入的同学投票抽 1 人还是抽 2 人上台，按票多的一边抽（一样多时老师选）。抽 1 人时，抽中的同学在自己的页面上选搭档，老师也可以代选。'
+        + `上台前可以调换描述人和猜词人、换人、选 1—5 分钟和词组。额外小游戏，不计入本课时间和每次课的分值；今天得分第一的一组每人加 ${POINTS} 修为（在大屏得分榜上发）。</p></details>`;
       box.querySelector('[data-wgx-open]').addEventListener('click', (event) => { event.stopPropagation(); openStage(); });
       return box;
     });
