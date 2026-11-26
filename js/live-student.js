@@ -3002,7 +3002,8 @@
   //   安卓等支持的浏览器进入系统全屏并锁定横屏；不能锁定（iPhone、微信里打开等）又竖着拿时，可以“旋转画面”把题目转成横向显示（写字时自动转回竖屏，
   //   有弹窗——投票、情境猜谜等——时也先转回竖屏）；手机本来就横着拿时直接是横屏排版。
   //   入口：每道题递交按钮旁的“⤢ 全屏”（从这一题开始）、面板里的“全屏答题”（从第一道未递交的题开始）。返回键、Esc、左上角“退出”都能退出，退出后停在刚才那道题。
-  const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1 };
+  const FS = { on: false, at: 0, list: [], marked: [], opened: [], hidden: [], ui: null, timer: 0, locked: false, rot: load('classlive-fs-rot', ''), zoom: Number(load('classlive-fs-zoom', 1)) || 1,
+    held: false, pin: null, ro: null, rotWas: false };
   const FS_STOP = 'main, body, .section-inner, .inner, section.page, .page-section, .cl-unit, [data-nav]';
   const FS_POPUP = '.cl-ascend-layer, .clp-act, .clp-poll, .clp-pzd, .clp-tl, .clp-realm-modal, .clp-egg, .clp-toast, .clp-zan, .lp-modal, .sg-root, .dm-gifts, .clp-pv-pop, .cl-leave, dialog, [role="dialog"], [aria-modal="true"]';
   const fsRoot = () => document.querySelector('main') || document.body;
@@ -3049,6 +3050,7 @@
   function fsApplyRot() {
     const html = document.documentElement;
     const want = FS.on && FS.rot === 'on' && !FS.locked && fsPortrait() && fsRoot() !== document.body;
+    if (want !== FS.rotWas) { FS.rotWas = want; fsUnhold(); }   // 转屏前后排法不同：恢复成刚进来时的样子
     html.style.setProperty('--fs-w', `${window.innerWidth}px`);
     html.style.setProperty('--fs-h', `${window.innerHeight}px`);
     html.classList.toggle('clp-fs-rot', want);
@@ -3130,10 +3132,85 @@
     next.textContent = last ? '完成，退出 ✓' : '下一题 ›';
     next.classList.toggle('is-ready', Boolean(entry || q.stopped));   // 这一题递交了：“下一题”亮起来，顺着答下去
   }
+  // 2026-11-26 用户：“在全屏模式答题的时候，看解答和收起解答页面跳动的非常厉害，你能想办法不要跳的太厉害，还是保持在当前题目吗？”
+  //   这道题在屏幕上下居中（[data-fs-root] justify-content: center）：点“展开解答”“我的备注”内容变高，整块往上挪一半；收起时又往下挪，
+  //   页面滚到下面时还会被浏览器拉回去。改法同电脑上的“全屏看题”（两门课章节页的 ClassStage）：
+  //   ① 这道题里点过按钮（fsHold），改成从现在的位置往下排，内容变高只往下长；换题、退出、转屏时恢复居中；
+  //   ② 点下去时记住按钮在屏幕上的位置（fsPinAt），之后 6 秒内这道题高度每变一次，就把按钮挪回原处（fsRepin；解答要等后台回话也接得住），
+  //      收起后页面变短滚不回去，就在下面补一块空白；展开的解答落在屏幕下面看不到时，平滑地往上带一点，题目上沿不移到顶栏下面。
+  //   “旋转画面”时题目在转了 90° 的框里，本来就从上往下排（不居中），不处理。
+  function fsHold() {
+    if (FS.held || fsRotActive()) return;
+    FS.held = true;
+    const r = fsRoot(), first = FS.marked.find((el) => el.hasAttribute('data-fs-on'));
+    if (!first) return;
+    const before = first.getBoundingClientRect().top;
+    r.style.setProperty('justify-content', 'flex-start');
+    const gap = before - first.getBoundingClientRect().top;   // 原来居中时上面空出来的高度：补成上边距，这一刻位置不变
+    if (gap > 0.5) r.style.setProperty('padding-top', `${parseFloat(getComputedStyle(r).paddingTop) + gap}px`, 'important');
+  }
+  function fsUnhold() {
+    FS.held = false;
+    FS.pin = null;
+    const r = fsRoot();
+    ['justify-content', 'padding-top', 'padding-bottom'].forEach((name) => r.style.removeProperty(name));
+  }
+  function fsPinAt(el) {
+    if (fsRotActive()) return;
+    const item = el.closest('.clp-q, .quiz-item, .tk-item, .cl-item, .cl-mcq, .cl-exit-item, details, li, form') || el;
+    const a = el.getBoundingClientRect();
+    const b = item.getBoundingClientRect();
+    FS.pin = { el, item, el0: a.top, item0: b.top, h: b.height, until: Date.now() + 6000, shown: false };
+  }
+  function fsRepin() {
+    const p = FS.pin;
+    if (!p || !FS.on || fsRotActive() || Date.now() > p.until) { FS.pin = null; return; }
+    const seen = (el) => el.isConnected && el.getClientRects().length > 0;
+    const useEl = seen(p.el);   // 按钮还在就钉按钮；按钮藏起来了就钉这道题
+    if (!useEl && !seen(p.item)) { FS.pin = null; return; }
+    const off = () => (useEl ? p.el.getBoundingClientRect().top - p.el0 : p.item.getBoundingClientRect().top - p.item0);
+    const html = document.documentElement;
+    if (Math.abs(off()) >= 1) {   // 钉回原处：立即，不要动画（就是为了看不出跳）
+      const old = html.style.scrollBehavior;
+      html.style.scrollBehavior = 'auto';
+      window.scrollBy(0, off());
+      const r = fsRoot();
+      for (let i = 0, left = off(); i < 3 && left > 1; i += 1, left = off()) {   // 已经滚到底：在下面补一块空白再滚（空白先填这一屏的最小高度，不够再补）
+        r.style.setProperty('padding-bottom', `${parseFloat(getComputedStyle(r).paddingBottom) + left}px`, 'important');
+        window.scrollBy(0, left);
+      }
+      html.style.scrollBehavior = old;
+    }
+    if (p.shown) return;
+    const box = p.item.getBoundingClientRect();   // 钉好以后再量
+    if (box.height <= p.h + 8) return;
+    p.shown = true;
+    const css = getComputedStyle(html);
+    const topLimit = (parseFloat(css.getPropertyValue('--fs-top')) || 46) + 8;
+    const bottomLimit = window.innerHeight - (parseFloat(css.getPropertyValue('--fs-bottom')) || 60);
+    const more = Math.max(0, Math.min(box.bottom - bottomLimit, box.top - topLimit));
+    if (more < 1) return;
+    FS.pin = null;   // 平滑地往上带，带完就不再钉（免得和动画抢）
+    window.scrollBy({ top: more, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' });
+  }
+  // 这道题里点了按钮、选项、输入框：改成从现在的位置往下排，并记住点的位置；捕获阶段，在按钮改动页面之前记下
+  window.addEventListener('click', (event) => {
+    if (!FS.on || !event.target.closest || !event.target.closest('[data-fs-on]')) return;
+    fsHold();
+    const hit = event.target.closest('button, summary, label, input, select, textarea, [role="button"]');
+    if (hit) fsPinAt(hit);
+  }, true);
+  ['wheel', 'touchmove', 'keydown'].forEach((type) => window.addEventListener(type, () => { FS.pin = null; }, { capture: true, passive: true }));
   function fsShow(index) {
     FS.at = Math.max(0, Math.min(FS.list.length - 1, index));
+    fsUnhold();
     fsUnmark();
     fsMark(fsZone(FS.list[FS.at]));
+    if (FS.ro) FS.ro.disconnect();
+    if ('ResizeObserver' in window) {   // 这道题变高、变矮（展开解答、我的备注……）：把刚点的按钮挪回原处
+      FS.ro = new ResizeObserver(() => { if (FS.pin) fsRepin(); });
+      FS.marked.filter((el) => el.hasAttribute('data-fs-on')).forEach((el) => FS.ro.observe(el));
+    }
     fsPaint();
     fsApplyRot();
     requestAnimationFrame(fsScrollTop);
@@ -3198,6 +3275,8 @@
     const q = FS.list[FS.at];
     FS.on = false;
     clearInterval(FS.timer);
+    if (FS.ro) { FS.ro.disconnect(); FS.ro = null; }
+    fsUnhold();
     fsUnmark();
     FS.hidden.forEach((el) => el.removeAttribute('data-fs-hide'));
     FS.hidden = [];
