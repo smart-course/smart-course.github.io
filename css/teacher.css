@@ -1781,6 +1781,35 @@ details.tw-up-sec > ul > li { min-width: 0; }
 .tw-fb-card.is-k-ask { border-left: 4px solid #6f9bd8; }
 .tw-fb-card.is-k-chat { border-left: 4px solid #b58ac6; }
 @media (max-width: 760px) { .tw-fb-meta .tw-fb-kind { margin-bottom: 0; } }
+/* 改标签（2026-11-26）：卡片左上角的标签本身是按钮（带个小箭头），点一下在下面弹出小菜单（.tw-fb-kindpop：菜单＋出错说明）：课程共建／课程疑问／纯唠嗑，打勾的是现在的标签 */
+.tw-fb-kindwrap { position: relative; display: flex; align-items: center; justify-self: start; margin-bottom: 3px; }
+.tw-fb-meta button.tw-fb-kind { display: inline-flex; align-items: center; gap: 5px; margin: 0; border: 0; font-family: inherit; line-height: 1.55; cursor: pointer; transition: box-shadow .15s ease; }
+.tw-fb-meta button.tw-fb-kind i { flex: 0 0 auto; width: 5px; height: 5px; margin: -3px 1px 0 0; border-right: 1.5px solid currentColor; border-bottom: 1.5px solid currentColor; transform: rotate(45deg); opacity: .5; transition: transform .15s ease, opacity .15s ease; }
+.tw-fb-meta button.tw-fb-kind:hover { box-shadow: inset 0 0 0 1px currentColor; }
+.tw-fb-meta button.tw-fb-kind:hover i, .tw-fb-meta button.tw-fb-kind:focus-visible i, .tw-fb-meta button.tw-fb-kind[aria-expanded="true"] i { opacity: 1; }
+.tw-fb-meta button.tw-fb-kind[aria-expanded="true"] { box-shadow: inset 0 0 0 1px currentColor; }
+.tw-fb-meta button.tw-fb-kind[aria-expanded="true"] i { margin-top: 3px; transform: rotate(-135deg); }
+.tw-fb-meta button.tw-fb-kind:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+.tw-fb-kindpop { position: absolute; top: calc(100% + 5px); left: 0; z-index: 5; width: max-content; min-width: 140px; max-width: 260px; padding: 6px;
+  border: 1px solid var(--line); border-radius: 12px; background: var(--white); box-shadow: 0 16px 34px rgba(53, 38, 24, .16); }
+.tw-fb-kindmenu { display: grid; gap: 2px; }
+.tw-fb-kindmenu button { --k: #6d6259; --k-soft: #efe9e1; --k-dot: #b9afa4; display: flex; align-items: center; gap: 8px; padding: 6px 10px; border: 0; border-radius: 8px;
+  background: transparent; color: var(--k); font: 700 13.5px/1.4 var(--sans); text-align: left; white-space: nowrap; cursor: pointer; }
+.tw-fb-kindmenu button.is-build { --k: #9a5214; --k-soft: #fff1de; --k-dot: #d48a3c; }
+.tw-fb-kindmenu button.is-ask { --k: #24589f; --k-soft: #e9f1fc; --k-dot: #6f9bd8; }
+.tw-fb-kindmenu button.is-chat { --k: #773d8b; --k-soft: #f5ecf9; --k-dot: #b58ac6; }
+.tw-fb-kindmenu button::before { content: ""; flex: 0 0 auto; width: 8px; height: 8px; border-radius: 50%; background: var(--k-dot); }
+.tw-fb-kindmenu button::after { content: ""; flex: 0 0 auto; width: 4px; height: 8px; margin: -3px 3px 0 auto; border-right: 2px solid currentColor; border-bottom: 2px solid currentColor; transform: rotate(45deg); visibility: hidden; }
+.tw-fb-kindmenu button[aria-checked="true"] { background: var(--k-soft); }
+.tw-fb-kindmenu button[aria-checked="true"]::after { visibility: visible; }
+.tw-fb-kindmenu button:hover, .tw-fb-kindmenu button:focus-visible { background: var(--k-soft); box-shadow: inset 0 0 0 1.5px var(--k-dot); outline: none; }
+.tw-fb-kindmenu[aria-busy="true"] button { opacity: .55; cursor: progress; }
+.tw-fb-kinderr { margin: 4px 4px 2px; color: var(--rust); font-size: 12.5px; font-weight: 700; line-height: 1.5; white-space: normal; overflow-wrap: anywhere; }
+@media (max-width: 760px) {
+  .tw-fb-kindwrap { margin-bottom: 0; }
+  .tw-fb-meta button.tw-fb-kind { padding: 3px 11px; }   /* 手机上手指好点 */
+  .tw-fb-kindmenu button { padding: 9px 12px; font-size: 14.5px; }
+}
 
 /* 匿名建议、往来回复里的表情（2026-11-23，live-stickers.js 的 attach 和 html） */
 .tw-reply-tools { display: flex; align-items: center; gap: 8px; margin: 8px 0 0; }

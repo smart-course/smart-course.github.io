@@ -1631,6 +1631,240 @@
           read('homework').filter(mine).forEach((doc) => Object.keys(doc.payload || {}).forEach((key) => add(key, Number(doc.ts) || 0)));
           return { status: 'ok', items: Array.from(first.entries()).map(([key, ts]) => ({ key, ts })).sort((a, b) => a.ts - b.ts) };
         }
+        // 猜词游戏大屏（2026-11-26，规则同 cloudbase-pg-20261126-猜词游戏大屏.sql 的 ck_wg_live／join／vote／pick／control）：本机表 wgrounds（一轮一行）、wgmembers（每轮每人一行）。
+        // 本机测试时同一个浏览器常常既登录了工作台又以学生登录了课堂：投屏页（页面里有猜词词组）和 ck_wg_control 按老师算，学生页按学生算
+        if (/^ck_wg_(live|join|vote|pick|control)$/.test(name)) {
+          const uid = await this.ensureAnonymous();
+          const cid = params.p_classroom;
+          const room = read('classrooms').find((r) => String(r.id) === String(cid));
+          const me = myCheckin(uid, cid);
+          const teacher = Boolean(localStorage.getItem(prefix + 'teacher')) && (!me || name === 'ck_wg_control' || Boolean(document.querySelector('[data-wordgame-data]')));
+          const day = today();
+          let rounds = read('wgrounds');
+          let members = read('wgmembers');
+          const save = () => { write('wgrounds', rounds); write('wgmembers', members); };
+          const sameDay = (x) => String(x.classroom) === String(cid) && x.day === day;
+          const current = () => rounds.filter(sameDay).sort((a, b) => b.id - a.id)[0] || null;
+          const roster = () => {
+            const klass = room && read('classes').find((k) => String(k.id) === String(room.class_id));
+            return ((klass && klass.roster) || []).map((p, i) => ({ sid: sidKey(p.sid), no: i + 1, name: p.name }));
+          };
+          const noOf = (sid) => (roster().find((p) => p.sid === sid) || {}).no || null;
+          const keyOf = (r, sid) => {   // 后台是 md5 前 12 位；本机用一个简单的散列代替，同样每轮不同、看不出学号
+            let h = 2166136261 >>> 0;
+            for (const ch of `${r.id}:${sid}`) { h ^= ch.codePointAt(0); h = Math.imul(h, 16777619) >>> 0; }
+            return (h.toString(16).padStart(8, '0') + (h >>> 7).toString(16).padStart(8, '0')).slice(0, 12);
+          };
+          const membersOf = (r) => members.filter((m) => m.round_id === r.id);
+          const view = (r, sid) => {
+            if (!r) return null;
+            const ms = membersOf(r);
+            const mine = sid ? ms.find((m) => m.sid === sid) : null;
+            const mp = sid ? r.players.find((p) => p.sid === sid) : null;
+            const out = { id: r.id, no: r.round_no, phase: r.phase, closed: Boolean(r.closed_at), mode: r.mode, minutes: r.minutes, score: r.score, go_at: r.go_at || null,
+              players: r.players.map((p) => ({ name: p.name, role: p.role, drawn: Boolean(p.drawn), me: Boolean(sid) && p.sid === sid, ...(teacher ? { sid: p.sid } : {}) })),
+              joined: ms.filter((m) => m.joined).length,
+              votes: { 1: ms.filter((m) => m.joined && m.vote === 1).length, 2: ms.filter((m) => m.joined && m.vote === 2).length },
+              mine: { joined: mine ? mine.joined : null, vote: mine ? mine.vote : null, role: mp ? mp.role : null, drawn: Boolean(mp && mp.drawn) } };
+            if (r.phase === 'pick' && mp && mp.drawn) {
+              const cands = ms.filter((m) => m.joined && m.sid !== sid);
+              out.pick = cands.map((m) => ({ no: noOf(m.sid), key: keyOf(r, m.sid),
+                label: m.name + (cands.filter((x) => nameKey(x.name) === nameKey(m.name)).length > 1 && noOf(m.sid) ? ` · ${noOf(m.sid)}号` : '') }))
+                .sort((a, b) => (a.no || 9999) - (b.no || 9999)).map(({ key, label }) => ({ key, label }));
+            }
+            if (teacher) {
+              out.group = r.group_name || null;
+              out.members = ms.map((m) => ({ sid: m.sid, name: m.name, no: noOf(m.sid), joined: m.joined, vote: m.vote })).sort((a, b) => (a.no || 9999) - (b.no || 9999));
+            }
+            return out;
+          };
+          const live = () => {
+            const r = current();
+            const out = { status: 'ok', now: Date.now(), teacher, round: view(r, teacher ? null : sidKey(me.sid)),
+              board: rounds.filter((x) => sameDay(x) && x.phase === 'done').sort((a, b) => a.round_no - b.round_no)
+                .map((x) => ({ no: x.round_no, score: x.score, names: x.players.map((p) => p.name),
+                  ...(teacher ? { group: x.group_name || null, people: x.players.map((p) => ({ sid: p.sid, name: p.name })) } : {}) })) };
+            if (teacher) {
+              const seen = new Map();
+              read('checkins').filter((c) => String(c.classroom) === String(cid) && c.session === day && c.verified && !c.auditor).forEach((c) => seen.set(sidKey(c.sid), c));
+              out.present = Array.from(seen.entries()).map(([sid, c]) => {
+                const m = r ? membersOf(r).find((x) => x.sid === sid) : null;
+                return { sid, name: c.name, no: noOf(sid), joined: m ? m.joined : null };
+              }).sort((a, b) => (a.no || 9999) - (b.no || 9999));
+            }
+            return out;
+          };
+          if (name === 'ck_wg_live') {
+            if (!teacher && !me) return { status: 'login' };
+            if (!room) return { status: 'gone' };
+            return live();
+          }
+          if (name !== 'ck_wg_control') {
+            if (teacher) return { ...live(), result: 'teacher' };
+            if (!me) return { status: 'login' };
+            const sid = sidKey(me.sid);
+            const r = current();
+            if (!r || r.closed_at) return { ...live(), result: 'closed' };
+            if (name === 'ck_wg_join') {
+              const join = params.p_join !== false;
+              if (!join && ['pick', 'ready', 'play'].includes(r.phase) && r.players.some((p) => p.sid === sid)) return { ...live(), result: 'onstage' };
+              const m = members.find((x) => x.round_id === r.id && x.sid === sid);
+              if (m) { m.joined = join; m.name = me.name; if (!join) m.vote = null; } else members.push({ round_id: r.id, sid, name: me.name, joined: join, vote: null });
+              save();
+              return { ...live(), result: 'ok' };
+            }
+            if (name === 'ck_wg_vote') {
+              if (![1, 2].includes(Number(params.p_mode))) throw new Error('只能投“抽 1 人上台”或“抽 2 人上台”');
+              if (r.phase !== 'vote') return { ...live(), result: 'phase' };
+              const m = members.find((x) => x.round_id === r.id && x.sid === sid && x.joined);
+              if (!m) return { ...live(), result: 'notjoined' };
+              m.vote = Number(params.p_mode);
+              save();
+              return { ...live(), result: 'ok' };
+            }
+            const drawn = r.players.find((p) => p.sid === sid && p.drawn);
+            if (r.phase !== 'pick' || !drawn) return { ...live(), result: 'phase' };
+            const cands = membersOf(r).filter((m) => m.joined && m.sid !== sid);
+            const key = String(params.p_key || '').trim();
+            const typed = nameKey(String(params.p_name || '').slice(0, 40));
+            let hit = null;
+            if (key) hit = cands.find((m) => keyOf(r, m.sid) === key) || null;
+            else if (typed) {
+              const same = cands.filter((m) => nameKey(m.name) === typed);
+              if (same.length > 1) return { ...live(), result: 'many' };
+              hit = same[0] || null;
+              if (!hit && typed === nameKey(me.name)) return { ...live(), result: 'self' };
+              if (!hit) {
+                const who = read('checkins').filter((c) => String(c.classroom) === String(cid) && c.session === day && c.verified && !c.auditor
+                  && nameKey(c.name) === typed && sidKey(c.sid) !== sid).pop();
+                if (who) return { ...live(), result: 'notjoined', who: who.name };
+              }
+            }
+            if (!hit) return { ...live(), result: 'nobody' };
+            r.players = [{ ...drawn, role: 'describer' }, { sid: hit.sid, name: hit.name, role: 'guesser', drawn: false }];
+            r.phase = 'ready';
+            save();
+            return { ...live(), result: 'ok' };
+          }
+          teacherOnly();
+          if (!room) throw new Error('课堂不存在');
+          const v = params.p_value || {};
+          const act = params.p_action;
+          let r = current();
+          const ok = (result = 'ok') => { save(); return { ...live(), result }; };
+          const slotOf = (value) => (/^[01]$/.test(String(value == null ? '' : value)) ? Number(value) : null);
+          if (act === 'open' || act === 'next') {
+            if (act === 'open' && r && r.phase !== 'done') { r.closed_at = null; return ok(); }
+            if (r && r.phase === 'play') return ok('playing');
+            const prev = r;
+            r = { id: nextId(rounds), course: room.course, classroom: room.id, class_id: room.class_id, day,
+              round_no: Math.max(0, ...rounds.filter(sameDay).map((x) => x.round_no)) + 1, phase: prev ? 'vote' : 'join', mode: null, players: [],
+              minutes: prev ? prev.minutes : 2, group_name: null, go_at: null, score: null, recorded: [], closed_at: null };
+            rounds.push(r);
+            if (prev) membersOf(prev).forEach((m) => members.push({ ...m, round_id: r.id, vote: null }));
+            return ok();
+          }
+          if (act === 'clear') {
+            const ids = rounds.filter(sameDay).map((x) => x.id);
+            rounds = rounds.filter((x) => !ids.includes(x.id));
+            members = members.filter((m) => !ids.includes(m.round_id));
+            return ok();
+          }
+          if (!r) return ok('closed');
+          if (act === 'close') { r.closed_at = r.closed_at || new Date().toISOString(); return ok(); }
+          if (r.closed_at) return ok('closed');
+          if (act === 'phase') {
+            if (!['join', 'vote'].includes(v.phase) || !['join', 'vote', 'pick', 'ready'].includes(r.phase)) return ok('phase');
+            if (['pick', 'ready'].includes(r.phase)) { r.players = []; r.mode = null; }
+            r.phase = v.phase;
+            return ok();
+          }
+          if (act === 'draw') {
+            if (!['join', 'vote', 'pick', 'ready'].includes(r.phase)) return ok('phase');
+            const joined = membersOf(r).filter((m) => m.joined);
+            const onStage = r.players.map((p) => p.sid);
+            const drawCount = (sid) => read('draws').filter((d) => String(d.class_id) === String(room.class_id) && (d.kind || 'wordgame') === 'wordgame' && sidKey(d.sid) === sid).length;
+            const order = (list) => list.map((m) => ({ m, n: drawCount(m.sid), k: Math.random() })).sort((a, b) => a.n - b.n || a.k - b.k).map((x) => x.m);
+            const slot = slotOf(v.slot);
+            if (slot != null && ['pick', 'ready'].includes(r.phase) && slot < r.players.length) {
+              const pick = order(joined.filter((m) => !onStage.includes(m.sid)))[0];
+              if (!pick) return ok('few');
+              r.players[slot] = { ...r.players[slot], sid: pick.sid, name: pick.name, drawn: true };
+              return ok();
+            }
+            let mode = [1, 2].includes(Number(v.mode)) ? Number(v.mode) : ['pick', 'ready'].includes(r.phase) ? r.mode : null;
+            if (!mode) {
+              const a = joined.filter((m) => m.vote === 1).length;
+              const b = joined.filter((m) => m.vote === 2).length;
+              if (a === b) return ok('tie');
+              mode = a > b ? 1 : 2;
+            }
+            if (joined.length < 2) return ok('few');
+            const exclude = joined.length - onStage.length >= mode ? onStage : [];
+            const got = order(joined.filter((m) => !exclude.includes(m.sid))).slice(0, mode);
+            r.mode = mode;
+            r.players = got.map((m, i) => ({ sid: m.sid, name: m.name, role: i === 0 ? 'describer' : 'guesser', drawn: true }));
+            r.phase = mode === 2 ? 'ready' : 'pick';
+            r.go_at = null;
+            r.score = null;
+            return ok();
+          }
+          if (act === 'partner') {
+            if (!['pick', 'ready'].includes(r.phase)) return ok('phase');
+            const sid = sidKey(v.sid);
+            const person = roster().find((p) => p.sid === sid);
+            if (!person) return ok('nobody');
+            const n = r.players.length;
+            let slot = slotOf(v.slot);
+            if (slot == null) slot = 1;
+            if (slot >= n) slot = n;
+            if (r.players.some((p, i) => p.sid === sid && i !== slot)) return ok('same');
+            if (slot >= n) r.players.push({ sid, name: person.name, role: r.players[0] && r.players[0].role === 'guesser' ? 'describer' : 'guesser', drawn: false });
+            else r.players[slot] = { ...r.players[slot], sid, name: person.name, drawn: false };
+            const m = members.find((x) => x.round_id === r.id && x.sid === sid);
+            if (m) m.joined = true; else members.push({ round_id: r.id, sid, name: person.name, joined: true, vote: null });
+            r.players.sort((a, b) => (a.role === 'guesser') - (b.role === 'guesser'));
+            if (r.players.length >= 2) r.phase = 'ready';
+            return ok();
+          }
+          if (act === 'swap') {
+            if (r.phase !== 'ready' || r.players.length < 2) return ok('phase');
+            r.players = [{ ...r.players[1], role: 'describer' }, { ...r.players[0], role: 'guesser' }];
+            return ok();
+          }
+          if (act === 'minutes') {
+            if (!/^[1-5]$/.test(String(v.minutes == null ? '' : v.minutes)) || r.phase === 'play') return ok('phase');
+            r.minutes = Number(v.minutes);
+            return ok();
+          }
+          if (act === 'group') { r.group_name = String(v.group || '').trim().slice(0, 80) || null; return ok(); }
+          if (act === 'start') {
+            if (r.phase !== 'ready' || r.players.length < 2) return ok('phase');
+            const delay = /^\d{1,2}$/.test(String(v.delay == null ? '' : v.delay)) ? Math.min(10, Number(v.delay)) : 3;
+            if (room.class_id) {
+              const draws = read('draws');
+              r.players.filter((p) => !r.recorded.includes(p.sid)).forEach((p, i) => draws.push({ id: `${Date.now()}-wg${i}`, course: room.course, class_id: room.class_id,
+                classroom: room.id, sid: p.sid, name: p.name, kind: 'wordgame', drawn_at: new Date().toISOString() }));
+              write('draws', draws);
+            }
+            r.recorded = Array.from(new Set([...r.recorded, ...r.players.map((p) => p.sid)]));
+            if (/^[1-5]$/.test(String(v.minutes == null ? '' : v.minutes))) r.minutes = Number(v.minutes);
+            if (String(v.group || '').trim()) r.group_name = String(v.group).trim().slice(0, 80);
+            r.phase = 'play';
+            r.go_at = Date.now() + delay * 1000;
+            r.score = null;
+            return ok();
+          }
+          if (act === 'back') { if (r.phase !== 'play') return ok('phase'); r.phase = 'ready'; r.go_at = null; return ok(); }
+          if (act === 'finish') {
+            if (r.phase !== 'play') return ok('phase');
+            r.phase = 'done';
+            r.score = /^\d{1,3}$/.test(String(v.score == null ? '' : v.score)) ? Number(v.score) : 0;
+            if (String(v.group || '').trim()) r.group_name = String(v.group).trim().slice(0, 80);
+            return ok();
+          }
+          throw new Error(`不认识的操作：${act}`);
+        }
         // 小游戏“老师开始”（2026-11-22，规则同 cloudbase-pg-20261122-小游戏老师开始.sql）：本机表 gamestarts（每课堂每个小游戏一行）
         if (name === 'ck_game_started' || name === 'ck_game_start') {
           let rows = read('gamestarts');
@@ -2892,6 +3126,22 @@
           write('fbreplies', keep);
           return { status: keep.length < rows.length ? 'ok' : 'gone' };
         }
+        // 老师改建议的标签（2026-11-26，同 cloudbase-pg-20261126-建议标签调整.sql 的 ck_set_feedback_kind）：只能改成 build／ask／chat；
+        // 建议和另记的提交者那一行一起改（学生“我提过的建议”、点赞提醒的说法都跟着新标签）；找不到这条建议返回 missing
+        if (name === 'ck_set_feedback_kind') {
+          teacherOnly();
+          const kind = String(params.p_kind == null ? '' : params.p_kind);
+          if (!['build', 'ask', 'chat'].includes(kind)) throw new Error('标签只能选课程共建、课程疑问或纯唠嗑');
+          const rows = read('feedback');
+          const doc = rows.find((row) => String(row.id) === String(params.p_id));
+          if (!doc) return { status: 'missing' };
+          doc.kind = kind;
+          write('feedback', rows);
+          const authors = read('fbauthors');
+          authors.forEach((row) => { if (String(row.feedback_id) === String(doc.id)) row.kind = kind; });
+          write('fbauthors', authors);
+          return { status: 'ok', id: Number(doc.id) || doc.id, kind };
+        }
         // 修为境界：教师结算后整班替换；学生只能查本人（按本人这次登录在本课堂的学号）；法宝按境界和“每次课一件”核对
         if (name === 'ck_save_realms') {
           teacherOnly();
@@ -3390,6 +3640,8 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-26：猜词游戏大屏（用户：“习经中每章的正文都加入猜词游戏……一开始让学生选择加入/不加入；然后加入的同学投票选择抽1人上台或抽2人上台……政经中把这个游戏放在课后自修前面。”）
+        ['猜词游戏 · 自己选择加入、投票抽几人', `猜词游戏搬进了正文（${config.course === 'political-economy' ? '“课后自修”前面的一页' : '每个出门测前面'}），是额外小游戏，不计入本课的时间和分值。老师打开猜词大屏后，页面下方弹出“加入／不加入”；加入的同学投票：抽 1 人上台（被抽中的同学在自己的页面上输入名字或在名单里选一位搭档）还是抽 2 人上台。当天得分第一的一组两人各加 ${wordgame} 修为。`, '2026-11-26'],
         // 2026-11-26：解答等老师核对后才显示（用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示……一键发布答案”）
         ['题目解答 · 老师核对后才能看', '从今天起，递交以后还不能马上看解答：要等老师在课上核对这道题，或者课后老师发布答案。还没核对时，题目下面的按钮写着“🔒 解答：老师核对后可看”，点一下会再问一次有没有放开。境界要求和以前一样：普通解答要到「筑基」，四步解析不看境界。做错的题也是老师核对或发布答案以后，才进“回温”。', '2026-11-26'],
         // 2026-11-26：匿名建议箱第三个标签“纯唠嗑”（用户：“匿名建议箱再增加一个标签：纯唠嗑，可以跟老师分享一些生活、学习中的趣事或者迷茫疑惑等等”）

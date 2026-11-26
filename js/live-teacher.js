@@ -1193,7 +1193,7 @@
   const missingTable = (error) => /42P01|PGRST205|relation "?[\w.]+"? does not exist|Could not find the table/i.test(`${(error && error.code) || ''} ${(error && error.message) || error || ''}`);
   let feedbackRows = [];
   let feedbackProblem = '';
-  let adoptNote = '';   // 刚点赞（或取消）的结果，跟在条数后面，直到下一次点赞
+  let adoptNote = '';   // 刚点赞（或取消）、改标签（2026-11-26）的结果，跟在条数后面，直到下一次点赞或改标签
   // 建议的标签（2026-11-23 用户：“把现有的匿名建议箱分成两个标签，一个是课程共建，另外一个是课程疑问，学生在递交的时候要求选择其中一个标签”）：
   // build 课程共建、ask 课程疑问、''＝11 月 23 日以前提交的（未分类）。三类右边都是“赞”（5／10／20，同一位同学 7 天内靠点赞最多得 20）：
   // 11-23 上午课程共建曾是“采纳 +20”、不受 7 天上限，下午用户：“这个还是改为原来的点赞模式吧，分三档，然后‘同一人 7 天内靠点赞最多 20’”
@@ -1204,6 +1204,8 @@
   const fbPlain = (text) => (window.ClassLive.stickers ? window.ClassLive.stickers.plain(text) : String(text == null ? '' : text));
   const fbKindOf = (doc) => (doc && (doc.kind === 'build' || doc.kind === 'ask' || doc.kind === 'chat') ? doc.kind : '');
   let fbKind = 'all';   // 上面的标签筛选：all／build／ask／chat／none
+  // 改标签的小菜单（2026-11-26，见下面 kindBadge）：开着的是哪一条、正在等后台回话、出错的说明
+  const kindMenu = { id: '', busy: false, error: '' };
   // 现在显示的几条：按内容查找＋标签筛选，新的在前（列表、放大看、上一条下一条都用这一份）
   const fbShown = () => {
     const query = $('[data-fb-search]').value.trim();
@@ -1281,18 +1283,24 @@
     $('[data-fb-kinds]').innerHTML = feedbackRows.length ? chips.map(([key, label, n]) => `<button type="button" class="tw-fb-kindbtn is-${key}" data-fb-kind="${key}" aria-pressed="${fbKind === key}">${label}<b>${n}</b></button>`).join('') : '';
     const kinds = [`课程共建 ${nBuild} 条`, `课程疑问 ${nAsk} 条`, `纯唠嗑 ${nChat} 条`].concat(nOld ? [`未分类 ${nOld} 条（11 月 23 日以前提交的）`] : []);
     $('[data-fb-summary]').textContent = feedbackProblem || (feedbackRows.length ? `共 ${feedbackRows.length} 条：${kinds.join('、')}${liked ? `；已点赞 ${liked} 条` : ''}${query || fbKind !== 'all' ? `；符合条件 ${rows.length} 条` : ''}（新的在前）。${waiting ? `有 ${waiting} 条建议的作者回复了你（“回复”按钮标红）。` : ''}${adoptNote}` : '');
+    // 改标签的菜单：那一条不在这次显示的列表里了（删了、按内容查找时被筛掉）就收起；焦点在标签或菜单上时，重画后放回同一处（20 秒一次的自动刷新也会重画）
+    if (kindMenu.id && !rows.some((doc) => String(doc.id) === kindMenu.id)) Object.assign(kindMenu, { id: '', busy: false, error: '' });
+    const focusWrap = document.activeElement && document.activeElement.closest ? document.activeElement.closest('.tw-fb-kindwrap') : null;
+    const keepFocus = focusWrap ? { id: focusWrap.querySelector('[data-fb-kindset]').dataset.fbKindset, pick: document.activeElement.dataset.fbKindpick || '' } : null;
     // 2026-11-22 第二档美化：一条建议一张卡片——左边日期、课堂、哪次课，中间建议（点击放大），往来回复缩进排在下面，右边回复、点赞、删除
     $('[data-fb-rows]').innerHTML = rows.map((doc) => {
       const room = roomName.get(String(doc.classroom)) || '';
       const kind = fbKindOf(doc);
       return `<article class="tw-fb-card is-k-${kind || 'none'}${Number(doc.adopted) > 0 ? ' is-liked' : ''}${awaitingReply(doc.id) ? ' is-waiting' : ''}">
-        <div class="tw-fb-meta"><b class="tw-fb-kind is-${kind || 'none'}">${FB_KINDS[kind]}</b><time>${esc(fbTime(doc))}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
+        <div class="tw-fb-meta">${kindBadge(doc)}<time>${esc(fbTime(doc))}</time>${room ? `<span>${esc(room)}</span>` : ''}<small>${esc(sessionLabel(doc.case_no))}</small></div>
         <div class="tw-fb-main"><p class="tw-fb-text" data-fb-zoom="${esc(doc.id)}" tabindex="0" title="点击放大（投屏时学生看得清楚）">${fbHtml(doc.text)}</p>${threadHtml(doc.id)}</div>
         <div class="tw-fb-actions">${replyButton(doc)}${likeButton(doc)}<button type="button" class="tw-trash" data-fb-delete="${esc(doc.id)}" title="删除这条建议" aria-label="删除这条建议">${TRASH_ICON}</button></div></article>`;
     }).join('')
       || `<p class="empty">${feedbackProblem ? '—' : query ? '没有符合条件的建议。' : fbKind !== 'all' && feedbackRows.length ? '这个标签下还没有建议。'
         : '还没有收到建议。学生在每次课页面最后的“匿名建议箱”（或自己页面面板上的“建议箱”按钮）里选好标签——课程共建、课程疑问或纯唠嗑——提交后，会出现在这里。'}</p>`;
     $('[data-tab="feedback"]').textContent = feedbackRows.length ? `匿名建议（${feedbackRows.length}）` : '匿名建议';
+    const badge = keepFocus && kindButtonOf(keepFocus.id);
+    if (badge) (($$('[data-fb-kindpick]', badge.parentElement).find((item) => item.dataset.fbKindpick === keepFocus.pick)) || badge).focus();
   }
   // 放大看一条建议（2026-11-05 用户：“‘匿名建议’，点击每一条建议也可以放大显示，让学生能看得清楚”）：
   // 全屏大字显示，字号按字数自动调；← → 键或两边的箭头看上一条、下一条（按表格现在的顺序和搜索条件），Esc 或点空白处关闭。不显示点赞情况
@@ -1491,6 +1499,114 @@
     if (event.target.closest('[data-adopt-unlike]')) { adopt(0); return; }
     if (event.target.closest('[data-adopt-close]')) adoptDialog.close();
   });
+  // 改标签（2026-11-26 用户：“教师工作台中，教师可以调整学生发的匿名建议的标签，以防有些学生不知道或者选错了标签”）：
+  // 卡片左上角的标签是个按钮，点一下（或按 ↓）弹出小菜单——课程共建／课程疑问／纯唠嗑，选了就经后台 ck_set_feedback_kind 改
+  // （建议和另记的提交者那一行一起改，学生自己“我提过的建议”里随之显示新标签）。“未分类”的也可以补上标签，不能改回未分类。
+  // 点赞加的修为不看标签，改了不影响。菜单里 ↑ ↓ 选、回车确定、Esc 收起；点菜单外面也收起
+  const KIND_PICKS = ['build', 'ask', 'chat'];
+  const KIND_TIP = '点一下改标签（学生选错时可以改）';
+  function kindBadge(doc) {
+    const kind = fbKindOf(doc);
+    const id = String(doc.id);
+    const open = kindMenu.id === id;
+    const menu = open ? `<div class="tw-fb-kindpop"><div class="tw-fb-kindmenu" role="menu" aria-label="把标签改成"${kindMenu.busy ? ' aria-busy="true"' : ''}>${KIND_PICKS.map((key) => `<button type="button" role="menuitemradio" class="is-${key}" data-fb-kindpick="${key}" aria-checked="${key === kind}"${kindMenu.busy ? ' aria-disabled="true"' : ''}>${FB_KINDS[key]}</button>`).join('')}</div>${kindMenu.error ? `<p class="tw-fb-kinderr" role="alert">${esc(kindMenu.error)}</p>` : ''}</div>` : '';
+    return `<div class="tw-fb-kindwrap"><button type="button" class="tw-fb-kind is-${kind || 'none'}" data-fb-kindset="${esc(id)}" aria-haspopup="menu" aria-expanded="${open}" title="${KIND_TIP}" aria-label="标签：${FB_KINDS[kind]}。${KIND_TIP}">${FB_KINDS[kind]}<i aria-hidden="true"></i></button>${menu}</div>`;
+  }
+  const kindButtonOf = (id) => $$('[data-fb-rows] [data-fb-kindset]').find((button) => button.dataset.fbKindset === String(id));
+  // 只重画这一条的标签和菜单，别的卡片不动。focus：'badge' 放回标签；'menu' 放到菜单里打勾的一项（没有就第一项）；也可以是某个标签的键名
+  function paintKind(id, focus) {
+    const button = kindButtonOf(id);
+    const doc = feedbackRows.find((item) => String(item.id) === String(id));
+    if (!button || !doc) return;
+    button.parentElement.outerHTML = kindBadge(doc);
+    const badge = kindButtonOf(id);
+    if (!badge || !focus) return;
+    const items = $$('[data-fb-kindpick]', badge.parentElement);
+    const item = focus === 'menu' ? items.find((one) => one.getAttribute('aria-checked') === 'true') || items[0] : items.find((one) => one.dataset.fbKindpick === focus);
+    (focus === 'badge' ? badge : item || badge).focus();
+  }
+  function openKindMenu(id) {
+    const before = kindMenu.id;
+    Object.assign(kindMenu, { id: String(id), busy: false, error: '' });
+    if (before && before !== String(id)) paintKind(before);
+    paintKind(id, 'menu');
+  }
+  function closeKindMenu(focusBadge) {
+    const id = kindMenu.id;
+    if (!id) return;
+    Object.assign(kindMenu, { id: '', busy: false, error: '' });
+    paintKind(id, focusBadge ? 'badge' : '');
+  }
+  async function setKind(id, kind) {
+    const doc = feedbackRows.find((item) => String(item.id) === String(id));
+    if (!doc || !KIND_PICKS.includes(kind)) return;
+    const from = fbKindOf(doc);
+    if (from === kind) { closeKindMenu(true); return; }
+    Object.assign(kindMenu, { busy: true, error: '' });
+    paintKind(id, kind);   // 菜单先变灰（焦点留在选的那一项），等后台回话
+    try {
+      let result = await backend.rpc('ck_set_feedback_kind', { p_id: Number(id) || id, p_kind: kind });
+      if (Array.isArray(result)) result = result[0];
+      if (kindMenu.id === String(id)) Object.assign(kindMenu, { id: '', busy: false, error: '' });
+      if (result && result.status === 'missing') {
+        adoptNote = '刚才要改标签的那条建议已经删除了，列表已刷新。';
+        await loadFeedback();
+        return;
+      }
+      const now = (result && result.kind) || kind;
+      // 等回话的时候列表可能刚自动刷新过：按编号找现在这一份来改
+      const row = feedbackRows.find((item) => String(item.id) === String(id));
+      if (row) row.kind = now;
+      adoptNote = `刚才已把一条建议的标签由“${FB_KINDS[from]}”改为“${FB_KINDS[now]}”，学生自己“我提过的建议”里也显示新标签。`;
+      renderFeedback();
+      let badge = kindButtonOf(id);
+      if (!badge && fbKind !== 'all') {   // 按标签筛选着：这条不在当前标签下了，说一声去哪了
+        adoptNote += `这条现在在“${FB_KINDS[now]}”标签下。`;
+        renderFeedback();
+        badge = kindButtonOf(id);
+      }
+      // 焦点放回这条的标签（这条筛掉了就放到它现在所在的标签筛选按钮上）；老师已经点到别处去了（包括又打开了别的卡片的菜单）就不动
+      const active = document.activeElement;
+      const target = badge || $(`[data-fb-kinds] [data-fb-kind="${now}"]`);
+      if (target && (!active || active === document.body || (badge && active.closest('.tw-fb-kindwrap') === badge.parentElement))) target.focus();
+    } catch (error) {
+      console.error(error);
+      const say = missingFunction(error) ? '后台还没有改标签的功能：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261126-建议标签调整.sql。' : `改标签没有成功：${error.message || error}`;
+      if (kindMenu.id === String(id)) {   // 菜单还开着：说明写在菜单里，可以再选一次
+        Object.assign(kindMenu, { busy: false, error: say });
+        paintKind(id, kind);
+      } else {   // 菜单已经收起了：写在条数那一行（同删除失败）
+        $('[data-fb-summary]').textContent = say;
+      }
+    }
+  }
+  $('[data-fb-rows]').addEventListener('click', (event) => {
+    const pick = event.target.closest('[data-fb-kindpick]');
+    if (pick) { if (!kindMenu.busy && kindMenu.id) setKind(kindMenu.id, pick.dataset.fbKindpick); return; }
+    const badge = event.target.closest('[data-fb-kindset]');
+    if (!badge) return;
+    if (kindMenu.id === badge.dataset.fbKindset) closeKindMenu(true); else openKindMenu(badge.dataset.fbKindset);
+  });
+  $('[data-fb-rows]').addEventListener('keydown', (event) => {
+    const badge = event.target.closest('[data-fb-kindset]');
+    if (badge) {
+      if (event.key === 'ArrowDown' || event.key === 'ArrowUp') { event.preventDefault(); openKindMenu(badge.dataset.fbKindset); }
+      else if (event.key === 'Escape' && kindMenu.id === badge.dataset.fbKindset) { event.preventDefault(); closeKindMenu(true); }
+      return;
+    }
+    const menu = event.target.closest('.tw-fb-kindmenu');
+    if (!menu) return;
+    const items = $$('[data-fb-kindpick]', menu);
+    const at = items.indexOf(event.target);
+    if (event.key === 'Escape' || (event.key === 'Tab' && event.shiftKey)) { event.preventDefault(); closeKindMenu(true); }   // 收起，焦点回到标签上
+    else if (event.key === 'Tab') closeKindMenu(true);   // 焦点先回到标签上，再照常移到下一个
+    else if (['ArrowDown', 'ArrowUp', 'Home', 'End'].includes(event.key) && items.length) {
+      event.preventDefault();
+      const next = event.key === 'Home' ? 0 : event.key === 'End' ? items.length - 1 : (at + (event.key === 'ArrowDown' ? 1 : -1) + items.length) % items.length;
+      items[next].focus();
+    }
+  });
+  document.addEventListener('click', (event) => { if (kindMenu.id && !event.target.closest('.tw-fb-kindwrap')) closeKindMenu(false); });
   $('[data-fb-scope]').addEventListener('change', loadFeedback);
   $('[data-fb-search]').addEventListener('input', renderFeedback);
   $('[data-fb-kinds]').addEventListener('click', (event) => {
@@ -6267,6 +6383,7 @@
     ]);
     setIntro('feedback', '学生在每次课页面最后的“匿名建议箱”里写的建议和疑问；这里只有内容和提交时间，看不到是谁写的。', [
       ['写些什么', '学生递交前要选一个标签：课程共建（对课堂节奏、课程内容的建议，或自己设计的上课内容、题目）、课程疑问（没听懂的地方、平台操作问题，可在下一次课统一解答）或纯唠嗑（生活、学习里的趣事，或者迷茫、困惑，随便聊聊）。上面可以按标签筛选；11 月 23 日以前提交的显示“未分类”。'],
+      ['改标签', '学生没选对标签的，点这条建议左上角的标签，在弹出的小菜单里选课程共建、课程疑问或纯唠嗑就改好了（“未分类”的也可以补上）；学生自己“我提过的建议”里也跟着显示新标签。'],
       ['匿名', '这里和导出文件里只有内容和提交时间（2026-11-24 以前的建议只记了日期），看不到是谁写的。'],
       ['这堂课感觉怎么样', '建议箱上方还有“这堂课感觉怎么样”：学生点笑脸或不高兴的脸，每人每天一票、可以改，这里只显示人数，看不到是谁选的。'],
     ]);

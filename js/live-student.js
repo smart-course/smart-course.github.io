@@ -5403,6 +5403,11 @@
   // 页面在前台时每 4 秒问一次本课堂有没有正在进行的投票（ck_poll_live），有就在屏幕中间弹出选项；投票结束前可以改。
   // 老师结束并公布结果后显示各项人数（3 分钟内）。点“×”收起，有新的投票或投票结束时再弹出。学生版测试页只在本机点选，不计入。
   if (!OFFLINE && !AUDIT) setupPoll();   // 旁听不参加课堂投票
+  // 猜词游戏（2026-11-26，live-wordgame.js）：正文里的“猜词游戏”（[data-wgx]，网站构建时放在习经每个出门测前面、政经“课后自修”前面）——
+  // 老师打开猜词大屏后弹出“加入／不加入”、投票抽几人上台、被抽中的同学选搭档。旁听、请假补做、只查看以前课堂的只显示说明；测试页只看不记
+  if (!OFFLINE && backend && window.ClassLiveWordGame && document.querySelector('[data-wgx]')) {
+    window.ClassLiveWordGame.student({ backend, identity, joined, preview: PREVIEW, audit: AUDIT, makeup: MAKEUP, viewing, checkedIn, shield });
+  }
   function setupPoll() {
     const P = Live.POLL || { check: 4000 };
     const room = Number(identity.classroom) || identity.classroom;
@@ -6180,7 +6185,7 @@
   // ---------- 版本更新说明：每台设备进入课堂后自动弹出一次（NEWS_ID 改了会再弹一次），面板底部“更新说明”可以再看 ----------
   // 内容按课程筛选（course 为空的两门课都显示）；每条是 [小标题, 说明]
   // 版本号按课程分开：只有本课程有新内容时才改，免得另一门课的同学被重复打扰
-  const NEWS_ID = config.course === 'political-economy' ? '20261126-reveal-pe' : '20261126-reveal-xjp';   // 2026-11-26 解答等老师核对后显示、建议箱纯唠嗑、灵田铲除与富豪榜（两门课都有）   // 两门课各自有新内容时才改自己的
+  const NEWS_ID = config.course === 'political-economy' ? '20261126-wordgame-pe' : '20261126-wordgame-xjp';   // 2026-11-26 猜词游戏大屏（两门课都有；之前是 20261126-reveal-*：解答等老师核对后显示、建议箱纯唠嗑、灵田铲除与富豪榜）   // 两门课各自有新内容时才改自己的
   const newsRangeText = () => (Live.newsRange ? Live.newsRange(newsSections().flatMap((section) => section.items.map((item) => item[2]))) : '');
   const newsKey = `classlive-news:${config.course}`;
   // 2026-11-06 起条目放在 live-core.js（Live.news），带日期；学生页只显示最近 NEWS_DAYS（20）天的，工作台“更新说明”看全部
