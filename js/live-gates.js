@@ -5,6 +5,8 @@
  *   角色卡、讨论题等介绍照常显示。开始以后可以“收起，重新开始”：学生页又收起，已经递交的作答、聊天室的发言都不受影响。
  *   辩论赛跟着“辩论流程”图的“开始”走（live-debate.js），不在这里。
  * 需要在本机登录教师工作台，并且当前课堂就是本页章节（同 live-acts.js 的 roomFor）。离线版没有这条控制条，学生页也不收起。
+ * 2026-11-27 政治经济学讲解版（用户：“弹幕小问题也要老师开放后才能回答。”“习经的弹幕问题不用改。”）：每张弹幕小问题卡片（live-danmaku.js 建的 .dmq-card）
+ *   加一行“开放作答／收起作答”（ck_game_start 的 dmq:NN，NN＝问号）；开放以前学生页的这道题不能发送（live-student.js 的 setupQuestionDanmaku）。
  */
 (function () {
   'use strict';
@@ -17,7 +19,8 @@
     if (first) targets.push({ kind: section.matches('[data-biz]') ? 'biz' : 'disc', no: section.dataset.practice, place: first, where: 'beforebegin', section });
   });
   const list = targets.filter((t) => /^\d{2}$/.test(t.no || ''));
-  if (!list.length) return;
+  const dmqs = config.kind === 'concept-html' ? Array.from(document.querySelectorAll('.dmq-card[data-dmq]')) : [];   // 政经弹幕小问题（2026-11-27）
+  if (!list.length && !dmqs.length) return;
   let backend = null;
   try { backend = window.ClassLive.create(config); } catch (error) { console.warn('[小游戏老师开始]', error.message); return; }
   const unit = config.unit || window.ClassLive.unitOf();
@@ -95,6 +98,22 @@
   .gate-note { margin: 6px 0 0; color: #6d6259; font-size: 13.5px; }
   .gate-ctl.is-on .gate-note { color: #3f6b55; }
   .gate-ctl.is-merged .act-ctl-row { gap: 10px; }
+  /* 弹幕小问题“开放作答”（2026-11-27）：卡片里一行小按钮＋状态 */
+  .dmq-gate { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; margin: 10px 0 4px; font: 15px/1.5 -apple-system, BlinkMacSystemFont, "PingFang SC", "Microsoft YaHei", sans-serif; }
+  .dmq-gate button { display: inline-flex; align-items: center; gap: 6px; min-height: 38px; padding: 0 14px; border: 0; border-radius: 10px; font: inherit; font-weight: 800; cursor: pointer;
+    color: #fff; background: linear-gradient(180deg, rgba(255, 255, 255, .2), rgba(255, 255, 255, 0) 50%), linear-gradient(180deg, #2f8478, #1c5a52);
+    box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 3px 0 #123e39; transition: transform .12s ease, box-shadow .12s ease; }
+  .dmq-gate button svg { width: 17px; height: 17px; }
+  .dmq-gate button:not(:disabled):active { transform: translateY(2px); box-shadow: inset 0 0 0 1px rgba(255, 255, 255, .18), 0 1px 0 #123e39; }
+  .dmq-gate button.is-close { color: #8a3a22; background: linear-gradient(180deg, #ffffff, #fbefe9); box-shadow: inset 0 0 0 1.5px rgba(164, 73, 45, .4), 0 3px 0 rgba(164, 73, 45, .25); }
+  .dmq-gate button:disabled { opacity: .5; cursor: default; transform: none; }
+  .dmq-gate button[hidden] { display: none; }
+  .dmq-gate-state { display: inline-flex; align-items: center; gap: 8px; color: #6d6259; font-weight: 700; }
+  .dmq-gate-state::before { content: ""; width: 9px; height: 9px; border-radius: 50%; background: #d39b2a; box-shadow: 0 0 0 4px rgba(211, 155, 42, .18); }
+  .dmq-gate-state[data-tone="on"] { color: #23655f; }
+  .dmq-gate-state[data-tone="on"]::before { background: #2f9e6e; box-shadow: 0 0 0 4px rgba(47, 158, 110, .2); }
+  .dmq-gate-state[data-tone="warn"] { color: #8a3a22; }
+  .dmq-gate-state[data-tone="warn"]::before { background: #a4492d; box-shadow: 0 0 0 4px rgba(164, 73, 45, .16); }
   .gate-ctl.is-merged .gate-state { flex: 1 1 240px; }
   `;
   document.head.appendChild(style);
@@ -187,4 +206,74 @@
       }, 15000);
     })();
   });
+
+  // ---------- 政经弹幕小问题“开放作答”（2026-11-27） ----------
+  // 一个页面一个课堂：读一次 ck_game_started，各张卡片按 dmq:NN 显示；点“开放作答”／“收起作答”调 ck_game_start。
+  // 后台还没有这项功能（ck_game_started 不带 dmq）时按钮不能点，提示先执行 SQL（执行以前学生页照原样能发）。
+  if (dmqs.length) {
+    const DMQ_SQL = 'tools/cloudbase-pg-20261127-弹幕小问题开放.sql';
+    const PLAY = ico('<path d="M8 5.5v13l10-6.5z" fill="currentColor"/>');
+    const STOP = ico('<rect x="6.5" y="6.5" width="11" height="11" rx="1.5"/>');
+    let room = null;
+    let started = {};
+    let can = null;         // 后台有没有这项功能（null＝还没问到）
+    let busy = '';          // 正在开放／收起的那一题
+    const cards = dmqs.map((card) => {
+      const key = `dmq:${String(Number(card.dataset.dmq)).padStart(2, '0')}`;
+      const row = document.createElement('div');
+      row.className = 'dmq-gate';
+      row.setAttribute('data-ix', '');
+      row.innerHTML = `<button type="button" data-dmq-go>${PLAY}开放作答</button><button type="button" class="is-close" data-dmq-undo hidden>${STOP}收起作答</button>`
+        + '<span class="dmq-gate-state" data-dmq-state role="status"></span>';
+      ['click', 'keydown'].forEach((type) => row.addEventListener(type, (event) => event.stopPropagation()));
+      const head = card.querySelector('.dmq-head');
+      if (head) head.insertAdjacentElement('afterend', row); else card.prepend(row);
+      const c = { card, key, go: row.querySelector('[data-dmq-go]'), undo: row.querySelector('[data-dmq-undo]'), state: row.querySelector('[data-dmq-state]') };
+      c.go.addEventListener('click', () => setDmq(c, true));
+      c.undo.addEventListener('click', () => setDmq(c, false));
+      return c;
+    });
+    const paintDmq = () => cards.forEach((c) => {
+      const at = started[c.key] || '';
+      c.card.classList.toggle('is-open', Boolean(at));
+      c.go.hidden = Boolean(at);
+      c.undo.hidden = !at;
+      c.go.disabled = Boolean(busy) || !room || can !== true;
+      c.undo.disabled = Boolean(busy) || !room;
+      c.state.dataset.tone = !room || can === false ? 'warn' : at ? 'on' : 'idle';
+      c.state.textContent = !room ? '当前课堂不是本案例（或没有登录教师工作台）：先在工作台发布本案例课堂，再刷新本页。'
+        : can === false ? `后台还没有“开放作答”：请先在云开发 SQL 编辑器执行 ${DMQ_SQL}（执行以前学生页照原样能发）。`
+          : busy === c.key ? '正在处理……' : at ? `已开放 · ${hhmm(at)} 起学生可以发送` : '未开放 · 学生页这道题还不能发送';
+    });
+    const takeDmq = (res) => { can = res && res.dmq === true; started = (res && res.started) || {}; };
+    async function refreshDmq() {
+      if (!room) return;
+      try { takeDmq(await rpcOne('ck_game_started', { p_classroom: Number(room.id) || room.id })); } catch (problem) { if (missing(problem)) can = false; else console.warn('[弹幕小问题开放]', problem); }
+      paintDmq();
+    }
+    async function setDmq(c, on) {
+      if (busy || !room || (on && can !== true)) return;
+      busy = c.key;
+      paintDmq();
+      try {
+        takeDmq(await rpcOne('ck_game_start', { p_classroom: Number(room.id) || room.id, p_game: c.key, p_on: on }));
+      } catch (problem) {
+        if (missing(problem) || /小游戏编号不对/.test(String((problem && problem.message) || problem))) can = false;
+        else window.alert(`没有${on ? '开放' : '收起'}：${problem.message || problem}`);
+      }
+      busy = '';
+      paintDmq();
+    }
+    paintDmq();
+    (async () => {
+      try { room = await roomFor(''); } catch (error) { room = null; }
+      paintDmq();
+      if (room) refreshDmq();
+      setInterval(async () => {
+        if (document.hidden) return;
+        if (!room) { try { room = await roomFor(''); } catch (error) { room = null; } paintDmq(); }
+        if (room) refreshDmq();
+      }, 15000);
+    })();
+  }
 })();

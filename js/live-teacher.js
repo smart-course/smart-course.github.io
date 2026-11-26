@@ -792,33 +792,41 @@
     box.disabled = true;
     roomAction(on ? '打开学生可进入' : '关掉学生可进入', () => backend.rpc('ck_set_current', { p_classroom: Number(state.room.id), p_current: on }));
   });
-  // ---------- 发布答案（2026-11-26） ----------
+  // ---------- 发布答案（2026-11-26）、收回答案（2026-11-27） ----------
   // 用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示。然后教师端再设置一个一键发布答案的按钮，确保上完这堂课后，
-  //   所有学生都能看到答案（之前设置的境界要求不变）”。课上在投屏页点题目上的“核对”逐题放开；这里一次把本课堂的解答全部放开，可以收回。
+  //   所有学生都能看到答案（之前设置的境界要求不变）”。课上在投屏页点题目上的“核对”逐题放开；这里一次把本课堂的解答全部放开。
   //   后台 ck_revealed_items / ck_reveal_items（题号 "*" ＝全部）。期中考查作业、不用解答题库的课程不显示；后台还没更新时也不显示。
-  let revealInfo = null;   // 当前课堂 {all, published, passed, items}；null＝还没读到，或后台没有这项功能
+  // 2026-11-27 用户：“教师控制台收回答案后好像不能真的收回答案。然后点复原也要能够统一收回答案。”原来“收回答案”只删掉“已发布”，课上核对放开的题照旧能看，
+  //   本班上了后面的课时按钮是灰的。现在“发布答案”“收回答案”是两个按钮：收回调 ck_reveal_clear(…, true)，本课堂放开的全部收回（课上核对过的也一起），
+  //   本班上了后面的课也不再自动放开（后台记 held），直到再点“发布答案”；收回以后课上再核对某道题，照常只放开那一道。
+  let revealInfo = null;   // 当前课堂 {all, published, passed, held, items}；null＝还没读到，或后台没有这项功能
   let revealFor = '';
+  const revealWhen = (value) => `${isoDay(millis(value)).slice(5)} ${clock(millis(value)).slice(0, 5)}`;
   function renderRevealInfo() {
-    const button = $('[data-publish-answers]');
+    const publish = $('[data-publish-answers]');
+    const retract = $('[data-retract-answers]');
     const line = $('[data-reveal-status]');
     const info = revealInfo;
-    button.hidden = !info;
+    publish.hidden = !info;
+    retract.hidden = !info;
     line.hidden = !info;
     if (!info) return;
     const published = Boolean(info.published);
-    const passed = !published && Boolean(info.passed);
+    const held = Boolean(info.held);
+    const auto = !published && Boolean(info.passed) && !held;   // 本班已经上了后面的课：自动放开
+    const all = Boolean(info.all);
     const count = Array.isArray(info.items) ? info.items.length : 0;
-    button.textContent = published ? '收回答案' : '发布答案';
-    button.classList.toggle('is-gold', !published && !passed);
-    button.disabled = passed;
-    button.title = published ? '收回后，只有课上在投屏页核对过的题学生还能看解答'
-      : passed ? '本班已经上了后面的课，这次课的解答已经自动放开，不用再发布'
-        : '把本课堂每道题的解答一次放开给学生（照旧要先递交这道题；普通解答要到「筑基」）。下课后点一下，学生就都能看到答案';
-    line.classList.toggle('is-on', published || passed);
-    line.textContent = published ? `答案已发布（${isoDay(millis(info.published)).slice(5)} ${clock(millis(info.published)).slice(0, 5)}）：学生递交过的题都能看解答，境界要求不变。`
-      : passed ? '本班已经上了后面的课：这次课的解答已自动放开。'
-        : count ? `课上已核对 ${count} 项，这些题学生能看解答；其余的要等核对，或点“发布答案”。`
-          : '答案还没发布：学生递交后，要等老师在投屏页核对这道题，或点“发布答案”，才能看解答。';
+    publish.hidden = all;
+    retract.hidden = !(all || count > 0);
+    publish.classList.add('is-gold');
+    publish.title = '把本课堂每道题的解答一次放开给学生（照旧要先递交这道题；普通解答要到「筑基」）。下课后点一下，学生就都能看到答案';
+    retract.title = '本课堂放开的解答全部收回（课上核对过的也一起收回）；本班上了后面的课也不再自动放开，要放开时再点“发布答案”';
+    line.classList.toggle('is-on', all || count > 0);
+    line.textContent = published ? `答案已发布（${revealWhen(info.published)}）：学生递交过的题都能看解答，境界要求不变。`
+      : auto ? '本班已经上了后面的课：这次课的解答已自动放开。要收回就点“收回答案”。'
+        : held ? `答案已收回（${revealWhen(info.held)}）：学生看不到解答，本班上了后面的课也不会自动放开${count ? `；之后课上又核对了 ${count} 项，这些题学生能看` : ''}。要放开时点“发布答案”。`
+          : count ? `课上已核对 ${count} 项，这些题学生能看解答；其余的要等核对，或点“发布答案”。`
+            : '答案还没发布：学生递交后，要等老师在投屏页核对这道题，或点“发布答案”，才能看解答。';
   }
   async function loadRevealInfo() {
     const room = state.room;
@@ -836,18 +844,18 @@
     }
     renderRevealInfo();
   }
-  $('[data-publish-answers]').addEventListener('click', async () => {
+  async function sendRevealAll(on) {
     if (!state.room || !revealInfo) return;
     const room = state.room;
-    const on = !revealInfo.published;
     const label = on ? '发布答案' : '收回答案';
     const tip = on
       ? `发布“${room.name}”的全部答案？\n\n发布后，本课堂每道题的解答对学生放开：照旧要先递交这道题；普通解答要到「筑基」，四步解析不看境界。做错的题也会进入“回温”。\n发布以后可以再点“收回答案”。`
-      : `收回“${room.name}”的答案？\n\n收回后，只有课上在投屏页核对过的题学生还能看解答。`;
+      : `收回“${room.name}”的全部答案？\n\n收回后，本课堂所有题的解答学生都看不到了：课上在投屏页核对过的也一起收回，本班上了后面的课也不再自动放开。学生已经打开的解答，页面会在一分钟内收起。\n要放开时再点“发布答案”，或课上在投屏页核对这道题。`;
     if (!window.confirm(tip)) return;
     actionStatus(`${label}……`);
     try {
-      const value = await backend.rpc('ck_reveal_items', { p_classroom: Number(room.id), p_items: ['*'], p_on: on });
+      const value = on ? await backend.rpc('ck_reveal_items', { p_classroom: Number(room.id), p_items: ['*'], p_on: true })
+        : await backend.rpc('ck_reveal_clear', { p_classroom: Number(room.id), p_hold: true });
       if (state.room && String(state.room.id) === String(room.id)) {
         const res = (Array.isArray(value) ? value[0] : value) || null;
         revealInfo = res && res.status === 'ok' ? res : revealInfo;
@@ -856,9 +864,12 @@
       actionStatus(`${label}：已完成（${clock(Date.now())}）`);
     } catch (error) {
       console.error(error);
-      actionStatus(`${label}失败：${error.message || error}`);
+      actionStatus(!on && missingFunction(error) ? '收回答案：后台还没更新，请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261127-收回答案.sql'
+        : `${label}失败：${error.message || error}`);
     }
-  });
+  }
+  $('[data-publish-answers]').addEventListener('click', () => sendRevealAll(true));
+  $('[data-retract-answers]').addEventListener('click', () => sendRevealAll(false));
   $('[data-toggle-open]').addEventListener('click', () => {
     const open = !state.room.submissions_open;
     if (!open && !window.confirm('结束提交后，学生不能再递交作答、发弹幕（已递交的保留）。确定结束吗？')) return;

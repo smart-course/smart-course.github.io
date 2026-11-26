@@ -853,11 +853,20 @@
         && String(r2.created_at || '') > String(r1.created_at || '') && (r2.chapter !== r1.chapter || (Number(r2.case_no) || 0) !== (Number(r1.case_no) || 0))
         && read('checkins').some((c) => String(c.classroom) === String(r2.id)));
     };
+    // 2026-11-27 本机表 revealholds（同 ck_reveal_holds）：老师点了“收回答案”的课堂，本班上了后面的课也不再自动放开
     const revealStateOf = (classroom) => {
       const mine = read('reveals').filter((row) => String(row.classroom) === String(classroom));
       const star = mine.find((row) => row.item === '*');
+      const hold = read('revealholds').find((row) => String(row.classroom) === String(classroom));
       const passed = roomPassed(classroom);
-      return { status: 'ok', all: Boolean(star) || passed, published: star ? star.created_at : null, passed, items: mine.filter((row) => row.item !== '*').map((row) => row.item).sort() };
+      return { status: 'ok', all: Boolean(star) || (passed && !hold), published: star ? star.created_at : null, passed, held: hold ? hold.created_at : null,
+        items: mine.filter((row) => row.item !== '*').map((row) => row.item).sort() };
+    };
+    // 收回这个课堂已经放开的全部解答（同 ck_reveal_clear）；hold 为真时记一行 revealholds
+    const revealClear = (classroom, hold) => {
+      write('reveals', read('reveals').filter((row) => String(row.classroom) !== String(classroom)));
+      if (hold) write('revealholds', read('revealholds').filter((row) => String(row.classroom) !== String(classroom)).concat([{ classroom, created_at: new Date().toISOString() }]));
+      return revealStateOf(classroom);
     };
     const itemRevealed = (classroom, key) => {
       const state = revealStateOf(classroom);
@@ -1928,17 +1937,23 @@
           if (name === 'ck_game_start') {
             teacherOnly();
             if (!read('classrooms').some((r) => String(r.id) === String(params.p_classroom))) throw new Error('课堂不存在');
-            if (!/^(mech|disc|biz):\d{2}$/.test(params.p_game || '')) throw new Error('小游戏编号不对');
+            if (!/^(mech|disc|biz|dmq):\d{2}$/.test(params.p_game || '')) throw new Error('小游戏编号不对');   // dmq:NN 政经弹幕小问题“开放作答”（2026-11-27）
             rows = rows.filter((r) => !(String(r.classroom) === String(params.p_classroom) && r.game === params.p_game));
             if (params.p_on !== false) rows.push({ classroom: params.p_classroom, game: params.p_game, started_at: new Date().toISOString() });
             write('gamestarts', rows);
           }
           const started = {};
           rows.filter((r) => String(r.classroom) === String(params.p_classroom)).forEach((r) => { started[r.game] = r.started_at; });
-          return { status: 'ok', started };
+          return { status: 'ok', dmq: true, started };
         }
         // 解答等老师核对后显示（2026-11-26，规则同 cloudbase-pg-20261126-解答等老师核对.sql 的 ck_revealed_items / ck_reveal_items）：
         // 本机表 reveals（每课堂每题一行，item '*' ＝已发布全部答案）；revealedIn 也给下面的 ck_my_explain 用
+        // 2026-11-27 收回答案：ck_reveal_clear（工作台“收回答案”hold 真、投屏页“复原”hold 假）；ck_reveal_items 收回 "*" 等于 ck_reveal_clear(…, true)，发布 "*" 删 held
+        if (name === 'ck_reveal_clear') {
+          teacherOnly();
+          if (!read('classrooms').some((r) => String(r.id) === String(params.p_classroom))) throw new Error('课堂不存在');
+          return revealClear(params.p_classroom, Boolean(params.p_hold));
+        }
         if (name === 'ck_revealed_items' || name === 'ck_reveal_items') {
           let rows = read('reveals');
           if (name === 'ck_reveal_items') {
@@ -1948,8 +1963,10 @@
             if (!Array.isArray(items) || !items.length || items.length > 200
               || items.some((item) => typeof item !== 'string' || (item !== '*' && !/^[A-Za-z0-9][A-Za-z0-9:._-]{0,46}[*]?$/.test(item)))) throw new Error('题目编号不正确');
             const mine = (r) => String(r.classroom) === String(params.p_classroom);
+            if (params.p_on === false && items.includes('*')) return revealClear(params.p_classroom, true);
             if (params.p_on !== false) {
               items.forEach((item) => { if (!rows.some((r) => mine(r) && r.item === item)) rows.push({ classroom: params.p_classroom, item, created_at: new Date().toISOString() }); });
+              if (items.includes('*')) write('revealholds', read('revealholds').filter((r) => !mine(r)));
             } else rows = rows.filter((r) => !(mine(r) && items.includes(r.item)));
             write('reveals', rows);
           }
@@ -2751,13 +2768,15 @@
         if (name === 'ck_my_explain') {
           const uid = await this.ensureAnonymous();
           const me = myCheckin(uid, params.p_classroom);
-          // 学生版测试页里的教师账号：直接给解答（规则同 cloudbase-pg.sql）
+          // 学生版测试页里的教师账号：不查境界和递交；放没放开和学生一样看（2026-11-27，规则同 cloudbase-pg.sql）
           if (!me && localStorage.getItem(prefix + 'teacher')) {
             const at = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
             const hit = at && read('explainbank').find((e) => e.course === at.course && e.unit === at.chapter && e.key === params.p_key);
             if (!hit) return { status: 'none' };
             const { need: skipNeed, ...openBody } = hit.body || {};
-            return { status: 'ok', body: openBody };
+            const shown = itemRevealed(params.p_classroom, params.p_key)
+              || (Array.isArray(skipNeed) && skipNeed.every((key) => itemRevealed(params.p_classroom, key)));
+            return shown ? { status: 'ok', body: openBody } : { status: 'wait' };
           }
           if (!me) return { status: 'login' };
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
@@ -3157,7 +3176,7 @@
         }
         if (name === 'ck_delete_class') {
           const ids = read('classrooms').filter((row) => String(row.class_id || '') === String(params.p_class)).map((row) => row.id);
-          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'reveals', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes', 'fbauthors'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
+          ['checkins', 'choices', 'answers', 'danmaku', 'homework', 'bonus', 'stops', 'reveals', 'revealholds', 'presence', 'puzzles', 'puzzleguesses', 'moods', 'examscores', 'debatemembers', 'debateposts', 'bizgames', 'bizvotes', 'fbauthors'].forEach((kind) => write(kind, read(kind).filter((row) => !ids.includes(row.classroom))));
           write('classrooms', read('classrooms').filter((row) => !ids.includes(row.id)));
           write('classes', read('classes').filter((row) => String(row.id) !== String(params.p_class)));
           ['pins', 'devices', 'requests', 'pinreqs', 'seclog', 'giftuses', 'logindays'].forEach((kind) => write(kind, read(kind).filter((row) => String(row.class_id) !== String(params.p_class))));
@@ -3787,6 +3806,9 @@
       { title: '最新', items: [
         // 2026-11-26 阶段 338：习经机制图闯关（选错从头再来、各自计时）、小资料分析“参与闯关”、经营沙盘、后测改选理由；政经线索并进题目；两门课情境猜谜每课 8 题
         ...(config.course === 'political-economy' ? [
+          // 2026-11-27 阶段 340：弹幕小问题等老师开放、热身挪到线索 01 后面
+          ['弹幕小问题 · 等老师开放再发送', '弹幕小问题现在要等老师在大屏上点“开放作答”以后才能发送；开放以前问题照常显示，可以先想一想。'
+            + '原来学习路线上的热身问题挪到了线索 01 后面：读完线索 01，问题上面有一句话把线索和问题连起来。', '2026-11-27'],
           ['线索都放到了要用它的题目前面', '以前有几条线索单独放在概念学完之后（比如只给辩论赛论据卡用的）。现在它们都放到了要用的地方：辩论赛论据卡用的线索，'
             + '在辩论赛“② 选论据卡”这一步的开头；概念讲解里提到的，在那个概念第 1 步的开头。只有案例开头讲“事情怎么开始”的线索还放在最前面。', '2026-11-26'],
         ] : [

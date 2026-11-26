@@ -369,6 +369,10 @@
   .clp-dmq-tag { padding: 2px 10px; border-radius: 999px; color: #fff; background: #a4492d; font-weight: 800; font-size: 13px; }
   .clp-dmq-label { color: #6d6259; font-size: 13px; font-weight: 700; }
   .clp-dmq h4 { margin: 8px 0 4px; font-size: 18px; line-height: 1.6; }
+  /* 引子（2026-11-27）：从线索 01 引出问题；等老师开放时卡片变淡 */
+  .clp-dmq-lead { margin: 8px 0 0; color: #5b4a3a; font-size: 14.5px; line-height: 1.7; }
+  .clp-dmq.is-waiting .clp-dmq-form { opacity: .6; }
+  .clp-dmq.is-waiting .clp-dmq-state { color: #8a5a12; font-weight: 700; }
   .clp-dmq-hint { margin: 0 0 8px; color: #6d6259; font-size: 14px; }
   .clp-dmq-form { display: flex; gap: 8px; }
   .clp-dmq-form input { flex: 1 1 auto; min-width: 0; padding: 9px 11px; border: 1.5px solid rgba(70,51,34,.22); border-radius: 8px; background: #fff; font: inherit; }
@@ -1504,21 +1508,22 @@
       card.className = 'clp-dmq';
       card.dataset.dmq = String(index + 1);
       card.innerHTML = `<div class="clp-dmq-head"><span class="clp-dmq-tag">弹幕小问题 · 问${index + 1}</span><span class="clp-dmq-label">${esc(item.label)}</span></div>
-        <h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
+        ${item.lead ? `<p class="clp-dmq-lead">${esc(item.lead)}</p>` : ''}<h4>${esc(item.prompt)}</h4>${item.hint ? `<p class="clp-dmq-hint">${esc(item.hint)}</p>` : ''}
         <form class="clp-dmq-form"><input type="text" maxlength="${DMQ_MAX}" placeholder="写一句话（最多 ${DMQ_MAX} 字），发到投屏上" aria-label="弹幕：${esc(item.prompt)}" disabled><button type="submit" disabled>发送</button></form>
         <p class="clp-dmq-state" role="status"></p>`;
       if (slot) {
         slot.replaceChildren(card);
-        dmqCards.push({ card, tag, debate, rt });
+        dmqCards.push({ card, tag, debate, rt, no: index + 1 });
         return;
       }
       const head = box.querySelector('.page-head');
-      // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后
-      const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene') : null;
+      // 概念页：辨一辨追问紧跟在辨一辨之后；读情境紧跟在并入的“事实与情境”之后；“读完线索 01”（clue，2026-11-27）紧跟在第 1 步的线索 01 卡片后面
+      const spot = item.where === 'check' ? page.querySelector('[data-step="check"]') : item.where === 'scene' ? page.querySelector('.cl-scene')
+        : item.where === 'clue' ? page.querySelector('.cl-scene .cl-clue') : null;
       if (spot) spot.insertAdjacentElement('afterend', card);
       else if (item.where === 'start' && head) head.insertAdjacentElement('afterend', card);
       else box.appendChild(card);
-      dmqCards.push({ card, tag, debate, rt });
+      dmqCards.push({ card, tag, debate, rt, no: index + 1 });
     });
   }
   // ---------- 匿名建议箱：针对本堂课（老师的讲授、案例呈现、互动方式、以后想加的内容），放在页面最后的“资料与延伸阅读”之后
@@ -1650,19 +1655,28 @@
   // 解答等老师核对后显示（2026-11-26，用户：“概念解答等，得等老师核对以后才在学生端显示，学生自己提前做完题不显示。然后教师端再设置一个一键发布答案的按钮”）：
   //   后台 ck_revealed_items 给出本课堂已经放开的题（items，末尾 * ＝同一前缀的一组题）和是否全部放开（all：老师点了“发布答案”，或本班已经上了后面的课）。
   //   给不给解答由后台 ck_my_explain 把关（没放开时返回 wait）；这里只用来把按钮提前标成“等老师核对”。境界要求不变（普通解答仍要「筑基」）。
-  //   读不到（后台还没更新）或还没读到时不标，照旧显示“展开解答”。学生版测试页（教师账号，后台直接给解答）不标。
+  //   读不到（后台还没更新）或还没读到时不标，照旧显示“展开解答”。
+  // 2026-11-27（用户：“教师控制台收回答案后好像不能真的收回答案”）：读到某道题已经收回时，本页打开过的解答一并清掉、收起；页面开着时每分钟再读一次；
+  //   学生版测试页也读（后台对测试页的教师账号同样看放没放开，测试页看到的就是学生看到的）。
   let revealState = null;   // { all, items }
   let revealAt = 0;
   const isRevealed = (key) => !revealState || revealState.all
     || revealState.items.some((item) => item === key || (item.slice(-1) === '*' && String(key).indexOf(item.slice(0, -1)) === 0));
   async function loadReveals(force) {
-    if (!canExplain || PREVIEW || (!force && Date.now() - revealAt < 20000)) return;
+    if (!canExplain || (!force && Date.now() - revealAt < 20000)) return;
     revealAt = Date.now();
     try {
       const value = await backend.rpc('ck_revealed_items', { p_classroom: Number(identity.classroom) || identity.classroom });
       const res = (Array.isArray(value) ? value[0] : value) || {};
       if (res.status !== 'ok') return;
       revealState = { all: Boolean(res.all), items: Array.isArray(res.items) ? res.items.map(String) : [] };
+      // 老师收回了的题：本页已经打开过的解答清掉、收起（下次点按钮再问后台）
+      questions.forEach((q) => {
+        if (!q.explained || isRevealed(q.key)) return;
+        q.explained = '';
+        const body = q.bar && q.bar.querySelector('.clp-ex > .clp-ex-body');
+        if (body) { body.hidden = true; body.innerHTML = ''; }
+      });
       questions.forEach(paintExplain);
       document.dispatchEvent(new CustomEvent('classlive:reveals'));
     } catch (problem) { /* 后台还没有这个函数：不标“等老师核对” */ }
@@ -1779,10 +1793,11 @@
   });
   applyRealmGates(gateLevel);
   // 解答等老师核对后显示（2026-11-26）：进页面读一次本课堂已经放开的题；每递交一题、回到页面时再读（最多 20 秒一次）
-  if (canExplain && !PREVIEW && backend) {
+  if (canExplain && backend) {
     loadReveals(true);
     document.addEventListener('classlive:submitted', () => loadReveals(false));
     document.addEventListener('visibilitychange', () => { if (!document.hidden) loadReveals(false); });
+    setInterval(() => { if (!document.hidden) loadReveals(false); }, 60000);   // 2026-11-27 老师收回答案后一分钟内收起
   }
   if (worksheet && joined && !OFFLINE && !AUDIT) setupSelfStudy();   // 测试页也计（以王不凡记在后台，结算不计）；旁听不计
   if (joined && !OFFLINE && !AUDIT && backend) setupReview();   // 回温（2026-11-18）：出门测后面重做自己做错的题
@@ -2393,7 +2408,15 @@
       };
       paint();
       document.addEventListener('classlive:submitted', paint);
-      document.addEventListener('classlive:reveals', paint);
+      document.addEventListener('classlive:reveals', () => {
+        // 2026-11-27 老师收回了这一组：已经打开过的四步解析清掉、收起
+        if (cached && revealState && !(isRevealed(key) || groupQs.every((q) => isRevealed(q.key)))) {
+          cached = '';
+          body.hidden = true;
+          body.innerHTML = '';
+        }
+        paint();
+      });
       button.addEventListener('click', async () => {
         if (!body.hidden) { body.hidden = true; button.textContent = '展开四步解析'; paint(); return; }
         if (!cached) {
@@ -7305,8 +7328,13 @@
   }
 
   // 弹幕小问题：与左下角弹幕、机制图弹幕共用每 5 秒一条的冷却
+  // 2026-11-27 政治经济学（用户：“弹幕小问题也要老师开放后才能回答。”“习经的弹幕问题不用改。”）：老师在投屏页点“开放作答”（ck_game_start 的 dmq:NN，
+  //   live-gates.js）以后才能发送；开放以前问题和引子照常显示（可以先想一想），输入框、“发送”不能用，卡片上写“等老师开放”；隔几秒问一次后台（ck_game_started）。
+  //   老师“收起作答”以后又不能发。后台还没有这项功能（ck_game_started 不带 dmq）时照原样能发；连不上后台时保持上一次的样子。习经章节页不收。
   function setupQuestionDanmaku(enabled, note) {
-    dmqCards.forEach(({ card, tag, debate, rt }) => {
+    const gate = { on: Boolean(worksheet && enabled && backend && !OFFLINE), open: new Set(), cards: [], last: 0 };
+    const isOpen = (no) => !gate.on || gate.open.has(`dmq:${String(no).padStart(2, '0')}`);
+    dmqCards.forEach(({ card, tag, debate, rt, no }) => {
       const form = card.querySelector('form');
       const input = form.querySelector('input');
       const button = form.querySelector('button');
@@ -7314,12 +7342,21 @@
       const say = (text, kind) => { state.textContent = text; state.dataset.state = kind || ''; };
       shield(card);
       if (!enabled) { say(note); return; }
-      input.disabled = false;
-      dmButtons.push({ button, ready: () => true });
-      showCooling();
-      say(debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。'
+      const idle = debate ? '先投辩前票并递交，再写一句话点“发送”：投屏上会标出你是正方还是反方。'
         : rt ? '先在上面“① 认领角色”里递交你代表的角色，再写一句话点“发送”：投屏上会标出你的角色。'
-        : '写一句话后点“发送”，会显示在投屏上（老师开启匿名时不显示姓名）。');
+        : '写一句话后点“发送”，会显示在投屏上（老师开启匿名时不显示姓名）。';
+      const paintGate = () => {
+        const open = isOpen(no);
+        const was = card.classList.contains('is-waiting');
+        input.disabled = !open;
+        card.classList.toggle('is-waiting', !open);
+        if (!open) say('等老师开放：老师在大屏上点“开放作答”以后才能发送。可以先想一想。');
+        else if (was || !state.textContent) say(idle);
+      };
+      gate.cards.push({ card, paint: paintGate });
+      dmButtons.push({ button, ready: () => isOpen(no) });
+      showCooling();
+      paintGate();
       // 圆桌表态：角色以本人已递交的“认领角色”为准
       const roleOf = () => {
         const key = `${rt}:rt-role`;
@@ -7340,6 +7377,7 @@
       form.addEventListener('submit', async (event) => {
         event.preventDefault();
         const text = input.value.replace(/\s+/g, ' ').trim();
+        if (!isOpen(no)) { say('等老师开放以后才能发送。', 'error'); return; }
         if (!text || cooling > 0) return;
         const role = rt ? roleOf() : '';
         if (rt && !role) { say('请先在上面“① 认领角色”里选好你代表的一方并递交，弹幕才能标出你的角色。', 'error'); return; }
@@ -7357,6 +7395,32 @@
         }
       });
     });
+    if (!gate.on || !gate.cards.length) return;
+    // 问后台哪些弹幕小问题开放了：卡片在眼前、还有没开放的每 4 秒一次，其余 30 秒；回到页面时马上问
+    const roomId = Number(identity.classroom) || identity.classroom;
+    async function poll() {
+      gate.last = Date.now();
+      try {
+        const value = await backend.rpc('ck_game_started', { p_classroom: roomId });
+        const res = (Array.isArray(value) ? value[0] : value) || {};
+        if (res.dmq !== true) gate.on = false;   // 后台还没有“弹幕小问题开放”：照原样能发
+        const started = res.started && typeof res.started === 'object' ? res.started : {};
+        gate.open = new Set(Object.keys(started).filter((key) => /^dmq:\d{2}$/.test(key)));
+      } catch (problem) {
+        if (/PGRST202|42883|Could not find the function|未知的后台函数/.test(String((problem && problem.message) || problem))) gate.on = false;
+      }
+      gate.cards.forEach((c) => c.paint());
+      showCooling();
+    }
+    const near = () => gate.cards.some(({ card }) => { const r = card.getBoundingClientRect(); return r.bottom > -600 && r.top < window.innerHeight + 600; });
+    poll();
+    setInterval(() => {
+      if (document.hidden || !gate.on) return;
+      const waiting = gate.cards.some(({ card }) => card.classList.contains('is-waiting'));
+      if (Date.now() - gate.last < (waiting && near() ? 4000 : 30000) - 100) return;
+      poll();
+    }, 1000);
+    document.addEventListener('visibilitychange', () => { if (!document.hidden && gate.on) poll(); });
   }
 
   // ================= 两类课程的题目 =================

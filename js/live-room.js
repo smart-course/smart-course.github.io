@@ -4,6 +4,8 @@
  * “复原”（2026-10-22 用户：“只是把所有题目复原为未核对的状态，不改变已发弹幕等内容”）：章节页的题目脚本各自登记了复原函数
  *   （window.ClassPageResets），点一下就地把题目恢复到未作答、未核对，不刷新页面——弹幕、弹幕墙、计时、积分、猜词／猜谜／PK、
  *   页面位置都保持原样；学生递交的数据在云端，不受影响（不需要登录）。页面没有登记复原函数时，才按原来的办法清本机记录后重新打开。
+ * 2026-11-27 用户：“然后点复原也要能够统一收回答案。”当前课堂就是本页时，复原同时收回本课堂已经放开给学生的解答（后台 ck_reveal_clear，
+ *   不记 held：本班上了后面的课照旧自动放开），学生要等老师再核对这道题或在工作台“发布答案”才能看。
  */
 (function () {
   'use strict';
@@ -87,7 +89,7 @@
   bar.innerHTML = '<span data-rm-state><span class="rm-k">课堂</span><span class="rm-rest">：连接中……</span></span>'
     + '<button type="button" data-rm-open hidden>结束提交</button>'
     + '<button type="button" class="is-warn" data-rm-stop hidden>停止课堂</button>'
-    + '<button type="button" data-rm-reset title="把本页题目恢复到未作答、未核对的状态（弹幕、计时、积分等不变）">复原</button>'
+    + '<button type="button" data-rm-reset title="把本页题目恢复到未作答、未核对的状态，并收回已经放开给学生的解答（弹幕、计时、积分等不变）">复原</button>'
     + (window.ClassReadable ? '<button type="button" data-rm-font aria-haspopup="true" aria-expanded="false" title="调整投屏字号（标准、大、特大），本机记住">字号</button>'
       + `<div class="rm-font" data-rm-font-pop role="group" aria-label="投屏字号" hidden><span>投屏字号</span>${window.ClassReadable.LEVELS.map((name, i) => `<button type="button" data-font="${i}">${esc(name)}</button>`).join('')}</div>` : '')
     + '<button type="button" data-rm-ops aria-pressed="true" title="投屏页上只写给老师看的操作说明（步骤条的说明、活动的组织提示等）：开＝显示，关＝先藏起来；这台电脑记住">操作提示：开</button>'
@@ -259,16 +261,36 @@
     } catch (error) { /* 浏览器禁止存储时没有可清的记录 */ }
     return keys;
   };
-  resetButton.addEventListener('click', () => {
+  // 收回本课堂已经放开给学生的解答（当前课堂就是本页时）。返回空串＝收回了或不用收；否则是没收回的原因
+  async function retractAnswers() {
+    if (!room || room.chapter !== unit) return '';
+    try {
+      await backend.rpc('ck_reveal_clear', { p_classroom: Number(room.id) || room.id, p_hold: false });
+      document.dispatchEvent(new CustomEvent('classlive:reveals-changed'));
+      return '';
+    } catch (error) {
+      console.warn('[复原] 收回解答没有完成', error);
+      return /PGRST202|42883|Could not find the function|未知的后台函数/.test(String((error && error.message) || error)) ? '后台还没更新' : '没收回';
+    }
+  }
+  resetButton.addEventListener('click', async () => {
     const resets = window.ClassPageResets || [];
+    const here = Boolean(room && room.chapter === unit);
+    const answers = here ? '\n已经放开给学生的解答也一起收回：学生要等你再核对这道题，或在工作台点“发布答案”，才能看。' : '';
     if (resets.length) {
-      if (!window.confirm('把本页所有题目恢复到未作答、未核对的状态？\n弹幕、计时、积分和学生递交的数据都不受影响。')) return;
+      if (!window.confirm(`把本页所有题目恢复到未作答、未核对的状态？${answers}\n弹幕、计时、积分和学生递交的数据都不受影响。`)) return;
       resets.forEach((fn) => { try { fn(); } catch (error) { console.warn('[复原]', error); } });
       resetButton.textContent = '已复原';
-      setTimeout(() => { resetButton.textContent = '复原'; }, 2000);
+      const problem = await retractAnswers();
+      if (problem) {
+        resetButton.textContent = '已复原（解答没收回）';
+        resetButton.title = problem === '后台还没更新' ? '解答没有收回：后台还没执行 tools/cloudbase-pg-20261127-收回答案.sql' : '解答没有收回：请确认已登录教师工作台，再点一次“复原”';
+      }
+      setTimeout(() => { resetButton.textContent = '复原'; resetButton.title = '把本页题目恢复到未作答、未核对的状态，并收回已经放开给学生的解答（弹幕、计时、积分等不变）'; }, problem ? 6000 : 2000);
       return;
     }
-    if (!window.confirm('把本页恢复到初始状态？本页的选择、填写和核对结果都会清空（只清这台电脑上的记录，学生递交的数据不受影响）。')) return;
+    if (!window.confirm(`把本页恢复到初始状态？本页的选择、填写和核对结果都会清空（只清这台电脑上的记录，学生递交的数据不受影响）。${answers}`)) return;
+    await retractAnswers();
     pageKeys().forEach((key) => { try { localStorage.removeItem(key); } catch (error) { /* 忽略 */ } });
     try { history.scrollRestoration = 'manual'; } catch (error) { /* 忽略 */ }
     location.replace(location.pathname + location.search);
