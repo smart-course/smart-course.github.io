@@ -56,7 +56,7 @@
   ];
   const STAGES = ['初期', '中期', '后期', '巅峰'];
   // 巅峰一档（2026-11-21）。用户：“按照现在的情况，元婴境界的进度条可能需要调整一下了，在化神之前再增加一档元后巅峰，没到化神就一直这个档位，
-  //   同时不要改动现有学生的等级。”“巅峰从100% 起”——化神门槛提高以后（习经 135%、政经 155%），元婴的初期／中期／后期仍按 65%—90% 三等分，
+  //   同时不要改动现有学生的等级。”“巅峰从100% 起”——化神门槛提高以后（习经 150%、政经 155%），元婴的初期／中期／后期仍按 65%—90% 三等分，
   //   81.7% 以上直到化神原来一直是“后期”；现在修为到全学期满分的 100% 起单独算“巅峰”（stage 3，称号“元后巅峰”），一直到突破化神。
   //   初期／中期／后期的算法不动，所以现有同学的境界和小境界都不变（定这条规则时没有同学到 100%）。
   //   只有下一境界的门槛高于 PEAK_MIN 的课程才有这一档；与 cloudbase-pg.sql 的 ck_realm_level(points, max, course) 一致
@@ -76,7 +76,11 @@
   //   按 11-15 线上数据重算（课堂每次约 70—80，修炼场按题库还能得的分、额外奖励按近两周、云间灵田服丹每周约 9）：第 15 周末（12-20）
   //   政经前三名约 153%—160%、习经前两名约 134%—136%（修炼场题库快做完了，11-11 按每天 7—8 外推偏高）。
   //   政经化神 90% → 155%，习经 140% → 135%；学期末大约各有 3 位同学到化神。
-  const REALM_MIN = { 'xjp-economy': { 4: 1.35 }, 'political-economy': { 4: 1.55 } };
+  // 2026-11-26 习经再提（用户：“习经的化神境界可能要再提高一下了，按照现在这个进度，下个礼拜可能很多人就能达到化神境界了，最好第十五周的时候有1-2名化神，
+  //   然后跟政经一样设置元后巅峰”）——按 11-26 线上数据（两班前两名 96%、95%，满分 1000＝第一至八章；修为里额外奖励每周约 50—60、修炼场每周约 20—50）
+  //   外推：范围内还剩 3 次课，第 15 周末（12-20）前几名约 156%、148%、146%、146%、145%，135% 时第 14 周就有 7 人到。习经化神 135% → 150%，
+  //   第 15 周末约 1—2 人、学期末约 5 人。元后巅峰照旧从 100% 起（PEAK_MIN），一直到化神，和政经一样（政经 100%—155%，习经 100%—150%）。
+  const REALM_MIN = { 'xjp-economy': { 4: 1.50 }, 'political-economy': { 4: 1.55 } };
   function realmsFor(course) {
     const over = REALM_MIN[course] || {};
     return REALMS.map((realm) => (over[realm.level] != null ? { ...realm, min: over[realm.level] } : realm));
@@ -483,7 +487,7 @@
     list.forEach((realm) => { if (ratio >= realm.min - 1e-9) level = realm.level; });
     const lo = list[level].min;
     // 初期／中期／后期仍按原来的门槛三等分（2026-11-12 用户：“要确保学生目前的修为和境界是不变的，变的只是化神需要的分数”）：
-    // 化神门槛提高以后（习经 135%、政经 155%），元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
+    // 化神门槛提高以后（习经 150%、政经 155%），元婴照旧 65%—90% 分三段，90% 以上直到化神都是元婴后期；化神按门槛到 max(100%, 门槛＋10%) 三等分
     const hi = level < list.length - 1 ? REALMS[level + 1].min : Math.max(1, lo + 0.1);
     const within = hi > lo ? Math.max(0, Math.min(1, (ratio - lo) / (hi - lo))) : 1;
     // 巅峰（2026-11-21）：过了巅峰的起点、还没到下一境界；初期／中期／后期照旧
@@ -549,6 +553,20 @@
     };
     const fromRow = (row) => ({ ...row, case: row.case_no, ts: Number(row.ts) || Date.parse(row.created_at) || 0 });
     const filtered = (query, where) => Object.entries(where).reduce((q, [key, value]) => q.eq(column(key), value), query);
+    // fetchRows 同时在读的页数上限（2026-11-26）：几张表一起读、几个标签同时在读时，最多同时发出 8 个请求，其余排队
+    let reading = 0;
+    const queue = [];
+    const gate = async (task) => {
+      if (reading >= 8) await new Promise((resolve) => queue.push(resolve));
+      reading += 1;
+      try {
+        return await task();
+      } finally {
+        reading -= 1;
+        const next = queue.shift();
+        if (next) next();
+      }
+    };
     // 登录令牌约 2 小时过期，SDK 不会替数据请求自动续期：页面开久了，请求会被当成“未登录”而拒绝
     // （permission denied for table）。所以请求前每分钟最多检查一次会话（到期时由 SDK 续期），
     // 仍被当成未登录拒绝时，强制续期后再试一次；行级安全的拒绝（如课堂已结束提交）不在此列。
@@ -644,6 +662,31 @@
           if (batch.length < PAGE) return rows;
         }
       },
+      // 几页同时读（2026-11-26 工作台提速，用户：“教师工作台，载入修为境界等数据的时候有点卡，有点慢，你能想办法优化一下嘛？”）：
+      // opts.where 等值条件；opts.in [列, 值数组]，在后台就只取这些值的行（如本班的几个课堂）；opts.columns 只取这些列（逗号分隔，默认全部）；
+      // opts.since [列, 值] 只取该列大于此值的行。按 id 排序，先读第一页，满了再一批 opts.parallel（默认 4）页同时读，读到不满一页为止。
+      // 读的过程中有新增或删除时，后面的页会挪动，同一行可能读到两次：按 id 去重（挪走漏掉的，下次再读时补上）
+      async fetchRows(kind, opts = {}) {
+        if (opts.in && !opts.in[1].length) return [];
+        const make = () => {
+          let query = filtered(db.from(COLLECTIONS[kind]).select(opts.columns || '*'), opts.where || {});
+          if (opts.in) query = query.in(column(opts.in[0]), opts.in[1]);
+          if (opts.since) query = query.gt(column(opts.since[0]), opts.since[1]);
+          return query;
+        };
+        const page = (n) => gate(() => call(() => make().order('id', { ascending: true }).range(n * PAGE, n * PAGE + PAGE - 1))).then((result) => result.data || []);
+        const parallel = Math.max(1, Math.min(8, opts.parallel || 4));
+        const byId = new Map();
+        const keep = (batch) => batch.forEach((row) => byId.set(String(row.id), row));
+        const first = await page(0);
+        keep(first);
+        for (let next = 1, full = first.length >= PAGE; full; next += parallel) {
+          const batches = await Promise.all(Array.from({ length: parallel }, (_, i) => page(next + i)));
+          batches.forEach(keep);
+          full = batches.every((batch) => batch.length >= PAGE);
+        }
+        return Array.from(byId.values()).sort((a, b) => Number(a.id) - Number(b.id)).map(fromRow);
+      },
       // options.incremental：按 updated_at 只取有变化的行（作业快照较大，不必每次全部重读），不使用实时推送
       watch(kind, where, onChange, onError, onStatus, options = {}) {
         let closed = false;
@@ -659,7 +702,8 @@
           lastRefresh = Date.now();
           try {
             if (!options.incremental) {
-              const rows = await this.fetchAll(kind, where);
+              // 2026-11-26 起几页同时读（fetchRows，按 id 排，同 fetchAll）；另有排序的表照旧
+              const rows = await (ORDER_BY[kind] ? this.fetchAll(kind, where) : this.fetchRows(kind, { where }));
               if (!closed) onChange(rows);
               return;
             }
@@ -3436,6 +3480,16 @@
         if (options.since) rows = rows.filter((doc) => String(doc[options.since[0]] || '') > String(options.since[1]));
         return options.limit ? rows.slice(-options.limit).reverse() : rows;
       },
+      // 同 cloudbase 的 fetchRows（2026-11-26）：where 等值、in [列, 值数组]、since [列, 值]；本机不分页，columns 不管（整行返回）
+      async fetchRows(kind, opts = {}) {
+        let rows = read(kind).filter((doc) => matches(doc, opts.where || {}));
+        if (opts.in) {
+          const values = new Set(opts.in[1].map(String));
+          rows = rows.filter((doc) => values.has(String(doc[opts.in[0]])));
+        }
+        if (opts.since) rows = rows.filter((doc) => String(doc[opts.since[0]] || '') > String(opts.since[1]));
+        return rows;
+      },
       async removeAll(kind, where) { write(kind, read(kind).filter((doc) => !matches(doc, where))); },
     };
   }
@@ -3627,7 +3681,7 @@
     const Live = window.ClassLive || {};
     const config = { course };
     const FB = Live.feedbackBox ? Live.feedbackBox.texts(course === 'political-economy') : { tag: '匿名建议箱' };
-    const REALMS = Live.realmsFor ? Live.realmsFor(course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 135%、政经 155%）
+    const REALMS = Live.realmsFor ? Live.realmsFor(course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 150%、政经 155%）
     const GIFTS = Live.GIFTS || [];
     // 修炼场规则说明（与学生页 practiceRule 相同）
     const practiceRule = () => {

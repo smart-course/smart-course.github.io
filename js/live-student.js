@@ -5602,7 +5602,7 @@
     .catch(() => { /* 后台还没有 ck_my_roster_no 时不显示编号 */ });
 
   // ---------- 修为境界：老师在工作台按后台记录结算（签到、作答、弹幕），这里只显示本人的境界称号；分数不在页面上显示 ----------
-  const REALMS = Live.realmsFor ? Live.realmsFor(config.course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 135%、政经 155%，2026-11-15）
+  const REALMS = Live.realmsFor ? Live.realmsFor(config.course) : (Live.REALMS || []);   // 门槛按课程（化神：习经 150%（2026-11-26 起）、政经 155%（2026-11-15））
   const GIFTS = Live.GIFTS || [];
   const realmEl = panel.querySelector('[data-cl-realm]');
   const giftBox = panel.querySelector('[data-cl-gifts]');

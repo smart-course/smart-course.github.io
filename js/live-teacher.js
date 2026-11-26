@@ -290,8 +290,14 @@
     loadSecurity(!$('[data-panel="security"]').hidden);
     if (CONCEPT && !$('[data-panel="exam"]').hidden) loadExam();
     syncPractice(false).catch((error) => console.warn('[修炼场] 题库同步没有完成：', error));
-    autoSettle().catch((error) => console.warn('[修为境界] 自动结算没有完成：', error))
-      .then(() => { if (!realmResult && !$('[data-panel="realm"]').hidden) refreshRealms(false); });   // 正开着“修为境界”时按新班级重新计算
+    // 自动结算（2026-11-26 起晚 10 秒再开始：打开班级时先把课堂、名单这些马上要看的读完，不和它们抢网络）；正开着“修为境界”时马上算
+    clearTimeout(settleTimer);
+    const klassNow = state.klass;
+    settleTimer = setTimeout(() => {
+      if (state.klass !== klassNow) return;
+      autoSettle().catch((error) => console.warn('[修为境界] 自动结算没有完成：', error))
+        .then(() => { if ((!realmResult || realmResult.saved) && !$('[data-panel="realm"]').hidden) refreshRealms(false); });   // 正开着“修为境界”时按新班级重新计算
+    }, $('[data-panel="realm"]').hidden ? 10000 : 0);
   }
 
   // ---------------- 选择课程 ----------------
@@ -3632,7 +3638,7 @@
     try {
       const rooms = state.rooms.slice().sort((a, b) => Number(a.id) - Number(b.id));
       const ids = new Set(rooms.map((room) => String(room.id)));
-      const all = (await backend.fetchAll('checkins', { course: course.slug })).filter((doc) => ids.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计
+      const all = (await classData.get('checkins', rooms)).filter((doc) => ids.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计；2026-11-26 起只读本班的（classData）
       // 请假补做的登录（2026-11-19）不单占一列、不算出勤：请假那一格写“假·补”
       const checkins = all.filter((doc) => !doc.makeup);
       const madeUp = new Set(all.filter((doc) => doc.makeup).map((doc) => `${sidKey(doc.sid)}|${doc.classroom}`));
@@ -4531,7 +4537,11 @@
       const roomMap = new Map(rooms.map((room) => [String(room.id), room]));
       const pick = (docs) => docs.filter((doc) => roomMap.has(String(doc.classroom))).sort((a, b) => (a.ts || 0) - (b.ts || 0));
       const kinds = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
-      const fetched = await Promise.all(kinds.map(async (kind) => pick((await backend.fetchAll(kind, { course: course.slug })).filter((doc) => !doc.auditor))));   // 旁听不导出
+      // 2026-11-26 起在后台就只取这几个课堂的（以前读全课程再挑），几页同时读
+      const roomIds = rooms.map((room) => Number(room.id) || room.id);
+      const readKind = (kind) => (typeof backend.fetchRows === 'function' ? backend.fetchRows(kind, { where: { course: course.slug }, in: ['classroom', roomIds] })
+        : backend.fetchAll(kind, { course: course.slug }));
+      const fetched = await Promise.all(kinds.map(async (kind) => pick((await readKind(kind)).filter((doc) => !doc.auditor))));   // 旁听不导出
       const docs = Object.fromEntries(kinds.map((kind, index) => [kind, fetched[index]]));
       const { checkins, danmaku } = docs;
       const choices = docs.choices || [];
@@ -4680,6 +4690,67 @@
     }
   });
 
+  // ---------------- 本班记录（2026-11-26 提速） ----------------
+  // 用户：“教师工作台，载入修为境界等数据的时候有点卡，有点慢，你能想办法优化一下嘛？”
+  // 以前修为境界、学情分析、导出考勤各自把全课程（各个班）的加入、选择、作答、作业、弹幕记录一页 500 条地一页页读完，再在浏览器里挑出本班的，
+  // 几张表也是读完一张再读下一张。现在：按本班的课堂编号在后台就筛好、只取要用的列、几张表同时读、每张表几页同时读（backend.fetchRows）；
+  // 读过的留在这个页面里（不存到硬盘：投屏电脑常是公用的），20 秒内再用直接拿，超过 20 秒只补读新的：
+  //   · 选择、作答只增不改（只在删课堂时连带删除，课堂一变就整张重读），按写入时间往前多读 2 分钟、按 id 合并（同时写入时后写完的不会漏）；
+  //   · 政经的作业（课后作业快照）会更新，按更新时间往前多读 2 分钟；
+  //   · 加入记录（旁听转正）、弹幕（隐藏、撤回、点赞、删除）和其他小表会改，每次整张重读（本班的不多）。
+  // 后台网页还是旧的、没有 fetchRows 时（只在发布过渡的一两分钟里）退回原来的读法。
+  const classData = (() => {
+    const FRESH_MS = 20000;
+    const BACK_MS = 120000;
+    const SPEC = {
+      checkins: { mode: 'full', course: true, columns: 'id,owner,course,session,name,sid,ts,created_at,classroom,class_name,group_name,verified,auditor,makeup' },
+      choices: { mode: 'append', course: true, columns: 'id,owner,course,session,name,sid,case_no,item,choice,ts,created_at,classroom' },
+      answers: { mode: 'append', course: true, columns: 'id,owner,course,session,name,sid,case_no,item,text,ts,created_at,classroom' },
+      homework: { mode: 'updated', course: true },
+      danmaku: { mode: 'full', course: true },
+      bonus: { mode: 'full', course: true },
+      puzzleguesses: { mode: 'append', course: false },
+      debateposts: { mode: 'full', course: false },
+    };
+    const cache = new Map();   // 表 → { key, rows: Map(id → 行), at, cursor, pending }
+    const read = (kind, opts) => (typeof backend.fetchRows === 'function' ? backend.fetchRows(kind, opts)
+      : backend.fetchAll(kind, opts.where || {}).then((rows) => {
+        const ids = opts.in ? new Set(opts.in[1].map(String)) : null;
+        return rows.filter((row) => (!ids || ids.has(String(row[opts.in[0]]))) && (!opts.since || String(row[opts.since[0]] || '') > String(opts.since[1])));
+      }));
+    async function load(kind, rooms, entry) {
+      const spec = SPEC[kind] || { mode: 'full', course: true };
+      const ids = rooms.map((room) => Number(room.id) || room.id);
+      const base = { where: spec.course ? { course: course.slug } : {}, in: ['classroom', ids], columns: spec.columns };
+      const field = spec.mode === 'updated' ? 'updated_at' : 'created_at';
+      const more = Boolean(entry.rows && spec.mode !== 'full' && entry.cursor);
+      const list = await read(kind, more ? { ...base, since: [field, entry.cursor] } : base);
+      const rows = more ? entry.rows : new Map();
+      list.forEach((row) => rows.set(String(row.id), row));
+      let latest = 0;
+      let dated = spec.mode !== 'full';
+      rows.forEach((row) => { const at = millis(row[field]); if (at) latest = Math.max(latest, at); else dated = false; });
+      entry.rows = rows;
+      entry.cursor = dated && latest ? new Date(latest - BACK_MS).toISOString() : null;   // 有的行没有时间（本机测试数据）：下次整张重读
+      entry.at = Date.now();
+    }
+    // 本班（rooms 这几个课堂）某张表的记录，按 id 排；force：不用 20 秒内的，选择、作答照样只补读新的
+    async function get(kind, rooms, force) {
+      const key = `${course.slug}|${rooms.map((room) => String(room.id)).sort().join(',')}`;
+      let entry = cache.get(kind);
+      if (!entry || entry.key !== key) {
+        entry = { key, rows: null, at: 0, cursor: null, pending: null };
+        cache.set(kind, entry);
+      }
+      if (!entry.pending && !(entry.rows && !force && Date.now() - entry.at < FRESH_MS)) {
+        entry.pending = load(kind, rooms, entry).finally(() => { entry.pending = null; });
+      }
+      if (entry.pending) await entry.pending;
+      return Array.from(entry.rows.values()).sort((a, b) => Number(a.id) - Number(b.id));
+    }
+    return { get, clear: () => cache.clear() };
+  })();
+
   // ---------------- 修为境界：按后台记录结算，贯穿整个学期 ----------------
   // 每次课满分 100 修为：签到 20、作答完成 35、作答正确 35、弹幕最多 10（每条有效弹幕 2 修为）。
   // 习经按案例算课次（一章两个案例＝两次课），政经每个案例一次课；满分＝100 × 全部课次。境界见 ClassLive.REALMS。
@@ -4690,7 +4761,7 @@
   //   · 签到只认“上课日”（当天本单元有足够多同学登录），课后自己打开页面不算；
   //   · 境界只由教师账号写入（ck_save_realms），点名册里没有的学号不结算。
   // 教师点赞（投屏上点，ck_like_danmaku 每堂课有上限）：被赞弹幕的发送人每赞额外加 LIKE.points 修为，每人每次课最多算 LIKE.perStudent 个；额外奖励，不计入满分。
-  const REALMS = window.ClassLive.realmsFor ? window.ClassLive.realmsFor(course.slug) : window.ClassLive.REALMS;   // 门槛按课程（化神：习经 135%、政经 155%，2026-11-15）
+  const REALMS = window.ClassLive.realmsFor ? window.ClassLive.realmsFor(course.slug) : window.ClassLive.REALMS;   // 门槛按课程（化神：习经 150%（11-26 起）、政经 155%，2026-11-15）
   // 请假：请假的那次课（上课日）计 leave 修为（相当于签到）；某个单元的上课日既没登录也没请假，这个单元不得任何修为（作答、弹幕、点赞都不算）
   const POINTS = { attend: 20, done: 35, right: 35, danmaku: 10, perDanmaku: 2, challenge: 2, leave: (window.ClassLive.LEAVE || {}).points || 20 };
   const LIKE = window.ClassLive.LIKE || { limit: 20, points: 5, perStudent: 2 };
@@ -4831,30 +4902,28 @@
     const reviewRoom = new Set(rooms.filter((room) => room.danmaku === 'review').map((room) => String(room.id)));   // 审核模式：只算已通过的
     const kinds = CONCEPT ? ['checkins', 'homework', 'danmaku'] : ['checkins', 'choices', 'answers', 'danmaku'];
     const docs = {};
-    for (const kind of kinds) {
-      docs[kind] = (await backend.fetchAll(kind, { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)) && !doc.auditor);   // 旁听不计修为
-    }
-    // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、经营沙盘 biz、匿名建议 feedback、
-    // 2026-11-05 起：建议被点赞采纳 adopt、点笑脸 mood、一周登录满 3 天 week）；后台还没有这张表时按 0 算
+    // 2026-11-26 起这些都同时读，记录只读本班的（classData）
+    const classId = Number(state.klass.id) || state.klass.id;
+    const orNone = (fallback, also) => (error) => { if (missingTable(error) || (also && missingFunction(error))) return fallback; throw error; };
+    const [lists, bonusRows, practiceList, ltMap, leaves] = await Promise.all([
+      Promise.all(kinds.map((kind) => classData.get(kind, rooms))),
+      // 额外修为：ck_bonus 各类（猜词第一 wordgame、猜谜抢答 puzzle、PK、辩论 debate、经营沙盘 biz、匿名建议 feedback、
+      // 2026-11-05 起：建议被点赞采纳 adopt、点笑脸 mood、一周登录满 3 天 week）；后台还没有这张表时按 0 算
+      classData.get('bonus', rooms).catch(orNone([])),
+      // 修炼场（2026-10-22）：本班每人在本课程修炼场累计得到的修为（后台已按每天上限、每题一次核对；还没建表时按 0 算）
+      backend.rpc('ck_practice_totals', { p_course: course.slug, p_class: classId }).catch(orNone([], true)),
+      // 云间灵田（2026-11-15）：服丹折算的网站修为（后台已按每天 1、每周 5、学期为满分 3% 的上限记好；还没建好时按 0 算）
+      backend.rpc('lt_points', { p_course: course.slug, p_class: classId }).catch(orNone({}, true)),
+      backend.fetchAll('leaves', { class_id: classId }).catch(orNone([])),
+    ]);
+    kinds.forEach((kind, i) => { docs[kind] = lists[i].filter((doc) => roomUnit.has(String(doc.classroom)) && !doc.auditor); });   // 旁听不计修为
     const gameBonus = new Map();
-    try {
-      (await backend.fetchAll('bonus', { course: course.slug })).filter((doc) => roomUnit.has(String(doc.classroom)))
-        .forEach((doc) => gameBonus.set(sidKey(doc.sid), (gameBonus.get(sidKey(doc.sid)) || 0) + (Number(doc.points) || 0)));
-    } catch (error) { if (!missingTable(error)) throw error; }
-    // 修炼场（2026-10-22）：本班每人在本课程修炼场累计得到的修为（后台已按每天上限、每题一次核对；还没建表时按 0 算）
+    bonusRows.filter((doc) => roomUnit.has(String(doc.classroom)))
+      .forEach((doc) => gameBonus.set(sidKey(doc.sid), (gameBonus.get(sidKey(doc.sid)) || 0) + (Number(doc.points) || 0)));
     const practicePoints = new Map();
-    try {
-      const list = await backend.rpc('ck_practice_totals', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id });
-      (Array.isArray(list) ? list : []).forEach((row) => practicePoints.set(sidKey(row.sid), Number(row.points) || 0));
-    } catch (error) { if (!missingTable(error) && !missingFunction(error)) throw error; }
-    // 云间灵田（2026-11-15）：服丹折算的网站修为（后台已按每天 1、每周 5、学期为满分 3% 的上限记好；还没建好时按 0 算）
+    (Array.isArray(practiceList) ? practiceList : []).forEach((row) => practicePoints.set(sidKey(row.sid), Number(row.points) || 0));
     const lingtianPoints = new Map();
-    try {
-      const map = await backend.rpc('lt_points', { p_course: course.slug, p_class: Number(state.klass.id) || state.klass.id });
-      Object.entries((Array.isArray(map) ? map[0] : map) || {}).forEach(([sid, pts]) => lingtianPoints.set(sidKey(sid), Number(pts) || 0));
-    } catch (error) { if (!missingTable(error) && !missingFunction(error)) throw error; }
-    let leaves = [];
-    try { leaves = await backend.fetchAll('leaves', { class_id: Number(state.klass.id) || state.klass.id }); } catch (error) { if (!missingTable(error)) throw error; }
+    Object.entries((Array.isArray(ltMap) ? ltMap[0] : ltMap) || {}).forEach(([sid, pts]) => lingtianPoints.set(sidKey(sid), Number(pts) || 0));
     const leaveDay = (sid, day) => leaves.some((row) => sidKey(row.sid) === sid && row.start_day <= day && day <= row.end_day);
     const roster = rosterOf();
     const rosterMap = new Map(roster.map((person) => [sidKey(person.sid), person]));
@@ -5142,8 +5211,38 @@
     const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid);
     return row ? `${sectChip(row.sect)}${Number(row.changes) >= 1 ? '<small title="已用掉唯一一次改投机会">已改投</small>' : ''}<button type="button" data-sect-reset="${esc(row.id)}" title="解除这位同学的宗门选择，让其重新选择（宗门分随之减去其修为，改投机会也恢复）">解除</button>` : '';
   };
-  let realmResult = null;
+  let realmResult = null;   // 计算结果；saved 为真时是先显示的“上次结算”（见 showSavedRealms），还在重新计算
   let realmSaved = '';
+  let settleTimer = 0;
+  let realmBusy = 0;   // 正在重新计算的次数
+  const savedNote = () => {
+    const at = realmResult && typeof realmResult.saved === 'number' ? realmResult.saved : 0;
+    return `先显示上次结算${at ? `（${isoDay(at).slice(5)} ${clock(at).slice(0, 5)}）` : ''}的结果；正在按最新记录重新计算，算好了自动换成最新的……`;
+  };
+  // 先显示上次结算的结果（2026-11-26 提速）：后台 ck_realms 里本班每人一行（每次结算时写入），一下就读到。点开“修为境界”时先按它画出修为表，
+  // 同时按最新记录重新计算，算好了换成最新的。上次结算的表里没有核查提示（要重新计算才有），也不能导出
+  async function showSavedRealms() {
+    if (realmResult || !state.klass || PLAIN) return;
+    const klass = state.klass;
+    try {
+      const saved = await backend.fetchAll('realms', { course: course.slug, class_id: Number(klass.id) || klass.id });
+      if (realmResult || state.klass !== klass || !saved.length) return;
+      const roster = new Set(rosterOf().map((person) => sidKey(person.sid)));
+      const Live = window.ClassLive;
+      const titleOf = (realm, stage) => (Live.stageTitle ? Live.stageTitle(realm, stage) : (REALMS[realm] || {}).name || '');
+      const rows = saved.map((row) => {
+        const realm = Number(row.realm) || 0;
+        const stage = Number(row.stage) || 0;
+        return { sid: sidKey(row.sid), name: row.name || '', points: Number(row.points) || 0, max: Number(row.max_points) || realmMax(), realm, stage,
+          title: titleOf(realm, stage), inRoster: !roster.size || roster.has(sidKey(row.sid)), owners: 0, excused: 0, detail: row.detail || {}, flags: [], more: {} };
+      }).sort((a, b) => b.points - a.points);
+      realmResult = { saved: Math.max(0, ...saved.map((row) => millis(row.updated_at))) || true, rows };
+      if (realmBusy) $('[data-realm-status]').textContent = savedNote();
+      if (!$('[data-panel="realm"]').hidden) renderRealms();
+    } catch (error) {
+      console.warn('[修为境界] 上次结算的结果没有读到：', error);
+    }
+  }
   // 2026-11-11 重排：顶部境界阶梯（人数、门槛、占全班比例）、表格名次奖牌、修为进度条、提示标签
   // 核查提示（2026-11-22 起“N 台设备登录过”“N 处文字作答与他人相同”可以点开看明细：用户“最好能够显示或者链接到相同的地方。
   // 比如点击一下就能展开到相同的地方，显示跟谁相同等”）。展开的明细排在这位同学那一行下面，搜索、重新计算后仍保持展开
@@ -5216,7 +5315,7 @@
     const last = Number(store.get(`realm-saved:${course.slug}:${state.klass && state.klass.id}`)) || 0;
     const lastText = last ? `上次结算 <b>${esc(`${isoDay(last).slice(5)} ${clock(last).slice(0, 5)}`)}</b>` : '还没有在这台电脑上结算过';
     $('[data-realm-summary]').innerHTML = `本班上课范围：<b>${esc(scopeText(state.klass))}</b>（在“导出与清理 → 班级”里设置） · 共 <b>${meetings}</b> 次课 · 满分 <b>${max}</b> 修为`
-      + `${realmResult ? ` · 已上过 <b>${realmResult.units}/${realmResult.total}</b> 个${UNIT}` : ''} · ${lastText}。`
+      + `${realmResult && !realmResult.saved ? ` · 已上过 <b>${realmResult.units}/${realmResult.total}</b> 个${UNIT}` : ''} · ${lastText}。`
       + `<br>每次课 100：签到 20、作答完成 35、作答正确 35、弹幕最多 10；请假的课计 ${POINTS.leave}（请假的同学之后用那次课的课堂码登录可以补交题目，作答照常计修为），没登录也没请假的课不得修为；老师点赞、猜词、猜谜、PK、辩论、经营沙盘、匿名建议、修炼场是额外奖励（见下方规则）。${esc(realmSaved)}`;
     const countBox = $('[data-realm-count]');
     if (!realmResult) {
@@ -5245,7 +5344,8 @@
   async function refreshRealms(save, quiet) {
     if (!state.klass) return;
     const status = $('[data-realm-status]');
-    if (!quiet) status.textContent = '正在读取本班全部课堂的记录并计算……';
+    if (!quiet) status.textContent = realmResult && realmResult.saved ? savedNote() : '正在读取本班各次课的记录并计算……';
+    realmBusy += 1;
     try {
       realmResult = await computeRealms();
       await loadSects();
@@ -5262,11 +5362,17 @@
       console.error(error);
       status.textContent = missingTable(error) || /PGRST202|42883|Could not find the function/i.test(String((error && error.message) || error))
         ? '修为境界的数据表还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261010-修为境界.sql。'
-        : `结算失败：${failReason(error)}`;
+        : `结算失败：${failReason(error)}${realmResult && realmResult.saved ? '（下面是上次结算的结果）' : ''}`;
+    } finally {
+      realmBusy -= 1;
     }
     renderRealms();
   }
-  $('[data-tab="realm"]').addEventListener('click', () => { if (!realmResult) refreshRealms(false); else renderRealms(); });
+  $('[data-tab="realm"]').addEventListener('click', () => {
+    if (realmResult && !realmResult.saved) { renderRealms(); return; }
+    showSavedRealms();
+    refreshRealms(false);
+  });
   $('[data-realm-refresh]').addEventListener('click', () => refreshRealms(false));
   $('[data-realm-save]').addEventListener('click', () => refreshRealms(true));
   $('[data-realm-search]').addEventListener('input', renderRealms);
@@ -5296,7 +5402,7 @@
     renderRealms();
   });
   $('[data-realm-export]').addEventListener('click', () => {
-    if (!realmResult) return;
+    if (!realmResult || realmResult.saved) return;   // 先显示的“上次结算”不导出，等重新计算好
     const sectOfSid = (sid) => { const row = sectRows.find((item) => String(item.class_id) === String(state.klass.id) && sidKey(item.sid) === sid); return row ? sectName(row.sect) : ''; };
     const rows = realmResult.rows.map((row, i) => [i + 1, row.sid, row.name, row.title, sectOfSid(row.sid), row.points, row.max, row.detail.attend, row.detail.leave || 0, row.detail.done,
       row.detail.right, row.detail.danmaku, row.detail.like || 0, row.detail.game || 0, row.detail.practice || 0, row.detail.lingtian || 0, row.flags.join('；')]);
@@ -5577,25 +5683,32 @@
     const keep = (sid) => !roster.length || rosterName.has(sidKey(sid));   // 只算点名册上的同学
     const nameOf = (sid, fallback) => rosterName.get(sidKey(sid)) || fallback || '';
     const tsOf = (doc) => (doc.ts ? Number(doc.ts) : 0) || millis(doc.created_at) || millis(doc.at) || 0;
-    const fetchKind = async (kind, where) => { try { return await backend.fetchAll(kind, where); } catch (error) { if (missingTable(error)) return []; throw error; } };
-    const visits = (await fetchKind('visits', { class_id: Number(state.klass.id) || state.klass.id })).filter((row) => !row.auditor && keep(row.sid));
-    const pick = async (kind) => (await fetchKind(kind, { course: course.slug })).filter((doc) => inClass(doc) && !doc.auditor && keep(doc.sid));
-    const checkins = await pick('checkins');
-    const choices = CONCEPT ? [] : await pick('choices');
-    const answers = CONCEPT ? [] : await pick('answers');
-    const homework = CONCEPT ? await pick('homework') : [];
-    const danmaku = (await pick('danmaku')).filter((doc) => !doc.withdrawn_at);
-    const practice = (await fetchKind('practice', { course: course.slug })).filter((doc) => roster.length ? rosterName.has(sidKey(doc.sid)) : false);
-    const guesses = (await fetchKind('puzzleguesses', {})).filter((doc) => inClass(doc) && keep(doc.sid));
-    const posts = (await fetchKind('debateposts', {})).filter((doc) => inClass(doc) && keep(doc.sid));
-    const realms = (await fetchKind('realms', { course: course.slug })).filter((row) => String(row.class_id) === String(state.klass.id) && keep(row.sid));
-    const leaves = await fetchKind('leaves', { class_id: Number(state.klass.id) || state.klass.id });
-    const sects = await fetchKind('sectmembers', { course: course.slug });
-    let moods = [];
-    try {
-      const value = await backend.rpc('ck_mood_stats', { p_classrooms: rooms.map((room) => Number(room.id) || room.id) });
-      moods = Array.isArray(value) ? value : [];
-    } catch (error) { if (!missingFunction(error) && !missingTable(error)) throw error; }
+    const classId = Number(state.klass.id) || state.klass.id;
+    const none = (error) => { if (missingTable(error)) return []; throw error; };
+    // 2026-11-26 起几张表同时读：本班课堂的记录经 classData（只读本班的，读过的留在本页、再用时只补读新的），按班级的表在后台按班级筛
+    const fetchKind = (kind, where) => (typeof backend.fetchRows === 'function' ? backend.fetchRows(kind, { where }) : backend.fetchAll(kind, where)).catch(none);
+    const pick = async (kind) => (await classData.get(kind, rooms).catch(none)).filter((doc) => inClass(doc) && !doc.auditor && keep(doc.sid));
+    const [visitRows, checkins, choices, answers, homework, danmakuRows, practiceRows, guesses, posts, realmRows, leaves, sects, moods] = await Promise.all([
+      fetchKind('visits', { class_id: classId }),
+      pick('checkins'),
+      CONCEPT ? [] : pick('choices'),
+      CONCEPT ? [] : pick('answers'),
+      CONCEPT ? pick('homework') : [],
+      pick('danmaku'),
+      // 修炼场按班级在后台筛（以前读全课程再按点名册挑）；下面照旧只留点名册上的同学
+      fetchKind('practice', { course: course.slug, class_id: classId }),
+      pick('puzzleguesses'),
+      pick('debateposts'),
+      fetchKind('realms', { course: course.slug, class_id: classId }),
+      fetchKind('leaves', { class_id: classId }),
+      fetchKind('sectmembers', { course: course.slug }),
+      backend.rpc('ck_mood_stats', { p_classrooms: rooms.map((room) => Number(room.id) || room.id) }).then((value) => (Array.isArray(value) ? value : []))
+        .catch((error) => { if (!missingFunction(error) && !missingTable(error)) throw error; return []; }),
+    ]);
+    const visits = visitRows.filter((row) => !row.auditor && keep(row.sid));
+    const danmaku = danmakuRows.filter((doc) => !doc.withdrawn_at);
+    const practice = practiceRows.filter((doc) => roster.length ? rosterName.has(sidKey(doc.sid)) : false);
+    const realms = realmRows.filter((row) => String(row.class_id) === String(state.klass.id) && keep(row.sid));
     // 学习行为明细：每个动作一行（ms 时间、学号、课堂、单元、行为、分组、题目）
     const roomName = (id) => (roomOf.get(String(id)) || {}).name || '';
     const roomUnit = (id) => (roomOf.get(String(id)) || {}).chapter || '';
