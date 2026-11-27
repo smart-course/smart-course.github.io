@@ -158,7 +158,9 @@
   // 加修为（额外奖励，不计入满分；后台 ck_set_debate_winners 发放）：全场点赞最多的 top 位同学各加 likes。
   // 2026-11-21 用户：“辩论赛，只有全场点赞最多的三位同学加分，胜利方不加分。这样可以避免有的同学看哪方人数最多而选择那一方，从而获胜。”
   //   辩后投票票多的一方只公布为获胜方，不再加修为（win 由 5 改为 0）；以前课上已经加的留在 ck_bonus 里，结算照常算，不追改
-  const DEBATE = { likes: 5, win: 0, top: 3, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
+  // 2026-11-28（阶段 345）点赞名额：一共 slots 个，按两方聊天室人数分（每方至少 1 个），每方在本方里按赞数排，名额边上并列的平分；辩论聊天室每人只能发一次言
+  //   （只算还显示着的：撤回的、被老师隐藏的不算）。top 只留给旧页面；经营沙盘、分组讨论的聊天室仍是 perPerson 条
+  const DEBATE = { likes: 5, win: 0, top: 3, slots: 4, nickMax: 10, textMax: 100, gap: 5000, perPerson: 30, poll: 4000 };
   // 2026-11-20 辩论赛每一步的计时同步到学生页：沿用 3v3 辩论台留下的 ck_debate_control / ck_debate_live（表 ck_debate_matches，线上一直在，不用再执行 SQL），
   // 阶段名只能用旧的那几个，这里对照：选立场 · 论据卡＝pro_open，聊天室＝free，辩后投票＝vote，公布结果＝done
   // 2026-11-20 加“自由讨论”一步（用户：“在聊天室发言点赞前面，增加一个讨论环节，给5分钟时间让学生们讨论辩题，然后形成自己的观点”），借用阶段名 con_open
@@ -1267,7 +1269,10 @@
               const r = out[String(v.round)] || (out[String(v.round)] = {});
               (r[String(v.decision)] || (r[String(v.decision)] = {}))[v.role] = v.choice;
             });
-            return { stage: g.stage || 'chat', reps, event: g.event || null, shown: g.shown || null, votes: out };
+            // 大屏这一步的倒计时（2026-11-28，同 cloudbase-pg.sql 的 ck_biz_game_json）：没暂停时按结束时刻算剩余秒数
+            const c = g.clock;
+            const clock = c ? { step: c.step, key: c.key, total: c.total, paused: Boolean(c.paused), left: c.paused ? c.left : Math.max(0, Math.ceil((Date.parse(c.ends) - Date.now()) / 1000)) } : null;
+            return { stage: g.stage || 'chat', reps, event: g.event || null, shown: g.shown || null, votes: out, clock };
           };
           if (name === 'ck_biz_board' || name === 'ck_biz_control' || name === 'ck_set_biz_awards') {
             teacherOnly();
@@ -1331,10 +1336,14 @@
               else { g.event = null; g.stage = 'show1'; write('bizvotes', votes.filter((v) => !(same(v) && v.case_no === no && v.round === 2))); votes.splice(0, votes.length, ...read('bizvotes')); }
             } else if (action === 'show') {
               g.shown = Object.keys(args).length ? args : null;
+            } else if (action === 'clock') {   // 2026-11-28 大屏这一步的倒计时（同 cloudbase-pg.sql 的 ck_biz_control 'clock'）
+              const left = Math.max(0, Math.min(3600, Math.round(Number(args.left) || 0)));
+              g.clock = Object.keys(args).length ? { step: Math.max(0, Math.min(5, Number(args.step) || 0)), key: String(args.key || '').slice(0, 8),
+                total: Math.max(0, Math.min(3600, Math.round(Number(args.total) || 0))), paused: Boolean(args.paused), left, ends: new Date(Date.now() + left * 1000).toISOString() } : null;
             } else if (action === 'reset') {
               write('bizvotes', votes.filter((v) => !(same(v) && v.case_no === no)));
               votes.splice(0, votes.length, ...read('bizvotes'));
-              Object.assign(g, { stage: 'chat', reps: {}, event: null, shown: null });
+              Object.assign(g, { stage: 'chat', reps: {}, event: null, shown: null, clock: null });
             } else throw new Error('不支持的操作');
             write('bizgames', games);
             return gameJson(true);
@@ -1453,11 +1462,27 @@
             const klass = room && read('classes').find((row) => String(row.id) === String(room.class_id));
             return new Set(((klass && klass.roster) || []).map((p) => sidKey(p.sid)));
           };
+          // 2026-11-28 点赞名额（规则同 cloudbase-pg.sql 的 ck_debate_quota、ck_debate_leaders）：一共 4 个，按两方人数分（每方至少 1 个）；
+          //   每方在本方里按赞数排，名额边上并列的平分（num / den）
+          const quotaOf = (classroom, no) => {
+            const n = (side) => members.filter((m) => String(m.classroom) === String(classroom) && m.case_no === no && m.side === side).length;
+            const pro = n('pro');
+            const con = n('con');
+            const small = (k) => Math.max(1, Math.round(DEBATE.slots * k / (pro + con)));
+            const q = pro + con === 0 ? 2 : pro === 0 ? 0 : con === 0 ? DEBATE.slots : pro <= con ? small(pro) : DEBATE.slots - small(con);
+            return { pro: q, con: DEBATE.slots - q, n_pro: pro, n_con: con };
+          };
           const leaders = (classroom, no) => {
             const roster = rosterOf(classroom);
-            return ['pro', 'con'].flatMap((side) => ranked(classroom, no, side, roster)).filter((m) => m.likes > 0)
-              .sort((a, b) => b.likes - a.likes || a.first - b.first).slice(0, DEBATE.top)
-              .map((m) => ({ sid: m.sid, name: m.name, nick: m.nick, side: m.side, likes: m.likes, posts: m.posts }));
+            const quota = quotaOf(classroom, no);
+            return ['pro', 'con'].flatMap((side) => {
+              const list = ranked(classroom, no, side, roster).filter((m) => m.likes > 0);
+              return list.map((m) => {
+                const ahead = list.filter((x) => x.likes > m.likes).length;
+                const tie = list.filter((x) => x.likes === m.likes).length;
+                return { sid: m.sid, name: m.name, nick: m.nick, side: m.side, likes: m.likes, posts: m.posts, slots: quota[side], num: Math.min(quota[side] - ahead, tie), den: tie };
+              }).filter((m) => m.num > 0);
+            });
           };
           if (name === 'ck_debate_board' || name === 'ck_debate_hide' || name === 'ck_set_debate_winners') {
             teacherOnly();
@@ -1481,8 +1506,8 @@
                 const points = Number(params.p_points);
                 if (!(points >= 1 && points <= 10)) throw new Error('每项加分应为 1—10');
                 const sum = new Map();
-                const add = (sid, name) => { const was = sum.get(sid); sum.set(sid, { name, points: Math.min(20, (was ? was.points : 0) + points) }); };
-                top.forEach((m) => add(m.sid, m.name));
+                const add = (sid, name, pts) => { const was = sum.get(sid); sum.set(sid, { name, points: Math.min(20, (was ? was.points : 0) + pts) }); };
+                top.forEach((m) => add(m.sid, m.name, Math.max(1, Math.ceil(points * (m.num || 1) / (m.den || 1)))));   // 名额边上并列的平分（2026-11-28）
                 sum.forEach((v, sid) => bonus.push({ id: nextId(bonus), course: room.course, classroom: room.id, day, kind: 'debate', sid, name: v.name, points: v.points, created_at: new Date().toISOString() }));
               }
               write('bonus', bonus);
@@ -1513,6 +1538,7 @@
               };
             });
             board.leaders = leaders(room.id, no);
+            board.quota = quotaOf(room.id, no);
             board.awarded = read('bonus').filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
             return board;
           }
@@ -1571,6 +1597,7 @@
             const text = String(params.p_text || '').replace(/\s+/g, ' ').trim();
             if (text.length < 2 || text.length > DEBATE.textMax) return { status: 'short' };
             const mine = posts.filter((p) => String(p.classroom) === String(classroom) && p.case_no === no && p.sid === sid);
+            if (/^\d{2}$/.test(no) && mine.some((p) => !p.hidden)) return { status: 'once' };   // 辩论聊天室每人只能发一次言（2026-11-28；撤回的、被老师隐藏的不算）
             if (mine.some((p) => Date.now() - Date.parse(p.created_at) < DEBATE.gap)) return { status: 'wait' };
             if (mine.length >= DEBATE.perPerson) return { status: 'too_many' };
             const row = { id: nextId(posts), classroom: Number(classroom), case_no: no, side: mem.side, sid, nick: mem.nick, text, hidden: false, created_at: new Date().toISOString() };
@@ -1596,7 +1623,9 @@
               posts: posts.filter((p) => same(p) && p.side === mem.side && !p.hidden).slice(-150)
                 .map((p) => ({ id: p.id, nick: p.nick, text: p.text, at: p.created_at, mine: p.sid === sid, likes: likeCount(p.id), liked: likes.some((l) => String(l.post_id) === String(p.id) && l.sid === sid) })),
               top: ranked(classroom, no, mem.side).slice(0, DEBATE.top).map((m) => ({ nick: m.nick, likes: m.likes, me: m.sid === sid })),
-              leaders: leaders(classroom, no).map((m) => ({ nick: m.nick, side: m.side, likes: m.likes, me: m.sid === sid })),
+              leaders: leaders(classroom, no).map((m) => ({ nick: m.nick, side: m.side, likes: m.likes, me: m.sid === sid, slots: m.slots, num: m.num, den: m.den })),
+              quota: /^\d{2}$/.test(no) ? quotaOf(classroom, no) : null,
+              spoke: /^\d{2}$/.test(no) && posts.some((p) => same(p) && p.sid === sid && !p.hidden),
               list: members.filter((m) => same(m) && m.side === mem.side).map((m) => {
                 const mine = posts.filter((p) => same(p) && p.sid === m.sid && !p.hidden);
                 const seen = read('presence').find((r) => String(r.classroom) === String(classroom) && r.sid === m.sid);
@@ -1635,6 +1664,54 @@
           secLog(params.p_allow ? 'device_allow' : 'device_deny', { owner: 'teacher', course: req.course, class_id: req.class_id, sid: req.sid, name: req.name });
           return { status: params.p_allow ? 'approved' : 'rejected' };
         }
+        // 2026-11-28 阶段 345：设备异常自动提醒（规则同 cloudbase-pg.sql 的 ck_my_device_warn、ck_seen_device_warn；ck_device_report 多给 warned、seen）
+        const DEVICE_WARN_TEXT = '系统监测到你的设备登录异常，请合规使用：不得交给 AI、脚本或他人代为登录、代为操作；发现后云间灵田销号、修为视情况扣除。'
+          + '如果没有以上行为，请忽略本次弹窗，该信息为系统自动发送。';
+        const devFlags = (classId, sid) => {
+          const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(classId)).map((r) => String(r.id)));
+          const ks = read('checkins').filter((k) => rooms.has(String(k.classroom)) && !k.auditor && sidKey(k.sid) === sid);
+          const owners = new Set(ks.map((k) => k.owner));
+          const owners7 = new Set(ks.filter((k) => Date.now() - Date.parse(k.created_at || 0) < 7 * 86400000).map((k) => k.owner));
+          const logs = read('seclog').filter((s) => String(s.class_id) === String(classId) && sidKey(s.sid || '') === sid && Date.now() - Date.parse(s.at || 0) < 30 * 86400000);
+          const server = read('devices').filter((d) => String(d.class_id) === String(classId) && d.sid === sid && /linux|无界面|headless/i.test(d.ua || '')).length;
+          return [owners.size >= 10 && 'many', owners7.size >= 5 && 'burst', logs.some((s) => s.kind === 'bot') && 'bot', server > 0 && 'server', logs.some((s) => s.kind === 'device_hold') && 'held'].filter(Boolean);
+        };
+        if (name === 'ck_my_device_warn') {
+          const uid = await this.ensureAnonymous();
+          const room = read('classrooms').find((r) => String(r.id) === String(params.p_classroom));
+          const me = myCheckin(uid, params.p_classroom);
+          if (!room || !me) return { status: 'none' };
+          const sid = sidKey(me.sid);
+          const flags = devFlags(room.class_id, sid);
+          const warns = read('devwarns');
+          const mine = warns.filter((w) => String(w.class_id) === String(room.class_id) && w.sid === sid).sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)));
+          const last = mine[mine.length - 1];
+          if (flags.length) {
+            const since = last ? Date.parse(last.created_at) : 0;
+            const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(room.class_id)).map((r) => String(r.id)));
+            const ks = read('checkins').filter((k) => rooms.has(String(k.classroom)) && !k.auditor && sidKey(k.sid) === sid);
+            const fresh = last && Date.now() - since > 7 * 86400000
+              && (ks.some((k) => Date.parse(k.created_at) > since && !ks.some((k2) => k2.owner === k.owner && Date.parse(k2.created_at) <= since))
+                || read('seclog').some((s) => String(s.class_id) === String(room.class_id) && sidKey(s.sid || '') === sid && ['bot', 'device_hold'].includes(s.kind) && Date.parse(s.at) > since));
+            if (!last || fresh) {
+              warns.push({ id: nextId(warns), class_id: room.class_id, course: room.course, sid, name: me.name, reason: flags.join(','), message: DEVICE_WARN_TEXT, created_at: new Date().toISOString(), seen_at: null });
+              write('devwarns', warns);
+            }
+          }
+          const open = read('devwarns').filter((w) => String(w.class_id) === String(room.class_id) && w.sid === sid && !w.seen_at)
+            .sort((a, b) => String(a.created_at).localeCompare(String(b.created_at)))[0];
+          return open ? { status: 'warn', id: open.id, message: open.message, at: open.created_at } : { status: 'none' };
+        }
+        if (name === 'ck_seen_device_warn') {
+          const uid = await this.ensureAnonymous();
+          const warns = read('devwarns');
+          const w = warns.find((x) => String(x.id) === String(params.p_id) && !x.seen_at);
+          const rooms = w ? new Set(read('classrooms').filter((r) => String(r.class_id) === String(w.class_id)).map((r) => String(r.id))) : new Set();
+          if (!w || !read('checkins').some((k) => k.owner === uid && rooms.has(String(k.classroom)) && sidKey(k.sid) === w.sid)) return { status: 'none' };
+          w.seen_at = new Date().toISOString();
+          write('devwarns', warns);
+          return { status: 'ok' };
+        }
         if (name === 'ck_device_report') {
           teacherOnly();
           const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(params.p_class)).map((r) => String(r.id)));
@@ -1656,7 +1733,9 @@
             const held = logs.filter((s) => s.sid === row.sid && s.kind === 'device_hold').length;
             const server = mine.filter((d) => /linux|无界面|headless/i.test(d.ua || '')).length;
             const flags = [row.owners.size >= 10 && 'many', row.owners7.size >= 5 && 'burst', bot > 0 && 'bot', server > 0 && 'server', held > 0 && 'held'].filter(Boolean);
-            return { sid: row.sid, name: row.name, devices: row.owners.size, devices7: row.owners7.size, last_at: row.last_at, kinds: kinds.join('、') || null, ips: 0, server, bot, held, flags };
+            const warned = read('devwarns').filter((w) => String(w.class_id) === String(params.p_class) && w.sid === row.sid);
+            return { sid: row.sid, name: row.name, devices: row.owners.size, devices7: row.owners7.size, last_at: row.last_at, kinds: kinds.join('、') || null, ips: 0, server, bot, held, flags,
+              warned: warned.length ? warned.map((w) => w.created_at).sort().pop() : null, seen: warned.length ? warned.every((w) => w.seen_at) : null };
           }).filter((row) => row.flags.length).sort((a, b) => b.flags.length - a.flags.length || b.devices - a.devices);
           return { status: 'ok', rows };
         }
@@ -3931,6 +4010,19 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-28 阶段 346：突破元婴、化神的画面换新（用户：“不用改了，学生更新说明里面说一下吧”）
+        ['突破画面 · 换新了', '修为突破到「元婴」「化神」时的画面重新做了：表情包里的小道友从一团金光里显出来，突破元婴时睁眼、举起双手；'
+          + '突破化神时换上月白金边的袍子、星星眼，身边绕着五色光点。“元婴”“化神”两个大字和祝福语换成了毛笔字；手机竖着看时画面更大，名牌在画面下方。', '2026-11-28'],
+        // 2026-11-28 阶段 345：辩论赛每人一次发言、点赞名额、步骤卡片倒计时；习经经营沙盘指标怎么算、步骤卡片倒计时
+        ['辩论赛 · 每人发一次言，点赞名额按两方人数分', `辩论聊天室里每人只能发一次言（2—${DEBATE.textMax} 字）：发之前可以先在输入框里写好、改好；发了想改，点自己发言旁的“撤回”，改好再发。`
+          + `点赞加修为改成：一共 ${DEBATE.slots} 个名额，按两方聊天室的人数分（每方至少 1 个），每方在本方里按收到的赞数排，名额上的同学各加 ${DEBATE.likes} 修为；`
+          + '名额边上赞数一样的同学平分（每人至少 1）。每一步卡片的标题上也能看到这一步的倒计时。', '2026-11-28'],
+        ...(config.course === 'xjp-economy' ? [
+          ['经营沙盘 · 指标怎么算、每步倒计时', '经营会的指标下面多了“这些指标是怎么算出来的”：从起点分开始，三项决策、突发事件、改投成本各让每一项加减多少，一行一行列出来。'
+            + '选角色、本组聊天室、经营会三张卡片的标题上能看到老师大屏这一步的倒计时。', '2026-11-28'],
+          ['限时抢答、小资料分析闯关 · 老师重新开放以后照样能参加', '老师点“只给没交的同学再来一次／再开放”以后：上次没有交卷的同学，抢答对话框照样会弹出；'
+            + '闯关上次进了场、没交卷的，回到“参与闯关”重新开始，计时从这次算起（以前有时会停在倒计时上关不掉）。交过卷的成绩照旧。', '2026-11-28'],
+        ] : []),
         // 2026-11-27 阶段 344：账号只能本人使用；新设备上限；灵田夜间休田、每日上限
         ['账号安全 · 只能本人登录使用', '账号只能本人登录使用，不得交给 AI、脚本或他人代为登录、代为操作；发现后云间灵田销号、修为视情况扣除。'
           + '同一个学号 7 天内在 5 台以上的新设备上登录，再换新设备要等老师允许；在微信里打开时登录记录常常保存不住，建议点右上角“…”选“在浏览器打开”。', '2026-11-27'],

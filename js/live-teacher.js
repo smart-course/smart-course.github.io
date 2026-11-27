@@ -5696,12 +5696,13 @@
     if ($('[data-sec-devrep]')) {
       $('[data-sec-devrep-count]').textContent = sec.devrep === null ? '' : `${devRows.length} 人`;
       $('[data-sec-devrep]').innerHTML = sec.devrep === null
-        ? '<tr><td colspan="6" class="empty">后台还没有设备异常名单（要先执行这一阶段的 SQL）。</td></tr>'
+        ? '<tr><td colspan="7" class="empty">后台还没有设备异常名单（要先执行这一阶段的 SQL）。</td></tr>'
         : devRows.map((row) => `<tr><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
           <td>${(row.flags || []).map((flag) => statusTag(DEV_FLAG[flag] || flag, flag === 'bot' || flag === 'server' ? 'bad' : 'warn')).join(' ')}</td>
           <td>${esc(row.devices)} 台／${esc(row.devices7)} 台${row.ips ? `<small class="tw-sub">${esc(row.ips)} 个 IP</small>` : ''}</td>
-          <td>${esc(row.kinds || '（还没有记录：从现在起登录才会记浏览器类型）')}</td><td>${esc(stamp(row.last_at))}</td></tr>`).join('')
-          || '<tr><td colspan="6" class="empty">没有设备异常的账号。</td></tr>';
+          <td>${esc(row.kinds || '（还没有记录：从现在起登录才会记浏览器类型）')}</td><td>${esc(stamp(row.last_at))}</td>
+          <td>${row.warned ? `${esc(stamp(row.warned))}<small class="tw-sub">${row.seen ? '本人已看过' : '本人还没看'}</small>` : '<small class="tw-sub">还没提醒（本人下次打开课程页时自动提醒）</small>'}</td></tr>`).join('')
+          || '<tr><td colspan="7" class="empty">没有设备异常的账号。</td></tr>';   // 2026-11-28 多一列“自动提醒”
     }
 
     const pins = new Map(sec.pins.map((row) => [sidKey(row.sid), row]));

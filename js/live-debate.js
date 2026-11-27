@@ -97,6 +97,12 @@
   .dbr-acts button.is-main { border-color: #b8862b; background: linear-gradient(180deg, #f6dc98, #dcb253); color: #3b2a07; font-size: 15px; }
   .dbr-acts button.is-pro { border-color: #23655f; background: #23655f; color: #fff; } .dbr-acts button.is-con { border-color: #a4492d; background: #a4492d; color: #fff; }
   @media (prefers-reduced-motion: reduce) { .dbf-node.is-now button { animation: none; } }
+  /* 卡片标题上的倒计时（2026-11-28） */
+  .dbf-cardclock { display: inline-flex; align-items: center; margin-left: 8px; padding: 1px 10px; border-radius: 999px; background: #23655f; color: #fff; font-size: 13px; font-weight: 700;
+    line-height: 1.6; font-variant-numeric: tabular-nums; vertical-align: middle; white-space: nowrap; letter-spacing: 0; }
+  .dbf-cardclock[hidden] { display: none; }
+  .dbf-cardclock.is-low { background: #b23a26; } .dbf-cardclock.is-paused { background: #8a7f74; } .dbf-cardclock.is-up { background: #c47a12; }
+  .dbf-cardclock.is-done { background: transparent; color: #8a7f74; border: 1px solid rgba(70,51,34,.25); }
   @media (max-width: 760px) {
     .dbf-nodes { gap: 8px 18px; padding: 12px; } .dbf-node button { min-width: 0; } .dbf-clock { font-size: 30px; }
     .dbb-lead ol { grid-template-columns: 1fr; }
@@ -121,11 +127,12 @@
   const FLOW = [
     { key: 'prep', label: '选立场', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），点“递交”；学生页同步倒计时，时间到就不能再递交' },
     // 2026-11-27 用户：“辩论赛的选论据卡和讨论时间改成6分钟。”（原来 600 秒）
-    { key: 'talk', label: '选论据卡 · 自由讨论', secs: 360, hint: '学生和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于自己的立场，选 2 张递交；再想好本方最有力的理由、对方会怎么反驳、要在聊天室里说的一句话。这一步聊天室还不能发言' },
-    { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
+    { key: 'talk', label: '选论据卡 · 自由讨论', secs: 360, hint: '学生和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于自己的立场，选 2 张递交；再想好本方最有力的理由、对方会怎么反驳、要在聊天室里说的一句话。这一步学生可以先在聊天室输入框里写好，还不能发送' },   // 2026-11-28 说法改成“先写后发”
+    // 2026-11-28 每人只能发一次言；点赞名额按两方人数分（一共 DB.slots 个，每方至少 1 个），名额边上并列的平分
+    { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言（每人只能发一次）、给本方的好发言点赞；按两方人数分 ${DB.slots || 4} 个点赞名额（每方至少 1 个），本方点赞最多的同学各加 ${DB.likes} 修为，并列的平分` },
     { key: 'check', label: '论据卡对一对', secs: 60, hint: '进入这一步时自动放开论据卡的解答：学生页显示自己选的每张论据卡偏向哪一方、和自己的辩前票是否一致。论据卡没有对错之分，可以请选了偏向对方的卡的同学说说是怎样用的' },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
-    { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `按票数公布哪一方获胜；全场点赞前三各加 ${DB.likes} 修为，获胜方不加修为` },
+    { key: 'result', label: '停止递交 · 公布结果', secs: 0, hint: `按票数公布哪一方获胜；点赞名额上的同学各加 ${DB.likes} 修为（并列的平分），获胜方不加修为` },
   ];
   const flowIndex = (key) => FLOW.findIndex((step) => step.key === key);
   // 2026-11-20 每一步的计时同步到学生页（用户：“辩论赛中的倒计时，在学生端中也设置倒计时，倒计时结束的话无法递交。但是如果老师点了+30秒，就又可以递交。”）：
@@ -254,9 +261,12 @@
         return;
       }
       const leaders = (data && data.leaders) || [];
-      lead.innerHTML = `<h5>全场点赞前三 · 各加 ${DB.likes} 修为</h5>${leaders.length
-        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(shown(m))}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
-        : '<p class="dbb-empty">还没有人被点赞。两方聊天室里的发言被点赞后，这里按点赞数排出前三（正反两方合起来算）。</p>'}`;
+      // 点赞名额（2026-11-28）：一共 4 个，按两方人数分（每方至少 1 个），每方在本方里按赞数排，名额边上并列的平分（ck_debate_leaders 的 num / den）
+      const quota = data && data.quota && data.quota.pro != null ? data.quota : null;
+      const ptsOf = (m) => (m.den > 0 && m.num < m.den ? Math.max(1, Math.ceil(DB.likes * m.num / m.den)) : DB.likes);
+      lead.innerHTML = `<h5>点赞名额 · ${quota ? `正方 ${quota.pro} 个（${quota.n_pro} 人）、反方 ${quota.con} 个（${quota.n_con} 人）` : `各加 ${DB.likes} 修为`}</h5>${leaders.length
+        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(shown(m))}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言${m.den > 0 && m.num < m.den ? ` · ${m.den} 人并列平分 ${m.num} 个名额` : ''}</small><em>♥ ${m.likes} · +${ptsOf(m)}</em></li>`).join('')}</ol>`
+        : `<p class="dbb-empty">还没有人被点赞。每人只能发一次言；名额按两方人数分（一共 ${DB.slots || 4} 个，每方至少 1 个），每方在本方里按点赞数排，名额边上赞数一样的平分。</p>`}`;
       // 两间聊天室只建一次，刷新时只更新变化的地方（ClassLive.chatRoom.paint；发言列表用 syncFeed，滑动位置不会被 4 秒一次的刷新打断）。
       // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”
       if (!cols.querySelector('[data-tcr]')) cols.innerHTML = ['pro', 'con'].map((side) => CR.shell(side, side)).join('');
@@ -312,7 +322,27 @@
       paintFlow();
       paintSync();
     }
+    // 下面每一步卡片的标题上也显示这一步的倒计时（2026-11-28 用户：“辩论赛和经营沙盘，在下面每个步骤的卡片中能够看到该步骤的倒计时。”）：
+    //   标题以 ①—⑤ 开头的卡片对应流程前五步；当前一步计时，前面的写“已结束”，后面的不显示
+    const cardHeads = {};
+    section.querySelectorAll('h4').forEach((h) => { const k = '①②③④⑤'.indexOf((h.textContent || '').trim().charAt(0)); if (k >= 0 && !cardHeads[k]) cardHeads[k] = h; });
+    function paintCards() {
+      const key = nowKey();
+      const at = key ? flowIndex(key) : -1;
+      const clock = clockOf();
+      for (let i = 0; i < 5; i += 1) {
+        const h = cardHeads[i];
+        if (!h) continue;
+        let chip = h.querySelector(':scope > .dbf-cardclock');
+        const text = at < 0 || i > at ? '' : i < at || key === 'result' ? '已结束' : !clock ? '' : clock.paused ? `暂停 ${fmt(clock.s)}` : clock.s > 0 ? `⏱ ${fmt(clock.s)}` : '时间到';
+        if (!chip) { if (!text) continue; chip = document.createElement('span'); chip.className = 'dbf-cardclock'; h.appendChild(chip); }
+        chip.hidden = !text;
+        if (chip.textContent !== text) chip.textContent = text;
+        chip.className = `dbf-cardclock${text === '已结束' ? ' is-done' : clock && clock.paused ? ' is-paused' : clock && clock.s === 0 ? ' is-up' : clock && clock.s <= 10 ? ' is-low' : ''}`;
+      }
+    }
     function paintFlow() {
+      paintCards();
       const el = flow.querySelector('[data-dbf-clock]');
       if (!el) return;
       const clock = clockOf();
@@ -385,7 +415,7 @@
     async function finish() {
       if (!room) return;
       if (!stopped) {
-        if (!window.confirm(`停止递交辩后票，按票数公布结果？\n· 票多的一方获胜（获胜方不加修为）；\n· 全场点赞前三各加 ${DB.likes} 修为。`)) return;
+        if (!window.confirm(`停止递交辩后票，按票数公布结果？\n· 票多的一方获胜（获胜方不加修为）；\n· 点赞名额上的同学各加 ${DB.likes} 修为（并列的平分）。`)) return;
         try { await setStop(true); } catch (error) { window.alert(`停止递交没有成功：${error.message || error}`); return; }
       }
       writeLocal({ key: 'result', ends: Date.now(), paused: false, left: 0, total: 0 });
@@ -406,7 +436,7 @@
         const leaders = ((data && data.leaders) || []).filter((m) => top.some((a) => a.sid === m.sid));
         const topText = leaders.length ? leaders.map(leaderName).join('、') : top.map((a) => esc(reveal ? a.name : shortName(a.name))).join('、');
         const lines = [
-          top.length ? `点赞前三：${topText} 各加 ${DB.likes} 修为` : '没有人被点赞（或点赞最多的不在点名册上），点赞前三没有加修为',
+          top.length ? `点赞名额：${topText} 加修为（整份 ${DB.likes}，名额边上并列的平分）` : '没有人被点赞（或点赞最多的不在点名册上），点赞名额没有加修为',
           '获胜方不加修为：辩后投票只看大家现在支持哪一方',
         ];
         return `<ul class="dbr-awards">${lines.map((x) => `<li>${x}</li>`).join('')}</ul>${roll(list)}`;
@@ -418,17 +448,17 @@
         body = wonHtml(verdict.side) + awards(verdict) + '<div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button><button type="button" data-dbr-undo>撤销加修为</button></div>';
       } else if (verdict && verdict.restored) {
         body = wonHtml(t.pro > t.con ? 'pro' : t.con > t.pro ? 'con' : 'tie')
-          + `<p class="dbr-note">今天已给 ${verdict.list.length} 位同学加辩论赛修为（全场点赞前三；获胜方不加修为）。</p>${roll(verdict.list)}`
+          + `<p class="dbr-note">今天已给 ${verdict.list.length} 位同学加辩论赛修为（点赞名额；获胜方不加修为）。</p>${roll(verdict.list)}`
           + '<div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button><button type="button" data-dbr-undo>撤销加修为</button></div>';
       } else if (verdict && verdict.cleared) {
         body = '<p class="dbr-note">已撤销今天的辩论赛修为。</p><div class="dbr-acts"><button type="button" data-dbr-decide>按票数重新公布</button></div>';
       } else if (stopped) {
         body = '<p class="dbr-note">辩后投票已停止递交。</p><div class="dbr-acts"><button type="button" class="is-main" data-dbr-decide>按票数公布结果</button></div>';
       } else if (voting) {
-        body = `<p class="dbr-note">学生正在投辩后票（票数每 4 秒更新）。点下面的按钮（或上面统计里的“停止递交”）停止递交后公布结果：票多的一方获胜（不加修为），全场点赞前三各加 ${DB.likes} 修为。</p>`
+        body = `<p class="dbr-note">学生正在投辩后票（票数每 4 秒更新）。点下面的按钮（或上面统计里的“停止递交”）停止递交后公布结果：票多的一方获胜（不加修为），点赞名额上的同学各加 ${DB.likes} 修为（并列的平分）。</p>`
           + '<div class="dbr-acts"><button type="button" class="is-main" data-dbr-finish>停止递交，公布结果</button></div>';
       } else {
-        body = `<p class="dbr-note">流程走到“辩后投票”时这里显示票数；停止递交后公布结果：票多的一方获胜（不加修为），全场点赞前三各加 ${DB.likes} 修为。</p>`;
+        body = `<p class="dbr-note">流程走到“辩后投票”时这里显示票数；停止递交后公布结果：票多的一方获胜（不加修为），点赞名额上的同学各加 ${DB.likes} 修为（并列的平分）。</p>`;
       }
       result.innerHTML = `<div class="dbr-box"><span class="dbr-tag">辩论结果</span>${voting || stopped || verdict ? score : ''}${body}</div>`;
     }
@@ -437,7 +467,7 @@
       if (t.closest('[data-dbr-finish]')) finish();
       else if (t.closest('[data-dbr-decide]')) decide();
       else if (t.closest('[data-dbr-undo]')) {
-        if (window.confirm('撤销今天加的辩论赛修为（全场点赞前三）？')) decide(null);
+        if (window.confirm('撤销今天加的辩论赛修为（点赞名额）？')) decide(null);
       }
     });
     // 投屏统计里点了辩后投票的“停止递交”：同样按票数公布结果；重新开放递交时回到“辩后投票”

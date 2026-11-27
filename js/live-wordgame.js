@@ -443,6 +443,10 @@
         const fresh = Number(value.now) - (t0 + Date.now()) / 2;
         if (!offset || Math.abs(fresh - offset) > 400) offset = fresh;
       }
+      // 老师收起猜词大屏以后又打开（2026-11-28）：上次点“×”收起的弹窗照样弹出
+      const prev = res && res.status === 'ok' ? res.round : null;
+      const cur = value && value.status === 'ok' ? value.round : null;
+      if (cur && !cur.closed && prev && (prev.closed || prev.id !== cur.id)) dismissed.clear();
       res = value;
     }
     async function poll() {
