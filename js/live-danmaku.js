@@ -61,7 +61,7 @@
   .dm-stk { display: inline-block; width: 3em; height: 3em; margin: -.86em -6px -.86em 2px; vertical-align: middle; filter: drop-shadow(0 3px 6px rgba(0,0,0,.4)); animation: dm-stk-bob 1.7s ease-in-out infinite; }
   .dm-stk-in { display: inline-block; width: 1.5em; height: 1.5em; margin: -.3em 2px; vertical-align: middle; filter: drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
   .dm-item.is-sticker { z-index: 1; }
-  .dm-bubble .dm-stk-in { width: 2.3em; height: 2.3em; margin: 0 2px; filter: none; }
+  .dm-bubble .dm-stk-in { width: 3em; height: 3em; margin: 0 2px; filter: none; }   /* 2026-11-27 放大（原来 2.3em） */
   @keyframes dm-stk-bob { 0%, 100% { transform: rotate(-4deg) translateY(0); } 50% { transform: rotate(4deg) translateY(-3px); } }
   .dm-stage.is-paused .dm-stk { animation-play-state: paused; }
   @media (prefers-reduced-motion: reduce) { .dm-stk { animation: none; } }
@@ -886,7 +886,9 @@
       const box = slot || page.querySelector('.inner') || page;
       const card = document.createElement('section');
       card.className = 'dmq-card';
-      card.dataset.dmq = String(index + 1);   // 问号：政治经济学讲解版的“开放作答”（live-gates.js）用
+      card.dataset.dmq = String(index + 1);   // 问号：“开放作答”（live-gates.js）用
+      // 习经章节页（2026-11-27 也要老师开放）：这道题属于哪个案例（slot“NN-…”的 NN），两案例章按案例发布课堂时 live-gates.js 据此只开放当前案例的
+      if (/^\d{2}-/.test(item.slot || '')) card.dataset.case = item.slot.slice(0, 2);
       // 习经辩论质询：弹幕带【正方】/【反方】，分两栏即时显示（各栏按发布时间排列，新的接在下面）
       const debate = /-debate$/.test(item.slot || '');
       const sideCol = (side, cls) => `<div class="dmq-side ${cls}"><div class="dmq-side-head"><span class="dm-side ${cls}">${side}</span><b data-side-count>0 条</b></div>

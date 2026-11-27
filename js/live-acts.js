@@ -550,6 +550,24 @@
       }
     };
 
+    // 全班重新开一局（2026-11-27 用户：“机制闯关和其它闯关类游戏有个bug，就是如果有同学在老师开放后就进去做了题目，老师关闭后重新开放，之前做的那部分同学就无法再加入了。
+    //   可能会导致结算也有问题。”）：上一局作废——交过的卷、名次和加的修为撤回，交卷时补记的作答删掉，换新的一局，全班都能重新参加（后台 ck_act_control restart）。
+    //   原来的“再来一次／重新开放”只给没交的同学（交过的成绩不动），保留
+    const restart = () => {
+      if (busy || !room) return;
+      if (!window.confirm(`全班重新开一局？\n\n上一局作废：已经交的卷、名次和加的修为都撤回，交过的同学也要重新${kind === 'rush' ? '抢答' : '闯关'}，排名重新算。`)) return;
+      note = '';
+      tab = -1;
+      const secs = kind === 'rush' ? RUSH.secs : Number(ui.mins.value) * 60;
+      act(async () => {
+        try { return await control('restart', { mode: 'game', answer, secs, delay: kind === 'rush' ? RUSH.delay : QUEST.delay }); } catch (error) {
+          const text = String((error && error.message) || error);
+          window.alert(/不认识的操作/.test(text) ? '后台还没有“全班重新开一局”：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261127-闯关重开.sql。' : `没有重新开局：${text}`);
+          return null;
+        }
+      });
+    };
+
     // ---------- 大屏（2026-11-20 用户：“要设置成大屏播放的那种风格，跟PK对决类似”）----------
     // 铺满屏幕的深色舞台：玩法 → 开始（大字倒计时）→ 计时、已交和答对人数（抢答同时显示题目；闯关可以点某一关，把这一关的小资料和题目投到大屏）
     // → 结束后揭晓（抢答：答案和名次；闯关：一关一关看答案、每一问答对的人数和讲评，最后是过关名单）。Esc 关闭，← → 换关
@@ -656,7 +674,8 @@
             center = `<div class="act-stage-run">${done}<div class="act-stage-q"><p class="act-stage-qtext"><small>多选</small>${esc(levels[0].prompt)}</p>${optList(levels[0], true)}</div>`
               + (winners.length ? rankList(winners, true) : '<p class="act-stage-empty">这一次没有同学答对。</p>') + '</div>';
             hint = `前 ${RUSH.top} 名各加 ${RUSH.points} 修为。关闭大屏后，点题目下面的“核对”逐项讲评。`;
-            actions = `<button type="button" data-as-start${busy ? ' disabled' : ''}>🎲 再来一次（没交的同学）</button><button type="button" class="is-go" data-as-close>关闭大屏，去讲评</button>`;
+            actions = `<button type="button" class="is-red" data-as-restart${busy ? ' disabled' : ''}>🔄 全班重新开一局</button>`
+              + `<button type="button" data-as-start${busy ? ' disabled' : ''}>🎲 只给没交的同学再来一次</button><button type="button" class="is-go" data-as-close>关闭大屏，去讲评</button>`;
           } else {
             const rows = board ? board.list : [];
             const at = Math.min(Math.max(tab, 0), levels.length);
@@ -671,7 +690,8 @@
             hint = at < levels.length ? `第 ${at + 1} 关揭晓：看答案和每一问答对的人数；讲完点“下一关”。交了卷的同学已经在自己页面上看到完整的题目、答案和讲解。`
               : `排名先看答对的题数，一样多的比用时（各自从“参与闯关”算起）；三关全对的同学各加 ${QUEST.points} 修为。`;
             actions = `<button type="button" data-as-prev${at <= 0 ? ' disabled' : ''}>‹ 上一关</button><button type="button" class="is-go" data-as-next${at >= levels.length ? ' disabled' : ''}>${at >= levels.length - 1 ? '过关名单 ›' : '下一关 ›'}</button>`
-              + `<button type="button" data-as-start${busy ? ' disabled' : ''}>🚩 重新开放（没交的同学）</button><button type="button" data-as-close>关闭大屏</button>`;
+              + `<button type="button" class="is-red" data-as-restart${busy ? ' disabled' : ''}>🔄 全班重新开一局</button>`
+              + `<button type="button" data-as-start${busy ? ' disabled' : ''}>🚩 只给没交的同学再开放</button><button type="button" data-as-close>关闭大屏</button>`;
           }
         }
         sv.center.innerHTML = center;
@@ -688,6 +708,7 @@
       if (on('tab')) { tab = Number(on('tab').dataset.asTab); paint(); return; }
       if (on('prev')) { tab = Math.max(0, Math.min(tab, levels.length) - 1); paint(); return; }
       if (on('next')) { tab = Math.min(levels.length, Math.max(tab, 0) + 1); paint(); return; }
+      if (on('restart')) { restart(); return; }
       if (on('start')) { tab = -1; start(); return; }
       if (on('plain')) { note = ''; act(() => control('start', { mode: 'plain', secs: 0, delay: 0 })); return; }
       if (on('extend')) { act(() => control('extend', { secs: kind === 'rush' ? 10 : 60 })); return; }

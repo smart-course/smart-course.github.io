@@ -777,10 +777,11 @@
     el('line', { x1: label, x2: label, y1: 0, y2: H - 2, stroke: C.axis, 'stroke-width': 1 }, svg);
     rows.forEach((d, i) => {
       const y0 = i * row + 8;
-      const max = Math.max(d.max || 0, d.me, d.avg) || 1;
+      // fixed（2026-11-27 阶段 343，有效在线）：外圈固定为全班前 10%，超过的画满格
+      const max = (d.fixed ? d.max : Math.max(d.max || 0, d.me, d.avg)) || 1;
       text(svg, label - 8, y0 + bh + 4, fit(d.label, label - 10), { 'text-anchor': 'end', class: 'is-label' });
       [[d.me, meColor, y0], [d.avg, avgColor, y0 + bh + 2]].forEach(([v, color, y]) => {
-        const w = (v / max) * pw;
+        const w = Math.min(1, v / max) * pw;
         if (w > 0) el('path', { d: barPath(label, y, Math.max(1, w), bh), fill: fillOf(svg, color), class: 'ins-grow' }, svg);
         text(svg, label + w + 6, y + bh - 1, `${fmt(v)}${d.unit || ''}`, { class: 'is-value' });
       });
@@ -1081,7 +1082,7 @@
       const c = Math.cos(angle(i));
       text(svg, lx, ly + 4 + Math.sin(angle(i)) * 4, nameOf(d), { class: 'is-label', 'text-anchor': c > 0.2 ? 'start' : c < -0.2 ? 'end' : 'middle' });
     });
-    const ratioOf = (d, v) => { const top = Math.max(d.max || 0, d.me, d.avg) || 1; return Math.max(0, Math.min(1, v / top)); };
+    const ratioOf = (d, v) => { const top = (d.fixed ? d.max : Math.max(d.max || 0, d.me, d.avg)) || 1; return Math.max(0, Math.min(1, v / top)); };
     [['avg', avgColor], ['me', meColor]].forEach(([key, color]) => {
       el('polygon', { points: rows.map((d, i) => at(i, ratioOf(d, d[key])).join(',')).join(' '), fill: color, 'fill-opacity': 0.2, stroke: color, 'stroke-width': 2, 'stroke-linejoin': 'round', class: 'ins-rise' }, svg);
       rows.forEach((d, i) => { const [x, y] = at(i, ratioOf(d, d[key])); el('circle', { cx: x, cy: y, r: 4, fill: color, stroke: C.surface, 'stroke-width': 2 }, svg); });

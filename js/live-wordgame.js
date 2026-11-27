@@ -805,13 +805,14 @@
       paint(true);
     }
 
-    async function award(clear) {
+    // quiet：不再问（立即结算已经问过）
+    async function award(clear, quiet) {
       const list = (res && res.board) || [];
       const top = list.length ? Math.max(...list.map((b) => Number(b.score) || 0)) : 0;
       const people = [];
       if (!clear) list.filter((b) => top > 0 && Number(b.score) === top).forEach((b) => (b.people || []).forEach((p) => { if (!people.some((x) => x.sid === p.sid)) people.push(p); }));
       if (!clear && !people.length) { msg = '今天还没有得分的轮次（0 分不算）。'; paint(true); return; }
-      if (!window.confirm(clear ? '撤销今天给猜词第一名加的修为？'
+      if (!quiet && !window.confirm(clear ? '撤销今天给猜词第一名加的修为？'
         : `给今天得分第一（${top} 分）的 ${people.map((p) => p.name).join('、')} 每人加 ${POINTS} 修为？\n\n已经发过的话会改成这份名单；老师结算修为后学生才看得到。`)) return;
       busy = true;
       msg = '正在保存……';
@@ -825,6 +826,20 @@
       busy = false;
       paint(true);
     }
+
+    // 立即结算（2026-11-27 用户：“猜词游戏，多一个立即结算的选项，然后得数最高的那一组自动加分。”）：正在猜的这一轮先结束、记下现在的得分，
+    // 再读一次得分榜，给今天得分最高的一组每人加修为（同分的几组都加；同 award，已经发过的改成这份名单），最后停在得分榜上。只问一次
+    async function settleNow() {
+      if (busy) return;
+      const r = res && res.round;
+      const playing = Boolean(r && r.phase === 'play' && play && !play.done && play.roundId === r.id);
+      if (!window.confirm(`立即结算：${playing ? '结束这一轮、记下现在的得分，再' : ''}给今天得分最高的一组每人加 ${POINTS} 修为？\n\n已经发过的话会改成这份名单；老师结算修为后学生才看得到。`)) return;
+      if (playing) await finishRound('ended');
+      await refresh();
+      view = 'board';
+      await award(false, true);
+    }
+    const settleAct = () => ({ id: 'settle', label: `立即结算（第一名每人 +${POINTS}）`, kind: 'is-blue', run: settleNow });
 
     // 画面
     const RESULT = { ok: ['猜对', 'ok'], skip: ['没猜出', 'skip'], foul: ['作废', 'foul'] };
@@ -843,6 +858,7 @@
           html: `<div class="wgx-review"><h2 class="wgx-h">${review.reason === 'time' ? '时间到！' : ''}本轮得分 ${review.score}</h2><table><thead><tr><th>词</th><th>结果</th><th>教材里怎么说</th></tr></thead><tbody>${rows}</tbody></table></div>`,
           acts: [
             { id: 'board', label: '看得分榜', run: () => { view = 'board'; msg = ''; paint(true); } },
+            settleAct(),
             { id: 'next', label: '下一轮 ▶', kind: 'is-go', run: nextRound },
             { id: 'close', label: '收起', run: closeStage },
           ],
@@ -859,7 +875,7 @@
             list.map((b, i) => `<tr class="${top > 0 && Number(b.score) === top ? 'is-top' : ''}"><td>${i + 1}</td><td>第 ${esc(b.no)} 轮</td><td>${esc((b.names || []).join('／'))}</td><td>${esc(b.group || '')}</td><td>${esc(b.score)}</td></tr>`).join('')}</tbody></table></div>`
             : '<p class="wgx-sub">今天还没有结束的轮次。</p>',
           acts: [
-            list.length ? { id: 'award', label: `给今天第一名加修为（每人 +${POINTS}）`, kind: 'is-good', run: () => award(false) } : null,
+            list.length ? { ...settleAct(), kind: 'is-good' } : null,
             list.length ? { id: 'unaward', label: '撤销加修为', run: () => award(true) } : null,
             { id: 'next', label: '下一轮 ▶', kind: 'is-go', run: nextRound },
             { id: 'clear', label: '清空今天的记录', kind: 'is-red', run: clearToday },
@@ -881,6 +897,7 @@
           acts: [
             { id: 'open', label: '开始：请同学加入 ▶', kind: 'is-go', run: async () => { await run('open', {}); view = 'live'; paint(true); } },
             { id: 'board', label: '看得分榜', run: () => { view = 'board'; msg = ''; paint(true); } },
+            res && res.board && res.board.length ? settleAct() : null,
             { id: 'close', label: '收起', run: closeStage },
           ],
         };
@@ -993,6 +1010,7 @@
             { id: 'skip', label: '跳过', keys: '↓', run: () => mark('skip'), disabled: before },
             { id: 'foul', label: '作废', kind: 'is-red', keys: 'X（说出了词里的字）', run: () => mark('foul'), disabled: before },
             { id: 'end', label: '结束本轮', run: () => { if (window.confirm('结束本轮，记下现在的得分？')) finishRound('ended'); } },
+            settleAct(),
           ] };
       }
       // done（本轮已结束，在别的电脑上或刷新以后）
@@ -1000,6 +1018,7 @@
         html: `<div class="wgx-box"><h2 class="wgx-h">第 ${esc(r.no)} 轮结束</h2><p class="wgx-sub">${esc(players.map((p) => p.name).join('、'))} 得 ${esc(r.score == null ? 0 : r.score)} 分</p></div>`,
         acts: [
           { id: 'board', label: '看得分榜', run: () => { view = 'board'; msg = ''; paint(true); } },
+          settleAct(),
           { id: 'next', label: '下一轮 ▶', kind: 'is-go', run: nextRound },
           { id: 'close', label: '收起', run: closeStage },
         ] };

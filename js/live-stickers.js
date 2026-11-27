@@ -305,20 +305,20 @@
   body button.stk-pick:hover:not([disabled]) { border-color: #b8801a; background: #fff3d6; }
   body button.stk-pick[aria-expanded="true"] { background: #f2c64f; border-color: #b8801a; color: #3e2400; }
   body button.stk-pick[disabled] { opacity: .5; cursor: default; }
-  body .stk-tray { display: grid; grid-template-columns: repeat(auto-fill, minmax(62px, 1fr)); gap: 2px; margin: 6px 0 0; padding: 6px; border: 1.5px solid rgba(184,134,43,.45);
-    border-radius: 12px; background: #fffaf0; max-height: 216px; overflow: auto; }
+  body .stk-tray { display: grid; grid-template-columns: repeat(auto-fill, minmax(92px, 1fr)); gap: 4px; margin: 6px 0 0; padding: 6px; border: 1.5px solid rgba(184,134,43,.45);
+    border-radius: 12px; background: #fffaf0; max-height: 340px; overflow: auto; }   /* 2026-11-27 放大（原来 62px 一格、图 44px，学生说看不清是哪个表情） */
   body .stk-tray[hidden] { display: none; }
   body .stk-tray .stk-tray-head { grid-column: 1 / -1; margin: 0 4px 2px; color: #8a7f74; font: 12.5px/1.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; }
   body .stk-tray button.stk-cell { display: grid; justify-items: center; width: auto; min-width: 0; height: auto; min-height: 0; margin: 0; padding: 3px 2px 2px; border: 0; border-radius: 10px;
     background: transparent; color: inherit; box-shadow: none; text-shadow: none; cursor: pointer; font: inherit; }
   body .stk-tray button.stk-cell:hover, body .stk-tray button.stk-cell:focus-visible { background: rgba(242,198,79,.28); outline: none; }
-  body .stk-tray button.stk-cell img { width: 44px; height: 44px; }
+  body .stk-tray button.stk-cell img { width: 72px; height: 72px; }
   body .stk-tray button.stk-cell small { display: block; color: #6d5a3a; font: 11.5px/1.3 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: nowrap; }
   body .stk-preview { margin: 6px 0 0; padding: 6px 10px; border: 1px dashed rgba(184,134,43,.55); border-radius: 10px; background: #fff; color: #2a2118;
-    font: 14px/1.9 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
+    font: 14px/2.5 -apple-system, "PingFang SC", "Microsoft YaHei", sans-serif; white-space: pre-wrap; overflow-wrap: anywhere; }
   body .stk-preview[hidden] { display: none; }
   body .stk-preview > b { margin-right: 6px; color: #8a5a10; font-size: 12px; }
-  .stk-inline { width: 2em; height: 2em; margin: -.4em 1px; vertical-align: middle; }`;
+  .stk-inline { width: 3em; height: 3em; margin: -.6em 1px; vertical-align: middle; }`;   /* 2026-11-27 2em→3em */
   function ensureCss() {
     if (document.getElementById('stk-pick-css') || !document.head) return;
     const style = document.createElement('style');
@@ -381,7 +381,7 @@
         cell.className = 'stk-cell';
         cell.title = `${s.name}：${s.tip}`;
         cell.setAttribute('aria-label', `插入表情：${s.name}`);
-        cell.appendChild(img(s.key, 44, ''));
+        cell.appendChild(img(s.key, 72, ''));
         const cap = document.createElement('small');
         cap.textContent = s.name;
         cell.appendChild(cap);

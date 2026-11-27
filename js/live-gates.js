@@ -7,6 +7,8 @@
  * 需要在本机登录教师工作台，并且当前课堂就是本页章节（同 live-acts.js 的 roomFor）。离线版没有这条控制条，学生页也不收起。
  * 2026-11-27 政治经济学讲解版（用户：“弹幕小问题也要老师开放后才能回答。”“习经的弹幕问题不用改。”）：每张弹幕小问题卡片（live-danmaku.js 建的 .dmq-card）
  *   加一行“开放作答／收起作答”（ck_game_start 的 dmq:NN，NN＝问号）；开放以前学生页的这道题不能发送（live-student.js 的 setupQuestionDanmaku）。
+ * 2026-11-27 习经章节页也一样（用户：“弹幕小问题，也需要老师开放才能做，不然很多同学都提前写进去了。”）：问号按全页顺序，和政经同一套 dmq:NN；
+ *   两案例章按案例发布课堂时，卡片属于哪个案例看 data-case（live-danmaku.js 从 slot“NN-…”取），当前课堂是另一个案例时这张卡片不能开放。
  */
 (function () {
   'use strict';
@@ -19,7 +21,7 @@
     if (first) targets.push({ kind: section.matches('[data-biz]') ? 'biz' : 'disc', no: section.dataset.practice, place: first, where: 'beforebegin', section });
   });
   const list = targets.filter((t) => /^\d{2}$/.test(t.no || ''));
-  const dmqs = config.kind === 'concept-html' ? Array.from(document.querySelectorAll('.dmq-card[data-dmq]')) : [];   // 政经弹幕小问题（2026-11-27）
+  const dmqs = Array.from(document.querySelectorAll('.dmq-card[data-dmq]'));   // 弹幕小问题（2026-11-27 政经；同日习经也加）
   if (!list.length && !dmqs.length) return;
   let backend = null;
   try { backend = window.ClassLive.create(config); } catch (error) { console.warn('[小游戏老师开始]', error.message); return; }
@@ -207,8 +209,9 @@
     })();
   });
 
-  // ---------- 政经弹幕小问题“开放作答”（2026-11-27） ----------
+  // ---------- 弹幕小问题“开放作答”（2026-11-27 政经；同日习经也加） ----------
   // 一个页面一个课堂：读一次 ck_game_started，各张卡片按 dmq:NN 显示；点“开放作答”／“收起作答”调 ck_game_start。
+  // 习经两案例章按案例发布的课堂（room.case_no）只管自己那个案例的卡片（data-case），另一个案例的卡片不能开放。
   // 后台还没有这项功能（ck_game_started 不带 dmq）时按钮不能点，提示先执行 SQL（执行以前学生页照原样能发）。
   if (dmqs.length) {
     const DMQ_SQL = 'tools/cloudbase-pg-20261127-弹幕小问题开放.sql';
@@ -218,6 +221,13 @@
     let started = {};
     let can = null;         // 后台有没有这项功能（null＝还没问到）
     let busy = '';          // 正在开放／收起的那一题
+    // 本页章节的当前课堂（不看案例：两案例章按案例发布时，各张卡片再看 data-case）
+    const roomAny = async () => {
+      const rooms = await backend.fetchAll('classrooms', { course: config.course });
+      const pick = window.ClassLive.pickRoom(rooms, config.course, unit);
+      return pick && pick.chapter === unit ? pick : null;
+    };
+    const otherCase = (c) => Boolean(room && room.case_no && c.caseNo && Number(room.case_no) !== Number(c.caseNo));
     const cards = dmqs.map((card) => {
       const key = `dmq:${String(Number(card.dataset.dmq)).padStart(2, '0')}`;
       const row = document.createElement('div');
@@ -228,7 +238,7 @@
       ['click', 'keydown'].forEach((type) => row.addEventListener(type, (event) => event.stopPropagation()));
       const head = card.querySelector('.dmq-head');
       if (head) head.insertAdjacentElement('afterend', row); else card.prepend(row);
-      const c = { card, key, go: row.querySelector('[data-dmq-go]'), undo: row.querySelector('[data-dmq-undo]'), state: row.querySelector('[data-dmq-state]') };
+      const c = { card, key, caseNo: card.dataset.case || '', go: row.querySelector('[data-dmq-go]'), undo: row.querySelector('[data-dmq-undo]'), state: row.querySelector('[data-dmq-state]') };
       c.go.addEventListener('click', () => setDmq(c, true));
       c.undo.addEventListener('click', () => setDmq(c, false));
       return c;
@@ -238,10 +248,12 @@
       c.card.classList.toggle('is-open', Boolean(at));
       c.go.hidden = Boolean(at);
       c.undo.hidden = !at;
-      c.go.disabled = Boolean(busy) || !room || can !== true;
-      c.undo.disabled = Boolean(busy) || !room;
-      c.state.dataset.tone = !room || can === false ? 'warn' : at ? 'on' : 'idle';
-      c.state.textContent = !room ? '当前课堂不是本案例（或没有登录教师工作台）：先在工作台发布本案例课堂，再刷新本页。'
+      const other = otherCase(c);
+      c.go.disabled = Boolean(busy) || !room || can !== true || other;
+      c.undo.disabled = Boolean(busy) || !room || other;
+      c.state.dataset.tone = !room || can === false || other ? 'warn' : at ? 'on' : 'idle';
+      c.state.textContent = !room ? `当前课堂不是本${config.kind === 'concept-html' ? '案例' : '章'}（或没有登录教师工作台）：先在工作台发布本${config.kind === 'concept-html' ? '案例' : '章'}课堂，再刷新本页。`
+        : other ? `这道题属于案例 ${c.caseNo}，当前课堂是案例 ${String(room.case_no).padStart(2, '0')}：在工作台发布案例 ${c.caseNo} 的课堂以后才能开放。`
         : can === false ? `后台还没有“开放作答”：请先在云开发 SQL 编辑器执行 ${DMQ_SQL}（执行以前学生页照原样能发）。`
           : busy === c.key ? '正在处理……' : at ? `已开放 · ${hhmm(at)} 起学生可以发送` : '未开放 · 学生页这道题还不能发送';
     });
@@ -252,7 +264,7 @@
       paintDmq();
     }
     async function setDmq(c, on) {
-      if (busy || !room || (on && can !== true)) return;
+      if (busy || !room || otherCase(c) || (on && can !== true)) return;
       busy = c.key;
       paintDmq();
       try {
@@ -266,12 +278,12 @@
     }
     paintDmq();
     (async () => {
-      try { room = await roomFor(''); } catch (error) { room = null; }
+      try { room = await roomAny(); } catch (error) { room = null; }
       paintDmq();
       if (room) refreshDmq();
       setInterval(async () => {
         if (document.hidden) return;
-        if (!room) { try { room = await roomFor(''); } catch (error) { room = null; } paintDmq(); }
+        if (!room) { try { room = await roomAny(); } catch (error) { room = null; } paintDmq(); }
         if (room) refreshDmq();
       }, 15000);
     })();

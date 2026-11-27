@@ -5967,6 +5967,10 @@
       if (a.group === '修炼场答题') p.practice += 1;
     });
     visits.forEach((v) => { const p = per.get(sidKey(v.sid)); if (p) p.seconds += Number(v.seconds) || 0; });
+    // 有效在线（2026-11-27 阶段 343，和学生面板“灵根·定力”同一规则）：每段连续在线最多算 2 小时、每天（这一段开始的日子）最多算 3 小时
+    const validDay = new Map();
+    visits.forEach((v) => { const key = `${sidKey(v.sid)}|${isoDay(millis(v.started_at))}`; validDay.set(key, (validDay.get(key) || 0) + Math.min(7200, Number(v.seconds) || 0)); });
+    validDay.forEach((s, key) => { const p = per.get(key.split('|')[0]); if (p) p.valid = (p.valid || 0) + Math.min(10800, s); });
     const activeCount = Array.from(per.values()).filter((p) => p.acts > 0).length;
     const todayActive = (byDay.get(today) || { active: new Set() }).active.size;
     const minutesAll = visits.reduce((t, v) => t + (Number(v.seconds) || 0), 0) / 60;
@@ -6421,7 +6425,7 @@
       I.tableView(cE, ['离截止', '人数'], EX.map((label, k) => [label, exCount[k]]));
     }
     // 4 个人学情卡：点下表里的姓名
-    const cK = card(grid, '个人学情卡', '点下表里的姓名，看这位同学和全班平均的对比：左边是整体轮廓（每个方向各自的刻度，外圈是这一项的满分或全班最高），右边是具体数值。', true);
+    const cK = card(grid, '个人学情卡', '点下表里的姓名，看这位同学和全班平均的对比：左边是整体轮廓（每个方向各自的刻度，外圈是这一项的满分或全班最高；有效在线的外圈是全班前 10%），右边是具体数值。', true);
     cK.dataset.insPersonCard = '';
     const hostK = document.createElement('div'); cK.appendChild(hostK);
     const avg = (fn) => { const list = Array.from(per.values()); return list.length ? Math.round((list.reduce((t, p) => t + fn(p), 0) / list.length) * 10) / 10 : 0; };
@@ -6429,10 +6433,15 @@
     const attendOf = (p) => lessons.filter((l) => l.sids.has(p.sid)).length;
     const rightOf = (p) => { const r = meRight.get(p.sid); return r && r.answered ? pctOf(r.score, r.answered) : 0; };
     const pointsOf = (p) => Number((realmBySid.get(p.sid) || {}).points) || 0;
+    const validOf = (p) => Math.round((p.valid || 0) / 60);
+    // 有效在线的外圈：全班第 90 百分位（同学生面板），最少 60 分钟；超过的画满格
+    const validRef = (() => { const v = Array.from(per.values()).map(validOf).sort((a, b) => a - b); if (!v.length) return 60; const pos = 0.9 * (v.length - 1); const lo = Math.floor(pos);
+      return Math.max(60, Math.round(v[lo] + ((v[Math.ceil(pos)] - v[lo]) * (pos - lo)))); })();
     const METRICS = [
       ['到课次数', attendOf, lessons.length, ' 次', '到课'], ['学习天数', (p) => p.days.size, dayList.length, ' 天', '学习天数'], ['学习行为', (p) => p.acts, null, ' 次', '学习行为'],
       ['题目正确率', rightOf, 100, '%', '正确率'], ['弹幕', (p) => p.danmaku, null, ' 条', '弹幕'], ['修炼场答题', (p) => p.practice, null, ' 道', '修炼场'],
-      ['在线时长', (p) => Math.round(p.seconds / 60), null, ' 分钟', '在线'], ['修为（全学期）', pointsOf, null, '', '修为'],
+      ['有效在线', validOf, validRef, ' 分钟', '有效在线', `满格＝全班前 10%（${validRef} 分钟）；每段连续在线最多算 2 小时、每天最多算 3 小时，和学生面板“灵根·定力”同一算法`],
+      ['修为（全学期）', pointsOf, null, '', '修为'],
     ].filter(([label]) => !PLAIN || !/修炼场|修为|弹幕/.test(label));   // 按次上课的课程（PLAIN）没有这几项
     insState.showPerson = (sid, scroll) => {
       const p = per.get(sid);
@@ -6447,7 +6456,8 @@
         : `${sid} · ${r ? REALMS[Number(r.realm) || 0].name : '未结算'} · 最近一次 ${p.last ? timeParts(p.last).text.slice(5, 16) : '—'}`;
       head.append(strong, meta);
       hostK.appendChild(head);
-      const personRows = METRICS.map(([label, fn, max, unit, short]) => ({ label, short, me: fn(p), avg: avg(fn), max: max == null ? maxOf(fn) : max, unit, note: max == null ? `全班最高 ${maxOf(fn)}${unit}` : '' }));
+      const personRows = METRICS.map(([label, fn, max, unit, short, note]) => ({ label, short, me: fn(p), avg: avg(fn), max: max == null ? maxOf(fn) : max, unit,
+        fixed: Boolean(note), note: note || (max == null ? `全班最高 ${maxOf(fn)}${unit}` : '') }));
       I.keys(hostK, [{ name: '本人', color: T.pink }, { name: '全班平均', color: T.blue }]);
       const pair = document.createElement('div');
       pair.className = 'ins-person-grid';

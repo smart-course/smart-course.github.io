@@ -165,6 +165,23 @@
   // 2026-11-26 五步（用户：“选择立场1分钟。选择论据卡跟后面的讨论结合起来……选择论据卡+自由讨论给10分钟的时间……等学生聊天室发言点赞结束后，
   //   可以让他们看自己选择的论据卡是否跟自己的立场一致。然后再进行辩后投票。”）：prep＝选立场，talk＝选论据卡 · 自由讨论，新加 check＝论据卡对一对，借用阶段名 con_sum
   const DEBATE_STAGE = { prep: 'pro_open', talk: 'con_open', chat: 'free', check: 'con_sum', vote: 'vote', result: 'done' };
+  // 辩论赛聊天室只显示姓（2026-11-27 用户：“辩论赛讨论的发言人只显示姓”）：张三 → 张同学，欧阳娜娜 → 欧阳同学；同名的同学后面加的“·07”留着（张同学·07）；
+  //   少数民族姓名“买买提·艾力”取第一段（买买提同学）；不是汉字姓名的（以前取的昵称、“同学1234”）照原样。只改显示：学生页的辩论聊天室、投屏页的辩论看板，
+  //   投屏页点“揭晓姓名”看全名。经营沙盘、分组讨论的聊天室照旧显示全名
+  const COMPOUND_SURNAMES = ['欧阳', '司马', '上官', '诸葛', '东方', '皇甫', '尉迟', '公孙', '慕容', '长孙', '宇文', '司徒', '令狐', '夏侯', '轩辕', '端木', '独孤',
+    '南宫', '西门', '百里', '呼延', '澹台', '公冶', '宗政', '濮阳', '淳于', '单于', '太叔', '申屠', '钟离', '闾丘', '东郭', '拓跋', '赫连', '万俟', '司空', '鲜于',
+    '闻人', '仲孙', '第五', '左丘', '公羊', '梁丘', '段干', '巫马', '乐正', '漆雕', '颛孙', '亓官', '司寇', '羊舌', '微生', '公良', '夹谷', '宰父'];
+  function shortName(nick) {
+    const s = String(nick == null ? '' : nick).trim();
+    const m = s.match(/^([\u3400-\u9fff]+)(?:[·•・．.]([\u3400-\u9fff]+))?(·\d{2,4})?$/);
+    if (!m) return s;
+    const head = m[1];
+    const tail = m[3] || '';
+    if (m[2]) return `${head}同学${tail}`;   // 少数民族姓名：第一段
+    if (head.length < 2) return s;
+    const surname = head.length >= 3 && COMPOUND_SURNAMES.includes(head.slice(0, 2)) ? head.slice(0, 2) : head.slice(0, 1);
+    return `${surname}同学${tail}`;
+  }
   // 经营沙盘（2026-11-03，习经案例 08 第二课时）：四个角色组聊天室沿用辩论聊天室（房间＝案例号＋b，side＝r1—r4）；
   // 经营合格时四位代表各 rep、本方指标最高的角色组里发过言的同学各 top（同一人相加，不超过 20；后台 ck_set_biz_awards 发放）；学生页每 poll 毫秒刷新
   const BIZ = { rep: 10, top: 5, poll: 3000, roles: ['r1', 'r2', 'r3', 'r4'] };
@@ -1428,6 +1445,7 @@
             teacherOnly();
             if (name === 'ck_debate_hide') {
               const post = posts.find((p) => String(p.id) === String(params.p_post));
+              if (post && params.p_hidden === false && post.withdrawn_at) return false;   // 学生自己撤回的不能恢复（2026-11-27，同 cloudbase-pg.sql）
               if (post) { post.hidden = params.p_hidden !== false; write('debateposts', posts); }
               return Boolean(post);
             }
@@ -1480,8 +1498,10 @@
             board.awarded = read('bonus').filter((b) => String(b.classroom) === String(room.id) && b.day === day && b.kind === 'debate').map((b) => ({ sid: b.sid, name: b.name, points: b.points }));
             return board;
           }
-          const post = name === 'ck_debate_like' ? posts.find((p) => String(p.id) === String(params.p_post) && !p.hidden) : null;
-          if (name === 'ck_debate_like' && !post) return { status: 'gone' };
+          // 点赞、撤回（2026-11-27）都按发言找课堂和房间
+          const byPost = name === 'ck_debate_like' || name === 'ck_debate_withdraw';
+          const post = byPost ? posts.find((p) => String(p.id) === String(params.p_post) && !p.hidden) : null;
+          if (byPost && !post) return { status: 'gone' };
           const classroom = post ? post.classroom : params.p_classroom;
           const no = post ? post.case_no : String(params.p_case);
           const room = rooms.find((row) => String(row.id) === String(classroom));
@@ -1518,6 +1538,14 @@
             members.push({ id: nextId(members), classroom: Number(classroom), case_no: no, side, sid, name: me.name, nick, joined_at: new Date().toISOString() });
             write('debatemembers', members);
             return { status: 'ok', side, nick };
+          }
+          // 聊天室发言撤回（2026-11-27，规则同 cloudbase-pg-20261127-聊天室撤回.sql 的 ck_debate_withdraw）：只能撤回自己的，课堂停止提交后不能撤回
+          if (name === 'ck_debate_withdraw') {
+            if (post.sid !== sid) return { status: 'not_mine' };
+            if (!room || !room.is_current || !room.submissions_open) return { status: 'closed' };
+            Object.assign(post, { hidden: true, withdrawn_at: new Date().toISOString() });
+            write('debateposts', posts);
+            return { status: 'ok', text: post.text };
           }
           if (!mem) return { status: 'join' };
           if (name === 'ck_debate_post') {
@@ -1938,8 +1966,17 @@
             teacherOnly();
             if (!read('classrooms').some((r) => String(r.id) === String(params.p_classroom))) throw new Error('课堂不存在');
             if (!/^(mech|disc|biz|dmq):\d{2}$/.test(params.p_game || '')) throw new Error('小游戏编号不对');   // dmq:NN 政经弹幕小问题“开放作答”（2026-11-27）
-            rows = rows.filter((r) => !(String(r.classroom) === String(params.p_classroom) && r.game === params.p_game));
-            if (params.p_on !== false) rows.push({ classroom: params.p_classroom, game: params.p_game, started_at: new Date().toISOString() });
+            const same = (r) => String(r.classroom) === String(params.p_classroom) && r.game === params.p_game;
+            // 机制图闯关每次“开始”是新的一局（2026-11-27）：上一局的进度和成绩清掉；已经开着时再点“开始”不算新的一局（开始时刻不变）
+            if (/^mech:/.test(params.p_game) && params.p_on !== false) {
+              if (!rows.some(same)) {
+                write('mechruns', read('mechruns').filter((r) => !(String(r.classroom) === String(params.p_classroom) && r.case_no === params.p_game.slice(5))));
+                rows.push({ classroom: params.p_classroom, game: params.p_game, started_at: new Date().toISOString() });
+              }
+            } else {
+              rows = rows.filter((r) => !same(r));
+              if (params.p_on !== false) rows.push({ classroom: params.p_classroom, game: params.p_game, started_at: new Date().toISOString() });
+            }
             write('gamestarts', rows);
           }
           const started = {};
@@ -1991,6 +2028,10 @@
           if (!me) return { status: localStorage.getItem(prefix + 'teacher') ? 'preview' : 'login' };
           if (!/^\d{2}$/.test(params.p_case || '') || !params.p_state || typeof params.p_state !== 'object' || Array.isArray(params.p_state)) throw new Error('参数不对');
           const st = params.p_state;
+          // 只收进行中的这一局（2026-11-27，同 cloudbase-pg-20261127-闯关重开.sql）：老师没开始或已收起不收；报的局和现在的不一样不收；旧页面不带 round 的照收
+          const begun = read('gamestarts').find((r) => String(r.classroom) === String(params.p_classroom) && r.game === `mech:${params.p_case}`);
+          if (!begun) return { status: 'closed' };
+          if (/^\d{1,15}$/.test(String(st.round == null ? '' : st.round)) && Math.abs(Number(st.round) - Date.parse(begun.started_at)) > 1) return { status: 'stale' };
           const int = (v, d) => (/^\d{1,9}$/.test(String(v)) ? Number(v) : d);
           const total = Math.min(20, int(st.total, 0));
           const step = Math.min(total, int(st.step, 0));
@@ -2034,6 +2075,33 @@
             if (!room) throw new Error('课堂不存在');
             let g = games.find((x) => sameRoom(x) && x.case_no === params.p_case && x.kind === params.p_kind);
             const now = clock();
+            // 全班重新开一局（2026-11-27，规则同 cloudbase-pg-20261127-闯关重开.sql）：上一局作废——撤回加的修为、删掉交卷时补记的作答、删掉上一局，换新的局号
+            if (params.p_action === 'restart') {
+              if ((params.p_mode || 'game') === 'game' && !(params.p_answer && Object.keys(params.p_answer).length)) throw new Error('开局要带参考答案');
+              const newId = Math.max(0, ...games.map((x) => Number(x.id) || 0), ...read('actanswers').map((a) => Number(a.game_id) || 0)) + 1;   // 同后台的自增编号：不重复用旧局号
+              if (g) {
+                const old = read('actanswers').filter((a) => a.game_id === g.id);
+                const bonusRows = read('bonus');
+                old.filter((a) => a.bonus > 0).forEach((a) => {
+                  const hit = bonusRows.find((b) => String(b.classroom) === String(g.classroom) && b.kind === g.kind && b.sid === a.sid && b.day === today());
+                  if (hit) hit.points = (Number(hit.points) || 0) - a.bonus;
+                });
+                write('bonus', bonusRows.filter((b) => !(b.kind === g.kind && Number(b.points) <= 0)));
+                write('choices', read('choices').filter((c) => !(String(c.classroom) === String(g.classroom) && c.case === g.case_no && !c.path
+                  && Object.prototype.hasOwnProperty.call(g.answer, c.item) && old.some((a) => a.sid === sidKey(c.sid) && Math.abs((Number(c.ts) || 0) - a.at) < 10000))));
+                write('actanswers', read('actanswers').filter((a) => a.game_id !== g.id));
+                write('actentries', read('actentries').filter((e) => e.game_id !== g.id));
+                games.splice(games.indexOf(g), 1);
+              }
+              const mode = params.p_mode || 'game';
+              g = { id: newId, course: room.course, classroom: room.id,
+                case_no: params.p_case, kind: params.p_kind, top: 10, points: 5, mode, answer: params.p_answer || {},
+                go_at: now + Math.min(30, Math.max(0, params.p_delay == null ? 5 : Number(params.p_delay))) * 1000,
+                secs: Math.min(1800, Math.max(0, params.p_secs == null ? 60 : Number(params.p_secs))), closed_at: null };
+              games.push(g);
+              write('actgames', games);
+              return { status: 'ok', game: stateOf(g) };
+            }
             if (params.p_action === 'start') {
               const mode = params.p_mode || 'game';
               if (mode === 'game' && !(params.p_answer && Object.keys(params.p_answer).length)) throw new Error('开局要带参考答案');
@@ -2530,8 +2598,10 @@
               rate: Number(d.attend) > 0 ? Math.min(100, Math.round(100 * (Number(d.right || 0) / 35) / (Number(d.attend) / 20))) : 0,
               danmaku: read('danmaku').filter((row) => inRooms(row) && sidKey(row.sid) === sid && !row.gift && !row.withdrawn_at && row.status !== 'hidden').length,
               practice: read('practice').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && sidKey(row.sid) === sid).length,
-              online: Math.round(read('visits').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && !row.auditor && sidKey(row.sid) === sid)
-                .reduce((t, row) => t + (Number(row.seconds) || 0), 0) / 60),
+              // 定力（2026-11-27 阶段 343）：有效在线——每段最多算 2 小时、每天（这一段开始的日子）最多算 3 小时
+              online: Math.round(Array.from(read('visits').filter((row) => row.course === room.course && (Number(row.class_id) || 0) === classId && !row.auditor && sidKey(row.sid) === sid)
+                .reduce((byDay, row) => byDay.set(dayOf(row.started_at), (byDay.get(dayOf(row.started_at)) || 0) + Math.min(7200, Number(row.seconds) || 0)), new Map()).values())
+                .reduce((t, s) => t + Math.min(10800, s), 0) / 60),
               points: realm ? Number(realm.points) || 0 : 0,
             };
           });
@@ -2543,9 +2613,12 @@
           const avg = (key) => (per.length ? Math.round((per.reduce((t, row) => t + row[key], 0) / per.length) * 10) / 10 : 0);
           const top = (key) => Math.max(0, ...per.map((row) => row[key]));
           const maxOf = { attend: held, days: span, rate: 100 };
+          // 定力的外圈：全班第 90 百分位（同 percentile_cont(0.9)），最少 60 分钟
+          const p90 = (key) => { const v = per.map((row) => row[key]).sort((a, b) => a - b); if (!v.length) return 0; const pos = 0.9 * (v.length - 1); const lo = Math.floor(pos); return v[lo] + ((v[Math.ceil(pos)] - v[lo]) * (pos - lo)); };
           return { status: 'ok', teacher, people: per.length, held, span,
             updated_at: realms.reduce((at, row) => (row.updated_at > at ? row.updated_at : at), '') || null,
-            rows: ['attend', 'days', 'acts', 'rate', 'danmaku', 'practice', 'online', 'points'].map((key) => ({ key, me: mineRow ? mineRow[key] : null, avg: avg(key), max: key in maxOf ? maxOf[key] : top(key) })) };
+            rows: ['attend', 'days', 'acts', 'rate', 'danmaku', 'practice', 'online', 'points'].map((key) => ({ key, me: mineRow ? mineRow[key] : null, avg: avg(key), max: key in maxOf ? maxOf[key] : top(key),
+              ...(key === 'online' ? { top: Math.max(60, Math.round(p90('online'))) } : {}) })) };
         }
         if (name === 'ck_set_rank_hidden') {
           const room = read('classrooms').find((row) => String(row.id) === String(params.p_classroom));
@@ -3804,7 +3877,18 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-27 阶段 343：灵根·定力按有效在线时长
+        ['灵根 · 定力按有效在线时长算', '“灵根”里的定力改按有效在线时长算：页面开着、人不在的时间不再一直累加（每段连续在线最多算 2 小时、每天最多算 3 小时）；'
+          + '外圈改为全班前 10% 的水平，达到就是满格，不会再被一两位特别高的同学把大家都压扁。上课跟着老师走、课后静修和回看复习都算。', '2026-11-27'],
         // 2026-11-26 阶段 338：习经机制图闯关（选错从头再来、各自计时）、小资料分析“参与闯关”、经营沙盘、后测改选理由；政经线索并进题目；两门课情境猜谜每课 8 题
+        // 2026-11-27 阶段 342：聊天室撤回、字数提示、辩论赛先写后发与只显示姓、表情变大、情境猜谜新样子（习经：弹幕小问题等老师开放）
+        ['聊天室 · 发言可以撤回再改', '辩论赛、经营沙盘、分组讨论的聊天室里，自己的发言旁边有“撤回”：点一下，再点“确定撤回”，这条发言大家就看不到了，原话放回输入框，改好再发送'
+          + '（重新发的排在最后，原来的点赞不带过去）。发言时间结束、课堂停止提交以后不能撤回。', '2026-11-27'],
+        ['辩论赛 · 选论据卡 6 分钟，先写好观点再发', '辩论赛的“② 选论据卡 · 自由讨论”改成 6 分钟。这一步聊天室的输入框已经可以写了：边讨论边把想说的话写好，到“③ 聊天室发言点赞”这一步才能点“发送”。'
+          + '辩论聊天室里同学的名字只显示姓（如“张同学”）。', '2026-11-27'],
+        ['字数提示', '有字数限制的地方（聊天室、弹幕、情境猜谜、心得、回复老师等），点进输入框以后，框的右下方显示“已写几个字／最多几个字”，快写满时变色提醒。', '2026-11-27'],
+        ['表情变大了', '“发弹幕”旁边的表情选择框放大了，聊天室、弹幕和建议箱里的表情也显示得更大，看得清是哪一个。', '2026-11-27'],
+        ['情境猜谜 · 新样子', '情境猜谜的抢答框换成了和闯关一样的样式：上面一条标题栏写着第几题、还剩几次机会，倒计时是一个大圆圈，抢答框更醒目。', '2026-11-27'],
         ...(config.course === 'political-economy' ? [
           // 2026-11-27 阶段 340：弹幕小问题等老师开放、热身挪到线索 01 后面
           ['弹幕小问题 · 等老师开放再发送', '弹幕小问题现在要等老师在大屏上点“开放作答”以后才能发送；开放以前问题照常显示，可以先想一想。'
@@ -3812,6 +3896,11 @@
           ['线索都放到了要用它的题目前面', '以前有几条线索单独放在概念学完之后（比如只给辩论赛论据卡用的）。现在它们都放到了要用的地方：辩论赛论据卡用的线索，'
             + '在辩论赛“② 选论据卡”这一步的开头；概念讲解里提到的，在那个概念第 1 步的开头。只有案例开头讲“事情怎么开始”的线索还放在最前面。', '2026-11-26'],
         ] : [
+          // 2026-11-27 阶段 342：闯关老师可以全班重新开一局（用户：“如果有同学在老师开放后就进去做了题目，老师关闭后重新开放，之前做的那部分同学就无法再加入了。”）
+          ['闯关 · 老师重新开一局，全班都能再参加', '材料归纳抢答、小资料分析闯关：老师点“全班重新开一局”以后，上一局作废（交过的卷、名次和加的修为都撤回），'
+            + '交过的同学页面上这几道题会回到没递交，可以重新参加。机制图闯关：老师收起以后再点“开始”就是新的一局，上一局的通关成绩不再算，大家都从头闯、重新计时。', '2026-11-27'],
+          // 2026-11-27 阶段 342：习经弹幕小问题也等老师开放（用户：“弹幕小问题，也需要老师开放才能做，不然很多同学都提前写进去了。”）
+          ['弹幕小问题 · 等老师开放再发送', '弹幕小问题现在要等老师在大屏上点“开放作答”以后才能发送；开放以前问题照常显示，可以先想一想。', '2026-11-27'],
           ['机制图闯关 · 选错一步就从头再来', '机制图闯关换了规则：推链条、Boss 战任何一步选错，都要从第一关从头再来。计时从你第一次点“开始闯关”算起，'
             + '中途重来不停表，刷新页面也接着算；比的是谁用时最短（各算各的，网速快慢不影响）。Boss“想当然”现在有了形象和血条，答对一题砍它一格血。', '2026-11-26'],
           ['小资料分析 · 自己点“参与闯关”', '迁移任务的小资料分析：老师启动闯关以后，页面上出现“参与闯关”按钮，点了才进入、才开始计时（各算各的，谁先进去都一样）。'
@@ -4107,9 +4196,10 @@
   const chatRoom = (() => {
     const ONLINE_MS = 2 * 60 * 1000;
     const h = (value) => String(value == null ? '' : value).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-    // 头像：名字第一个字，底色按名字算出（同一个名字颜色固定，和学生页一样）；online 不传＝不显示在线点
-    const avatar = (nick, online) => {
-      const hue = Array.from(String(nick || '')).reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 17);
+    // 头像：名字第一个字，底色按名字算出（同一个名字颜色固定，和学生页一样）；online 不传＝不显示在线点。
+    // key：按它算底色（2026-11-27 辩论赛只显示姓时传全名，同姓的同学头像颜色仍各不相同）
+    const avatar = (nick, online, key) => {
+      const hue = Array.from(String(key || nick || '')).reduce((n, ch) => (n * 31 + ch.charCodeAt(0)) % 360, 17);
       return `<i class="tcr-av" style="--h:${hue}" aria-hidden="true">${h(Array.from(String(nick || '?'))[0])}${online === undefined ? '' : `<s class="${online ? 'is-on' : ''}"></s>`}</i>`;
     };
     const CSS = `
@@ -4205,8 +4295,8 @@
     }
     // 画一间聊天室。view：
     //   title、meta：标题栏；tag：标题栏右边的小标签（如“代表：某某”），空＝不显示；extra：标题栏下面一条（HTML，各看板自己的内容），空＝不显示；
-    //   people：[{ nick, real（要补在后面的姓名）, online, likes, posts, badge（如“发言人”“代表”） }]，还没读到名单时给 null；count：成员人数（名单没读到时显示）；
-    //   posts：[{ id, nick, real, text, at, likes, badge }]，按发布先后；empty：还没有发言时的说明；hide：true＝每条发言后面有“×”（data-tcr-hide＝发言的 id）
+    //   people：[{ nick, real（要补在后面的姓名）, online, likes, posts, badge（如“发言人”“代表”）, key（头像底色按它算，不给按 nick） }]，还没读到名单时给 null；count：成员人数（名单没读到时显示）；
+    //   posts：[{ id, nick, real, text, at, likes, badge, key }]，按发布先后；empty：还没有发言时的说明；hide：true＝每条发言后面有“×”（data-tcr-hide＝发言的 id）
     function paint(room, view) {
       if (!room) return;
       put(room, '[data-tcr-title]', view.title);
@@ -4219,7 +4309,7 @@
       const online = people ? people.filter((p) => p.online).length : 0;
       put(room, '[data-tcr-count]', people ? `成员 ${people.length} · 在线 ${online}` : `成员 ${Number(view.count) || 0}`);
       put(room, '[data-tcr-people]', people
-        ? people.map((p) => `<li class="${p.badge ? 'is-key' : ''}" title="${h(`${p.nick}：被点赞 ${p.likes} 次，发言 ${p.posts} 条，${p.online ? '在线' : '不在线'}`)}">${avatar(p.nick, Boolean(p.online))}`
+        ? people.map((p) => `<li class="${p.badge ? 'is-key' : ''}" title="${h(`${p.nick}：被点赞 ${p.likes} 次，发言 ${p.posts} 条，${p.online ? '在线' : '不在线'}`)}">${avatar(p.nick, Boolean(p.online), p.key)}`
           + `<span><b>${p.badge ? `<em>${h(p.badge)}</em>` : ''}${h(p.nick)}${p.real ? `<small>${h(p.real)}</small>` : ''}</b><small>♥ ${Number(p.likes) || 0} · ${Number(p.posts) || 0} 条</small></span></li>`).join('')
           || '<li class="tcr-none">还没有人进来</li>'
         : `<li class="tcr-none">${Number(view.count) ? '正在读取成员名单……（一直读不到时，请确认本机已登录教师工作台）' : '还没有人进来'}</li>`, true);
@@ -4228,7 +4318,7 @@
       const none = put(room, '[data-tcr-none]', view.empty || '还没有发言');
       if (none) none.hidden = rows.length > 0;
       list.hidden = !rows.length;
-      syncFeed(list, rows, (p) => `${avatar(p.nick)}<div class="tcr-msg-body"><div class="tcr-who"><b>${h(p.nick)}${p.real ? `<small>${h(p.real)}</small>` : ''}</b>${p.badge ? `<em>${h(p.badge)}</em>` : ''}<time>${h(feedClock(p.at))}</time>`
+      syncFeed(list, rows, (p) => `${avatar(p.nick, undefined, p.key)}<div class="tcr-msg-body"><div class="tcr-who"><b>${h(p.nick)}${p.real ? `<small>${h(p.real)}</small>` : ''}</b>${p.badge ? `<em>${h(p.badge)}</em>` : ''}<time>${h(feedClock(p.at))}</time>`
         + `${view.hide ? `<button type="button" class="tcr-hide" data-tcr-hide="${h(p.id)}" title="隐藏这条发言" aria-label="隐藏这条发言">×</button>` : ''}</div>`
         + `<div class="tcr-bubble"><p>${h(p.text)}</p><span class="tcr-like${Number(p.likes) ? '' : ' is-zero'}" title="被点赞 ${Number(p.likes) || 0} 次">♥ ${Number(p.likes) || 0}</span></div></div>`);
     }
@@ -4303,6 +4393,7 @@
     TIMELINE,
     DEBATE,
     DEBATE_STAGE,
+    shortName,
     BIZ,
     DISCUSS,
     POLL,

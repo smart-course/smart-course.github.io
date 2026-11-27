@@ -120,7 +120,8 @@
   //   等学生聊天室发言点赞结束后，可以让他们看自己选择的论据卡是否跟自己的立场一致。然后再进行辩后投票。”）
   const FLOW = [
     { key: 'prep', label: '选立场', secs: 60, hint: '学生投辩前票选好立场（投哪方就进哪方的聊天室），点“递交”；学生页同步倒计时，时间到就不能再递交' },
-    { key: 'talk', label: '选论据卡 · 自由讨论', secs: 600, hint: '学生和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于自己的立场，选 2 张递交；再想好本方最有力的理由、对方会怎么反驳、要在聊天室里说的一句话。这一步聊天室还不能发言' },
+    // 2026-11-27 用户：“辩论赛的选论据卡和讨论时间改成6分钟。”（原来 600 秒）
+    { key: 'talk', label: '选论据卡 · 自由讨论', secs: 360, hint: '学生和同桌（或同一立场的同学）一起看论据卡，商量哪几张适用于自己的立场，选 2 张递交；再想好本方最有力的理由、对方会怎么反驳、要在聊天室里说的一句话。这一步聊天室还不能发言' },
     { key: 'chat', label: '聊天室发言点赞', secs: 180, hint: `学生以实名进本方聊天室发言、给本方的好发言点赞；全场点赞最多的 ${DB.top} 位同学各加 ${DB.likes} 修为` },
     { key: 'check', label: '论据卡对一对', secs: 60, hint: '进入这一步时自动放开论据卡的解答：学生页显示自己选的每张论据卡偏向哪一方、和自己的辩前票是否一致。论据卡没有对错之分，可以请选了偏向对方的卡的同学说说是怎样用的' },
     { key: 'vote', label: '辩后投票', secs: 60, hint: '听了两方的观点，全班投辩后票：现在支持哪一方' },
@@ -169,9 +170,12 @@
       + '<span class="dbb-status" data-dbb-status role="status"></span></div></div>';
     const status = (text, ok) => { const el = board.querySelector('[data-dbb-status]'); el.textContent = text || ''; el.classList.toggle('is-ok', Boolean(ok)); };
     const tally = () => ({ pro: ((data && data.pro) || {}).votes || 0, con: ((data && data.con) || {}).votes || 0 });
-    // 2026-11-18 起辩论赛实名：显示名就是姓名（同名加学号末两位），“揭晓姓名”只给以前用昵称进入的补上姓名
+    // 2026-11-18 起辩论赛实名：显示名就是姓名（同名加学号末两位），“揭晓姓名”只给以前用昵称进入的补上姓名。
+    // 2026-11-27 只显示姓（用户：“辩论赛讨论的发言人只显示姓”）：看板上是“张同学”，点“揭晓姓名”显示全名（ClassLive.shortName，同学生页）
+    const shortName = (nick) => (window.ClassLive.shortName ? window.ClassLive.shortName(nick) : String(nick || ''));
+    const shown = (m) => (reveal ? String(m.nick || '') : shortName(m.nick));
     const realOf = (m) => (reveal && m.name && !String(m.nick || '').startsWith(String(m.name).replace(/\s+/g, '').slice(0, 7)) ? m.name : '');
-    const leaderName = (m) => `${esc(m.nick)}${realOf(m) ? `（${esc(realOf(m))}）` : ''}`;
+    const leaderName = (m) => `${esc(shown(m))}${realOf(m) ? `（${esc(realOf(m))}）` : ''}`;
 
     // ---------- 本机计时 ----------
     const localKey = () => (room ? `classlive-debate-flow:${room.id}:${no}` : '');
@@ -251,7 +255,7 @@
       }
       const leaders = (data && data.leaders) || [];
       lead.innerHTML = `<h5>全场点赞前三 · 各加 ${DB.likes} 修为</h5>${leaders.length
-        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(m.nick)}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
+        ? `<ol>${leaders.map((m, i) => `<li class="is-${esc(m.side)}"><span>${i + 1}</span><b>${esc(shown(m))}</b><small><i>${SIDE[m.side] || ''}</i>${realOf(m) ? ` · ${esc(realOf(m))}` : ''} · ${m.posts} 条发言</small><em>♥ ${m.likes}</em></li>`).join('')}</ol>`
         : '<p class="dbb-empty">还没有人被点赞。两方聊天室里的发言被点赞后，这里按点赞数排出前三（正反两方合起来算）。</p>'}`;
       // 两间聊天室只建一次，刷新时只更新变化的地方（ClassLive.chatRoom.paint；发言列表用 syncFeed，滑动位置不会被 4 秒一次的刷新打断）。
       // 2026-11-07 用户：“聊天室内容的显示要按照发布的时间顺序固定显示，然后要能够显示所有内容，可以通过上下滑动的方式”
@@ -264,9 +268,9 @@
         CR.paint(cols.querySelector(`[data-tcr="${side}"]`), {
           title: `${SIDE[side]}聊天室`,
           meta: `${d.members} 人${mine ? `（在线 ${mine.filter((m) => m.online).length}）` : ''} · ${d.posts} 条发言`,
-          people: mine && mine.map((m) => ({ ...m, real: realOf(m) })),
+          people: mine && mine.map((m) => ({ ...m, nick: shown(m), key: m.nick, real: realOf(m) })),
           count: d.members,
-          posts: rows.map((h) => ({ ...h, real: realOf(h) })),
+          posts: rows.map((h) => ({ ...h, nick: shown(h), key: h.nick, real: realOf(h) })),
           empty: `还没有发言。学生递交辩前票、进入${SIDE[side]}聊天室以后，发言按发布时间显示在这里。`,
           hide: true,
         });
@@ -395,12 +399,12 @@
       const t = verdict && verdict.pro != null ? { pro: verdict.pro, con: verdict.con } : tally();
       const score = `<div class="dbr-score"><span class="is-pro">正方 <b>${t.pro}</b> 票</span><i>:</i><span class="is-con">反方 <b>${t.con}</b> 票</span></div>`;
       const roll = (list) => (list && list.length
-        ? `<details><summary>加修为名单（${list.length} 人）</summary><p>${list.map((a) => `${esc(a.name)} +${a.points}`).join('、')}</p></details>` : '');
+        ? `<details><summary>加修为名单（${list.length} 人）</summary><p>${list.map((a) => `${esc(reveal ? a.name : shortName(a.name))} +${a.points}`).join('、')}</p></details>` : '');
       const awards = (v) => {
         const list = v.list || [];
         const top = list.filter((a) => a.top);
         const leaders = ((data && data.leaders) || []).filter((m) => top.some((a) => a.sid === m.sid));
-        const topText = leaders.length ? leaders.map(leaderName).join('、') : top.map((a) => esc(a.name)).join('、');
+        const topText = leaders.length ? leaders.map(leaderName).join('、') : top.map((a) => esc(reveal ? a.name : shortName(a.name))).join('、');
         const lines = [
           top.length ? `点赞前三：${topText} 各加 ${DB.likes} 修为` : '没有人被点赞（或点赞最多的不在点名册上），点赞前三没有加修为',
           '获胜方不加修为：辩后投票只看大家现在支持哪一方',
