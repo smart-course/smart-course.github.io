@@ -36,7 +36,7 @@
   const COLLECTIONS = { checkins: 'ck_checkins', choices: 'ck_choices', answers: 'ck_answers', classrooms: 'ck_classrooms', danmaku: 'ck_danmaku',
     homework: 'ck_homework', classes: 'ck_classes', feedback: 'ck_feedback', realms: 'ck_realms',
     requests: 'ck_join_requests', seclog: 'ck_security_log', bonus: 'ck_bonus', stops: 'ck_stops', giftuses: 'ck_gift_uses', leaves: 'ck_leaves', presence: 'ck_presence', draws: 'ck_draws',
-    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', examscores: 'ck_exam_scores',
+    puzzles: 'ck_puzzle_rounds', puzzleguesses: 'ck_puzzle_guesses', puzzlegames: 'ck_puzzle_games', practice: 'ck_practice_log', pinreqs: 'ck_pin_requests', devreqs: 'ck_device_requests', examscores: 'ck_exam_scores',
     debatemembers: 'ck_debate_members', debateposts: 'ck_debate_posts', debatelikes: 'ck_debate_likes', debatematches: 'ck_debate_matches', debatesays: 'ck_debate_says', bizgames: 'ck_biz_games', bizvotes: 'ck_biz_votes',
     teachersettings: 'ck_teacher_settings', events: 'ck_teacher_events', polls: 'ck_polls', pollvotes: 'ck_poll_votes',
     sectmembers: 'ck_sect_members', visits: 'ck_visits', tlgames: 'ck_tl_games', tlanswers: 'ck_tl_answers', reflections: 'ck_reflections' };
@@ -1008,6 +1008,9 @@
             }
           }
           if (nameKey(person.name) !== nameKey(nm)) { secLog('bad_name', ctx); return { status: 'bad_name' }; }
+          // 2026-11-27 阶段 344（规则同 cloudbase-pg.sql 的 ck_join）：自动控制的浏览器不让登录；浏览器类型记在设备上（本机模拟没有 IP）
+          const ua = String(params.p_ua || '').trim().slice(0, 60) || null;
+          if (params.p_auto) { secLog('bot', { ...ctx, detail: ['自动控制的浏览器', ua].filter(Boolean).join(' · ') }); return { status: 'bot' }; }
           const devices = read('devices');
           const bound = devices.find((d) => String(d.class_id) === String(room.class_id) && d.sid === sid && d.owner === uid);
           if (bound) {
@@ -1046,10 +1049,25 @@
               }
               Object.assign(pin, { fails: 0, locks: 0, updated_at: at });
               write('pins', pins);
-              secLog('new_device', ctx);
+              // 新设备上限：7 天内已有 5 台新设备，再用新设备登录要老师允许（ck_device_requests）
+              const recent = read('devices').filter((d) => String(d.class_id) === String(room.class_id) && d.sid === sid && now - Date.parse(d.first_at || 0) < 7 * 86400000).length;
+              if (recent >= 5) {
+                const reqs = read('devreqs');
+                const mine = reqs.find((row) => String(row.class_id) === String(room.class_id) && row.sid === sid && row.owner === uid);
+                if (!mine || mine.status !== 'approved') {
+                  if (!mine) {
+                    reqs.push({ id: Math.max(0, ...reqs.map((row) => Number(row.id) || 0)) + 1, class_id: room.class_id, course: room.course, sid, name: person.name, owner: uid,
+                      ua, ip: null, devices: recent, status: 'pending', created_at: at, decided_at: null });
+                    write('devreqs', reqs);
+                    secLog('device_hold', { ...ctx, detail: '7 天内新设备满 5 台，等老师允许' });
+                  }
+                  return { status: mine && mine.status === 'rejected' ? 'device_rejected' : 'device_pending' };
+                }
+              }
+              secLog('new_device', { ...ctx, detail: ua });
             }
             const fresh = read('devices');
-            fresh.push({ class_id: room.class_id, sid, owner: uid, first_at: at, last_at: at });
+            fresh.push({ class_id: room.class_id, sid, owner: uid, first_at: at, last_at: at, ua });
             write('devices', fresh);
           }
           const makeup = !room.is_current && !audit && leaveMakeup(room, person.sid);   // 请假补做（2026-11-19）
@@ -1605,6 +1623,42 @@
           if (at < 0) rows.push(row);
           write('examscores', rows);
           return { ...row };
+        }
+        // 2026-11-27 阶段 344：老师允许／拒绝新设备、设备异常名单（规则同 cloudbase-pg.sql）
+        if (name === 'ck_decide_device') {
+          teacherOnly();
+          const reqs = read('devreqs');
+          const req = reqs.find((row) => String(row.id) === String(params.p_id));
+          if (!req) throw new Error('申请不存在');
+          Object.assign(req, { status: params.p_allow ? 'approved' : 'rejected', decided_at: new Date().toISOString() });
+          write('devreqs', reqs);
+          secLog(params.p_allow ? 'device_allow' : 'device_deny', { owner: 'teacher', course: req.course, class_id: req.class_id, sid: req.sid, name: req.name });
+          return { status: params.p_allow ? 'approved' : 'rejected' };
+        }
+        if (name === 'ck_device_report') {
+          teacherOnly();
+          const rooms = new Set(read('classrooms').filter((r) => String(r.class_id) === String(params.p_class)).map((r) => String(r.id)));
+          const per = new Map();
+          read('checkins').filter((k) => rooms.has(String(k.classroom)) && !k.auditor).forEach((k) => {
+            const key = sidKey(k.sid);
+            const row = per.get(key) || { sid: key, name: k.name, owners: new Set(), owners7: new Set(), last_at: null };
+            row.owners.add(k.owner);
+            if (Date.now() - Date.parse(k.created_at || 0) < 7 * 86400000) row.owners7.add(k.owner);
+            if (!row.last_at || k.created_at > row.last_at) row.last_at = k.created_at;
+            per.set(key, row);
+          });
+          const devs = read('devices').filter((d) => String(d.class_id) === String(params.p_class));
+          const logs = read('seclog').filter((s) => String(s.class_id) === String(params.p_class) && Date.now() - Date.parse(s.at || 0) < 30 * 86400000);
+          const rows = Array.from(per.values()).map((row) => {
+            const mine = devs.filter((d) => d.sid === row.sid);
+            const kinds = Array.from(new Set(mine.map((d) => d.ua).filter(Boolean))).sort();
+            const bot = logs.filter((s) => s.sid === row.sid && s.kind === 'bot').length;
+            const held = logs.filter((s) => s.sid === row.sid && s.kind === 'device_hold').length;
+            const server = mine.filter((d) => /linux|无界面|headless/i.test(d.ua || '')).length;
+            const flags = [row.owners.size >= 10 && 'many', row.owners7.size >= 5 && 'burst', bot > 0 && 'bot', server > 0 && 'server', held > 0 && 'held'].filter(Boolean);
+            return { sid: row.sid, name: row.name, devices: row.owners.size, devices7: row.owners7.size, last_at: row.last_at, kinds: kinds.join('、') || null, ips: 0, server, bot, held, flags };
+          }).filter((row) => row.flags.length).sort((a, b) => b.flags.length - a.flags.length || b.devices - a.devices);
+          return { status: 'ok', rows };
         }
         if (name === 'ck_decide_pin_request') {
           teacherOnly();
@@ -3877,6 +3931,11 @@
     const leave = (Live.LEAVE || {}).points || 20;
     return [
       { title: '最新', items: [
+        // 2026-11-27 阶段 344：账号只能本人使用；新设备上限；灵田夜间休田、每日上限
+        ['账号安全 · 只能本人登录使用', '账号只能本人登录使用，不得交给 AI、脚本或他人代为登录、代为操作；发现后云间灵田销号、修为视情况扣除。'
+          + '同一个学号 7 天内在 5 台以上的新设备上登录，再换新设备要等老师允许；在微信里打开时登录记录常常保存不住，建议点右上角“…”选“在浏览器打开”。', '2026-11-27'],
+        ['云间灵田 · 夜间休田和每日上限', '每天凌晨 3:00—6:00 是夜间休田：灵田只能看，不能种、收、卖；每人每天在灵田里最多操作 500 次。'
+          + '另外修好了一个偶发问题：网站修为境界一时读不到时，灵田存档可能读不出来、进不了灵田，现在不会了。', '2026-11-27'],
         // 2026-11-27 阶段 343：灵根·定力按有效在线时长
         ['灵根 · 定力按有效在线时长算', '“灵根”里的定力改按有效在线时长算：页面开着、人不在的时间不再一直累加（每段连续在线最多算 2 小时、每天最多算 3 小时）；'
           + '外圈改为全班前 10% 的水平，达到就是满格，不会再被一两位特别高的同学把大家都压扁。上课跟着老师走、课后静修和回看复习都算。', '2026-11-27'],

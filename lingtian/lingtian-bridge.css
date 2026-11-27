@@ -57,3 +57,13 @@ dialog.lt-layer::backdrop { background: transparent; }
 .farm-batch-bar b { color: #365e50; font-size: 14px; }
 .farm-batch-bar span { display: inline-flex; align-items: center; gap: 4px; }
 @media (max-width: 560px) { .lt-card { padding: 22px 18px 18px; border-radius: 18px; } .lt-card h2 { font-size: 19px; } .lt-stem { font-size: 15px; } }
+
+/* 老师的警告（2026-11-27 阶段 344）：红色描边的一次性弹窗 */
+.lt-warning .lt-card { border: 2px solid #c0533a; box-shadow: 0 18px 48px rgba(120, 30, 10, .28); }
+.lt-warning h2 { color: #a4352a; }
+.lt-warning .lt-warning-text { color: #3a2418; font-size: 15.5px; line-height: 1.75; }
+.lt-warning .lt-warning-meta { color: #8a6a5a; font-size: 12.5px; }
+/* 夜间休田提示条 */
+.lt-night-bar { position: fixed; z-index: 2147483000; left: 50%; top: 10px; transform: translateX(-50%); max-width: calc(100vw - 24px); box-sizing: border-box;
+  padding: 8px 16px; border-radius: 999px; background: rgba(32, 38, 64, .92); color: #f3ecd8; font-size: 13.5px; line-height: 1.5; text-align: center;
+  box-shadow: 0 6px 20px rgba(0, 0, 0, .25); pointer-events: none; }

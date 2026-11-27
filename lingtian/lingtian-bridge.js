@@ -65,10 +65,15 @@
     ticket_expired: ['凭证已过期', '进入灵田的凭证已过期，请回到课程页面重新点“云间灵田”。'],
     ticket_required: ['请从课程页面进入', '云间灵田要从课程页面左下角面板的“宗门 → 云间灵田”进入。'],
     banned: ['灵田已被销号', '你的灵田已被老师销号（道号不文明），不能再进入云间灵田。有疑问请找老师。'],
+    // 自动控制的浏览器（2026-11-27 阶段 344，用户：“他大概率用了AI帮他自动收割作物等”“你能想办法杜绝吗？”）
+    bot: ['不能在这个浏览器里打开', '检测到这个浏览器正被程序自动控制。云间灵田只能由本人在自己的手机或电脑浏览器里亲自操作，不能交给 AI、脚本或他人代为登录、代为操作。'],
     no_backend: ['暂时连不上', '课程网站的后台暂时连不上，请检查网络后重试。'],
   };
 
+  // 浏览器正被程序控制（自动化测试工具、AI 代理常见的标志）：不领进入凭证（2026-11-27 阶段 344）
+  const automated = () => { try { return navigator.webdriver === true || /HeadlessChrome|PhantomJS/i.test(navigator.userAgent || ''); } catch (error) { return false; } };
   async function fetchTicket(force) {
+    if (automated()) throw fail(403, 'bot', REASONS.bot[1]);
     if (!backend) throw fail(503, 'no_backend', REASONS.no_backend[1]);
     if (!room) throw fail(401, 'no_room', REASONS.no_room[1]);
     if (!force) {
@@ -228,8 +233,47 @@
         if (alias) { try { await engine.refresh(); } catch (error) { /* 下次刷新再更新 */ } }
       }
       if (profile.observer) observerNote();
+      // 老师的警告（2026-11-27 阶段 344）：一条一条弹，点“我知道了”才算看过（以后不再弹）；夜间休田（3:00—6:00）挂一条提示
+      if (Array.isArray(profile.warnings) && profile.warnings.length) await showWarnings(profile.warnings);
     }
     addAliasEntry(engine);
+    watchNightRest();
+  }
+
+  // 老师的警告：一次性弹窗（2026-11-27 用户：“给陆邵涵和姚卓君两位同学的灵田发一个一次性的弹窗……他们下次登陆灵田的时候能够看到。”）
+  async function showWarnings(list) {
+    for (const item of list.slice(0, 5)) {
+      const day = item.at ? new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', month: 'numeric', day: 'numeric' }).format(new Date(item.at)) : '';
+      await new Promise((resolve) => {
+        const node = openLayer(`<p class="lt-eyebrow">系 统 提 醒</p><h2>账号异常警告</h2><p class="lt-note lt-warning-text">${esc(item.message)}</p>
+          ${day ? `<p class="lt-note lt-warning-meta">${esc(day)} · 智慧课堂</p>` : ''}
+          <div class="lt-actions"><button type="button" class="lt-btn lt-primary" data-lt-ack>我知道了</button></div>`, 'lt-warning');
+        node.querySelector('[data-lt-ack]').addEventListener('click', async (event) => {
+          event.currentTarget.disabled = true;
+          try { await request('/api/profile', { action: 'ackWarning', id: Number(item.id) }); } catch (error) { /* 没确认上：下次进灵田再弹 */ }
+          closeLayer();
+          resolve();
+        });
+      });
+    }
+  }
+
+  // 夜间休田：北京时间 3:00—6:00 页面顶上挂一条提示（操作本身由云函数挡下）；页面一直开着时每分钟看一次
+  let nightBar = null;
+  function watchNightRest() {
+    const paint = () => {
+      const hour = new Date(Date.now() + 8 * 3600000).getUTCHours();
+      const on = hour >= 3 && hour < 6;
+      if (on && !nightBar) {
+        nightBar = document.createElement('div');
+        nightBar.className = 'lt-night-bar';
+        nightBar.setAttribute('role', 'status');
+        nightBar.textContent = '夜间休田（每天 3:00—6:00）：这段时间灵田只能看，不能种、收、卖，6 点以后再来照料灵田吧。';
+        document.body.appendChild(nightBar);
+      } else if (!on && nightBar) { nightBar.remove(); nightBar = null; }
+    };
+    paint();
+    setInterval(paint, 60000);
   }
 
   // 学生版测试身份（王不凡）：境界旁标“测试 · 只看”，修为说明里写明规则；这次打开第一次进入时弹一次说明（有题目弹窗时不打扰）

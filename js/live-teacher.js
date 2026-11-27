@@ -2026,6 +2026,7 @@
       ltOpenState(!!set.enabled);
       ltRender();
       ltStatsLoad();
+      ltAnomLoad();
     } catch (error) {
       const missing = /PGRST202|42883|Could not find the function|lt_admin/.test(String((error && error.message) || error));
       $('[data-lt-status]').textContent = missing ? '云间灵田的后台还没有建好：请先在云开发 SQL 编辑器执行 tools/cloudbase-pg-20261115-云间灵田.sql。' : `读取失败：${(error && error.message) || error}`;
@@ -2874,6 +2875,55 @@
       { name: '静修记录', rows: records, widths: [14, 10, 16, 20, 20, 30, 10, 14, 12, 10, 8, 12, 18] },
     ]), `${course.title}_${scope}_静修数据_${window.ClassLive.today()}.xlsx`);
   }
+  // 灵田异常（2026-11-27 阶段 344，用户：“他大概率用了AI帮他自动收割作物等”“你能想办法杜绝吗？”）：近 14 天凌晨操作、全天不停、操作量大、
+  // 触到每日上限、设备多、自动化浏览器的同学（lt_anomalies），每人一行，可以发一次性警告（lt_admin_warn）或销号
+  const LT_FLAG = { night: '凌晨操作', allday: '全天不停', heavy: '操作量大', cap: '触到每日上限', devices: '登录设备多', bot: '自动化浏览器', held: '新设备等允许' };
+  const ltAnom = { rows: [] };
+  async function ltAnomLoad() {
+    const box = $('[data-lt-anom-rows]');
+    if (!box) return;
+    $('[data-lt-anom-status]').textContent = '正在读取……';
+    try {
+      const value = await backend.rpc('lt_anomalies', { p_course: course.slug });
+      const res = (Array.isArray(value) ? value[0] : value) || {};
+      ltAnom.rows = Array.isArray(res.rows) ? res.rows : [];
+      $('[data-lt-anom-status]').textContent = `${ltAnom.rows.length} 人（${res.since ? `${res.since.slice(5)} 起` : '近 14 天'}，${clock(Date.now())} 读取）`;
+    } catch (error) {
+      ltAnom.rows = [];
+      $('[data-lt-anom-status]').textContent = /PGRST202|42883|Could not find the function|lt_anomalies/.test(String((error && error.message) || error))
+        ? '后台还没有灵田异常名单：要先执行这一阶段的 SQL。' : `读取失败：${(error && error.message) || error}`;
+    }
+    box.innerHTML = ltAnom.rows.map((row) => `<tr><td>${esc(row.sid)}</td><td>${esc(row.name)}</td><td>${esc(row.alias || '')}${row.banned ? statusTag('已销号') : ''}</td>
+      <td>${(row.flags || []).map((flag) => statusTag(LT_FLAG[flag] || flag, flag === 'bot' || flag === 'allday' || flag === 'night' ? 'bad' : 'warn')).join(' ')}</td>
+      <td>${esc(row.acts)} 次<small class="tw-sub">凌晨 ${esc(row.night)} 次 · 最多一天 ${esc(row.max_day)} 次、${esc(row.max_hours)} 个小时</small></td>
+      <td>${esc(row.devices)} 台${row.devices7 ? `<small class="tw-sub">7 天内 ${esc(row.devices7)} 台</small>` : ''}</td>
+      <td>${row.warned ? `${esc(row.warned)} 次${row.unseen ? `<small class="tw-sub">${esc(row.unseen)} 次还没看到</small>` : '<small class="tw-sub">都看过了</small>'}` : '—'}</td>
+      <td><button type="button" class="tw-secondary" data-lt-warn="${esc(row.actor_id)}">发警告</button>${row.banned ? '' : `<button type="button" class="tw-secondary" data-lt-anom-ban="${esc(row.actor_id)}">销号</button>`}</td></tr>`).join('')
+      || '<tr><td colspan="8" class="empty">近 14 天没有发现异常。</td></tr>';
+  }
+  const LT_WARN_TEXT = '系统监测到你的云间灵田账号近期有异常操作行为，现予以警告。灵田只能由本人亲自操作，不得交给 AI、脚本或他人代为登录、代为操作；如继续出现异常，账号可能会被销号。';
+  async function ltWarn(actor) {
+    const row = ltAnom.rows.find((item) => item.actor_id === actor);
+    if (!row) return;
+    const text = window.prompt(`给 ${row.name}（${row.sid}）发一条一次性警告：该生下次进云间灵田时弹出，点“我知道了”后不再弹。\n\n可以改一改下面的文字（300 字以内）：`, LT_WARN_TEXT);
+    if (text === null) return;
+    $('[data-lt-anom-status]').textContent = '正在发送……';
+    try {
+      const value = await backend.rpc('lt_admin_warn', { p_course: course.slug, p_actor: actor, p_message: text.trim().slice(0, 300) || null });
+      const res = (Array.isArray(value) ? value[0] : value) || {};
+      await ltAnomLoad();
+      $('[data-lt-anom-status]').textContent = res.status === 'ok' ? `已给 ${row.name} 发警告（${clock(Date.now())}），下次进灵田时弹出。` : '没有找到这位同学的灵田。';
+    } catch (error) { $('[data-lt-anom-status]').textContent = `发送失败：${(error && error.message) || error}`; }
+  }
+  async function ltAnomBan(actor) {
+    const row = ltAnom.rows.find((item) => item.actor_id === actor);
+    if (!row || !window.confirm(`给 ${row.name}（${row.sid}）销号吗？道号“${row.alias || ''}”\n\n销号后该生不能再进入云间灵田，道号换成“已销号”。以后可以在“谁是谁”里恢复。`)) return;
+    try {
+      await backend.rpc('lt_admin_ban', { p_course: course.slug, p_actor: actor, p_ban: true });
+      await ltAnomLoad();
+      await ltLoad();
+    } catch (error) { $('[data-lt-anom-status]').textContent = `销号失败：${(error && error.message) || error}`; }
+  }
   // 销号／恢复（2026-11-15 用户：“填写道号的时候也要提醒学生文明取名，否则会被销号”）
   async function ltBan(actor, on) {
     const p = lt.players.find((row) => row.actor_id === actor);
@@ -2981,6 +3031,14 @@
     $('[data-lt-save]').disabled = true;
     if (ltTab.getAttribute('aria-selected') === 'true') ltLoad();
     $('[data-lt-reload]').addEventListener('click', ltLoad);
+    if ($('[data-lt-anom-reload]')) {
+      $('[data-lt-anom-reload]').addEventListener('click', ltAnomLoad);
+      $('[data-lt-anom-rows]').addEventListener('click', (event) => {
+        const warn = event.target.closest('[data-lt-warn]'), ban = event.target.closest('[data-lt-anom-ban]');
+        if (warn) ltWarn(warn.dataset.ltWarn);
+        else if (ban) ltAnomBan(ban.dataset.ltAnomBan);
+      });
+    }
     $('[data-lt-search]').addEventListener('input', ltRender);
     $('[data-lt-stats-reload]').addEventListener('click', ltStatsLoad);
     $('[data-lt-stats-xlsx]').addEventListener('click', ltStatsExport);
@@ -5501,9 +5559,13 @@
     pin_set: '设置口令', new_device: '新设备登录（口令正确）', request: '申请加入（不在点名册上）', approve: '老师允许加入',
     reject: '老师拒绝或撤销加入', audit: '老师允许旁听', pin_reset: '老师重置口令', unlock: '老师解锁', rotate: '更换课堂码', teacher_login: '教师登录',
     view_past: '用历史课堂码进来查看', pin_forgot: '忘记口令，申请重设', pin_allow: '老师同意重设口令', pin_deny: '老师没有同意重设口令',
+    // 2026-11-27 阶段 344：防 AI 代登
+    bot: '自动控制的浏览器（不让登录）', device_hold: '新设备过多，等老师允许', device_allow: '老师允许新设备', device_deny: '老师拒绝新设备',
   };
-  const SEC_BAD = new Set(['bad_sid', 'bad_name', 'bad_pin', 'locked', 'request', 'pin_forgot']);
-  const sec = { requests: [], pinreqs: [], pins: [], log: [], teacher: [], visits: [], visitProblem: '', codeFails: 0, problem: '', loaded: false };
+  const SEC_BAD = new Set(['bad_sid', 'bad_name', 'bad_pin', 'locked', 'request', 'pin_forgot', 'bot', 'device_hold']);
+  const sec = { requests: [], pinreqs: [], devreqs: [], devrep: null, pins: [], log: [], teacher: [], visits: [], visitProblem: '', codeFails: 0, problem: '', loaded: false };
+  // 设备异常的标签（2026-11-27 阶段 344，用户：“在登陆安全里面，以后把有类似情况的账户可以标记为异常，一个人显然不可能有二十几台设备对吧。”）
+  const DEV_FLAG = { many: '全学期设备 10 台以上', burst: '7 天内新设备 5 台以上', bot: '用过自动控制的浏览器', server: '用过服务器上的浏览器', held: '新设备等允许' };
   // 忘记口令申请：待处理的，和 3 天内同意过的（等学生用申请的那台设备设新口令）；拒绝的不再显示（学生再次申请会重新出现）
   const pinreqShown = () => sec.pinreqs.filter((row) => row.status === 'pending' || (row.status === 'approved' && Date.now() - millis(row.decided_at) < 3 * 86400000));
   const stamp = (value) => (value ? `${isoDay(millis(value)).slice(5)} ${clock(millis(value))}` : '');
@@ -5515,6 +5577,15 @@
       try {
         sec.pinreqs = (await backend.fetchAll('pinreqs', { class_id: secClassId() })).sort((a, b) => millis(b.created_at) - millis(a.created_at));
       } catch (error) { if (!missingTable(error)) throw error; sec.pinreqs = []; }   // 还没执行 2026-10-28 的 SQL 时没有这张表
+      // 2026-11-27 阶段 344：新设备申请、设备异常名单（后台还没执行这一阶段的 SQL 时当作没有）
+      try {
+        sec.devreqs = (await backend.fetchAll('devreqs', { class_id: secClassId() })).sort((a, b) => millis(b.created_at) - millis(a.created_at));
+      } catch (error) { if (!missingTable(error)) throw error; sec.devreqs = []; }
+      try {
+        const rep = await backend.rpc('ck_device_report', { p_class: secClassId() });
+        const one = Array.isArray(rep) ? rep[0] : rep;
+        sec.devrep = one && Array.isArray(one.rows) ? one.rows : null;
+      } catch (error) { sec.devrep = null; }
       let pins = await backend.rpc('ck_pin_status', { p_class: secClassId() });
       sec.pins = Array.isArray(pins) ? pins : [];
       sec.codeFails = (await backend.fetchAll('seclog', { kind: 'bad_code' }, { since: ['at', new Date(Date.now() - 10 * 60000).toISOString()], limit: 300 })).length;
@@ -5550,6 +5621,10 @@
     if (pending) lines.push(`<p>有 ${pending} 位不在点名册上的同学申请旁听本班课堂，允许后才能登录。<button type="button" data-sec-go="security">去处理</button></p>`);
     const forgot = sec.pinreqs.filter((row) => row.status === 'pending').length;
     if (forgot) lines.push(`<p>有 ${forgot} 位同学换了设备又忘记口令，申请重设口令。<button type="button" data-sec-go="security">去处理</button></p>`);
+    const devWait = sec.devreqs.filter((row) => row.status === 'pending').length;
+    if (devWait) lines.push(`<p>有 ${devWait} 台新设备等你允许（同一个学号 7 天内新设备过多）。<button type="button" data-sec-go="security">去处理</button></p>`);
+    const devOdd = (sec.devrep || []).length;
+    if (devOdd) lines.push(`<p>${devOdd} 个账号设备异常（设备过多或疑似交给 AI 代登）。<button type="button" data-sec-go="security">查看</button></p>`);
     const locked = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > Date.now()).length;
     const hard = sec.pins.filter((row) => row.locked_until && millis(row.locked_until) > Date.now() && row.locks >= 3).length;
     if (locked) lines.push(`<p>${locked} 个学号因口令输错次数过多被锁定${hard ? `（其中 ${hard} 个须老师解锁）` : '（到时自动解锁）'}。<button type="button" data-sec-go="security">查看</button></p>`);
@@ -5557,7 +5632,7 @@
     const html = lines.join('');
     if (box.innerHTML !== html) box.innerHTML = html;   // 内容没变就不重画（每 10 秒刷新时按钮不会被换掉）
     box.hidden = !lines.length;
-    $('[data-tab="security"]').textContent = pending || forgot || locked ? `登录安全（${pending + forgot + locked}）` : '登录安全';
+    $('[data-tab="security"]').textContent = pending || forgot || locked || devWait ? `登录安全（${pending + forgot + locked + devWait}）` : '登录安全';
   }
   $('[data-sec-alert]').addEventListener('click', (event) => {
     const go = event.target.closest('[data-sec-go]');
@@ -5603,6 +5678,32 @@
       return `<tr><td>${esc(stamp(row.created_at))}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td><td>${label}</td><td>${actions}</td></tr>`;
     }).join('') || '<tr><td colspan="5" class="empty">没有忘记口令的申请。学生换了设备又忘记口令时，可以在登录页点“忘记口令”申请重设。</td></tr>';
 
+    // 2026-11-27 阶段 344：新设备待允许（待处理的，和 3 天内处理过的）
+    const devShown = sec.devreqs.filter((row) => row.status === 'pending' || Date.now() - millis(row.decided_at) < 3 * 86400000);
+    if ($('[data-sec-devreqs]')) {
+      const waiting = devShown.filter((row) => row.status === 'pending').length;
+      $('[data-sec-devreq-count]').textContent = devShown.length ? `待处理 ${waiting}` : '';
+      $('[data-sec-devreqs]').innerHTML = devShown.map((row) => {
+        const label = row.status === 'pending' ? statusTag('待处理', 'warn') : row.status === 'approved' ? statusTag('已允许', 'ok') : statusTag('已拒绝');
+        const actions = row.status === 'pending'
+          ? `<button type="button" class="tw-secondary" data-sec-dev-allow="${esc(row.id)}">允许</button><button type="button" class="tw-secondary" data-sec-dev-deny="${esc(row.id)}">拒绝</button>` : '';
+        return `<tr><td>${esc(stamp(row.created_at))}</td><td>${esc(row.sid)}</td><td>${esc(row.name)}</td><td>${esc([row.ua, row.ip].filter(Boolean).join(' · ') || '—')}</td>
+          <td>${esc(row.devices)} 台</td><td>${label}</td><td>${actions}</td></tr>`;
+      }).join('') || '<tr><td colspan="7" class="empty">没有等待允许的新设备。</td></tr>';
+    }
+    const devRows = sec.devrep || [];
+    const devOdd = new Set(devRows.map((row) => sidKey(row.sid)));
+    if ($('[data-sec-devrep]')) {
+      $('[data-sec-devrep-count]').textContent = sec.devrep === null ? '' : `${devRows.length} 人`;
+      $('[data-sec-devrep]').innerHTML = sec.devrep === null
+        ? '<tr><td colspan="6" class="empty">后台还没有设备异常名单（要先执行这一阶段的 SQL）。</td></tr>'
+        : devRows.map((row) => `<tr><td>${esc(row.sid)}</td><td>${esc(row.name)}</td>
+          <td>${(row.flags || []).map((flag) => statusTag(DEV_FLAG[flag] || flag, flag === 'bot' || flag === 'server' ? 'bad' : 'warn')).join(' ')}</td>
+          <td>${esc(row.devices)} 台／${esc(row.devices7)} 台${row.ips ? `<small class="tw-sub">${esc(row.ips)} 个 IP</small>` : ''}</td>
+          <td>${esc(row.kinds || '（还没有记录：从现在起登录才会记浏览器类型）')}</td><td>${esc(stamp(row.last_at))}</td></tr>`).join('')
+          || '<tr><td colspan="6" class="empty">没有设备异常的账号。</td></tr>';
+    }
+
     const pins = new Map(sec.pins.map((row) => [sidKey(row.sid), row]));
     const query = $('[data-sec-search]').value.trim();
     const filter = $('[data-sec-filter]').value;
@@ -5625,7 +5726,7 @@
         locked || (pin && pin.fails > 0) ? `<button type="button" class="tw-secondary" data-sec-unlock="${esc(person.sid)}">解锁</button>` : '',
         pin ? `<button type="button" class="tw-secondary" data-sec-reset="${esc(person.sid)}" data-sec-name="${esc(person.name)}">重置口令</button>` : '',
       ].join('');
-      return `<tr><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}${person.extra ? '<span class="tw-sec-tag">班外</span>' : ''}</td>
+      return `<tr><td>${index + 1}</td><td>${esc(person.sid)}</td><td>${esc(person.name)}${person.extra ? '<span class="tw-sec-tag">班外</span>' : ''}${devOdd.has(sidKey(person.sid)) ? '<span class="tw-sec-tag" title="设备过多或疑似交给 AI 代登，见上面“设备异常”">异常</span>' : ''}</td>
         <td>${pin && pin.has_pin ? `已设置${pin.set_at ? `（${esc(isoDay(millis(pin.set_at)).slice(5))}）` : ''}` : '还没设'}</td>
         <td>${pin ? `${pin.devices} 台` : ''}</td><td>${esc(stamp(pin && pin.last_at))}</td><td>${cond}</td><td>${actions}</td></tr>`;
     }).join('') || `<tr><td colspan="8" class="empty">${roster.length ? '没有符合条件的学生。' : '本班还没有点名册。'}</td></tr>`;
@@ -6858,6 +6959,17 @@
     const reset = event.target.closest('[data-sec-reset]');
     const pinAllow = event.target.closest('[data-sec-pin-allow]');
     const pinDeny = event.target.closest('[data-sec-pin-deny]');
+    const devAllow = event.target.closest('[data-sec-dev-allow]');
+    const devDeny = event.target.closest('[data-sec-dev-deny]');
+    if (devAllow || devDeny) {
+      const id = (devAllow || devDeny).dataset[devAllow ? 'secDevAllow' : 'secDevDeny'];
+      const row = sec.devreqs.find((item) => String(item.id) === id);
+      if (!row) return;
+      if (devAllow && !window.confirm(`允许 ${row.name}（学号 ${row.sid}）用这台新设备登录？\n\n这台设备：${[row.ua, row.ip].filter(Boolean).join(' · ') || '没有记录'}\n7 天内已有 ${row.devices} 台新设备。\n\n确认是本人自己的手机或电脑再允许；如果怀疑是交给 AI 或别人代登，请点“取消”后选“拒绝”。`)) return;
+      await secAction(devAllow ? `允许 ${row.name} 的新设备` : `拒绝 ${row.name} 的新设备`,
+        () => backend.rpc('ck_decide_device', { p_id: Number(row.id) || row.id, p_allow: Boolean(devAllow) }));
+      return;
+    }
     if (pinAllow || pinDeny) {
       const id = (pinAllow || pinDeny).dataset[pinAllow ? 'secPinAllow' : 'secPinDeny'];
       const row = sec.pinreqs.find((item) => String(item.id) === id);

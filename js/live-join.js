@@ -42,6 +42,27 @@
     } catch (error) { /* 忽略 */ }
   };
   const showError = (message, focus) => { errorBox.textContent = message; if (focus) focus.focus(); };
+  // 防 AI 代登（2026-11-27 阶段 344，用户：“如果让AI帮忙登陆，有没有可能我网站上的数据也会被泄露，你能想办法杜绝此类事件吗？”）：
+  //   automated()＝浏览器正被程序控制（自动化工具、AI 代理常见的标志），登录时告诉后台，后台记下来、不让登录；
+  //   uaKind()＝浏览器类型（“微信·iPhone”“Chrome·Windows”之类，不含版本号），后台记在设备上：同一类浏览器、同一个 IP 的“新设备”多半是浏览器没存住登录，不计新设备上限
+  const automated = () => { try { return navigator.webdriver === true || /HeadlessChrome|PhantomJS/i.test(navigator.userAgent || ''); } catch (error) { return false; } };
+  const uaKind = () => {
+    const ua = String(navigator.userAgent || '');
+    const app = /MicroMessenger/i.test(ua) ? '微信' : /\bQQ\//i.test(ua) ? 'QQ' : /DingTalk/i.test(ua) ? '钉钉' : /Edg\//.test(ua) ? 'Edge'
+      : /HeadlessChrome/.test(ua) ? '无界面浏览器' : /Firefox\//.test(ua) ? 'Firefox' : /Chrome\//.test(ua) ? 'Chrome' : /Safari\//.test(ua) ? 'Safari' : '浏览器';
+    const os = /iPhone/.test(ua) ? 'iPhone' : /iPad/.test(ua) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1) ? 'iPad' : /Android/.test(ua) ? 'Android'
+      : /Windows/.test(ua) ? 'Windows' : /Mac OS X|Macintosh/.test(ua) ? 'Mac' : /Linux/.test(ua) ? 'Linux' : '其他';
+    return `${app}·${os}`;
+  };
+  // 微信里打开：登录记录常常保存不住，每次都算新设备——提示改用手机浏览器；表单下写明账号只能本人使用
+  (() => {
+    const tip = document.createElement('p');
+    tip.className = 'join-rules';
+    tip.innerHTML = (/MicroMessenger/i.test(navigator.userAgent || '') ? '<b>你正在微信里打开。</b>微信里的登录记录常常保存不住，每次都会算成一台新设备；建议点右上角“…”，选“在浏览器打开”后再登录。<br>' : '')
+      + '账号只能本人登录使用，不得交给 AI、脚本或他人代为登录、代为操作；发现后云间灵田销号、修为视情况扣除。';
+    tip.style.cssText = 'margin:12px 0 0;color:#7a6a5a;font-size:12.5px;line-height:1.6';
+    button.insertAdjacentElement('afterend', tip);
+  })();
   const hhmm = (value) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(value));
 
   let backend = null;
@@ -377,10 +398,18 @@
     try {
       await backend.ensureAnonymous();
       if (!quiet) { loader.done('net'); loader.now('check'); }
-      let result = await backend.rpc('ck_join', {
+      const joinArgs = {
         p_code: request.code, p_name: request.name, p_sid: request.sid, p_class: request.className, p_group: request.groupName || null,
         p_pin: request.pin, p_new_pin: request.newPin,
-      });
+      };
+      let result;
+      try {
+        result = await backend.rpc('ck_join', { ...joinArgs, p_auto: automated(), p_ua: uaKind() });
+      } catch (problem) {
+        // 后台还是旧版（还没执行 2026-11-27 阶段 344 的 SQL，不认 p_auto、p_ua）：照原来的参数再登一次
+        if (!/PGRST202|42883|Could not find the function|does not exist|未知的后台函数/.test(String((problem && problem.message) || problem))) throw problem;
+        result = await backend.rpc('ck_join', joinArgs);
+      }
       if (Array.isArray(result)) result = result[0];
       const status = (result && result.status) || 'bad_code';
       if (quiet === 'forgot') {
@@ -469,6 +498,20 @@
           return;
         case 'too_many':
           commonError(status);
+          return;
+        // 2026-11-27 阶段 344：自动控制的浏览器、新设备上限
+        case 'bot':
+          showError('检测到这个浏览器正被程序自动控制（AI 代理、自动化工具等），不能登录。请本人用自己的手机或电脑浏览器登录。');
+          return;
+        case 'device_pending':
+          setPinMode('need');
+          clearPins();
+          showError('这个学号 7 天内已经在 5 台以上的新设备上登录过，这台新设备要等老师在工作台“登录安全”里允许以后才能登录。请优先用自己常用的手机或电脑登录；老师允许以后，在本页再点一次登录即可。');
+          return;
+        case 'device_rejected':
+          setPinMode('need');
+          clearPins();
+          showError('老师没有允许这台设备登录这个学号。请用自己常用的手机或电脑登录；如有疑问，请当面找老师。');
           return;
         default:
           showError('登录没有成功，请再试一次。');

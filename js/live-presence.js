@@ -19,6 +19,19 @@
   const view = load(`classlive-view:${config.course}:${unit}`);
   // 与章节页（live-student.js）同一套认法：最近一次登录的就是这一章，或这一章没有单独记过，用最近一次登录的；否则用这一章自己的
   const identity = (last.course === config.course && last.chapter === unit) || !(mine && mine.classroom) ? last : mine;
+  // 页面淡水印（2026-11-27 阶段 344）：复习资料页也铺一层很淡的“姓名 学号”，截图外传能看出是谁的（同 live-student.js 的 setupWatermark）
+  if (identity.name && identity.sid && identity.course === config.course && !document.querySelector('.clp-watermark')) {
+    const text = `${String(identity.name).slice(0, 20)} ${String(identity.sid).slice(0, 20)}`.replace(/[<>&"']/g, '');
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='190'><text x='150' y='95' text-anchor='middle' transform='rotate(-22 150 95)' `
+      + `font-family='PingFang SC,Microsoft YaHei,sans-serif' font-size='15' fill='rgba(60,40,20,0.07)'>${text}</text></svg>`;
+    const layer = document.createElement('div');
+    layer.className = 'clp-watermark';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.cssText = `position:fixed;inset:0;z-index:2147482000;pointer-events:none;background-image:url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}");background-repeat:repeat;`
+      + '-webkit-print-color-adjust:exact;print-color-adjust:exact';
+    const put = () => document.body && document.body.appendChild(layer);
+    if (document.body) put(); else document.addEventListener('DOMContentLoaded', put);
+  }
   if (identity.audit) return;
   const viewing = Boolean(view && view.classroom && (!identity.joined_at || Number(view.at) > Number(identity.joined_at)));
   const room = viewing ? Number(view.classroom) || 0 : (identity.course === config.course ? Number(identity.classroom) || 0 : 0);

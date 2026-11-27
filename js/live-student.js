@@ -3954,6 +3954,7 @@
   bindLeave();
   if (window.ClassLive) window.ClassLive.attached = true;
   bindTools();
+  setupWatermark();
 
   function refreshCount() {
     const countEl = panel.querySelector('[data-cl-count]');
@@ -4475,6 +4476,23 @@
   // 后台还没有这组函数（未执行 SQL）时显示说明
   // 辩论赛的题号：习经“案例号:debate-pre”（ck_choices），政经“debate.pre”（ck_homework，一个课堂一个案例）
   function debateKey(no, part) { return worksheet ? `debate.${part}` : `${no}:debate-${part}`; }
+  // 页面淡水印（2026-11-27 阶段 344，防 AI 代登、截图外传：用户：“如果让AI帮忙登陆，有没有可能我网站上的数据也会被泄露，你能想办法杜绝此类事件吗？”）：
+  // 登录了课堂的学生页铺一层很淡的“姓名 学号”（斜着、不挡点击、不影响阅读），截图、打印外传能看出是谁的。测试页、离线版不加
+  function setupWatermark() {
+    if (OFFLINE || PREVIEW || !identity.name || !identity.sid || document.querySelector('.clp-watermark')) return;
+    const text = `${String(identity.name).slice(0, 20)} ${String(identity.sid).slice(0, 20)}`.replace(/[<>&"']/g, '');
+    const svg = `<svg xmlns='http://www.w3.org/2000/svg' width='300' height='190'><text x='150' y='95' text-anchor='middle' transform='rotate(-22 150 95)' `
+      + `font-family='PingFang SC,Microsoft YaHei,sans-serif' font-size='15' fill='rgba(60,40,20,0.07)'>${text}</text></svg>`;
+    const layer = document.createElement('div');
+    layer.className = 'clp-watermark';
+    layer.setAttribute('aria-hidden', 'true');
+    layer.style.cssText = `position:fixed;inset:0;z-index:2147482000;pointer-events:none;background-image:url("data:image/svg+xml;charset=utf-8,${encodeURIComponent(svg)}");background-repeat:repeat;`
+      + '-webkit-print-color-adjust:exact;print-color-adjust:exact';
+    document.body.appendChild(layer);
+  }
+  // 聊天室只显示姓（2026-11-27 阶段 344，用户：“分组讨论、经营沙盘聊天室也只显示姓”——防 AI 代登时同学的全名不外泄；辩论赛 2026-11-27 已改）：
+  // 张三 → 张同学（ClassLive.shortName）；判断“是不是代表／发言人”仍用原名比较
+  const chatName = (nick) => (Live.shortName ? Live.shortName(nick) : String(nick || ''));
   function setupDebateRooms(enabled, note) {
     const boxes = $$('[data-debate-room]');
     if (!boxes.length || OFFLINE) return;
@@ -5106,23 +5124,23 @@
         room.className = `dbr-room is-${feed.side === 'r4' ? 'con' : 'pro'}`;
         const online = people.filter((p) => p.online).length;
         roomBox.querySelector('[data-bz-title]').textContent = `${ROLE[feed.side] || ''}组聊天室`;
-        roomBox.querySelector('[data-bz-meta]').textContent = `我是“${feed.nick}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
+        roomBox.querySelector('[data-bz-meta]').textContent = `我是“${chatName(feed.nick)}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
         // 代表：已当选的写名字；还没当选时写“代表候选”——本组点赞最多的同学（同票先发言的在前，同后台 ck_biz_control 的 reps）
         const order = {};
         (feed.posts || []).forEach((p, i) => { if (!(p.nick in order)) order[p.nick] = i; });
         const lead = people.filter((p) => Number(p.posts) > 0).sort((a, b) => (Number(b.likes) || 0) - (Number(a.likes) || 0) || (order[a.nick] ?? 1e9) - (order[b.nick] ?? 1e9))[0];
         const pill = roomBox.querySelector('[data-bz-rep]');
         pill.hidden = false;
-        pill.textContent = rep ? `本组代表：${rep.nick}${state.rep ? '（就是你）' : ''}` : lead ? `代表候选：${lead.nick} ♥${Number(lead.likes) || 0}${lead.me ? '（是你）' : ''}` : '代表：点赞最多的同学当选';
+        pill.textContent = rep ? `本组代表：${chatName(rep.nick)}${state.rep ? '（就是你）' : ''}` : lead ? `代表候选：${chatName(lead.nick)} ♥${Number(lead.likes) || 0}${lead.me ? '（是你）' : ''}` : '代表：点赞最多的同学当选';
         roomBox.querySelector('[data-bz-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
         roomBox.querySelector('[data-bz-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${rep && rep.nick === p.nick ? ' is-debater' : ''}">
-            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+            ${avatar(chatName(p.nick), p.online, p.nick)}<span><b>${esc(chatName(p.nick))}${p.me ? '<small>（我）</small>' : ''}</b><small>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
           || '<li class="dbr-people-empty">还没有人进来</li>';
         const list = roomBox.querySelector('[data-bz-list]');
         const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
         const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
-            <div class="dbr-who"><b>${esc(p.nick)}</b>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}<time>${esc(clock(p.at))}</time>${undoButton(p)}</div>
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(chatName(p.nick), undefined, p.nick)}<div class="dbr-msg-body">
+            <div class="dbr-who"><b>${esc(chatName(p.nick))}</b>${rep && rep.nick === p.nick ? '<em>代表</em>' : ''}<time>${esc(clock(p.at))}</time>${undoButton(p)}</div>
             <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
           || `<p class="dbr-empty">还没有发言。说说本组对三项决策的主张：${esc(pub.decisions.map((d) => d.title).join('、'))}各选哪个方案，为什么。点赞最多的同学自动当选本组代表。</p>`;
         if (atBottom || force) list.scrollTop = list.scrollHeight;
@@ -5149,7 +5167,7 @@
         const myRole = state.role;
         const shown = game.shown;
         const steps = `<ol class="bzg-steps">${FLOW.map((f, i) => `<li class="${i === now ? 'is-now' : i < now ? 'is-done' : ''}"><i>${i < now ? '✓' : '①②③④⑤⑥'[i]}</i>${esc(f.name)}</li>`).join('')}</ol>`;
-        const repsHtml = `<ul class="bzg-reps">${pub.roles.map((r) => `<li class="is-${r.key}${r.key === myRole ? ' is-mine' : ''}"><b>${esc(r.name)}组</b>${reps[r.key] ? `代表 ${esc(reps[r.key].nick)}` : stage === 'chat' ? '代表：点赞最多的同学' : '代表未定'}</li>`).join('')}</ul>`;
+        const repsHtml = `<ul class="bzg-reps">${pub.roles.map((r) => `<li class="is-${r.key}${r.key === myRole ? ' is-mine' : ''}"><b>${esc(r.name)}组</b>${reps[r.key] ? `代表 ${esc(chatName(reps[r.key].nick))}` : stage === 'chat' ? '代表：点赞最多的同学' : '代表未定'}</li>`).join('')}</ul>`;
         const meLine = state.rep ? `<p class="bzg-me">你是${esc(ROLE[myRole] || '')}组的代表：${open ? (stage === 'vote2' ? '突发事件后可以改投，每改一项要付调整成本；不改就按第一轮算。' : '请为三项决策各投一票（可以改选）。组员在聊天室给你出主意。')
           : stage === 'show1' ? '第一轮投票结束了，等老师抽突发事件卡，之后可以改投。' : stage === 'done' ? '经营会结束了，谢谢你代表本组投票。' : '老师进入“代表投票”后，在这里为三项决策投票。'}</p>` : '';
         const bars = shown && Array.isArray(shown.values) ? `<h5 class="bzg-h">${shown.round === 2 ? '最终指标' : shown.event ? '突发事件后的指标（还没算改投）' : '第一轮指标'}<small>红线 ${pub.red} 分</small></h5><div class="bzs-bars">${pub.indicators.map((ind, i) => {
@@ -5363,20 +5381,20 @@
         room.className = `dbr-room dsc-room is-${feed.side}`;
         const online = people.filter((p) => p.online).length;
         roomBox.querySelector('[data-ds-title]').textContent = `${roleName(feed.side)}组聊天室`;
-        roomBox.querySelector('[data-ds-meta]').textContent = `我是“${feed.nick}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
+        roomBox.querySelector('[data-ds-meta]').textContent = `我是“${chatName(feed.nick)}” · 本组 ${feed.members} 人${people.length ? `（在线 ${online}）` : ''} · 其他三组 ${feed.others} 人`;
         roomBox.querySelector('[data-ds-ask]').innerHTML = askOf(feed.side) ? `<b>本组任务</b>${esc(askOf(feed.side))}` : '';
         const pill = roomBox.querySelector('[data-ds-lead]');
         pill.hidden = !lead;
-        pill.textContent = lead ? `本组发言人：${lead.nick}${lead.me ? '（就是你）' : ''} · ♥ ${lead.likes}` : '';
+        pill.textContent = lead ? `本组发言人：${chatName(lead.nick)}${lead.me ? '（就是你）' : ''} · ♥ ${lead.likes}` : '';
         roomBox.querySelector('[data-ds-people-title]').textContent = `成员 ${people.length || feed.members}${people.length ? ` · 在线 ${online}` : ''}`;
         roomBox.querySelector('[data-ds-people]').innerHTML = people.map((p) => `<li class="${p.me ? 'is-me' : ''}${lead && lead.nick === p.nick ? ' is-debater' : ''}">
-            ${avatar(p.nick, p.online)}<span><b>${esc(p.nick)}${p.me ? '<small>（我）</small>' : ''}</b><small>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
+            ${avatar(chatName(p.nick), p.online, p.nick)}<span><b>${esc(chatName(p.nick))}${p.me ? '<small>（我）</small>' : ''}</b><small>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}♥ ${p.likes} · ${p.posts} 条</small></span></li>`).join('')
           || '<li class="dbr-people-empty">还没有人进来</li>';
         const list = roomBox.querySelector('[data-ds-list]');
         const atBottom = list.scrollHeight - list.scrollTop - list.clientHeight < 40;
         const clock = (iso) => new Intl.DateTimeFormat('zh-CN', { timeZone: 'Asia/Shanghai', hour: '2-digit', minute: '2-digit' }).format(new Date(iso));
-        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(p.nick)}<div class="dbr-msg-body">
-            <div class="dbr-who"><b>${esc(p.nick)}</b>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}<time>${esc(clock(p.at))}</time>${undoButton(p)}</div>
+        list.innerHTML = feed.posts.map((p) => `<div class="dbr-msg${p.mine ? ' is-mine' : ''}">${avatar(chatName(p.nick), undefined, p.nick)}<div class="dbr-msg-body">
+            <div class="dbr-who"><b>${esc(chatName(p.nick))}</b>${lead && lead.nick === p.nick ? '<em>发言人</em>' : ''}<time>${esc(clock(p.at))}</time>${undoButton(p)}</div>
             <div class="dbr-bubble"><p>${esc(p.text)}</p><button type="button" class="dbr-like" data-dbr-like="${esc(p.id)}" aria-pressed="${p.liked}"${p.mine ? ' disabled title="自己的发言不能点赞"' : ''} aria-label="点赞">♥ <em>${p.likes}</em></button></div></div></div>`).join('')
           || `<p class="dbr-empty">还没有发言。先说说本组的主张：本方最想要什么、为什么、怎样说服另外三组。看到说得好的就点赞——点赞最多的就是本组发言人（加 ${DS.leader} 修为）。</p>`;
         if (atBottom || force) list.scrollTop = list.scrollHeight;
@@ -6558,7 +6576,8 @@
   const youTag = (row) => (row.me ? '<i>你</i>' : '');
   // 修为榜隐匿姓名（2026-10-30 用户：“到结丹期后，学生可以选择在修为榜上隐匿自己的名字，修为值和排名正常显示……比如点击一下自己的名字就显示为‘***’”）：
   // 隐匿的同学在榜上显示“***”（后台对别人已换成 ***，本人那一行带真名和 hidden），头像换成“＊”；本人达到「结丹」后点自己的名字切换
-  const shownName = (row) => (row.hidden ? '***' : row.name);
+  // 2026-11-27 阶段 344：别人只显示姓（张同学），自己照旧全名——防 AI 代登时同学的全名不外泄
+  const shownName = (row) => (row.hidden ? '***' : row.me ? row.name : (Live.shortName ? Live.shortName(row.name) : row.name));
   const avatarText = (row) => (row.hidden ? '＊' : initial(row.name));
   let rankCanHide = false;
   const nameHtml = (row, cls) => (row.me && !PREVIEW && (rankCanHide || row.hidden)
